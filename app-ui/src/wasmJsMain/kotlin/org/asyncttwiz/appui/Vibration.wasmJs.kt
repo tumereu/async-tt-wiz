@@ -14,3 +14,6 @@ import org.asyncttwiz.android.AppLog
         haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
     } }
 }
+
+/** TRN-167: the setting is the Android app's only. */
+actual val moveVibrationSetting: Boolean = false

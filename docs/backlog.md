@@ -16,9 +16,6 @@ Fixes and small changes:
 
 - Special actions read like abilities: cost first, then ":", then what it does, in the card menu and wherever else they are named ("{2}{U}: Turn face up", "{3}{R}: Unlock Dusty Attic", "{2}: Foretell" instead of the full reminder sentence), for every special action (TBL-115).
 - Special actions that don't use the Stack (unlocking a door, turning face up, foretell, plot, suspend …) show large in the middle of the board as abilities do, then fly into their own card instead of to the Stack, and the card does its short flash once the fly ends; one rule for all of them (HIS-112, HIS-031).
-- Pod notifications: a pod's news ("Decks ready", "Draft cancelled" …) clears on every device once you have opened the pod on any one; and one notification per pod: a pod challenge and "Draft complete: build your deck" never both show for the same pod (LOB-243, DRF-138, DRF-137, DRF-122).
-- Vibration on your move gets its own setting in the Android app, no longer tied to the Your move sound (TRN-075, LOB-146; new entry).
-- Web app: a built-in file (fonts and the like) that fails to load is tried again a couple of times before "ATW couldn't load" shows (WEB-005).
 
 Features, in this order:
 

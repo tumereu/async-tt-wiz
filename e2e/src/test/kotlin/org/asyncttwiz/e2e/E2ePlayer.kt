@@ -166,6 +166,10 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     internal val heartbeat = GameHeartbeatController({ token, presence ->
         runBlocking { ActivityApi(link.origin).use { it.heartbeat(token, presence) } }
     }) { token, presence -> auth.sessionToken() == token && lobby.heartbeat(presence) }
+    /** LOB-243: the pod (or Pods list) open in front, told to the server as MainActivity does. */
+    internal val podSeen = org.asyncttwiz.android.PodSeenReporter({ token, seen ->
+        ActivityApi(link.origin).use { it.seen(token, seen) }
+    })
     private val maintenance = GameConnectionMaintenance({ true }, {
         auth.foreground()
         if (auth.state.account != null) lobby.sync()
@@ -277,7 +281,13 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
                 val token = auth.sessionToken()
                 val game = lobby.state.selected.takeIf { state.destination == ShellDestination.GAMES }
                 val shown = foreground
-                SideEffect { heartbeat.display(game?.takeIf { shown }, token) }
+                // As MainActivity: the pod (or Pods list) open in front, at its last change (LOB-243)
+                val podScreen = org.asyncttwiz.android.ActivityScreen.of(state.destination, lobby.state.selected, pods.state)
+                val podVersion = org.asyncttwiz.android.podSeenVersion(podScreen, pods.state)
+                SideEffect {
+                    heartbeat.display(game?.takeIf { shown }, token)
+                    podSeen.display(podScreen, podVersion, token, shown)
+                }
                 CompositionLocalProvider(LocalShownTexts provides { text: String -> shownTexts += text },
                     LocalCardListSupport provides cardListSupport) {
                     Surface(Modifier.fillMaxSize()) { AccountEntry(auth, reset, catalog = catalog, lobby = lobby, pods = pods,
@@ -444,6 +454,7 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     override fun close() {
         runCatching { maintenance.close() }
         runCatching { heartbeat.close() }
+        runCatching { podSeen.close() }
         runCatching { controller.pause().stop().destroy() }
         runCatching { lobby.close() }
         runCatching { pods.close() }

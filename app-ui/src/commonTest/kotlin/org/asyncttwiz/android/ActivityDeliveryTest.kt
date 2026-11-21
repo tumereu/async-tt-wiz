@@ -152,6 +152,55 @@ class ActivityDeliveryTest {
         delivery.apply(alice, page(hint(6, "f", ActivityKind.POD_YOUR_PICK, "pod"))) { true }
         assertEquals("pod:pod", posted.last().key); assertEquals(4, posted.size)
     }
+    // DRF-135, DRF-122 (owner, 2026-11-20): one notification per pod: a challenge of the pod shows in the pod's notification,
+    // replacing "Draft complete: build your deck", and the newer always shows; an older one coming late replaces nothing;
+    // a game invitation keeps its own
+    @Test fun aPodChallengeIsThePodsOneNotificationTheNewerShowing() {
+        val store = Store(); val posted = mutableListOf<ActivityNotice>()
+        val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice) }
+        val complete = hint(1, "attempt", ActivityKind.POD_DRAFT_COMPLETE, "pod")
+        val challenge = hint(2, "invitation", ActivityKind.INVITATION, "challenge-game").copy(podId = "pod", held = true)
+        delivery.apply(alice, page(complete, challenge).copy(readyNotices = listOf(complete, challenge))) { true }
+        assertEquals(listOf("pod:pod"), posted.map { it.key }.distinct())
+        assertEquals(ActivityKind.INVITATION, posted.last().hint.kind, "the newer shows")
+        assertFalse(posted.last().silent)
+        delivery.apply(alice, page(cursor = "2").copy(readyNotices = listOf(complete))) { true }
+        assertEquals(ActivityKind.INVITATION, posted.last().hint.kind, "the older doesn't come back over it")
+        assertEquals("invite:other", hint(3, "other", ActivityKind.INVITATION, "game").notificationKey())
+        // Opening the pod clears it, challenge and all (DRF-138)
+        assertTrue(ActivityScreen(pod = "pod").shows(challenge.notificationKey()))
+    }
+
+    // LOB-243 (owner, 2026-11-20): a pod open in front (or the Pods list) is told to the server once per version shown, so its
+    // news clears on every device; nothing while in the background or before it has loaded; one that failed goes again
+    @Test fun podSeenIsToldOncePerVersionShownInFront() = kotlinx.coroutines.test.runTest {
+        val sent = mutableListOf<PodSeen>(); val queued = mutableListOf<suspend () -> Unit>(); val posted = mutableListOf<() -> Unit>()
+        var fail = false
+        val reporter = PodSeenReporter({ token, seen -> assertEquals("token", token); if (fail) error("offline"); sent += seen },
+            { posted += it }, { queued += it })
+        suspend fun flush() { queued.toList().also { queued.clear() }.forEach { it() }; posted.toList().also { posted.clear() }.forEach { it() } }
+        val pod = ActivityScreen(pod = "p")
+        reporter.display(pod, null, "token", true); flush()
+        assertEquals(emptyList(), sent, "not loaded yet")
+        reporter.display(pod, "v1", "token", false); flush()
+        assertEquals(emptyList(), sent, "in the background")
+        reporter.display(pod, "v1", "token", true); reporter.display(pod, "v1", "token", true); flush()
+        assertEquals(listOf(PodSeen("p")), sent)
+        reporter.display(pod, "v2", "token", true); flush()
+        assertEquals(listOf(PodSeen("p"), PodSeen("p")), sent, "a change while it is open (news seen too)")
+        reporter.display(ActivityScreen(game = "g"), "v2", "token", true); flush()
+        assertEquals(2, sent.size)
+        fail = true
+        reporter.display(ActivityScreen(podList = true), "a,b", "token", true); flush()
+        fail = false
+        reporter.display(ActivityScreen(podList = true), "a,b", "token", true); flush()
+        assertEquals(PodSeen(), sent.last(), "the Pods list, sent again after it failed")
+        assertEquals(3, sent.size)
+        assertNull(podSeenVersion(pod, PodState(selected = "p")), "the pod not loaded")
+        assertNull(podSeenVersion(ActivityScreen(podList = true), PodState()), "the list not loaded")
+        assertEquals("", podSeenVersion(ActivityScreen(podList = true), PodState(loaded = true)))
+    }
+
     @Test fun displayedScreenFollowsDestinationAndSelection() {
         assertEquals(ActivityScreen(game = "g"), ActivityScreen.of(ShellDestination.GAMES, "g", PodState(selected = "p")))
         assertEquals(ActivityScreen(pod = "p"), ActivityScreen.of(ShellDestination.PODS, "g", PodState(selected = "p")))

@@ -2,6 +2,7 @@ package org.asyncttwiz.server.activity
 
 import java.time.OffsetDateTime
 import java.util.UUID
+import org.asyncttwiz.protocol.ActivityHint
 import org.asyncttwiz.protocol.ActivityKind
 import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.AccountSession.ACCOUNT_SESSION as SESSION
@@ -36,13 +37,22 @@ object ActivityNotices {
     private val clearKinds = mapOf("game" to "CLEAR_GAME", "invite" to "CLEAR_INVITE", "pod" to "CLEAR_POD", "pod-invite" to "CLEAR_POD_INVITE")
     const val CLEAR_PREFIX = "CLEAR_"
 
-    /** The apps' notification key of a notice of [kind] about [resource] with [identity] (ActivityHint.notificationKey). */
-    fun key(kind: ActivityKind, resource: String, identity: String): String = when (kind) {
+    /** The apps' notification key of a notice of [kind] about [resource] with [identity] (ActivityHint.notificationKey); a
+     * pod challenge ([pod]: its pod) is its pod's one notification (DRF-135, DRF-122). */
+    fun key(kind: ActivityKind, resource: String, identity: String, pod: String? = null): String = when (kind) {
         ActivityKind.GAME, ActivityKind.GAME_REMOVAL -> "game:$resource"
-        ActivityKind.INVITATION -> "invite:$identity"
+        ActivityKind.INVITATION -> if (pod != null) "pod:$pod" else "invite:$identity"
         ActivityKind.POD_INVITATION -> "pod-invite:$resource"
         else -> "pod:$resource"
     }
+
+    /** [hint]'s notification key ([key]). */
+    fun key(hint: ActivityHint): String = key(hint.kind, hint.gameId, hint.identity, hint.podId)
+
+    /** LOB-243 (owner, 2026-11-20): the pod notices that tell something rather than wait for the player: seen once the player
+     * has opened the pod on any device ([ActivityService.podSeen]; a destroyed pod's on the Pods list). */
+    val POD_NEWS = listOf(ActivityKind.POD_DECKS_READY, ActivityKind.POD_DRAFT_CANCELLED, ActivityKind.POD_DESTROYED,
+        ActivityKind.POD_AUTO_START_OFF, ActivityKind.POD_REMOVAL).map { it.name }
 
     /** The key a clear push ([PUSH] kind [kind], its id [id]) clears; null for any other push. */
     fun clearedKey(kind: String, id: UUID): String? = clearKinds.entries.firstOrNull { it.value == kind }?.let { "${it.key}:$id" }
@@ -59,8 +69,9 @@ object ActivityNotices {
      * The notification keys of [owner] that still wait for them, so that a notice of them may stay:
      * a game with an event they haven't seen on any device, an unanswered waiting reminder, or their move (or an engine
      * stop waiting for them) in a game in play; a cleanup warning they haven't opened the game since; a pending invitation
-     * to them; a pod whose latest notice still waits (their pick: packs in their queue; their build: not submitted; the
-     * other pod notices tell something and stay as long as the feed lists them); a pending pod invitation.
+     * to them (a pod challenge's key is its pod's); a pod whose latest notice still waits (their pick: packs in their queue;
+     * their build: not submitted; the other pod notices tell something: until the player opened the pod on any device, or
+     * for a destroyed pod the Pods list, [ActivityService.podSeen]); a pending pod invitation.
      */
     fun open(sql: DSLContext, owner: UUID): Set<String> {
         val seat = DSL.exists(DSL.selectOne().from(ENGINE_SEAT).where(ENGINE_SEAT.PLAY_ID.eq(GAME.CURRENT_PLAY))
@@ -73,7 +84,10 @@ object ActivityNotices {
                 .and(PRESENCE.ACCOUNT_ID.eq(owner)).and(PRESENCE.HEARTBEAT_AT.gt(SUMMARY.LAST_EVENT_AT)))
         val games = DSL.select(DSL.inline("game:").concat(SUMMARY.GAME_ID.cast(String::class.java))).from(SUMMARY)
             .join(GAME).on(GAME.ID.eq(SUMMARY.GAME_ID)).where(SUMMARY.ACCOUNT_ID.eq(owner)).and(gameOpen.or(removalOpen))
-        val invitations = DSL.select(DSL.inline("invite:").concat(INVITATION.ID.cast(String::class.java))).from(GAME)
+        // DRF-135, DRF-122: a pod challenge is its pod's one notification
+        val inviteKey = DSL.`when`(GAME.POD_ID.isNull, DSL.inline("invite:").concat(INVITATION.ID.cast(String::class.java)))
+            .otherwise(DSL.inline("pod:").concat(GAME.POD_ID.cast(String::class.java)))
+        val invitations = DSL.select(inviteKey).from(GAME)
             .join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
             .where(GAME.RECIPIENT_ID.eq(owner)).and(GAME.LIFECYCLE.eq("LOBBY")).and(INVITATION.STATE.eq("PENDING"))
         // A pod's notification shows its latest notice: whether that one still waits (the other notices tell something)
@@ -88,6 +102,8 @@ object ActivityNotices {
                 .and(newer.ACTIVITY_ID.gt(SUMMARY.ACTIVITY_ID)))
             .and(ActivityService.podVisible(DSL.`val`(owner), SUMMARY.KIND, SUMMARY.GAME_ID, SUMMARY.IDENTITY))
             .and(SUMMARY.KIND.ne(ActivityKind.POD_DRAFT_COMPLETE.name).or(unsubmitted))
+            // LOB-243: news waits until the pod was opened on any device
+            .and(SUMMARY.KIND.notIn(POD_NEWS).or(SUMMARY.ACTIVITY_ID.gt(SUMMARY.SEEN_THROUGH)))
         val podInvitations = DSL.select(DSL.inline("pod-invite:").concat(POD_INVITATION.POD_ID.cast(String::class.java)))
             .from(POD_INVITATION).join(POD).on(POD.ID.eq(POD_INVITATION.POD_ID))
             .where(POD_INVITATION.ACCOUNT_ID.eq(owner)).and(POD_INVITATION.STATE.eq("PENDING")).and(POD.PHASE.eq("SETUP"))

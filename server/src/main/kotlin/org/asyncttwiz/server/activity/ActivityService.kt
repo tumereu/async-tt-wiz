@@ -71,6 +71,32 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         }
     }
 
+    /**
+     * LOB-243 (owner, 2026-11-20): the player has the pod [PodSeen.podId] open in front (the Pods list when null): the pod's
+     * news ([ActivityNotices.POD_NEWS]; on the Pods list a destroyed pod's) is seen, so it no longer waits and
+     * [ActivityNotices.sweep] clears it on every device of theirs; a push of it not sent yet is dropped. Returns how many
+     * notices it marked seen.
+     */
+    fun podSeen(principal: AccountService.Principal, input: PodSeen): Int {
+        val podId = input.podId
+        if (podId != null && !DeckValidation.uuid(podId)) throw ActivityFailure(400, "invalid_request")
+        return transaction { sql ->
+            val owner = account(principal)
+            val pod = podId?.let(UUID::fromString)
+            val kinds = if (pod == null) listOf(ActivityKind.POD_DESTROYED.name) else ActivityNotices.POD_NEWS
+            val which = SUMMARY.ACCOUNT_ID.eq(owner).and(SUMMARY.KIND.`in`(kinds)).and(pod?.let { SUMMARY.GAME_ID.eq(it) } ?: DSL.noCondition())
+            val marked = sql.update(SUMMARY).set(SUMMARY.SEEN_THROUGH, SUMMARY.ACTIVITY_ID).where(which)
+                .and(SUMMARY.ACTIVITY_ID.gt(SUMMARY.SEEN_THROUGH)).execute()
+            if (marked > 0) {
+                sql.deleteFrom(PUSH).where(PUSH.KIND.`in`(kinds)).and(pod?.let { PUSH.GAME_ID.eq(it) } ?: DSL.noCondition())
+                    .and(PUSH.GENERATION.`in`(sql.select(INSTALL.GENERATION).from(INSTALL).where(INSTALL.ACCOUNT_ID.eq(owner)))).execute()
+                log.info("Account {} saw {}: {} pod notice(s) of {} seen, cleared on every device", owner,
+                    pod?.let { "pod $it" } ?: "the Pods list", marked, kinds.joinToString())
+            }
+            marked
+        }
+    }
+
     fun register(principal: AccountService.Principal, input: RegisterInstallation): ActivityRegistration {
         if (!ActivityWire.valid(input)) throw ActivityFailure(400, "invalid_request")
         return transaction { sql ->
@@ -206,7 +232,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val notices = (ready + reminders).sortedByDescending { ActivityWire.ordinal(it.activityId) }.take(50)
         val told = entries.filter { it.kind != ActivityKind.GAME } + notices
         // LOB-078: what this page may make the device show is remembered until nothing waits for it (ActivityNotices.sweep)
-        if (!reset) ActivityNotices.shown(sql, owner, told.map { ActivityNotices.key(it.kind, it.gameId, it.identity) }, now())
+        if (!reset) ActivityNotices.shown(sql, owner, told.map { ActivityNotices.key(it) }, now())
         ActivityPage(entries, next, floor.toString(), reset, more, told, ActivityNotices.open(sql, owner).sorted())
     }
 
@@ -363,7 +389,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val waiting = (games + engineWaiting(sql, owner, time)).sortedByDescending { OffsetDateTime.parse(it.notice!!.lastEventAt) }
             .take(50) + waitingPods(sql, owner)
         // LOB-078: the app may post these (LOB-076); remembered until nothing waits for them
-        ActivityNotices.shown(sql, owner, waiting.map { ActivityNotices.key(it.kind, it.gameId, it.identity) }, time)
+        ActivityNotices.shown(sql, owner, waiting.map { ActivityNotices.key(it) }, time)
         WaitingGames(waiting)
     }
 
@@ -408,6 +434,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
     }
 
     companion object {
+        private val log = org.slf4j.LoggerFactory.getLogger(ActivityService::class.java)
         internal fun tokenHash(token: String) = java.security.MessageDigest.getInstance("SHA-256").digest(token.toByteArray())
             .joinToString("") { "%02x".format(it) }
         internal fun visible(owner: UUID, kind: org.jooq.Field<String>, identity: org.jooq.Field<UUID>) =

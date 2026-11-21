@@ -65,6 +65,66 @@ class NotificationsClearEverywhereTest : E2e() {
 
         fun shown(): Set<String> = bob.activity.getSystemService(NotificationManager::class.java).activeNotifications
             .mapNotNull { it.tag?.removePrefix("activity:${owner.binding}:")?.takeIf { key -> key != it.tag } }.toSet()
+
+        /** The title of the notification of [key] showing on this phone, null when none shows. */
+        fun title(key: String): String? = bob.activity.getSystemService(NotificationManager::class.java).activeNotifications
+            .singleOrNull { it.tag == "activity:${owner.binding}:$key" }?.notification?.extras?.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString()
+
+        /** Registers an installation with a push token for [account], which the server sends clear hints; its generation. */
+        fun registerPush(): String = runBlocking {
+            ActivityApi(E2eStack.origin).use { api ->
+                api.register(account.token, RegisterInstallation(UUID.randomUUID().toString(), UUID.randomUUID().toString(),
+                    "e2e-push-token-${UUID.randomUUID()}")).generation
+            }
+        }
+    }
+
+    // LOB-243, DRF-138 (owner, 2026-11-20): Bob's second phone shows his pod's "Decks ready"; he opens the pod in the app on his
+    // first phone; the server queues a clear for his push installation, and the second phone's next poll clears the notification
+    @Test fun podNewsOpenedOnOnePhoneClearsOnTheOther() {
+        launchPlayers()
+        val phone = SecondPhone(bob.account)
+        val generation = phone.registerPush()
+        phone.poll() // the feed's first page: nothing shown from it
+        val name = "E2E pod news ${UUID.randomUUID().toString().take(6)}"
+        val pod = ServerSetup.draftedPod(alice.account, bob.account, name)
+        ServerSetup.submitPodDeck(bob.account, pod)
+        ServerSetup.submitPodDeck(alice.account, pod) // the last submitter: "Decks ready" goes to Bob
+        val key = "pod:$pod"
+        waitUntil("Bob's second phone shows Decks ready") {
+            phone.pollNowAndThen(); phone.title(key)?.startsWith("Decks ready") == true
+        }
+
+        // Bob opens the pod on his first phone
+        bob.auth.navigate(org.asyncttwiz.android.ShellDestination.PODS)
+        bob.pods.open(pod)
+        waitUntil("a clear queued for Bob's push installation") {
+            E2eStack.query("SELECT kind FROM activity_push WHERE generation = '$generation' AND game_id = '$pod'").contains("CLEAR_POD")
+        }
+        assertTrue(key in phone.shown(), "still shown until the phone hears of it")
+        phone.poll()
+        assertEquals(emptySet(), phone.shown().filter { it == key }.toSet(), "the pod's news cleared")
+    }
+
+    // DRF-135, DRF-122 (owner, 2026-11-20): one notification per pod: Bob's phone shows "Draft complete: build your deck";
+    // Alice challenges him while he still builds; the challenge replaces it in the pod's one notification, no second one
+    @Test fun aPodChallengeReplacesDraftCompleteInThePodsOneNotification() {
+        launchPlayers()
+        val phone = SecondPhone(bob.account)
+        phone.poll()
+        val name = "E2E one per pod ${UUID.randomUUID().toString().take(6)}"
+        val pod = ServerSetup.draftedPod(alice.account, bob.account, name)
+        val key = "pod:$pod"
+        waitUntil("Bob's phone shows Draft complete") {
+            phone.pollNowAndThen(); phone.title(key)?.startsWith("Draft complete") == true
+        }
+        ServerSetup.submitPodDeck(alice.account, pod)
+        val game = ServerSetup.challenge(alice.account, bob.account, pod, "E2E challenge while building")
+        waitUntil("the challenge in the pod's notification") {
+            phone.pollNowAndThen(); phone.title(key)?.contains("challenged you") == true
+        }
+        assertEquals(setOf(key), phone.shown(), "one notification for the pod, none of the invitation's own")
+        assertTrue(game.invitationHeld)
     }
 
     // LOB-242, LOB-243, LOB-078: Alice invites Bob; his second phone shows the invitation's notification; Bob accepts it in the

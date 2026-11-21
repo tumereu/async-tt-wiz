@@ -133,7 +133,7 @@ class ActivityDelivery @JvmOverloads constructor(private val runtime: ServiceRun
                 // Recheck expiry on every iteration: earlier network calls may
                 // have consumed the remaining TTL of another queued hint.
                 sql.deleteFrom(PUSH).where(PUSH.EXPIRES_AT.le(time)).execute()
-                val row = sql.select(PUSH.fields().toList() + INSTALL.PUSH_TOKEN + INSTALL.WEB_PUSH + INSTALL.ACCOUNT_ID).from(PUSH)
+                val row = sql.select(PUSH.fields().toList() + INSTALL.PUSH_TOKEN + INSTALL.WEB_PUSH + INSTALL.ACCOUNT_ID + GAME.POD_ID).from(PUSH)
                     .join(INSTALL).on(INSTALL.GENERATION.eq(PUSH.GENERATION)).join(SESSION).on(SESSION.ID.eq(INSTALL.SESSION_ID))
                     .join(ACCOUNT).on(ACCOUNT.ID.eq(INSTALL.ACCOUNT_ID)).leftJoin(GAME).on(GAME.ID.eq(PUSH.GAME_ID))
                     .leftJoin(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
@@ -163,7 +163,9 @@ class ActivityDelivery @JvmOverloads constructor(private val runtime: ServiceRun
                     row[PUSH.GAME_ID].toString(), row[PUSH.ACTIVITY_ID].toString(), row[PUSH.IDENTITY].toString()), row[INSTALL.PUSH_TOKEN]!!)
                 val subscription = ActivityWire.json.decodeFromString(WebPushSubscription.serializer(), browser)
                 // LOB-078: a browser's clear names the notice's tag; its switches decide as for the notice
-                if (cleared != null) return@transaction if (WebPushNotices.wanted(subscription, ActivityNotices.clearedKind(row[PUSH.KIND]!!)))
+                // (a pod's notice may be its challenge, DRF-135: either switch lets its clear through)
+                if (cleared != null) return@transaction if (WebPushNotices.wanted(subscription, ActivityNotices.clearedKind(row[PUSH.KIND]!!)) ||
+                        row[PUSH.KIND] == "CLEAR_POD" && subscription.invitations)
                     Delivery.Browser(row, subscription, browser, WebPushNotice("", tag = cleared, path = "/", clear = true))
                     else { sql.deleteFrom(PUSH).where(exact).execute(); Delivery.Nothing }
                 // WEB-051, WEB-052: a browser is sent the notice itself, in the feed's words, if its switches let the kind through
@@ -206,7 +208,8 @@ class ActivityDelivery @JvmOverloads constructor(private val runtime: ServiceRun
                 }
                 // LOB-078: a delivered notice may show until nothing waits for it; a browser is then sent its clear
                 if (result.status == PushStatus.DELIVERED && ActivityNotices.clearedKey(row[PUSH.KIND]!!, row[PUSH.GAME_ID]!!) == null) {
-                    val key = ActivityNotices.key(ActivityKind.valueOf(row[PUSH.KIND]!!), row[PUSH.GAME_ID].toString(), row[PUSH.IDENTITY].toString())
+                    val key = ActivityNotices.key(ActivityKind.valueOf(row[PUSH.KIND]!!), row[PUSH.GAME_ID].toString(), row[PUSH.IDENTITY].toString(),
+                        row[GAME.POD_ID]?.toString())
                     ActivityNotices.shown(sql, row[INSTALL.ACCOUNT_ID]!!, listOf(key), time)
                     if (work is Delivery.Browser) ActivityNotices.shownInBrowser(sql, row[PUSH.GENERATION]!!, key)
                 }

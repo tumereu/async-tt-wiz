@@ -189,6 +189,8 @@ class MainActivity : ComponentActivity() {
                     ActivityScreen.of(auth.controller.state.destination, auth.lobby.state.selected, auth.pods.state)
                 } }
                 val activityScreen = shown
+                // LOB-243: the open pod's last change (or the Pods list's pods), so news seen while it is open is told too
+                val podVersion by remember { derivedStateOf { podSeenVersion(shown, auth.pods.state) } }
                 val foreground = resumed
                 SideEffect {
                     if (auth.lobby.state.detail == null) DebugJank.state("screen" to state.destination.name.lowercase())
@@ -199,6 +201,7 @@ class MainActivity : ComponentActivity() {
                     val gameScreen = activityScreen.game
                     auth.activity.display(activityScreen, foreground)
                     auth.heartbeat.display(gameScreen?.takeIf { foreground }, token)
+                    auth.podSeen.display(activityScreen, podVersion, token, foreground)
                     if (state.account != null) auth.activity.rememberPods(auth.pods.state.pods)
                     val route = notificationRoute
                     if (route != null && !state.restoring && !state.busy) {

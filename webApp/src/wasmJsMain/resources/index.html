@@ -86,14 +86,28 @@
 </div>
 <script>
     (function () {
-        var script = document.createElement('script');
-        script.src = globalThis.atwBase + 'atw.js';
-        script.onerror = function () {
-            globalThis.atwStartFailed(script.src + " couldn't be loaded");
-            var text = document.getElementById('atw-loading-text');
-            if (text) text.textContent = "ATW couldn't load. Check your connection and reload the page.";
-        };
-        document.body.appendChild(script);
+        // WEB-005: a built-in file that fails to load is tried again a couple of times (after 1 s, then 3 s) before
+        // "ATW couldn't load" shows
+        var retries = [1000, 3000];
+        function load(attempt) {
+            var script = document.createElement('script');
+            script.src = globalThis.atwBase + 'atw.js';
+            script.onerror = function () {
+                script.remove();
+                if (attempt < retries.length) {
+                    console.warn('ATW: ' + script.src + " didn't load (try " + (attempt + 1) + ' of ' + (retries.length + 1) +
+                        '): trying again in ' + retries[attempt] + ' ms');
+                    setTimeout(function () { load(attempt + 1); }, retries[attempt]);
+                    return;
+                }
+                globalThis.atwStartFailed(script.src + " couldn't be loaded after " + (attempt + 1) + ' tries');
+                var text = document.getElementById('atw-loading-text');
+                if (text) text.textContent = "ATW couldn't load. Check your connection and reload the page.";
+            };
+            if (attempt > 0) script.onload = function () { console.info('ATW: ' + script.src + ' loaded at try ' + (attempt + 1)); };
+            document.body.appendChild(script);
+        }
+        load(0);
         // Browsers without WebAssembly garbage collection can't run the app
         if (typeof WebAssembly !== 'object' || typeof WebAssembly.validate !== 'function') {
             document.getElementById('atw-loading-text').textContent = 'This browser is too old for ATW. Update it and reload.';

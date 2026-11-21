@@ -1,0 +1,1 @@
+add: Draft picks can confirm themselves: turn on Auto beside Confirm, or have every new draft start with it on in Settings.

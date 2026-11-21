@@ -92,7 +92,13 @@ fun PodPickView(
     orientation: String? = null,
     /** The player's picks so far: the bot's picks while "Show bot picks" is on (DRF-292). */
     pool: List<DraftCopy> = emptyList(),
+    /** DRF-293: the draft's Auto toggle (personal UI); null keeps it in this composition only (previews and tests). */
+    autoconfirm: Boolean? = null,
+    onAutoconfirm: (Boolean) -> Unit = {},
 ) {
+    var localAuto by remember { mutableStateOf(false) }
+    val auto = autoconfirm ?: localAuto
+    val setAuto: (Boolean) -> Unit = { on -> if (autoconfirm == null) localAuto = on; onAutoconfirm(on) }
     val localMarks = remember { mutableStateMapOf<DraftPrivatePack, PodPickMarks>() }
     val marks = ((if (onMarks != null) savedMarks else localMarks[pack]) ?: PodPickMarks()).forPack(pack)
     val setMarks: (PodPickMarks) -> Unit = { next -> if (onMarks != null) onMarks(next) else if (pack != null) localMarks[pack] = next }
@@ -120,8 +126,22 @@ fun PodPickView(
     // DRF-292: the bot's scores and pick for this pack (its own pack, without spent Librarians)
     val bot = rememberDraftBotChoice(pack.cards, pool, baseRules.requiredKeeps, definitions)
     val refund: (String) -> Unit = { setMarks(marks.refundLibrarian(it, pack, settings)) }
+    val confirmMarks: (PodPickMarks) -> Unit = { chosen ->
+        if (rules.canConfirm(chosen, busy)) {
+            if (onConfirmLibrarians != null) onConfirmLibrarians(chosen.keeps.toList(), rules.burnIds(chosen).toList(), chosen.librarians.toList())
+            else onConfirm(chosen.keeps.toList(), rules.burnIds(chosen).toList())
+        }
+    }
     val mark: (String, PodPickMark) -> Unit = { id, kind ->
-        setMarks(marks.toggle(id, kind, rules))
+        val next = marks.toggle(id, kind, rules)
+        setMarks(next)
+        // DRF-293: with Auto on, the mark that completes the pick confirms it at once (only a mark made now, never marks
+        // restored from before, nor turning Auto on over a complete pick)
+        if (auto && rules.canConfirm(next, busy)) {
+            AppLog.info("pod", "Autoconfirm on pack ${pack.id}: the ${kind.name.lowercase()} of $id completed the pick " +
+                "(keeps ${next.keeps}, burns ${rules.burnIds(next)}, Librarians ${next.librarians})")
+            confirmMarks(next)
+        }
     }
     val unmark: (String) -> Unit = { id -> setMarks(marks.unmark(id)) }
     val inspect: (DraftCopy, Boolean) -> Unit = { copy, open ->
@@ -139,12 +159,7 @@ fun PodPickView(
     val look = if (desktop) remember { PodQuickLook() } else null
     look?.let { PodQuickLookTimer(it, blocked = inspected != null || menuFor != null) }
     val bindings = currentKeyBindings()
-    val confirm: () -> Unit = {
-        if (rules.canConfirm(marks, busy)) {
-            if (onConfirmLibrarians != null) onConfirmLibrarians(marks.keeps.toList(), rules.burnIds(marks).toList(), marks.librarians.toList())
-            else onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList())
-        }
-    }
+    val confirm: () -> Unit = { confirmMarks(marks) }
     DesktopKeyboard.Listen(desktop) { key ->
         // WEB-044 (D9): Enter is Confirm, when it can be pressed; not while a text field has the keyboard
         if (key.key == "Enter") {
@@ -231,21 +246,30 @@ fun PodPickView(
                 spend = { setMarks(marks.spendLibrarian(librarians.map { it.id }, pack, settings)) },
                 refund = refund, desktop = desktop)
         }
+        // DRF-294: with Auto on, Confirm is yellow with a shine sweeping back and forth
         val confirmButton: @Composable (Modifier) -> Unit = { buttonModifier ->
-            Button(onClick = confirm, enabled = rules.canConfirm(marks, busy), modifier = buttonModifier.testTag("pod-pick-confirm")) {
+            Button(onClick = confirm, enabled = rules.canConfirm(marks, busy), colors = podConfirmColors(auto),
+                modifier = buttonModifier.testTag("pod-pick-confirm").podAutoconfirmShine(auto)) {
                 ButtonLabel("ready", if (marks.librarians.isEmpty()) "Confirm" else
                     "Confirm · ${marks.librarians.size} ${if (marks.librarians.size == 1) "Librarian" else "Librarians"}")
             }
         }
+        // DRF-293: the Auto toggle sits just before Confirm
+        val autoToggle: @Composable (Modifier) -> Unit = { toggleModifier -> PodAutoconfirmToggle(auto, setAuto, toggleModifier) }
         // WEB-044 (owner playtest 2026-11-16): on the desktop layout Confirm sits at the end of the trays' row, leaving the cards
         // more of the height; the phone's is full width under the trays (DRF-056)
-        if (desktop) Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.Bottom,
+        if (desktop) Row(Modifier.fillMaxWidth().padding(bottom = 4.dp).testTag("pod-pick-confirm-row"), verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(PodPickTrayGap)) {
             Box(Modifier.weight(1f)) { trays() }
+            autoToggle(Modifier.height(56.dp))
             confirmButton(Modifier.width(PodPickDesktopConfirmWidth).height(56.dp))
         } else {
             trays()
-            confirmButton(Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth().testTag("pod-pick-confirm-row"), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                autoToggle(Modifier.height(40.dp))
+                confirmButton(Modifier.weight(1f))
+            }
         }
     }
     inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }

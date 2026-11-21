@@ -3,6 +3,9 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isPopup
@@ -22,6 +25,46 @@ import kotlin.test.assertTrue
  * gone; nothing passes between players.
  */
 class ArenaTest : E2e() {
+    // DRF-281, DRF-287, DRF-288 (owner, 2026-11-21): Alice sets "Initial rares" to 2 in her Arena pod's setup on her phone; the
+    // server keeps it, the summary counts the picks, and in the draft her first two picks are rare picks, the third common
+    @Test fun initialRaresSetInSetupReachTheDraft() {
+        launchPlayers()
+        val name = "E2E Arena rares ${UUID.randomUUID().toString().take(6)}"
+        val pod = ServerSetup.setupPod(alice.account, name, cards = listOf(TestCards.spark, TestCards.cub, TestCards.herald, TestCards.hound,
+            TestCards.stride, TestCards.glimmer, TestCards.glint, TestCards.drowsy),
+            settings = DraftSettings.arena().copy(packsPerPlayer = 3, cardsPerPack = 2, keep = 1))
+        alice.auth.navigate(ShellDestination.PODS)
+        alice.pods.open(pod)
+        waitUntil("Alice's Arena setup with Initial rares 1") {
+            alice.shows(hasTestTag("pod-setting-initial_rares") and hasText("1")) && alice.showsText("Initial rares")
+        }
+        val field = hasSetTextAction() and hasAnyAncestor(isDialog())
+        alice.tagged("pod-setting-initial_rares").performScrollTo().performClick()
+        waitUntil("the Initial rares dialog") { alice.shows(field) && alice.showsText("0–120") }
+        alice.node(field).performTextReplacement("2")
+        alice.node(hasClickAction() and hasAnyDescendant(hasText("Save")) and hasAnyAncestor(isDialog())).performClick()
+        waitUntil("the setting on the server") {
+            alice.pods.state.detail?.settings?.initialRares == 2 && alice.pods.state.setup == null && alice.pods.state.pending == 0 &&
+                ServerSetup.pod(alice.account, pod).settings.initialRares == 2
+        }
+        waitUntil("the summary counts two rare picks") { alice.showsText("2 rare, 1 common picks", substring = true) }
+
+        ServerSetup.joinAndStart(alice.account, bob.account, pod)
+        alice.pods.refresh()
+        for ((pick, rarity) in listOf(1 to "Rare", 2 to "Rare", 3 to "Common")) {
+            waitUntil("Alice's pick $pick line") {
+                alice.pods.state.detail?.draft?.head != null &&
+                    alice.shows(hasTestTag("pod-pick-orientation") and hasText("Pick $pick of 3 · $rarity · take 1"))
+            }
+            val card = alice.pods.state.detail!!.draft!!.head!!.cards.first()
+            alice.tagged("pod-pick-card-${card.id}").performScrollTo().performClick()
+            waitUntil("the card menu") { alice.shows(hasText("Keep") and hasAnyAncestor(isPopup())) }
+            alice.node(hasText("Keep") and hasAnyAncestor(isPopup())).performClick()
+            alice.tagged("pod-pick-confirm").performClick()
+            waitUntil("pick $pick on the server") { ServerSetup.pod(alice.account, pod).draft!!.pool.size == pick }
+        }
+    }
+
     // DRF-280, DRF-284, DRF-287, DRF-288, DRF-289, DRF-290: a two-player Arena pod from a cube without Reuse cards, 3 picks of
     // offers of 3 taking 1. Bob's invitation reads the format; both pick on their phones, each from their own offers, with the
     // pick line; neither ever sees the other's offers; a card Alice took never comes back to her; her history lists her picks;

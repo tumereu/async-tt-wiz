@@ -125,6 +125,31 @@ class DesktopDraftScreenshotTest {
             "Alice's Glimpse pick on the desktop layout, eight cards to a row: a click kept Cinder Whelp, a right-click burned Gravel Ghoul and B over Mistweave burned it, so both trays at the bottom are full with Confirm at the end of their row; the header holds the tabs at its left, the pod's name and avatars in its middle and its icons at the right; the pointer rests on Archive Drake, which shows its ⋯ menu button.")
     }
 
+    // DRF-293, DRF-294 (owner, 2026-11-21): on the desktop layout the Auto toggle sits just before Confirm at the end of the trays'
+    // row; a click turns it on and Confirm yellow with its shine
+    @Test fun autoconfirmToggle() {
+        val head = DraftPrivatePack("pack-a", 1, (0..13).map { copy(it) }, 2, "bob")
+        val members = listOf(PodMember(alice, packsWaiting = 2), PodMember(bob, packsWaiting = 1), PodMember(carol))
+        val detail = detail(PodPhase.DRAFTING, DraftSettings.glimpse(), members).copy(draft = DraftPrivateView("alice", head, 1,
+            listOf(copy(16, 1)), queuedPacks = emptyList(), round = 1, rounds = 9))
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.DRAFT))
+        compose.runOnIdle { pods.mark(head, PodPickMarks("pack-a", keeps = listOf(copy(9).id), burns = listOf(copy(7).id))) }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        val toggle = compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOff().fetchSemanticsNode().boundsInRoot
+        val confirm = compose.onNodeWithTag("pod-pick-confirm").fetchSemanticsNode().boundsInRoot
+        assertTrue(toggle.right <= confirm.left && confirm.left - toggle.right < 24f && toggle.center.y in confirm.top..confirm.bottom,
+            "Auto just before Confirm: $toggle, $confirm")
+        captureShot("$SCREENSHOTS/desktop/autoconfirm-off.png",
+            "Alice's Glimpse pick on the desktop layout, Cinder Whelp kept and Gravel Ghoul burned with one burn to go: the Auto toggle sits off just before Confirm at the end of the trays' row.")
+        compose.onNodeWithTag("pod-pick-autoconfirm").performMouseInput { click() }
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOn()
+        captureShot("$SCREENSHOTS/desktop/autoconfirm-on.png",
+            "The same pick after Alice clicks Auto: the toggle filled yellow and Confirm yellow with a band of light across it; her last burn will confirm the pick at once.")
+    }
+
     // DRF-288, WEB-117: an Arena offer on the desktop layout, the pointer resting on a card for its quick look
     @Test fun arenaPick() {
         val head = DraftPrivatePack("offer-0-9", 10, listOf(2, 6, 11, 14, 16).map { copy(it) }, 1, null)

@@ -40,6 +40,8 @@ enum class PodSetting(val label: String) {
     TABLES("Tables"),
     /** Arena (DRF-281): the number of picks, cards per offer and picks per offer. */
     PICKS("Picks"), OFFER_CARDS("Cards"), TAKE("Take"),
+    /** Arena (DRF-281, owner 2026-11-21): the first picks that offer rares, before "Rare every" takes over; 0 = none. */
+    INITIAL_RARES("Initial rares"),
     /** Arena (DRF-281): the rarity intervals; empty = never. */
     RARE_EVERY("Rare every"), UNCOMMON_EVERY("Uncommon every"),
     /** Arena (DRF-282): the mythic chance, 1 in N; empty = never. */
@@ -53,7 +55,7 @@ enum class PodSetting(val label: String) {
         TABLE_OPEN -> s.tablePacksOpen; CARDS_EACH, PICKS_EACH -> s.cardsPerPlayer; POOL_EACH -> s.rotisseriePool
         PILES -> s.piles; BOOSTERS -> s.packsPerPlayer
         TABLES -> s.tables
-        PICKS -> s.packsPerPlayer; OFFER_CARDS -> s.cardsPerPack; TAKE -> s.keep
+        PICKS -> s.packsPerPlayer; OFFER_CARDS -> s.cardsPerPack; TAKE -> s.keep; INITIAL_RARES -> s.initialRares
         RARE_EVERY -> s.rareEvery; UNCOMMON_EVERY -> s.uncommonEvery; MYTHIC -> s.mythicOneIn
     }
     /** The empty value's tile and toggle text: Sideboard ∞, Rochester's open packs "1 each" (one per player), Arena's
@@ -85,6 +87,7 @@ enum class PodSetting(val label: String) {
         PICKS -> 1..ArenaEngine.MAX_PICKS
         OFFER_CARDS -> maxOf(2, s.keep + 1)..ArenaEngine.MAX_OFFER
         TAKE -> 1..(s.cardsPerPack - 1).coerceAtLeast(1)
+        INITIAL_RARES -> 0..ArenaEngine.MAX_PICKS
         RARE_EVERY, UNCOMMON_EVERY -> 1..ArenaEngine.MAX_PICKS
         MYTHIC -> 1..ArenaEngine.MAX_MYTHIC_ONE_IN
     }
@@ -109,6 +112,7 @@ enum class PodSetting(val label: String) {
         PICKS -> "1–${ArenaEngine.MAX_PICKS}"
         OFFER_CARDS -> "Take + 1: ${s.keep + 1}; maximum ${ArenaEngine.MAX_OFFER}"
         TAKE -> "Fewer than the cards: ${s.cardsPerPack}"
+        INITIAL_RARES -> "0–${ArenaEngine.MAX_PICKS}"
         RARE_EVERY, UNCOMMON_EVERY -> "1–${ArenaEngine.MAX_PICKS} or Never"
         MYTHIC -> "1 in 1–${ArenaEngine.MAX_MYTHIC_ONE_IN} or Never"
     }
@@ -136,6 +140,7 @@ enum class PodSetting(val label: String) {
         PICKS -> "How many offers each player gets. Each player drafts on their own; nothing is passed between players."
         OFFER_CARDS -> "How many cards each offer shows."
         TAKE -> "How many cards of each offer the player takes. The rest of the offer is gone."
+        INITIAL_RARES -> "The first this many picks offer rares; after them Rare every decides. 0 = none."
         RARE_EVERY -> "Every this many picks the offer is of rares. Never = no rare picks."
         UNCOMMON_EVERY -> "Every this many picks the offer is of uncommons, unless it is a rare pick. Other picks offer commons. Never = no uncommon picks."
         MYTHIC -> "On a rare pick, each card offered is a mythic rare instead with a chance of 1 in this number. Never = no mythic rares."
@@ -160,6 +165,7 @@ enum class PodSetting(val label: String) {
             CARDS_EACH, PICKS_EACH -> s.copy(cardsPerPlayer = value); POOL_EACH -> s.copy(poolPerPlayer = value); PILES -> s.copy(piles = value); BOOSTERS -> s.copy(packsPerPlayer = value)
             TABLES -> s.copy(tables = value)
             PICKS -> s.copy(packsPerPlayer = value); OFFER_CARDS -> s.copy(cardsPerPack = value); TAKE -> s.copy(keep = value)
+            INITIAL_RARES -> s.copy(initialRares = value)
             RARE_EVERY -> s.copy(rareEvery = value); UNCOMMON_EVERY -> s.copy(uncommonEvery = value); MYTHIC -> s.copy(mythicOneIn = value)
         }
     }
@@ -180,7 +186,7 @@ fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSettin
         DraftMode.CUSTOM_BOOSTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize },
             PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS)
         // DRF-281, DRF-282: offers are never a set's booster, so their size is always set
-        DraftMode.ARENA -> listOf(PodSetting.PICKS, PodSetting.OFFER_CARDS, PodSetting.TAKE, PodSetting.RARE_EVERY,
+        DraftMode.ARENA -> listOf(PodSetting.PICKS, PodSetting.OFFER_CARDS, PodSetting.TAKE, PodSetting.INITIAL_RARES, PodSetting.RARE_EVERY,
             PodSetting.UNCOMMON_EVERY, PodSetting.MYTHIC)
     } + PodSetting.SIDEBOARD
 }

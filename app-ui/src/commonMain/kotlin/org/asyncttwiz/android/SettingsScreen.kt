@@ -53,6 +53,8 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
                     MoveSoundSetting(account)
                     // TRN-167: the Android app only
                     MoveVibrationSetting()
+                    // LOB-264: whether new drafts start with Auto on beside the pick's Confirm
+                    PodAutoconfirmSetting()
                 }
                 HorizontalDivider()
             }
@@ -113,6 +115,7 @@ private fun DesktopSettings(catalog: CatalogViewModel?, accountId: String, logou
         if (account != null) SettingsGroup("Games") {
             DeckVisibilitySetting(account)
             MoveSoundSetting(account)
+            PodAutoconfirmSetting()
         }
         LocalWebNotifications.current?.let { web -> SettingsGroup("This browser") { BrowserSettings(web) } }
         SettingsGroup("Table") {

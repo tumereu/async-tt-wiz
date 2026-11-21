@@ -79,9 +79,10 @@ object ArenaEngine {
      * special and bonus printings count as ([rarity]); null without any. */
     fun tier(rarities: Collection<SetCardRarity>): SetCardRarity? = rarities.filter { it in ORDER }.minByOrNull { ORDER.indexOf(it) }
 
-    /** DRF-281: the rarity of pick [pick] (one-based): rare every [DraftSettings.rareEvery]th, uncommon every
-     * [DraftSettings.uncommonEvery]th (rare wins), common otherwise. */
+    /** DRF-281: the rarity of pick [pick] (one-based): rare for the first [DraftSettings.initialRares] picks and every
+     * [DraftSettings.rareEvery]th, uncommon every [DraftSettings.uncommonEvery]th (rare wins), common otherwise. */
     fun pickRarity(settings: DraftSettings, pick: Int): SetCardRarity = when {
+        pick <= settings.initialRares -> SetCardRarity.RARE
         settings.rareEvery?.let { pick % it == 0 } == true -> SetCardRarity.RARE
         settings.uncommonEvery?.let { pick % it == 0 } == true -> SetCardRarity.UNCOMMON
         else -> SetCardRarity.COMMON

@@ -336,3 +336,10 @@ number	item	screenshot	catalog	decisions	sequence
 363	Clip: combat damage on the band, then the band closing	clips/combat-damage.webp	CMB-050 CMB-090 HIS-113
 364	Clip: the turn banner shows and fades	clips/turn-banner.webp	TRN-074
 365	Clip: tapping an earlier event in the Undo dialog's strip	clips/undo-strip.webp	HIS-099 HIS-207 HIS-208
+400	Draft: the Auto toggle off beside Confirm	draft/autoconfirm-off.png	DRF-293		Autoconfirm
+401	Draft: Auto on, Confirm yellow with its shine	draft/autoconfirm-on.png	DRF-293 DRF-294		Autoconfirm
+402	Clip: Auto turning on, the shine sweeping across Confirm and back	clips/autoconfirm-shine.webp	DRF-294 DRF-293		Autoconfirm
+403	Desktop draft: the Auto toggle off just before Confirm	desktop/autoconfirm-off.png	DRF-293 WEB-044		Autoconfirm
+404	Desktop draft: Auto on, Confirm yellow with its shine	desktop/autoconfirm-on.png	DRF-293 DRF-294		Autoconfirm
+405	Clip: a grid picked, the next grid sliding up into its place as it fades	clips/grid-next-slides-up.webp	DRF-295
+406	Desktop: What's new at twice the phone's width	desktop/whats-new.png	LOB-265

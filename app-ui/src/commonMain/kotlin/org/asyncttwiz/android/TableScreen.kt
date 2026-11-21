@@ -63,10 +63,43 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val quickChat: TableQuickChat? = null,
     /** WEB-017: the desktop table's right dock (the docked chat), drawn while its frame has the dock open;
      * null: none. */
-    val desktopDock: (@Composable () -> Unit)? = null) {
+    val desktopDock: (@Composable () -> Unit)? = null,
+    /** The version of the device's shown state the table is composed with: the table reads that state through its routes
+     * (a play shown, the view's pause, who may act, assumed blocks), which no snapshot observes, so a new one composes it
+     * again (the hooks stay equal while nothing else changed, web frame rate, owner 2026-11-20); null outside a game's device. */
+    val shownVersion: Long? = null) {
     /** Timeline mode itself (not a branch's take-back, which only looks like it): its panel is taller (HIS-001, HIS-007). */
     val timelineOpen: Boolean get() = reviewing && timelinePlayback != TimelinePlaybackStatus.REWINDING
 }
+
+/**
+ * Web frame rate (owner, 2026-11-20: the desktop table stutters when plays happen): [block] as one lambda for the
+ * composition's life that runs the [block] composed last. A hook of [TableRuntimeHooks] made anew with each composition
+ * (its captured values change: the lobby state, the timeline, the board) made the hooks unequal every time, and with
+ * them the whole table composed again; this one stays equal and does what the latest would.
+ */
+@Composable
+fun steadyHook(block: () -> Unit): () -> Unit {
+    val latest = rememberUpdatedState(block)
+    return remember { { latest.value() } }
+}
+
+/** [steadyHook] for a hook taking a string (a board's node, [TableRuntimeHooks.onSceneSettled]). */
+@Composable
+fun steadyNodeHook(block: (String) -> Unit): (String) -> Unit {
+    val latest = rememberUpdatedState(block)
+    return remember { { value: String -> latest.value(value) } }
+}
+
+/**
+ * Web frame rate (owner, 2026-11-20): [game] as the table gets it: [previous] itself while the two differ only in what the
+ * table never reads (the game's revision, whose move the game lists show, when it changed), which every event changes. A new
+ * object rebuilt the table's whole scene and everything remembered by the game.
+ */
+fun tableGame(previous: GameSummary?, game: GameSummary): GameSummary =
+    if (previous != null && previous !== game && previous.id == game.id &&
+        previous == game.copy(revision = previous.revision, attentionHolder = previous.attentionHolder, updatedAt = previous.updatedAt))
+        previous else game
 
 /** A large text in the board's centre that a tap acts on ([TableRuntimeHooks.centreAction]). */
 data class TableCentreAction(val text: String, val run: () -> Unit)

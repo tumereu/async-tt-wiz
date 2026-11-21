@@ -21,6 +21,9 @@ expect object DebugJank {
     fun catchingUp(): Boolean
     fun treeInFlight(): Boolean
     fun animation(owner: String, running: Boolean)
+    /** WEB-068 (owner, 2026-11-20: the desktop table stutters when plays happen): [what] ("screen", "table", "scene") composed or
+     * was built again in the frame being drawn, so a slow frame's labels say which; the web only. */
+    fun composed(what: String)
     fun state(vararg values: Pair<String, String>)
     fun action(name: String)
     fun beginWork(kind: String): Long

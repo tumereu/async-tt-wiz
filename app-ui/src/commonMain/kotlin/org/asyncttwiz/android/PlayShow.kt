@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -402,6 +403,11 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
     val ended = remember(first) { BooleanArray(group.size) }
     val showing = remember(first) { arrayOfNulls<Job>(1) }
     fun end(i: Int) { if (!ended[i]) { ended[i] = true; gone += i; done(group[i]) } }
+    // WEB-067: the frame times name the plays shown among what animates while they show
+    DisposableEffect(first) {
+        DebugJank.animation("play shown", true)
+        onDispose { DebugJank.animation("play shown", false) }
+    }
     LaunchedEffect(first) {
         // The board drawn where they went on the Stack, and nothing else of the Stack animation playing (an entry's arrows)
         if (looks == null) {

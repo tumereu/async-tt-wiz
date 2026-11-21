@@ -260,12 +260,13 @@ class RevealStopTest {
                 sim.settle(only = listOf(sim.bob))
             }
         }
-        // Its random order keeps Bob's phone from assuming Alice's pass over it (the information rule): her real pass resolves it
-        assertEquals(GameDevice.Wait.HiddenCards, (bobs.status as GameDevice.Status.Waiting).reason)
+        // Problem report KZBKLR: the random order of the rest on the bottom of his library is hidden (TRN-067): Bob's phone assumes
+        // Alice's pass over it, or her real pass resolves it
         val alices = sim.load(sim.alice)
         alices.play()
+        // Alice plays on until the reveal is made and her phone has played up to it (her panel opens there)
         repeat(30) {
-            if (revealed() == null) {
+            if (revealed() == null || alices.reveal == null) {
                 alices.playToStop()
                 when (val status = alices.status) {
                     is GameDevice.Status.Stopped -> alices.act(status.assumed)

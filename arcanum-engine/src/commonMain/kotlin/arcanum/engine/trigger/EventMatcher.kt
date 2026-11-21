@@ -253,11 +253,10 @@ internal object EventMatcher {
             ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.copy))), listOf(it.player))) }.orEmpty()
         // CR 701.22d, 701.25d
         // CR 700.13: casting a spell, activating an ability or putting a triggered ability on the Stack that targets an opponent, a
-        // permanent, spell or ability an opponent controls, or a card in an opponent's graveyard; not a copy put on the Stack (it isn't
-        // cast, CR 707.10) nor new targets chosen later (CR 115.7)
+        // permanent, spell or ability an opponent controls, or a card in an opponent's graveyard ([Crimes.committed], decided as it
+        // was put on the Stack: its targets may have left or changed control since)
         is EventPattern.CommitCrime -> (change as? Change.StackItemAdded)
-            ?.takeIf { it.meanings.any { m -> m == Meaning.Cast || m == Meaning.Activated || m == Meaning.Triggered } }
-            ?.takeIf { c -> c.item.targets.values.flatten().any { crimeAgainst(e, it, c.item.controller) } && e.matches(pattern.players, c.item.controller) }
+            ?.takeIf { Meaning.Crime in it.meanings && e.matches(pattern.players, it.item.controller) }
             ?.let { listOf(TriggerEvent(players = listOf(it.item.controller))) }.orEmpty()
         // trk: CR 700.17: a player faces a dilemma when they choose one or more modes for a spell or ability as it is cast, activated or
         // put on the Stack (CR 601.2b, 602.2b, 603.3c); a copy's modes are copied, not chosen (CR 707.10), and a fused split spell's
@@ -538,20 +537,6 @@ internal object EventMatcher {
     }
 
     /** Spells and abilities put on the Stack (or changing targets) and what they target (CR 115.1). */
-    /** Whether targeting [ref] is a crime of [player] (CR 700.13): another player, a permanent, spell or ability another player controls,
-     * or a card in another player's graveyard (not a card in exile or another zone). */
-    private fun crimeAgainst(e: Evaluator, ref: TargetRef, player: PlayerId): Boolean = when (ref) {
-        is TargetRef.Player -> ref.id != player
-        is TargetRef.Object -> {
-            val state = e.board.state
-            when (state.obj(ref.id)?.zone ?: if (ref.id in state.stackItems) Zone.Stack else null) {
-                Zone.Battlefield, Zone.Stack -> e.controllerOf(ref.id)
-                Zone.Graveyard -> e.ownerOf(ref.id)
-                else -> null
-            }.let { it != null && it != player }
-        }
-    }
-
     private fun targeted(change: Change): List<Pair<ObjectId, List<TargetRef>>> = when (change) {
         is Change.StackItemAdded -> listOf(change.item.id to change.item.targets.values.flatten())
         is Change.StackItemUpdated -> {

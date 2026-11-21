@@ -150,4 +150,38 @@ class AssumeRevealsTest {
             else assertEquals(Authority.REVEALS_HIDDEN, assumed.exceptionOrNull()?.message)
         }
     }
+
+    private val seeker = Cards.invent("Trailhead Seeker", "{W}", "Creature — Human Scout",
+        "When this creature enters, look at the top five cards of your library. You may reveal a Mount creature card or a Plains card " +
+            "from among them and put it into your hand. Put the rest on the bottom of your library in a random order.", "2/1")
+
+    // TRN-067 (problem report KZBKLR): the random order of the cards put on the bottom of your own library is hidden, as a
+    // shuffle's is: on a tentative line the answer to "You may reveal … Put the rest on the bottom in a random order" is sent,
+    // the card picked or none (it was refused, "Wait for the other player to catch up", and the OK did nothing)
+    @Test
+    fun theRandomOrderOfTheRestPutOnTheBottomOfYourLibraryHoldsNothingBack() {
+        for (pick in listOf(true, false)) {
+            val sim = DeviceSim(EngineGames(3, List(40) { "Forest" } to (List(20) { "Plains" } + List(20) { seeker })))
+            val bob = sim.bob
+            sim.start(bob)
+            sim.keepWhileAway(bob)
+            val bobs = sim.device(bob)
+            assertEquals(GameDevice.Status.YourMove, bobs.status)
+            assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Plains"))))
+            assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, seeker))) { m ->
+                val d = m.engine.pending?.decision
+                if (d == null || d is Decision.Random || d.player != bob || d is Decision.ChooseObjects) null
+                else Engine.options(m.engine, bob, org.asyncttwiz.protocol.game.EnginePreferences.of(m.engine)).filterIsInstance<Input.Answer>().first()
+            })
+            sim.settle()
+            val choice = assertIs<Decision.ChooseObjects>(bobs.model.engine.pending?.decision, "the seeker's choice is open")
+            assertTrue(bobs.model.engine.turn.number == 1 && sim.server.line().any { it.assumed?.assumedBy == bob }, "Bob's line rests on his assumption")
+            val chosen = if (pick) listOf(choice.options.first()) else emptyList()
+            val acted = bobs.act(Input.Answer(choice.id, Answer.Objects(chosen)))
+            assertIs<GameDevice.Acted.Sent>(acted, "picking ${chosen.size}: $acted")
+            sim.settle()
+            assertTrue(sim.leaks.isEmpty(), "${sim.leaks}")
+            assertEquals(null, sim.server.state().engine.pending?.decision?.takeIf { it.id == choice.id }, "the server took the answer")
+        }
+    }
 }

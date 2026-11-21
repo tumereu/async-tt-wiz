@@ -655,10 +655,19 @@ object InformationRule {
                 val shuffle = what is arcanum.engine.decision.RandomKind.Objects && what.library.isNotEmpty()
                 val handPick = allowed.hands && viewer != null && what is arcanum.engine.decision.RandomKind.Objects &&
                     what.among.isNotEmpty() && what.among.all { id -> state.obj(id)?.let { it.zone == Zone.Hand && it.owner != viewer } == true }
-                if (!shuffle && !handPick) found = true
+                if (!shuffle && !handPick && !intoLibrary(what, step.changes)) found = true
             }
             step.changes.forEach { state.apply(it) }
         }
         return found
+    }
+
+    /** Problem report KZBKLR: whether [what] only orders cards that its step ([changes]) puts into a library ("Put the rest on
+     * the bottom of your library in a random order"): all of them, so nothing is picked, and a library's order is hidden, as a
+     * shuffle's is. */
+    private fun intoLibrary(what: arcanum.engine.decision.RandomKind, changes: List<Change>): Boolean {
+        if (what !is arcanum.engine.decision.RandomKind.Objects || what.among.isEmpty() || what.count != what.among.size) return false
+        val moves = changes.filterIsInstance<Change.ZoneChange>().flatMap { it.moves }.filter { it.before.id in what.among }
+        return moves.map { it.before.id }.toSet() == what.among.toSet() && moves.all { it.to == Zone.Library }
     }
 }

@@ -39,14 +39,15 @@ class CastingTest {
         }
     }
 
-    // CR 601.2i: the spell becomes cast with all its choices: the Stack item carries the cast meaning
+    // CR 601.2i: the spell becomes cast with all its choices: the Stack item carries the cast meaning; CR 700.13: targeting
+    // an opponent, it is a crime too
     @Test
     fun becomingCastIsTagged() = scenario {
         alice.battlefield("Mountain")
         alice.hand("Storm Spark")
         alice.casts("Storm Spark", target = "bob")
         val added = applied.filterIsInstance<Change.StackItemAdded>().single()
-        assertEquals(listOf(Meaning.Cast), added.meanings)
+        assertEquals(listOf(Meaning.Cast, Meaning.Crime), added.meanings)
         assertEquals(StackItemKind.Spell, added.item.kind)
         assertEquals(listOf(TargetRef.Player(bob.id)), added.item.targets["any"])
         assertEquals(Zone.Hand, state.objOrThrow(card("Storm Spark")).castOrNone.castFrom)

@@ -468,6 +468,18 @@ object TestCards {
             "creature token. Then secretly choose Human, Merfolk, or Goblin.\nSacrifice this enchantment, Reveal the creature type you chose: " +
             "If target attacking creature token is the chosen type, put three +1/+1 counters on it and it gains deathtouch until end of turn.")
 
+    /** Problem report WGEG3N: double strike while its controller has committed a crime this turn (haste added, to attack at once). */
+    val vigilante = card("Harborgate Vigilante", "Creature — Human Mercenary", "{0}", "Haste\nThis creature has double strike as long as " +
+        "you've committed a crime this turn. (Targeting opponents, anything they control, and/or cards in their graveyards is a crime.)", "2", "2")
+    /** Problem report WGEG3N: a free creature whose ability destroys the crime's target. */
+    val gnawer = card("Hungry Gnawer", "Creature — Varmint", "{0}", "Sacrifice this creature: Destroy target artifact or enchantment.", "1", "1")
+
+    /** Problem report KZBKLR: looks at the top five as it enters, may put a Plains into its controller's hand and puts the rest on the
+     * bottom in a random order. */
+    val seeker = card("Trailhead Seeker", "Creature — Human Scout", "{0}", "When this creature enters, look at the top five cards of your " +
+        "library. You may reveal a Mount creature card or a Plains card from among them and put it into your hand. Put the rest on the " +
+        "bottom of your library in a random order.", "2", "1")
+
     /** Every test card, by name (the catalog's collector numbers follow this order). */
     val all: List<TestCard> by lazy {
         TestCards::class.java.declaredFields.filter { TestCard::class.java.isAssignableFrom(it.type) }

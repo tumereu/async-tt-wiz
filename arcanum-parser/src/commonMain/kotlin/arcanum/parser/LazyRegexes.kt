@@ -40,7 +40,9 @@ internal object LazyRegexes {
     val PRONOUN_IS_AT_START by lazy { Regex("""^(?:It|He|She)(?:'s| is) """) }
 
     // Single wordings
-    val COUNTERS_REMOVED_THIS_WAY by lazy { Regex("""the number of \S+ counters removed this way""") }
+    val COUNTERS_REMOVED_THIS_WAY by lazy { Regex("""the number of (\S+) counters removed this way""") }
+    /** A quoted ability inside a line ('creatures you control have "…"'), read as a line of its own. */
+    val QUOTED_ABILITY by lazy { Regex(""""[^"]*"""") }
     val ATTACK_WITH_TOTAL_POWER by lazy { Regex("""you attack with creatures with total power (\d+) or greater for the first time each turn""") }
     val BENDING_WORD by lazy { Regex("""(waterbend|earthbend|firebend|airbend)""") }
     val THAT_CREATURES_POWER_OR_TOUGHNESS by lazy { Regex("""that creature's (power|toughness)""") }

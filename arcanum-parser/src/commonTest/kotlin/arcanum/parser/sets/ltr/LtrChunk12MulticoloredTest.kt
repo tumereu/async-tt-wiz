@@ -64,7 +64,7 @@ class LtrChunk12MulticoloredTest {
             onlyUnchosen = true))),
     )
 
-    // CR 120.4a: the excess is dealt to the controller instead
+    // CR 120.4a: the excess is dealt to the controller instead, in the same damage event, worked out before prevention and replacement
     @Test
     fun wizardsSanction() = card(
         name = "Wizard's Sanction",
@@ -72,8 +72,8 @@ class LtrChunk12MulticoloredTest {
         type = "Sorcery",
         text = "Wizard's Sanction deals X damage to target creature, where X is the number of instant and sorcery cards in your graveyard. Excess damage is dealt to that creature's controller instead.",
     ) parsesTo abilities(
-        spell(doing(Effect.DealDamage(toObjects(target("creature")), spellsInGraveyard, Objects.Self, bind = "damage")),
-            doing(Effect.DealDamage(Recipients(players = Players.ControllerOf(target("creature"))), Value.Excess("damage"), Objects.Self)),
+        spell(doing(Effect.DealDamage(toObjects(target("creature")), spellsInGraveyard, Objects.Self,
+            excessTo = Recipients(players = Players.ControllerOf(target("creature"))))),
             targets = listOf(slot("creature", creature))),
     )
 

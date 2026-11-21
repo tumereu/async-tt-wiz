@@ -58,6 +58,20 @@ class OracleParserSafetyTest {
             "color. If you put -1/-1 counters on five Dragons this way, you win the game.").single() is Ability.Unparsed)
     }
 
+    // CR 601.2f, 602.2b, 122.1: "the number of [kind] counters removed this way" is the number the activated ability's cost removed, so it
+    // reads only where the cost removes an announced number of that kind (Simic Manipulator's and Ooze Flux's wordings with the kinds
+    // swapped read the same before), not in a spell, whose text removes none
+    @Test
+    fun countersRemovedThisWayMustBeTheCostsKind() {
+        assertTrue(parse("Creature", "{T}, Remove one or more -1/-1 counters from this creature: Gain control of target creature with power " +
+            "less than or equal to the number of +1/+1 counters removed this way.").single() is Ability.Unparsed)
+        assertTrue(parse("Enchantment", "{1}{G}, Remove one or more -1/-1 counters from among creatures you control: Create an X/X green Ooze " +
+            "creature token, where X is the number of +1/+1 counters removed this way.").single() is Ability.Unparsed)
+        assertTrue(parse("Sorcery", "Draw cards equal to the number of stun counters removed this way.").single() is Ability.Unparsed)
+        assertTrue(parse("Creature", "{T}, Remove one or more -1/-1 counters from this creature: Gain control of target creature with power " +
+            "less than or equal to the number of -1/-1 counters removed this way.").single() is Ability.Activated)
+    }
+
     // CR 711.2a: a level band is one static ability, so a band with an unread line stays printed text as a whole and
     // its readable lines never become abilities outside the band.
     @Test

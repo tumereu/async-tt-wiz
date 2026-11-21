@@ -520,6 +520,11 @@ sealed interface Choice {
         /** The chosen objects' [TotalLimit.property] adds up to at most [TotalLimit.atMost] ("any number of spells with total
          * mana value 6 or less from among the copies"). */
         val totalAtMost: TotalLimit? = null,
+        // gtc, dgm
+        /** One chosen object for each of these filters, each object standing for a different one, and as many objects as can each stand
+         * for one ("sacrifices an artifact and a land of their choice": an artifact land is the artifact or the land, not both, CR 701.21a;
+         * as close to one of each as possible, CR 609.3). [min] and [max] are then that many. */
+        val oneEach: List<ObjectFilter>? = null,
     ) : Choice
     /** [property] of the chosen objects added up, at most [atMost] ([Objects.totalAtMost]). */
     @Serializable data class TotalLimit(val property: NumericProperty, val atMost: Value)

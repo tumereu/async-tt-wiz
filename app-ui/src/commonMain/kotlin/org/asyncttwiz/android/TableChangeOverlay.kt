@@ -69,7 +69,8 @@ fun tableChangeTarget(key: TableChangeKey, item: (String) -> TableItem?): TableI
         TableChangeKind.PLAYER_COUNTER -> item("counter/${key.target}/${key.color}")
         else -> changeCard(key.target, item)
     } ?: return null
-    return shown.takeIf { it.visible.isNotEmpty() && (!it.covered || key.kind == TableChangeKind.OWNER) }
+    // HIS-112: a special action's flash also shows on a card it left face down (a foretold card)
+    return shown.takeIf { it.visible.isNotEmpty() && (!it.covered || key.kind == TableChangeKind.OWNER || key.kind == TableChangeKind.SPECIAL) }
 }
 
 fun tableChangeLinkAnchors(change: TableChange, item: (String) -> TableItem?): Pair<TablePoint, TablePoint>? {
@@ -141,7 +142,7 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
              if (!tagsOnly) {
                  for (fragment in shown.visible) clipRect(fragment.x * density, fragment.y * density, fragment.right * density, fragment.bottom * density) {
                      rotate(if (card) transform.rotation else 0f, point(b.center)) {
-                         if (key.kind == TableChangeKind.OWNER || key.kind == TableChangeKind.UNLOCK) {
+                         if (key.kind == TableChangeKind.OWNER || key.kind == TableChangeKind.UNLOCK || key.kind == TableChangeKind.SPECIAL) {
                              val pulse = fade * (.4f + .6f * kotlin.math.abs(kotlin.math.cos(t * 3 * kotlin.math.PI)).toFloat())
                              rect(local(TableBounds(0f, 0f, 28f, 40f)), color.copy(alpha = pulse), border = true)
                          } else {

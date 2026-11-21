@@ -917,8 +917,9 @@ class GameDevice(
             goneShows.forEach { revealsSeen.remove(it.event) }
             // HIS-112 (prod report 3LL6UZ, 2026-11-16: a play shown stayed in the middle after the board went past it): a play
             // shown whose entry has left the Stack on the board shown now (resolved, countered: what showed it moved on, say
-            // on another device of the player's) is done
-            val left = showsOpen.filter { it is PlayShow && it.entry !in model.engine.stack }
+            // on another device of the player's) is done; a special action (never on the Stack) once the line went on past its
+            // event
+            val left = showsOpen.filter { it is PlayShow && if (it.kind == PlayKind.Special) it.event != tip else it.entry !in model.engine.stack }
             if (left.isNotEmpty()) {
                 showsOpen.removeAll(left)
                 remember("plays shown closed, their entries left the Stack at ${tip?.take(8)}: ${left.map { it.event.take(8) }}, holds left ${showsOpen.size}")
@@ -945,7 +946,10 @@ class GameDevice(
             } else remember("own ${if (r.exiled != null) "library exile" else "reveal"} in ${e.id} shows nothing new: ${r.cards.map { it.value }}")
             if (showPlays) momentsIn(e, me).takeIf { it.isNotEmpty() }?.let { moments ->
                 showsOpen += moments
-                remember("view holds open in ${e.id.take(8)}: ${moments.map { m -> if (m is CombatHold) "combat ${m.kind::class.simpleName}" else "play" }}")
+                remember("view holds open in ${e.id.take(8)}: ${moments.map { m -> when (m) {
+                    is CombatHold -> "combat ${m.kind::class.simpleName}"
+                    is PlayShow -> if (m.kind == PlayKind.Special) "special action ${m.ability?.key} of ${m.entry}" else "play"
+                } }}")
             }
         }
     }
@@ -984,12 +988,16 @@ class GameDevice(
      * Stack item), [kind] how it got there, [card] the spell's card or the ability's source card (null when it has none),
      * [from] the zone a spell was cast from (HIS-112, owner 2026-11-12: it flies in from there; null for an ability, whose
      * source card is where the table shows it).
+     * HIS-112 (owner, 2026-11-20): a special action of the other player's ([PlayKind.Special], CR 116.2: unlocking a door,
+     * turning a card face up, foretelling, plotting, suspending …) shows the same way, though it never goes on the Stack: then
+     * [entry] is the object it was taken from, [card] that object's card and [ability] which special action it was.
      * While one is open ([show]) the view holds where it is, as at a reveal: the events after it wait and the device makes
      * none of its own; the table ends it ([dismissShow]) when its time is up or the player taps it. Personal: nothing is
      * sent, and the game never waits for it on the other player's phone.
      */
     @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("play") data class PlayShow(override val event: String, val by: PlayerId, val entry: ObjectId, val kind: PlayKind,
-        val card: arcanum.engine.state.CardId?, val from: arcanum.api.Zone? = null) : ViewMoment
+        val card: arcanum.engine.state.CardId?, val from: arcanum.api.Zone? = null,
+        val ability: arcanum.engine.view.AbilityOrigin? = null) : ViewMoment
 
     /** A moment of the shown event [event] that holds this player's view until it is done (HIS-112, HIS-113). */
     @kotlinx.serialization.Serializable sealed interface ViewMoment { val event: String }
@@ -1016,6 +1024,9 @@ class GameDevice(
         /** D6 (owner 2026-11-19): a copy of a spell or ability put on the Stack by something resolving (CR 707.10), shown to every
          * player, flying in from the copier ([PlayShow.card]). */
         @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("copied") data object Copied : PlayKind
+        /** HIS-112 (owner, 2026-11-20): a special action (CR 116.2), which doesn't use the Stack: it flies back into its own
+         * card instead, and the card flashes. */
+        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("special") data object Special : PlayKind
     }
 
     /** "Create a copy of the card with the chosen name" (CR 707.12): the player's device answers the engine's
@@ -3341,7 +3352,8 @@ class GameDevice(
         /**
          * HIS-112: the plays [viewer]'s table shows of [event], in the order they were put on the Stack: every spell cast,
          * ability activated (mana abilities never use the Stack) and trigger of the other player's, and [viewer]'s own
-         * triggers; and every copy of a spell or ability, whoever's (D6, owner 2026-11-19), flying in from what copied it.
+         * triggers; and every copy of a spell or ability, whoever's (D6, owner 2026-11-19), flying in from what copied it; and
+         * every special action of the other player's (owner, 2026-11-20: [PlayKind.Special], in its step's place).
          */
         fun showsIn(event: GameEvent, viewer: PlayerId): List<PlayShow> = momentsIn(event, viewer).filterIsInstance<PlayShow>()
 
@@ -3353,22 +3365,35 @@ class GameDevice(
             val moments = ArrayList<ViewMoment>()
             var damageStep = false
             // HIS-112 (owner 2026-11-12): where each spell was cast from, for its flight in
-            var castFrom: HashMap<ObjectId, arcanum.api.Zone>? = null
+            val castFrom = HashMap<ObjectId, arcanum.api.Zone>()
             // D6: what copied each copy, for its flight in
             val copiers = event.engine?.changes.orEmpty().mapNotNull { (it as? arcanum.engine.change.Change.Happened)?.event as? arcanum.engine.change.GameEvent.Copied }
                 .associate { it.copy to it.by }
-            for (change in event.engine?.changes.orEmpty()) when (change) {
-                is arcanum.engine.change.Change.ZoneChange -> for (move in change.moves) if (move.to == arcanum.api.Zone.Stack)
-                    (castFrom ?: HashMap<ObjectId, arcanum.api.Zone>().also { castFrom = it })[move.after.id] = move.from
-                is arcanum.engine.change.Change.StackItemAdded -> showOf(event, change, viewer, castFrom, copiers)?.let(moments::add)
-                is arcanum.engine.change.Change.Combat ->
-                    if (change.before?.attackers.isNullOrEmpty() && !change.after?.attackers.isNullOrEmpty()) moments += CombatHold(event.id, CombatMoment.Attackers)
-                is arcanum.engine.change.Change.Step -> damageStep = change.after.step == arcanum.api.TurnStep.CombatDamage
-                is arcanum.engine.change.Change.Damage -> if (damageStep && change.dealt.isNotEmpty()) {
-                    moments += CombatHold(event.id, CombatMoment.Damage)
-                    damageStep = false
+            // HIS-112 (owner, 2026-11-20): the activations that were special actions: never put on the Stack, so no activation
+            // was recorded for them (CR 116.2; mana abilities record theirs, CR 605)
+            val activated = event.engine?.changes.orEmpty().mapNotNullTo(HashSet()) {
+                ((it as? arcanum.engine.change.Change.Happened)?.event as? arcanum.engine.change.GameEvent.Activated)?.let { a -> a.source to a.ability }
+            }
+            val stacked = event.engine?.changes.orEmpty().mapNotNullTo(HashSet()) { c ->
+                (c as? arcanum.engine.change.Change.StackItemAdded)?.takeIf { arcanum.engine.change.Meaning.Activated in it.meanings }?.item?.source
+            }
+            for (step in event.engine?.steps.orEmpty()) {
+                val input = step.input as? Input.Activate
+                if (input != null && input.player != viewer && (input.source to input.ability.key) !in activated && input.source !in stacked)
+                    moments += PlayShow(event.id, input.player, input.source, PlayKind.Special, (input.source as? ObjectId.Card)?.card, ability = input.ability)
+                for (change in step.changes) when (change) {
+                    is arcanum.engine.change.Change.ZoneChange -> for (move in change.moves) if (move.to == arcanum.api.Zone.Stack)
+                        castFrom[move.after.id] = move.from
+                    is arcanum.engine.change.Change.StackItemAdded -> showOf(event, change, viewer, castFrom, copiers)?.let(moments::add)
+                    is arcanum.engine.change.Change.Combat ->
+                        if (change.before?.attackers.isNullOrEmpty() && !change.after?.attackers.isNullOrEmpty()) moments += CombatHold(event.id, CombatMoment.Attackers)
+                    is arcanum.engine.change.Change.Step -> damageStep = change.after.step == arcanum.api.TurnStep.CombatDamage
+                    is arcanum.engine.change.Change.Damage -> if (damageStep && change.dealt.isNotEmpty()) {
+                        moments += CombatHold(event.id, CombatMoment.Damage)
+                        damageStep = false
+                    }
+                    else -> {}
                 }
-                else -> {}
             }
             return moments
         }

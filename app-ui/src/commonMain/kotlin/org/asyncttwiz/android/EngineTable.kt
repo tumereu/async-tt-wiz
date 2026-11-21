@@ -937,14 +937,17 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     if (show != null && !reviewing && scene != null && !routes.banners.holdsPlays) key(show) {
         val peekHeight = holdPreviewScreenHeight()
         // Made from the board with their entries on it (the table's board has them off until they land)
-        PlayShowOverlay(LocalUnhiddenPlay.current ?: play, scene, routes.viewer, shows, names, showMillis, routes.viewPause,
-            pace = showPace, ready = { routes.showReady() },
-            // TBL-104, TBL-131: holding it inspects it as holding the Stack's entry does: scrolled and pinned by the same finger
+        val unhiddenPlay = LocalUnhiddenPlay.current ?: play
+        val livePlay = LocalLivePlay.current ?: unhiddenPlay
+        PlayShowOverlay(unhiddenPlay, scene, routes.viewer, shows, names, showMillis, routes.viewPause,
+            pace = showPace, ready = { routes.showReady() }, after = { livePlay },
+            // TBL-104, TBL-131: holding it inspects it as holding the Stack's entry does: scrolled and pinned by the same finger;
+            // a special action its card (HIS-112, owner 2026-11-20: it has no Stack entry)
             inspect = { held, holding ->
                 if (holding) {
                     peekScroll?.let { it.dispatchRawDelta(-it.value.toFloat()) }
                     peekSwipe?.begin()
-                    toolkit.peek("entry:${held.entry}")
+                    toolkit.peek(if (held.kind == GameDevice.PlayKind.Special) held.card?.value else "entry:${held.entry}")
                 } else if (peekSwipe?.released() != true) toolkit.peek(null)
             },
             moved = { dx, dy, step ->

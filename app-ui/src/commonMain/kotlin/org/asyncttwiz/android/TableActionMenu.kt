@@ -12,13 +12,15 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.appui.screenWidthDp
 import org.asyncttwiz.appui.screenHeightDp
 
-/** The Table actions dialog (TRN-010): the timeline, the game's result and a problem report (I-D52: nothing that
+/** The Table actions dialog (TRN-010): the timeline and the game log, the game's result and a problem report (I-D52: nothing that
  * changes the board by hand, no tokens, combat area, dice or coins). Every entry stays usable while a result suggestion
  * waits (owner, 2026-11-17: "concede and suggest game end should be always available to either player"; HIS-020). */
 @Composable
 fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismiss: () -> Unit,
     perform: (TableActionIntent) -> Boolean = controller::perform,
     names: Map<String, String> = emptyMap(), onTimeline: (() -> Unit)? = null,
+    /** HIS-239: opens the game log (null: greyed). */
+    onLog: (() -> Unit)? = null,
     reportToken: () -> String? = DebugCrashes::sessionToken,
     /** TRN-047: a result suggestion waits; a new one suggested here replaces it (TRN-046). */
     suggestionWaits: Boolean = false,
@@ -40,6 +42,8 @@ fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismi
     }
     // TRN-046 (owner, 2026-11-17): while a suggestion waits a new one replaces it, whoever made it
     val entries = listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() },
+        // HIS-239: the game's events as text
+        MenuControl("Game log", onLog != null) { onDismiss(); onLog?.invoke() },
         MenuControl("Suggest game end", enabled) { ending = true },
         // CR 104.3a (I-D52): conceding needs nobody's agreement, also while a suggestion waits
         MenuControl("Concede", concedable) { conceding = true },

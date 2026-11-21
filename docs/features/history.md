@@ -1,7 +1,7 @@
 # History
 
 The game timeline: what an event is and how it reads, how the other player's moves play back on your table (live and
-when catching up), where playback stops, the event text chip, timeline mode and the playback settings.
+when catching up), where playback stops, the event text chip, timeline mode, the game log and the playback settings.
 
 ## How it works
 
@@ -9,7 +9,8 @@ Everything that happens in a game is recorded as events, one for each point wher
 other player's events back as animations, one at a time, whether you watch live or come back later to catch up; a
 finger held on the table pauses what your view is waiting on, and the main button skips it. Catching up starts only when you tap the text in the
 middle of the board, and it stops wherever you have to decide. A short text at the top says what just happened.
-Timeline mode is a read-only viewer for looking back through the whole game. What a play shown, a combat hold or a
+Timeline mode is a read-only viewer for looking back through the whole game, and the game log lists the same events as
+lines of text. What a play shown, a combat hold or a
 reveal looks like is described with the Stack, combat and choices; assumed answers and branches in async-play.md; undo
 in undo.md.
 
@@ -43,7 +44,7 @@ in undo.md.
 - **HIS-130** In Control, the other player's pass right after their own action still goes by at once (a resolve by hand after their cast, which a lower mode would have made inside that action's event, HIS-188). (r61)
 - **HIS-102** With everything before them shown (your live game), the other player's passes show at once on the live table, never as playback; what they lead to (a spell resolving) animates as usual. (r52)
 - **HIS-030** Playback and live opponent actions animate each change (cards fly, rotate, flip, fade; also between piles); attacks play back in the combat area (CMB-007). Take-backs animate backwards: an undo in one go on both tables (for the other player only as far as they had seen, HIS-108), a branch's take-back step by step (HIS-106). (r53)
-- **HIS-031** Changes show a delta tag such as "+2" and a number flash for life, player counters, card P/T and counters (shown 1 s, then a 0.5 s fade; changes within 1.5 s add up), and a short highlight for face, control and step changes; a Room whose door was unlocked pulses as a card changing control does. (r60)
+- **HIS-031** Changes show a delta tag such as "+2" and a number flash for life, player counters, card P/T and counters (shown 1 s, then a 0.5 s fade; changes within 1.5 s add up), and a short highlight for face, control and step changes; a Room whose door was unlocked pulses as a card changing control does, and so does a card the other player's special action shown has landed in (HIS-237; owner, 2026-11-20). (r60)
 - **HIS-131** Delta tags, flashes and highlights show for your own and the opponent's changes, live and in playback (catch-up playback too), also when a take-back goes back; never on jumps, on opening the game or in timeline mode. They come from the events shown (life, P/T, step and turn, face, a change of control, a library's shuffle). (r60)
 
 ## Pausing with a held finger
@@ -86,7 +87,7 @@ in undo.md.
 ## Timeline mode
 
 - **HIS-001** In play mode, live and in catch-up playback, the bottom bar has no event strip: it holds only the controls, and its room goes to the board. Nothing past your local head (HIS-032) shows anywhere. (r55)
-- **HIS-004** Table actions' "Timeline" entry (TRN-010) is the only way into timeline mode; it opens paused at the newest event shown to you, and the timeline ends there. (r55)
+- **HIS-004** Table actions' "Timeline" entry (TRN-010) and a line of the game log (HIS-241) are the only ways into timeline mode; the Timeline entry opens it paused at the newest event shown to you, and the timeline ends there. (r80)
 - **HIS-006** Live play, catch-up playback and timeline mode are three different things. Timeline mode starts only when you enter it, also during playback, which then waits paused. Opponent actions, hold-inspect and menu actions keep the table live, and so does the game loading again while the table is live: only coming back or opening starts the catch-up. (r53)
 - **HIS-008** In timeline mode (and while a branch's take-back goes back, HIS-106) the top and bottom bars turn grey, the battlefield is dimmed, and the board centre shows a faint "Timeline mode" label with icon and, on its own line, the playback status "Playing" or "Paused" with its icon. Catch-up playback never looks like this. (r53)
 - **HIS-007** In portrait the hand, piles and life sit directly above the bottom bar in play mode and above the timeline panel in timeline mode; the two cross-fade in about 200 ms. The timeline panel is taller there (its strip above Previous / Auto / Next), so entering timeline mode moves them up by the strip's height and leaving moves them back. (r60)
@@ -108,6 +109,13 @@ in undo.md.
 - **HIS-017** Hold-inspect works on every face-up card in timeline mode too, and there holding a card stops Auto, which stays off after the release. (r61)
 - **HIS-018** "Return to current" in the top bar, and Back, leave timeline mode to where you were: live play, or the catch-up paused with its centre text (HIS-094). (r53)
 - **HIS-019** Leaving timeline mode never asks a question; the timeline has no branching action (a branch happens only when your real answer differs from an assumed one, HIS-097). (r48)
+
+## The game log
+
+- **HIS-239** Table actions' "Game log" (TRN-010) opens the game log over the table, on the phone and the desktop: exactly the timeline's events (HIS-005, HIS-111), one line each with its icon in its author's colour and its text (HIS-061), oldest at the top and newest at the bottom, where it opens. (r80)
+- **HIS-242** In the game log the timeline's turn and step labels ("T3 · Combat", HIS-170) sit between the lines where the turn or step changed, in the colour of the player whose turn it is; new events join at the bottom while it is open. (r80)
+- **HIS-240** In a game log line each player's name ("You", "Bob") and each card it names show in that player's colour (yours green, the other player's red, as the Stack's target names, STK-133): a card cast, played or activated by who did it, what resolved by its controller, cards exiled from a library by its owner; "a card" stays plain. (r80)
+- **HIS-241** Tapping a game log line closes the log and opens timeline mode paused at that event; scrolling to the log's top loads older events from the server with a small spinner, back to "The game began" (HIS-172). (r80)
 
 ## Playback settings
 

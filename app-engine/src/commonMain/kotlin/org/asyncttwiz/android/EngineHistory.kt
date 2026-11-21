@@ -361,6 +361,64 @@ object EngineEventText {
         return obj.definition?.faces?.getOrNull(obj.face)?.name
     }
 
+    /**
+     * HIS-240 (owner 2026-11-20, the game log: "let's keep the colors"): the names [event]'s text ([of]) may hold, each
+     * with whose it is (an account id): the players ("You" and "you" for [viewer], the others by their names), the card
+     * cast or played and an ability's source by the player who did it, what resolved by its controller, and cards exiled
+     * face up from a library by that library's owner. Only names [viewer] may see: a hidden card gives none (HIS-062).
+     */
+    fun marks(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>, sight: Sight? = null): List<EventTextMark> {
+        val marks = ArrayList<EventTextMark>()
+        marks += EventTextMark("You", viewer)
+        marks += EventTextMark("you", viewer)
+        for ((account, name) in names) if (account != viewer && name.isNotBlank()) marks += EventTextMark(name, account)
+        fun card(id: ObjectId?, whose: PlayerId) { name(id, state, viewer, sight)?.let { marks += EventTextMark(it, whose.value) } }
+        when (val input = event.engine?.steps?.firstOrNull { it.input != null }?.input) {
+            is Input.Cast -> card(input.card, input.player)
+            is Input.PlayLand -> card(input.card, input.player)
+            is Input.Activate -> card(input.source, input.player)
+            else -> {}
+        }
+        val changes = event.engine?.changes.orEmpty()
+        changes.lastOrNull { it is Change.StackItemRemoved }?.let { (it as Change.StackItemRemoved).item }?.let { item ->
+            val shown = when (val id = item.id) {
+                is ObjectId.Card -> name(id, state, viewer, sight)
+                else -> item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name ?: name(item.source, state, viewer, sight)
+            } ?: item.copyOf?.let { name(it, state, viewer, sight) }
+            shown?.let { marks += EventTextMark(it, item.controller.value) }
+        }
+        // HIS-234: the cards exiled face up from a library are public: their owner's
+        changes.filterIsInstance<Change.ZoneChange>().flatMap { it.moves }
+            .filter { it.from == arcanum.api.Zone.Library && it.to == arcanum.api.Zone.Exile && !it.after.faceDown && !it.before.token }
+            .forEach { m -> m.after.definition?.faces?.getOrNull(m.after.face)?.name?.let { marks += EventTextMark(it, m.before.owner.value) } }
+        return marks.distinct()
+    }
+
+    /**
+     * HIS-240: [text] cut into pieces, each name of [marks] found in it as a whole word (the longest first) with whose it
+     * is, the rest with nobody's. The pieces' words joined are [text].
+     */
+    fun pieces(text: String, marks: List<EventTextMark>): List<Pair<String, String?>> {
+        if (marks.isEmpty() || text.isEmpty()) return listOf(text to null)
+        val sorted = marks.filter { it.text.isNotEmpty() }.sortedByDescending { it.text.length }
+        fun wordChar(c: Char) = c.isLetterOrDigit()
+        val pieces = ArrayList<Pair<String, String?>>()
+        val plain = StringBuilder()
+        var i = 0
+        while (i < text.length) {
+            val atStart = i == 0 || !wordChar(text[i - 1])
+            val mark = if (!atStart) null else sorted.firstOrNull { m ->
+                text.startsWith(m.text, i) && (i + m.text.length == text.length || !wordChar(text[i + m.text.length]))
+            }
+            if (mark == null) { plain.append(text[i]); i++; continue }
+            if (plain.isNotEmpty()) { pieces += plain.toString() to null; plain.clear() }
+            pieces += mark.text to mark.owner
+            i += mark.text.length
+        }
+        if (plain.isNotEmpty()) pieces += plain.toString() to null
+        return pieces
+    }
+
     /** HIS-070 on engine events: the event's icon. */
     fun icon(event: GameEvent): HistoryIcon {
         val input = event.engine?.steps?.firstOrNull { it.input != null }?.input
@@ -401,6 +459,9 @@ object EngineEventText {
         return event.author.takeIf { it in players }
     }
 }
+
+/** HIS-240: a name in an event text ([EngineEventText.marks]) and whose it is ([owner], an account id), which colours it. */
+data class EventTextMark(val text: String, val owner: String)
 
 /**
  * HIS-031 on engine state: the change flashes and delta tags between two boards shown one after the other by the events

@@ -295,17 +295,56 @@ class CastFlow private constructor(
 
         /**
          * The words of a special action the rules give an object rather than a printed ability (CR 116.2; prod faults
-         * 9SF97R, P86WUK: a door's unlocking showed as the placeholder "Special action"): "Unlock Prop Room" (CR 709.5e),
-         * "Turn face up for {2}{U}" for a manifested or cloaked creature card (CR 701.40b), foretelling (CR 702.143b); null for
-         * a rule it doesn't know.
+         * 9SF97R, P86WUK: a door's unlocking showed as the placeholder "Special action"), as an ability reads
+         * ([specialActionText]): "{3}{R}: Unlock Prop Room" (CR 709.5e), "{2}{U}: Turn face up" for a manifested or cloaked
+         * creature card (CR 701.40b), "{2}: Foretell" (CR 702.143b); null for a rule it doesn't know.
          */
-        fun ruleText(definition: CardDefinition?, origin: AbilityOrigin.Rule): String? = when (origin.name) {
-            UNLOCK_LEFT, UNLOCK_RIGHT -> definition?.faces?.getOrNull(if (origin.name == UNLOCK_LEFT) 0 else 1)?.name
-                ?.takeIf { it.isNotBlank() }?.let { "Unlock $it" }
-            MANIFESTED -> definition?.faces?.firstOrNull()?.manaCost?.toString()?.takeIf { it.isNotEmpty() }
-                ?.let { "Turn face up for $it" } ?: "Turn face up"
-            FORETELL -> "Foretell (During your turn, you may pay {2} and exile this card from your hand face down.)"
-            else -> null
+        fun ruleText(definition: CardDefinition?, origin: AbilityOrigin.Rule): String? = specialActionText(definition, origin)
+
+        /**
+         * TBL-115 (owner, 2026-11-20): a special action (CR 116.2) named as an ability reads: its cost first, then ":", then
+         * what it does: "{3}{R}: Unlock Dusty Attic" (CR 709.5e), "{2}{U}: Turn face up" (a manifested or cloaked card's mana
+         * cost, CR 701.40b; a morph's or disguise's cost, CR 702.37e, 702.168d), "{2}: Foretell" (CR 702.143b), "{1}{R}: Plot"
+         * (CR 702.170a), "{R}: Suspend 3" (CR 702.62a). The printed cost (an effect changing it shows in the payment); one
+         * without a cost is only what it does. [action] is the ability when the caller has it. Null for anything that isn't a
+         * special action, or one it can't name.
+         */
+        fun specialActionText(definition: CardDefinition?, origin: AbilityOrigin, action: Ability.SpecialAction? = null): String? {
+            val (cost, words) = specialActionParts(definition, origin, action) ?: return null
+            return if (cost.isEmpty()) words else "$cost: $words"
+        }
+
+        /** [specialActionText]'s cost as printed ("" for none) and words. */
+        private fun specialActionParts(definition: CardDefinition?, origin: AbilityOrigin, given: Ability.SpecialAction?): Pair<String, String>? {
+            if (origin is AbilityOrigin.Rule) return when (origin.name) {
+                UNLOCK_LEFT, UNLOCK_RIGHT -> {
+                    val half = definition?.faces?.getOrNull(if (origin.name == UNLOCK_LEFT) 0 else 1)
+                    half?.name?.takeIf { it.isNotBlank() }?.let { (half.manaCost?.toString() ?: "") to "Unlock $it" }
+                }
+                MANIFESTED -> (definition?.faces?.firstOrNull()?.manaCost?.toString() ?: "") to "Turn face up"
+                FORETELL -> "{2}" to "Foretell"
+                else -> null
+            }
+            val printed = when (origin) {
+                is AbilityOrigin.Printed -> origin
+                is AbilityOrigin.Expansion -> origin.keyword as? AbilityOrigin.Printed
+                else -> null
+            } ?: return null
+            val ability = definition?.faces?.getOrNull(printed.face)?.abilities?.getOrNull(printed.index)
+            val keyword = ability as? Keyword
+            val action = given ?: when {
+                ability is Ability.SpecialAction -> ability
+                keyword != null && origin is AbilityOrigin.Expansion ->
+                    arcanum.engine.view.KeywordMeanings.expand(keyword).getOrNull(origin.index) as? Ability.SpecialAction
+                else -> null
+            } ?: return null
+            val words = when {
+                action.instructions.steps.any { (it as? arcanum.api.Step.Do)?.effect is arcanum.api.Effect.TurnFaceUp } -> "Turn face up"
+                keyword is Keyword.Suspend -> "Suspend ${keyword.amount}"
+                keyword != null -> keyword.text
+                else -> action.text?.ifBlank { null }
+            } ?: return null
+            return AbilityText.cost(action.cost) to words
         }
 
         /**
@@ -317,7 +356,8 @@ class CastFlow private constructor(
         fun specialActionDone(definition: CardDefinition?, origin: AbilityOrigin, name: String?): String? {
             val card = name ?: "a card"
             if (origin is AbilityOrigin.Rule) return when (origin.name) {
-                UNLOCK_LEFT, UNLOCK_RIGHT -> ruleText(definition, origin)?.removePrefix("Unlock ")?.let { "unlocked $it" } ?: "unlocked a door"
+                UNLOCK_LEFT, UNLOCK_RIGHT -> definition?.faces?.getOrNull(if (origin.name == UNLOCK_LEFT) 0 else 1)?.name
+                    ?.takeIf { it.isNotBlank() }?.let { "unlocked $it" } ?: "unlocked a door"
                 MANIFESTED -> "turned $card face up"
                 FORETELL -> "foretold a card"
                 else -> null

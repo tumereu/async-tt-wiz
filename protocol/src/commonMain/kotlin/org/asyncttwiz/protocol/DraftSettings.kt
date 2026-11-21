@@ -76,7 +76,15 @@ data class DraftSettings(
     val reuseCards: Boolean = false,
     /** Arena (DRF-281, owner 2026-11-21): the first this-many picks offer rares, before [rareEvery] takes over; 0: none. */
     val initialRares: Int = 1,
+    /**
+     * Bot seats (owner 2026-11-21): seats the server fills with draft bots ([DraftBotSeats]), 0 up to the engine's
+     * [DraftMode.maxBots]: a pod still needs two humans, its creator and one more.
+     */
+    val bots: Int = 0,
 ) {
+    /** The draft's seats with [humans] members: they and the [bots]. */
+    fun seats(humans: Int): Int = humans + bots
+
     private val custom: Boolean get() = mode == DraftMode.CUSTOM_BOOSTER
 
     /**
@@ -101,8 +109,10 @@ data class DraftSettings(
      */
     fun keepsOnly(cards: Int, keep: Long, taken: Int = 0): Boolean = cards <= keep + burnAt(taken) + discardAt
 
+    /** What is wrong with these settings for a draft of [players] seats, bot seats included ([seats]). */
     fun validate(players: Int): List<DraftSettingsIssue> = buildList {
         if (sideboardLimit != null && sideboardLimit < 0) add(DraftSettingsIssue.SIDEBOARD_LIMIT)
+        if (bots !in 0..mode.maxBots) add(DraftSettingsIssue.BOTS)
         if (librarians !in 0..10 || !mode.packPassing && librarians != 0) add(DraftSettingsIssue.LIBRARIANS)
         if (players !in mode.players) add(DraftSettingsIssue.PLAYERS)
         if (mode.limited) {
@@ -216,6 +226,8 @@ data class DraftSettings(
     RARITY_SCHEDULE,
     /** Arena: the mythic chance out of range (DRF-282). */
     MYTHIC_CHANCE,
+    /** Bot seats out of range, or any in a mode without them ([DraftMode.maxBots]). */
+    BOTS,
 }
 
 @Serializable data class DraftCubeEntry(val definition: String, val quantity: Int, val colors: Set<DraftColor> = emptySet(), val librarian: Boolean = false)
@@ -224,7 +236,8 @@ data class DraftSettings(
     val sufficient: Boolean get() = needed <= available
 }
 
-/** Supply is counted, not expanded, so the setup UI can display invalid/insufficient settings too. */
+/** Supply is counted, not expanded, so the setup UI can display invalid/insufficient settings too. [players]: the draft's
+ * seats, bot seats included ([DraftSettings.seats]). */
 fun DraftSettings.supply(players: Int, cube: List<DraftCubeEntry>) = DraftSupply(
     if (mode == DraftMode.GRID) grids.toLong() * (9 + if (gridRefills(players)) 3 else 0)
     else if (mode.limited) LimitedEngine.needed(this, players)

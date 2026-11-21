@@ -110,4 +110,22 @@ class DraftBotTest {
         assertEquals(listOf("Stats 2/2 for 2"), labels(card("Netter", "{1}{G}", "Creature — Spider",
             "Creatures with flying can't attack you.", "2", "2")))
     }
+
+    // DRF-300: several cards taken together count sublinearly (owner 2026-11-21): one 99 beats two 50s, two 80s beat one 99
+    @Test fun severalCardsTogetherAreWorthLessThanTheirSum() {
+        assertTrue(DraftBot.value(listOf(99)) > DraftBot.value(listOf(50, 50)))
+        assertTrue(DraftBot.value(listOf(80, 80)) > DraftBot.value(listOf(99)))
+        // Best first, each half the one before; the order given doesn't matter, and an unwanted card adds nothing
+        assertEquals(80.0 + 40.0 + 5.0, DraftBot.value(listOf(20, 80, 80)))
+        assertEquals(DraftBot.value(listOf(52)), DraftBot.value(listOf(52, -9, 0)))
+        assertEquals(0.0, DraftBot.value(emptyList()))
+    }
+
+    // DRF-299: a bot burns the strongest cards left by their score without colour, whatever colours it leans to
+    @Test fun burnsTakeTheStrongestCardsLeftWithoutColour() {
+        val rest = listOf(offer("ox", vanilla), offer("bolt", bolt), offer("land", mountain), offer("white", whiteBear))
+        assertEquals(listOf("bolt"), DraftBot.burns(rest, 1))
+        assertEquals(listOf("bolt", "white"), DraftBot.burns(rest, 2))
+        assertEquals(emptyList(), DraftBot.burns(rest, 0))
+    }
 }

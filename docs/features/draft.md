@@ -60,8 +60,8 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 - **DRF-018** For the creator the source is a button showing its name (or "No source") with a switch icon, opening a Source dialog with searchable Cubes | Sets tabs and a Manage cubes button; beside it is the Mix sets toggle (DRF-177). Members see the name alone. (r17)
 - **DRF-019** Choosing a source closes the dialog and shows it at once; getting it ready finishes in the background, and a failure restores the previous source. (r17)
 - **DRF-029** Only the creator edits name, source and settings; members see them read-only. Edits apply at once without disabling anything and save in the background. A name that can't be saved (the emptied field) waits in the field until a name is typed; leaving the pod then keeps the last saved name and saves the other edits. (r17)
-- **DRF-030** Setup lists members and pending invitations with "Members (N/L)", L the engine's player limit (DRF-150); the creator invites through the shared player picker, up to 8 members and invitations together. (r35)
-- **DRF-020** A full-width mode button shows the pod's mode with a switch icon; tapping it opens a popup list of Booster, Custom booster (DRF-260), Grid, Rochester, Rotisserie, Winston, Winchester, Sealed and Arena (DRF-280), each with its player range. Choosing one loads that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). (r74)
+- **DRF-030** Setup lists members, bot seats (DRF-297) and pending invitations with "Members (N/L)", N counting the bot seats, L the engine's player limit (DRF-150); the creator invites through the shared player picker, up to 8 members and invitations together. (r35)
+- **DRF-020** A full-width mode button shows the pod's mode with a switch icon; tapping it opens a popup list of Booster, Custom booster (DRF-260), Grid, Rochester, Rotisserie, Winston, Winchester, Sealed and Arena (DRF-280), each with its player range. Choosing one loads that mode's default settings, keeping the sideboard limit, Librarians (Grid always has no Librarians) and bot seats (DRF-296). (r74)
 - **DRF-190** Glimpse is a preset of Booster (DRF-200), and a pod's mode always reads "Booster", also for pods created as Glimpse. (r74)
 - **DRF-022** Settings are square tiles (small label, big value); tapping one opens a dialog that saves only valid in-range values, with a short explanation of the setting and its limits. Winston and Winchester have a "Tables" tile after Piles. (r60)
 - **DRF-191** Rochester's "Open packs" tile reads "1 each" (one per player) until a number is set; its dialog has a square "1 each" toggle like the sideboard's ∞. (r60)
@@ -106,17 +106,26 @@ games with their pod decks. Each pod has its own chat, and notifications tell yo
 
 ## Starting, leaving and cancelling
 
-- **DRF-035** The creator's "Start draft" needs at least 2 accepted members and no more than the engine allows (DRF-150), settings that fit them and a source with enough cards; there is no Ready step. (r35)
-- **DRF-150** Each engine has a player limit: Booster, Custom booster, Rochester, Rotisserie, Sealed and Arena 2–8; Grid, Winston and Winchester 2–4. Start is refused when more members have joined than the engine allows, with the reason under it ("Grid takes at most 4 players; 5 have joined."). (r35)
+- **DRF-035** The creator's "Start draft" needs at least 2 accepted members (bot seats don't count: DRF-296) and no more than the engine allows (DRF-150), settings that fit them and a source with enough cards; there is no Ready step. (r35)
+- **DRF-150** Each engine has a player limit: Booster, Custom booster, Rochester, Rotisserie, Sealed and Arena 2–8; Grid, Winston and Winchester 2–4. Bot seats count as players. Start is refused when more members have joined than the engine allows, with the reason under it ("Grid takes at most 4 players; 5 have joined.", with bots "Grid takes at most 4 players; 3 have joined, with 2 bots."). (r35)
 - **DRF-036** While invitations are pending the button is "Start when everyone accepts"; armed, it reads "Starts when N more accept · Cancel" and members see "Starts automatically when everyone accepts". (r21)
 - **DRF-037** Auto-start begins the draft when the last invitee accepts; a decline or a failed start turns it off with a setup line like "Bob declined; auto-start is off" and a notification. (r21)
-- **DRF-163** Auto-start can't be armed while members plus pending invitations exceed the engine's limit (DRF-150): "Grid takes at most 4 players; 5 are joined or invited.". (r35)
+- **DRF-163** Auto-start can't be armed while members plus pending invitations (plus bot seats) exceed the engine's limit (DRF-150): "Grid takes at most 4 players; 5 are joined or invited." (with bots "…; 3 are joined or invited, with 2 bots."). (r35)
 - **DRF-203** An armed auto-start survives settings changes, but a change or invitation that puts the pod over the engine's limit switches it off and tells the creator why ("Auto-start off — <pod>"; setup line "Too many players for Winston (at most 4); auto-start is off"). (r35)
 - **DRF-038** The pod ⋮ menu offers "Start now" while invitations are pending (confirmed; pending invitations are cancelled), Cancel draft while drafting (creator), and Destroy (creator) or Leave. (r21)
 - **DRF-039** Leaving during the draft warns "This cancels the draft for all N players and discards all picks." and returns the pod to setup; the creator's Cancel draft does the same. (r16)
 - **DRF-040** Cancelling keeps source, settings and remaining members; starting again deals a fresh shuffle from the same source. One completed draft per pod. (r16)
 - **DRF-041** Leaving after the draft withdraws your unaccepted challenges; when only one member is left the pod is destroyed. Destroy is confirmed and removes the pod for everyone. (r16)
 - **DRF-042** Games already started from a pod survive any leave, cancel or destroy and stay in the normal Games list. (r16)
+
+## Bot seats
+
+- **DRF-296** Booster, Custom booster, Grid, Rochester, Rotisserie, Winston and Winchester have a "Bots" tile just before Sideboard, default 0: seats the server fills with draft bots, up to the engine's player limit less two (6; Grid, Winston and Winchester 2), so a pod still needs its creator and one more person. Sealed and Arena have no bots. (owner, 2026-11-21)
+- **DRF-297** Bot seats are named "Bot 1", "Bot 2"… with the plain initial avatar: in setup listed after the members as "bot"; in a started pod among the members everywhere the draft shows players (header avatars and badges, waiting lines, pickers on boards, Picks, the seating ring). The Pods list's avatars and the Games tab show only people. (owner, 2026-11-21)
+- **DRF-298** The server makes a bot's move the moment a pack, grid, pile or turn reaches its seat, in the same step as the move that brought it there, so the draft never waits for a bot. A bot sees only what its seat may see and rates cards as the draft bot does (DRF-292); the server logs every bot move. (owner, 2026-11-21)
+- **DRF-299** A bot burns, where a pick burns cards, the strongest cards left by their score without colour: what any player the pack goes to next would want most. (owner, 2026-11-21)
+- **DRF-300** Cards a bot takes together (a Grid line, a Winston or Winchester pile) count best first, each half as much as the one before: one 99 beats two 50s, two 80s beat one 99. In Winston it takes the pile it looks at when worth 60 or more (the last pile with cards: 40, a blind card), else passes; it takes one it can't pass. (owner, 2026-11-21)
+- **DRF-301** Bots only draft: their picks stay with the draft, they build no deck and play no games, and "Decks ready" comes when every person has submitted. (owner, 2026-11-21)
 
 ## The pod screen
 

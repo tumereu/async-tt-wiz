@@ -187,7 +187,9 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
         AppLog.info("game", "Combat hold ${combatHold.kind::class.simpleName} in ${combatHold.event.take(8)}: ${combatHoldMillis} ms" +
             (if (motion.playing) " (steps stopped at the ${if (combatHold.kind == GameDevice.CombatMoment.Damage) "damage dealt" else "attackers"})"
                 else " (steps over, the board as it is)") + if (routes.viewPause.paused) ", paused by a finger or Inspect" else "")
-        routes.viewPause.wait(combatHoldMillis)
+        // WEB-067: the frame times name the hold among what animates while it lasts
+        DebugJank.animation("combat hold", true)
+        try { routes.viewPause.wait(combatHoldMillis) } finally { DebugJank.animation("combat hold", false) }
         engine.dismissCombatHold(combatHold); controller.engineSent()
     }
     // HIS-107: an Undo tapped while the player's own action is still being worked out waits for it
@@ -334,7 +336,9 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val choosing = if (reviewPlay == null) routes.choosingText(play) else null
     // TRN-066: what the band says reaches the report, once per change
     val waitLogged = remember(game.id) { AtomicReference<String?>(null) }
-    val chatOpener = { controller.openChat(tab = ChatTabs.opening(podAvailable, state.chatUnread, podUnread, controller.lastChatTab(game.id))) }
+    // Web frame rate (owner, 2026-11-20: the desktop table stutters when plays happen): the table's hooks keep the same lambdas
+    // while their captured values change (steadyHook), so a new lobby state alone doesn't compose the whole table again
+    val chatOpener = steadyHook { controller.openChat(tab = ChatTabs.opening(podAvailable, state.chatUnread, podUnread, controller.lastChatTab(game.id))) }
     val desktopFrame = if (desktopLayout) DesktopFrame(dockOpen) else null
     // WEB-031, WEB-032: the desktop table's hotkeys (§6), never while a text field has the keyboard
     val hotkeys = remember(game.id) { TableHotkeys() }
@@ -437,7 +441,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 // ones after it remembered, the table's key with them: every lambda is made whatever holds, a condition only
                 // picks one, and the hooks have a group of their own, so nothing in them reaches the table's
                 val rewindSettled = { _: String -> scope.launch { delay(rewindPause); motion.settled() }; Unit }
-                val enterTimeline = { routes.enterReview(timeline.last().id) }
+                val enterTimeline = steadyHook { routes.enterReview(timeline.last().id) }
                 val leaveTimeline = { routes.leaveReview() }
                 val reviewPanel: @Composable (@Composable () -> Unit) -> Unit = { _ ->
                     EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause) { playbackSettingsOpen = true }
@@ -445,9 +449,15 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 val rewindPanel: @Composable (@Composable () -> Unit) -> Unit = { _ -> EngineRewindPanel(landscape) }
                 val watch = { watchTappedAt = shown.version; engine.startPlayback(); controller.engineSent() }
                 val pausePlayback = { engine.pause(); controller.engineSent() }
+                // WEB-090: the dock's focus modifier made once (web frame rate, owner 2026-11-20: a new one each composition
+                // composed the dock and its chat again whenever the table did)
+                val dockModifier = remember(dockFocus) { dockFocus.dock(Modifier) }
                 val dock: @Composable () -> Unit = {
-                    DesktopDock(dockFocus.dock(Modifier)) { modifier -> ChatPanel(controller, accountId, modifier, docked = true) }
+                    DesktopDock(dockModifier) { modifier -> ChatPanel(controller, accountId, modifier, docked = true) }
                 }
+                // Stack animation step 4's settle, made anew with each board, as one lambda that runs the latest (steadyNodeHook)
+                val settle = steadyNodeHook(stackAnimation.settleHook(scope, play, moveMultiplier, routes.viewPause, gameWaits, motion::key, motion::settled))
+                val gameId = game.id
                 val hooks = key("table hooks") { TableRuntimeHooks(chat = chatOpener,
                         navigation = hamburger.takeIf { !takingBack }, chatUnread = ChatTabs.buttonUnread(state.chatUnread, podUnread),
                         undo = { routes.undo() }, undoHold = { routes.holdUndo() }, undoShakes = routes.undoShake, undoShakeReason = routes.undoShakeReason,
@@ -460,7 +470,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         reviewing = reviewing, liveView = !reviewing, changes = changes,
                         // Stack animation step 4: the top entry's arrows play before the board's next step
                         onSceneSettled = if (reviewPlay != null) null else if (rewindingBranch) rewindSettled
-                            else stackAnimation.settleHook(scope, play, moveMultiplier, routes.viewPause, gameWaits, motion::key, motion::settled),
+                            else settle,
                         // Stack animation step 5: a repeat's resolution plays its effect's animations faster
                         sceneTimeShare = if (reviewPlay != null) 1.0 else stackAnimation.resolutionShare(play, unhidden),
                         // HIS-112: a play shown's entry appears on the Stack where it landed, never flying there again
@@ -495,21 +505,34 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                         // WEB-137, WEB-138: on the desktop table twice the size, the other player's shown while the dock is open
                         // too and gone by itself after a few seconds (a click reads it and closes it)
                         chatBubbles = if (desktopLayout) TableChatBubbles(state.chatDesktopBubble, state.chatSent, tableShown = true,
-                            routes.opponentName, read = { controller.readChatBubble(game.id, it); controller.desktopChatBubbleGone(game.id, it) },
-                            open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) },
-                            scale = ChatBubbleRules.DESKTOP_SCALE, incomingGone = { controller.desktopChatBubbleGone(game.id, it) })
+                            routes.opponentName, read = { controller.readChatBubble(gameId, it); controller.desktopChatBubbleGone(gameId, it) },
+                            open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(gameId, it) },
+                            scale = ChatBubbleRules.DESKTOP_SCALE, incomingGone = { controller.desktopChatBubbleGone(gameId, it) })
                         else TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape,
-                            routes.opponentName, read = { controller.readChatBubble(game.id, it) },
-                            open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) }),
+                            routes.opponentName, read = { controller.readChatBubble(gameId, it) },
+                            open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(gameId, it) }),
                         // LOB-139: quick messages from your own Life panel, sent as any message; Write opens the chat
                         quickChat = TableQuickChat(interactive && game.lifecycle == GameLifecycle.ACTIVE && game.playId != null,
                             send = controller::sendQuickChat, write = { controller.writeChat() }),
                         // WEB-017: the game chat docked at the right (the Stack stays on the table, STK-007)
-                        desktopDock = if (!chatDocked) null else dock) }
+                        desktopDock = if (!chatDocked) null else dock,
+                        // The device's shown state the table reads through its routes: a new one composes it again
+                        shownVersion = shown.version) }
+                // WEB-068: a frame that composed this screen again says so in the frame times
+                SideEffect { DebugJank.composed("screen") }
+                // Web frame rate (owner, 2026-11-20): the game as the table reads it, the same object across its revisions; and the
+                // hooks the table had while the new ones are equal (Compose tells them apart by identity: new equal hooks
+                // composed the whole table again with every composition of this screen)
+                val tableGameShown = remember(game.id) { arrayOfNulls<GameSummary>(1) }
+                val steadyGame = tableGame(tableGameShown[0], game)
+                SideEffect { tableGameShown[0] = steadyGame }
+                val hooksShown = remember(game.id) { arrayOfNulls<TableRuntimeHooks>(1) }
+                val steadyHooks = hooksShown[0]?.takeIf { it == hooks } ?: hooks
+                SideEffect { hooksShown[0] = steadyHooks }
                 key(game.id) {
-                    TableSurface(game, play, accountId, landscape || desktopLayout,
+                    TableSurface(steadyGame, play, accountId, landscape || desktopLayout,
                         if (desktopLayout) dockFocus.table(Modifier.fillMaxSize()) else Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
-                        onIntent = toolkit::handle, toolkit = toolkit, runtime = hooks)
+                        onIntent = toolkit::handle, toolkit = toolkit, runtime = steadyHooks)
                 }
                 // Over the top row (whose move/step/turn), never taking its taps; WEB-020: on the desktop table at the
                 // battlefields' top, centred over them (the other player's seat box floats at their top left, WEB-016)

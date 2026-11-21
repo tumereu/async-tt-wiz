@@ -80,6 +80,57 @@ class OtjChunk10ConditionsScenariosTest {
         expect { safecracker.power shouldBe 3 }
     }
 
+    // Prod report WGEG3N: the crime's target is gone when the condition is read later in the turn
+    private val vigilante = Cards.invent("Harborgate Vigilante", "{1}{W}", "Creature — Human Mercenary",
+        "This creature has double strike as long as you've committed a crime this turn. $crimeNote", "2/2")
+    private val gnawer = Cards.invent("Hungry Gnawer", "{1}{G}", "Creature — Varmint",
+        "Vigilance\n{1}, Sacrifice this creature: Destroy target artifact or enchantment.", "2/2")
+    private val tether = Cards.invent("Mesa Tether", "{2}{W}", "Enchantment", "")
+
+    // CR 700.13, 608.2: the crime was committed as the ability was activated; the destroyed target leaving the battlefield
+    // afterwards doesn't take it back (WGEG3N: the creature lost its double strike, CR 702.4b)
+    @Test
+    fun aCrimeStaysCommittedAfterItsTargetIsDestroyed() = scenario {
+        alice.battlefield(vigilante, gnawer, "Forest")
+        bob.battlefield(tether)
+        expect { vigilante lacksKeyword Keyword.DoubleStrike.kind }
+        alice.activates(gnawer, target = tether)
+        resolveAll()
+        expect {
+            bob.graveyard has tether
+            vigilante hasKeyword Keyword.DoubleStrike.kind
+        }
+    }
+
+    // CR 700.13: a creature an opponent controls dealt lethal damage by the crime's spell still counts after it dies
+    @Test
+    fun aCrimeStaysCommittedAfterItsTargetDies() = scenario {
+        alice.battlefield(safecracker)
+        alice.hand(toss)
+        bob.battlefield(Cards.invent("Dusty Wisp", "{W}", "Creature — Spirit", "", "1/1"))
+        alice.castsWithoutCosts(toss, target = "Dusty Wisp")
+        resolveAll()
+        expect {
+            bob.graveyard has "Dusty Wisp"
+            safecracker.power shouldBe 3
+        }
+    }
+
+    // CR 700.13: whether it was a crime is decided as the spell is cast: gaining control of the target later in the turn
+    // doesn't undo it
+    @Test
+    fun aCrimeStaysCommittedAfterGainingControlOfItsTarget() = scenario {
+        alice.battlefield(safecracker, "Mountain", "Mountain", "Mountain")
+        alice.hand(heist)
+        bob.battlefield(brute)
+        alice.casts(heist, target = brute)
+        resolveAll()
+        expect {
+            brute.controller shouldBe alice.id
+            safecracker.power shouldBe 3
+        }
+    }
+
     // CR 122.1d: a tapped target gets a stun counter; with three players the target may be any opponent's
     @Test
     fun hurlerStunsATappedCreature() = scenario(players = 3) {

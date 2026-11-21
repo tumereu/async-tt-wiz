@@ -382,13 +382,15 @@ class StackAnimation(private val viewer: String, private val clock: () -> Long =
         var last = start
         var paused = 0L
         // Done however it ends (the table closing cancels it): nothing waits on it then
+        // WEB-067: the frame times name the arrows among what animates while they grow
+        DebugJank.animation("arrows", true)
         try {
             while (step.elapsed < step.total && !step.skipped) {
                 val now = withFrameMillis { it }
                 if (pause?.paused == true) paused += now - last else step.elapsed += now - last
                 last = now
             }
-        } finally { step.done = true }
+        } finally { step.done = true; DebugJank.animation("arrows", false) }
         targetPace.landed(last)
         if (lastTop == entry) arrowed = entry
         val waitFor = why()

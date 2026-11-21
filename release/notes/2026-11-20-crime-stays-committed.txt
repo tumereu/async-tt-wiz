@@ -1,0 +1,1 @@
+fix: A crime stays committed for the rest of the turn when what you targeted leaves the battlefield or changes hands, so cards like Omenport Vigilante keep double strike

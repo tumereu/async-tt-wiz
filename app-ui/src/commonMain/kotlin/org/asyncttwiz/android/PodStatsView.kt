@@ -19,7 +19,12 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -357,13 +362,13 @@ private fun PodStatsToggle(options: List<Pair<Boolean, String>>, chosen: Boolean
 private val podStatsBasisOptions = listOf(false to "Cast cost", true to "Identity")
 
 /**
- * DRF-117, DRF-242: the Main nonland cards per colour by cast costs or by colour identity: a row per colour, W U B R G,
- * Multicolor and Colorless, with its count, its share of the nonland cards and a bar where the full width is all of them;
- * a multicolor card counts in each of its colours and in Multicolor, said under the rows.
+ * DRF-117, DRF-242 (owner, 2026-11-20): the Main nonland cards by their colours, by cast costs or by colour identity, as a
+ * pie: a slice per single colour and per multicolour combination the deck holds, and Colorless, each card counted once;
+ * beside it a legend of the slices with their counts and shares of the nonland cards.
  */
 @Composable
 private fun PodStatsColors(stats: PodStats, choice: PodStatsCurveChoice, modifier: Modifier) {
-    val counts = stats.colors(choice.byIdentity)
+    val slices = stats.slices(choice.byIdentity)
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     val outline = MaterialTheme.colorScheme.outline
     Column(modifier.testTag("pod-stats-colors"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -371,32 +376,73 @@ private fun PodStatsColors(stats: PodStats, choice: PodStatsCurveChoice, modifie
             Text("Colors", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
             PodStatsToggle(podStatsBasisOptions, choice.byIdentity, "pod-stats-colors-toggle", "pod-stats-colors", choice::chooseIdentity)
         }
-        Column(Modifier.fillMaxWidth().clearAndSetSemantics {
+        Row(Modifier.fillMaxWidth().clearAndSetSemantics {
             contentDescription = "Colors by ${if (choice.byIdentity) "identity" else "cast cost"}: " +
-                PodStatsColor.entries.joinToString { "${it.podStatsCurveName()} ${podStatsColorLine(counts.getValue(it), stats.nonland)}" }
-        }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            PodStatsColor.entries.forEachIndexed { index, color ->
-                val count = counts.getValue(color)
-                Row(Modifier.fillMaxWidth().testTag("pod-stats-color-${color.name}"), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PodStatsSwatch(podStatsPalette[index])
-                    Text(color.podStatsCurveName(), Modifier.width(72.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1)
-                    Text(podStatsColorLine(count, stats.nonland), Modifier.width(64.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1)
-                    Canvas(Modifier.weight(1f).height(PodStatsSourceBarHeight)) {
-                        val radius = CornerRadius(size.height / 2)
-                        drawRoundRect(track, cornerRadius = radius)
-                        val width = (size.width * podStatsColorShare(count, stats.nonland)).toFloat()
-                        if (width > 0f) {
-                            drawRoundRect(podStatsPalette[index], size = Size(width, size.height), cornerRadius = radius)
-                            // A fine line keeps the pale mana colours distinct, as in the curve.
-                            drawRoundRect(outline, size = Size(width, size.height), cornerRadius = radius, style = Stroke(1.dp.toPx()))
-                        }
+                slices.joinToString { "${it.name} ${podStatsColorLine(it.count, stats.nonland)}" }.ifEmpty { "no nonland cards" }
+        }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Canvas(Modifier.size(PodStatsPieSize).testTag("pod-stats-colors-pie")) {
+                val total = slices.sumOf { it.count }
+                val line = 1.dp.toPx()
+                val radius = size.minDimension / 2 - line
+                val topLeft = center - Offset(radius, radius)
+                val box = Size(radius * 2, radius * 2)
+                if (total == 0) drawCircle(track, radius)
+                var start = -90f
+                for (slice in slices) {
+                    val sweep = 360f * slice.count / total
+                    val path = Path().apply {
+                        if (slice.count == total) addOval(Rect(topLeft, box))
+                        else { moveTo(center.x, center.y); arcTo(Rect(topLeft, box), start, sweep, false); close() }
                     }
+                    podStatsSliceFill(path, slice.colors)
+                    drawPath(path, outline, style = Stroke(line))
+                    start += sweep
+                }
+                if (total == 0) drawCircle(outline, radius, style = Stroke(line))
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (slice in slices) Row(Modifier.fillMaxWidth().testTag("pod-stats-slice-${slice.name}"),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Canvas(Modifier.size(12.dp)) {
+                        val path = Path().apply { addOval(Rect(Offset.Zero, size)) }
+                        podStatsSliceFill(path, slice.colors)
+                        drawPath(path, outline, style = Stroke(1.dp.toPx()))
+                    }
+                    Text(slice.name, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    Text(podStatsColorLine(slice.count, stats.nonland), style = MaterialTheme.typography.labelMedium, maxLines = 1)
                 }
             }
         }
-        Text("A multicolor card counts in each of its colors.", Modifier.testTag("pod-stats-colors-note"),
-            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** DRF-117: the Colors pie's diameter. */
+private val PodStatsPieSize = 136.dp
+/** DRF-117: the width of each stripe of a two-colour slice. */
+private val PodStatsStripe = 4.dp
+
+/**
+ * DRF-117 (owner, 2026-11-20): fills [path] as a slice of [colors]: one colour in its own, two striped in both, three or
+ * more gold (Multicolor's), none grey (Colorless's), in Stats' palette.
+ */
+private fun DrawScope.podStatsSliceFill(path: Path, colors: List<DraftColor>) {
+    fun paint(color: DraftColor) = podStatsPalette[color.ordinal]
+    when (colors.size) {
+        0 -> drawPath(path, podStatsPalette[6])
+        1 -> drawPath(path, paint(colors.single()))
+        2 -> clipPath(path) {
+            drawRect(paint(colors[0]))
+            val stripe = PodStatsStripe.toPx()
+            val reach = size.maxDimension
+            rotate(45f) {
+                var x = -reach
+                while (x < reach) {
+                    drawRect(paint(colors[1]), Offset(center.x + x, center.y - reach), Size(stripe, reach * 2))
+                    x += stripe * 2
+                }
+            }
+        }
+        else -> drawPath(path, podStatsPalette[5])
     }
 }
 

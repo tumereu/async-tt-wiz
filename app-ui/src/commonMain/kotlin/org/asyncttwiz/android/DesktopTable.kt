@@ -470,10 +470,16 @@ class DockFocus {
         return dockBounds?.contains(at) != true
     }
 
+    /** [modifier] for the table's surface, the same object while [modifier] and the focus manager stay (web frame rate, owner
+     * 2026-11-20: a new one each composition composed the whole table again with every composition of its screen). */
     @Composable
     fun table(modifier: Modifier): Modifier {
         val focus = androidx.compose.ui.platform.LocalFocusManager.current
-        return modifier.onGloballyPositioned { surface = it }.pointerInput(this) {
+        return androidx.compose.runtime.remember(this, modifier, focus) { tableModifier(modifier, focus) }
+    }
+
+    private fun tableModifier(modifier: Modifier, focus: androidx.compose.ui.focus.FocusManager): Modifier =
+        modifier.onGloballyPositioned { surface = it }.pointerInput(this) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false,
                     pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
@@ -483,7 +489,6 @@ class DockFocus {
                 }
             }
         }
-    }
 }
 
 /** The test tag of each desktop seat box (WEB-016): its bounds are the box's. */

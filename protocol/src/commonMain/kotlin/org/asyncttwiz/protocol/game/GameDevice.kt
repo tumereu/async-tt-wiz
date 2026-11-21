@@ -773,7 +773,7 @@ class GameDevice(
      * [cards] in the order revealed, and what revealed them, [source] (the card of the spell or ability, null when none is
      * known) and its [sourceName] then. Each reveal is one panel; while one is open ([reveal]) playback holds the events
      * after it, as at a playback stop, until the player dismisses it ([dismissReveal]). The player's own choice among cards
-     * they already see isn't one for them ([ownRevealNews]). Personal: nothing is sent, the other player's phone never
+     * they already see isn't one for them ([ownRevealSeen]). Personal: nothing is sent, the other player's phone never
      * waits, and the device still makes its own steps at the head.
      */
     @kotlinx.serialization.Serializable data class Reveal(val event: String, val by: PlayerId, val cards: List<arcanum.engine.state.CardId>,
@@ -939,11 +939,15 @@ class GameDevice(
                 if (r.by == me) remember("own pile move, nothing shown: $what")
                 else if (r.left.to == arcanum.api.Zone.Hand && r.left.owner == me) remember("pile move into this player's own hand, nothing shown: $what")
                 else { revealsOpen += r; remember("pile move open (left a public pile for a hidden zone): $what") }
-            } else if (r.by != me || ownRevealNews(line, e, r)) {
-                revealsOpen += r
-                remember("reveal open: ${r.by.value.take(8)} ${if (r.exiled != null) "exiled from ${r.exiled.owner.value.take(8)}'s library" else "revealed"} " +
-                    "${r.cards.map { it.value }} by ${r.sourceName} in ${e.id}")
-            } else remember("own ${if (r.exiled != null) "library exile" else "reveal"} in ${e.id} shows nothing new: ${r.cards.map { it.value }}")
+            } else {
+                val seenIn = if (r.by != me) null else ownRevealSeen(line, e, r)
+                if (seenIn == null) {
+                    revealsOpen += r
+                    remember("reveal open: ${r.by.value.take(8)} ${if (r.exiled != null) "exiled from ${r.exiled.owner.value.take(8)}'s library" else "revealed"} " +
+                        "${r.cards.map { it.value }} by ${r.sourceName} in ${e.id}")
+                } else remember("own ${if (r.exiled != null) "library exile" else "reveal"} in ${e.id} shows nothing new, no panel: ${r.cards.map { it.value }} by " +
+                    "${r.sourceName}, $seenIn")
+            }
             if (showPlays) momentsIn(e, me).takeIf { it.isNotEmpty() }?.let { moments ->
                 showsOpen += moments
                 remember("view holds open in ${e.id.take(8)}: ${moments.map { m -> when (m) {
@@ -955,27 +959,37 @@ class GameDevice(
     }
 
     /**
-     * HIS-110 (owner 2026-11-09): whether the player's own reveal [reveal] in [event], on the shown [line], is news to them,
-     * so that it stops them too: some of its cards they couldn't see before [event] and weren't offered in a decision of
-     * theirs in it (a search's choice, cards revealed and then chosen among, also the decision [event] leaves open): their
-     * own choice among cards they already see isn't a reveal, and nothing asks them twice.
+     * HIS-110 (owner 2026-11-09), HIS-155: where the player's own reveal [reveal] in [event], on the shown [line], is no news to
+     * them, so that it opens no panel of theirs: all of its cards they could see before [event] or were shown in a decision of
+     * theirs in it (a search's choice, cards revealed and then chosen among, also the decision [event] leaves open); null when
+     * it is news and stops them too. Owner 2026-11-21: a choice among cards revealed, looked at or exiled face up shows the
+     * group's cards it can't choose with it ([Decision.ChooseObjects.others]), so those count as shown in it: one panel, the
+     * choice's. Their own choice among cards they already see isn't a reveal, and nothing asks them twice.
      */
-    private fun ownRevealNews(line: List<GameEvent>, event: GameEvent, reveal: Reveal): Boolean {
+    private fun ownRevealSeen(line: List<GameEvent>, event: GameEvent, reveal: Reveal): String? {
         val at = line.indexOfFirst { it.id == event.id }
-        if (at < 0) return true
+        if (at < 0) return null
         val before = model.copy()
         for (i in line.lastIndex downTo at) before.revert(line[i])
-        if (before.stale) return true
+        if (before.stale) return null
         fun cards(ids: Collection<ObjectId>) = ids.mapNotNullTo(HashSet()) { (it as? ObjectId.Card)?.card }
         val seen = cards(Host.visible(before.engine, me))
         val state = before.engine
-        fun offered() { (state.pending?.decision as? Decision.ChooseObjects)?.takeIf { it.player == me }?.let { seen += cards(it.options) } }
+        val choices = ArrayList<String>()
+        fun offered() {
+            val d = (state.pending?.decision as? Decision.ChooseObjects)?.takeIf { it.player == me } ?: return
+            val shown = cards(d.options + d.others)
+            if (reveal.cards.any { it in shown && it !in seen } && choices.none { it.startsWith(d.id.value) })
+                choices += "${d.id.value} (${d.options.size} to choose, ${d.others.size} beside them)"
+            seen += shown
+        }
         for (step in event.engine?.steps.orEmpty()) {
             offered()
             step.changes.forEach { state.apply(it) }
         }
         offered()
-        return reveal.cards.any { it !in seen }
+        if (reveal.cards.any { it !in seen }) return null
+        return if (choices.isEmpty()) "all seen before" else "shown in the choice ${choices.joinToString()}"
     }
 
     // ---- Plays shown (HIS-112)

@@ -125,6 +125,17 @@ class DesktopDraftScreenshotTest {
             "Alice's Glimpse pick on the desktop layout, eight cards to a row: a click kept Cinder Whelp, a right-click burned Gravel Ghoul and B over Mistweave burned it, so both trays at the bottom are full with Confirm at the end of their row; the header holds the tabs at its left, the pod's name and avatars in its middle and its icons at the right; the pointer rests on Archive Drake, which shows its ⋯ menu button.")
     }
 
+    // DRF-296, DRF-297, WEB-038 (owner, 2026-11-21): a pod's setup with bot seats on the desktop layout, at its readable width:
+    // the Bots tile before Sideboard and the bot seats after the members
+    @Test fun botSeatsSetup() {
+        val detail = detail(PodPhase.SETUP, DraftSettings(bots = 2), listOf(PodMember(alice), PodMember(bob)))
+        show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.DRAFT))
+        compose.onNodeWithTag("pod-setting-bots", useUnmergedTree = true).assertTextEquals("2")
+        compose.onNodeWithText("Members (4/8)").performScrollTo().assertIsDisplayed()
+        captureShot("$SCREENSHOTS/desktop/setup-bots.png",
+            "A Booster pod's setup with two bot seats on the desktop layout at its readable width: the setting tiles end with Bots 2 and the sideboard's ∞, and the members list counts four of eight seats, Alice and Bob, then Bot 1 and Bot 2 marked \"bot\".")
+    }
+
     // DRF-293, DRF-294 (owner, 2026-11-21): on the desktop layout the Auto toggle sits just before Confirm at the end of the trays'
     // row; a click turns it on and Confirm yellow with its shine
     @Test fun autoconfirmToggle() {

@@ -12,15 +12,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ### Owner playtest (owner, 2026-11-21)
 
-- Reveals and looks merged with the choice that follows, for the acting player: one panel shows all the revealed or looked-at cards with the choice on it, cards that can't be chosen dimmed, as the library search shows them; it covers pseudo-reveals ("exile the top N, choose one to put into your hand"); the other player still gets a real reveal, covered by e2e (HIS-110).
-- Draft bot seats: 1–6 bots, any seat but one human can be a bot; bots burn when the logic is good enough; picks of several cards (keep > 1, Grid lines, Winston/Winchester piles) value cards sublinearly (one 99% card beats two 50% ones, two 80% beat one 99%); no deck building or play (new entries).
 - Game log and timeline texts name targets (HIS-091; the game log's entries).
-
-### Post-0.3.0 (owner, 2026-11-20)
-
-Features, in this order:
-
-4. Draft bots, in place of burns: the pick heuristic (protocol's `DraftBot`) and the test-build setting "Show bot picks" (LOB-263, DRF-292) are built; bot seats in pods wait for the owner's design (how many, where they are set, which modes).
 
 ### Earlier
 

@@ -373,8 +373,12 @@ internal object Steps {
                 // gtc, dgm: "an artifact and a land": one object for each, all different, as many as can be (CR 701.21a, 609.3)
                 val oneEach = choice.oneEach?.let { filters -> { ids: List<ObjectId> -> standingForOneEach(e2, filters, ids) } }
                 val most = oneEach?.invoke(options)
+                // "from among them": the group's cards it can't choose, shown to the chooser with the options (not permanents or
+                // spells, which the table shows where they are)
+                val others = from.orEmpty().filter { it is ObjectId.Card && it !in options &&
+                    act.state.obj(it)?.zone.let { z -> z != null && z != arcanum.api.Zone.Battlefield && z != arcanum.api.Zone.Stack } }.distinct()
                 val chosen = act.chooseObjects(chooser, source, options, most ?: e2.value(choice.min), most ?: choice.max?.let { e2.value(it) },
-                    arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "choose", "Choose"), hidden)
+                    arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "choose", "Choose"), hidden, others)
                 oneEach?.let { stand -> require(stand(chosen) == chosen.size) { "Each chosen object must stand for a different one of those asked for" } }
                 // "with different powers": no two chosen share the quality (D32: a rule-breaking answer is refused)
                 choice.distinct?.let { quality ->

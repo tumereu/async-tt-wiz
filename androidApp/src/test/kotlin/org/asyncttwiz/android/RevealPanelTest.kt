@@ -305,6 +305,83 @@ class RevealPanelTest {
         compose.runOnIdle { assertNull(bob.shown?.reveal) }
     }
 
+    /** Alice (Bob kept and is away) casts [spell] from a deck of it, Mountains, Ash Pups and Ember Divinations: it resolves on his
+     * assumed pass up to her choice among the top four cards, open on her phone. */
+    private fun aliceChoosesAmong(spell: String): Pair<EngineGameFixture, EngineGame> {
+        val g = EngineGameFixture(aliceCards = listOf(spell, "Mountain", EngineGameFixture.Choices.PUP, EngineGameFixture.Choices.DIVINATION))
+        val alice = EngineGame(g.game.id, g.a, g.base, g.snapshot(otherKept = true)).apply { tick(1_000); keep(); tick(2_000) }
+        assertIs<GameDevice.Acted.Sent>(alice.send(cast(alice, spell)))
+        alice.tick(3_000)
+        val d = assertIs<Decision.ChooseObjects>(alice.device.model.engine.pending?.decision, "her choice among the cards")
+        assertTrue(d.options.isNotEmpty() && d.others.isNotEmpty(), "a Pup to choose, other cards beside it: $d")
+        return g to alice
+    }
+
+    private val inChoice = hasAnyAncestor(hasContentDescription("Automatum choice"))
+
+    /** The name of the card of [alice]'s engine object [id]. */
+    private fun nameOf(alice: EngineGame, id: arcanum.engine.state.ObjectId) =
+        alice.device.model.engine.obj(id)!!.definition!!.faces.first().name
+
+    // STK-224, STK-225, HIS-155, STK-190: Alice's Ember Unveiling reveals her top four cards: no reveal panel of hers opens, only the choice,
+    // which shows the Ash Pup to choose and the other revealed cards under "Other cards", dimmed and not choosable
+    @Test fun aRevealThenChooseIsTheChoosersOnePanel() {
+        val (g, alice) = aliceChoosesAmong(EngineGameFixture.Choices.UNVEILING)
+        assertNull(alice.shown?.reveal, "no reveal panel of hers")
+        val d = alice.device.model.engine.pending?.decision as Decision.ChooseObjects
+        render(alice, g.a)
+        compose.onNode(hasText("Other cards") and isHeading(), useUnmergedTree = true).assertExists()
+        compose.onNodeWithContentDescription("Other cards, ${d.others.size}", useUnmergedTree = true).assertExists()
+        compose.onAllNodes(hasContentDescription("Reveal")).assertCountEquals(0)
+        compose.onAllNodes(hasContentDescription(EngineGameFixture.Choices.PUP) and inChoice, useUnmergedTree = true).assertCountEquals(d.options.size)
+        val other = d.others.map { nameOf(alice, it) }.first { it != EngineGameFixture.Choices.UNVEILING }
+        compose.onAllNodes(hasContentDescription(other) and inChoice, useUnmergedTree = true).onFirst().performClick()
+        compose.waitForIdle()
+        assertTrue(compose.onAllNodes(hasContentDescription("$other, chosen"), useUnmergedTree = true).fetchSemanticsNodes().isEmpty(),
+            "an other card isn't chosen")
+        compose.onRoot().captureShot("$SCREENSHOTS/engine/choice-among-revealed.png",
+            "Alice cast her Ember Unveiling: it revealed her top four cards, and instead of a reveal panel first she gets one choice panel " +
+                "showing all four: the Ash Pup to choose, and the cards she can't choose dimmed under \"Other cards\".")
+    }
+
+    // STK-225, HIS-110, HIS-150: Bob catching up on the same Unveiling still gets the reveal stop and panel with all four cards
+    @Test fun theOtherPlayerStillGetsTheRevealOfAChoiceAmongRevealedCards() {
+        val (g, alice) = aliceChoosesAmong(EngineGameFixture.Choices.UNVEILING)
+        val bob = EngineGame(g.game.id, g.b, g.base, g.behind(alice.device.session.pending, alice.device.model))
+        bob.startPlayback()
+        var guard = 0
+        while (bob.shown?.status is GameDevice.Status.Playing && bob.shown?.reveal == null && guard++ < 200) bob.step()
+        val reveal = assertNotNull(bob.shown?.reveal, "stopped at her reveal")
+        assertEquals(4, reveal.cards.size)
+        render(bob, g.b)
+        compose.onNodeWithText("Alice revealed · ${EngineGameFixture.Choices.UNVEILING}").assertExists()
+        revealOk().assertExists()
+        compose.onRoot().captureShot("$SCREENSHOTS/engine/choice-among-revealed-other.png",
+            "Bob catching up on the same turn: Alice's Ember Unveiling revealed her top four cards, so his playback stopped there with the " +
+                "reveal panel, \"Alice revealed · Ember Unveiling\", all four cards face up and OK on his main button; her choice among them is hers alone.")
+    }
+
+    // STK-224, STK-225: Alice's Ember Glimpse looks at her top four cards privately: her choice shows the Ash Pup to reveal and the others
+    // dimmed under "Other cards"; Bob, catching up, gets no panel and none of those cards
+    @Test fun aPrivateLookThenChooseIsTheChoosersOnePanelAndShowsTheOtherPlayerNothing() {
+        val (g, alice) = aliceChoosesAmong(EngineGameFixture.Choices.GLIMPSE)
+        assertNull(alice.shown?.reveal, "no panel of hers")
+        val d = alice.device.model.engine.pending?.decision as Decision.ChooseObjects
+        render(alice, g.a)
+        compose.onNode(hasText("Other cards") and isHeading(), useUnmergedTree = true).assertExists()
+        compose.onNodeWithContentDescription("Other cards, ${d.others.size}", useUnmergedTree = true).assertExists()
+        compose.onRoot().captureShot("$SCREENSHOTS/engine/choice-among-looked.png",
+            "Alice cast her Ember Glimpse: she looked at her top four cards, privately, and her choice panel shows all four: the Ash Pup she " +
+                "may reveal and put into her hand, and the cards she can't choose dimmed under \"Other cards\".")
+        val bob = EngineGame(g.game.id, g.b, g.base, g.behind(alice.device.session.pending, alice.device.model))
+        bob.startPlayback()
+        var guard = 0
+        while (bob.shown?.status is GameDevice.Status.Playing && bob.shown?.reveal == null && guard++ < 200) bob.step()
+        assertNull(bob.shown?.reveal, "nothing of the look shown to Bob")
+        val seen = Host.visible(bob.device.model.engine, PlayerId(g.b))
+        assertTrue((d.options + d.others).none { it in seen }, "none of the cards looked at visible to Bob")
+    }
+
     // HIS-110, HIS-150, HIS-152, HIS-154 (owner, 2026-11-09): Alice's own reveal of a card she couldn't see opens her own panel: "You revealed · <source>",
     // the card, OK; her table's actions wait for her OK, and it closes only for her
     @Test fun yourOwnRevealShowsYouThePanelWithItsOk() {

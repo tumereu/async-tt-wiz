@@ -1,0 +1,1 @@
+mod: When you reveal, look at or exile cards and then choose among them, one panel shows all of them with your choice, the ones you can't pick dimmed; your opponent still sees what was revealed

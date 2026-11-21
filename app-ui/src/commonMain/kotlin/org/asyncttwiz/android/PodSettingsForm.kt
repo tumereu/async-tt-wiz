@@ -45,7 +45,9 @@ enum class PodSetting(val label: String) {
     /** Arena (DRF-281): the rarity intervals; empty = never. */
     RARE_EVERY("Rare every"), UNCOMMON_EVERY("Uncommon every"),
     /** Arena (DRF-282): the mythic chance, 1 in N; empty = never. */
-    MYTHIC("Mythic");
+    MYTHIC("Mythic"),
+    /** DRF-296: seats the server fills with draft bots, in the modes that take them. */
+    BOTS("Bots");
 
     fun value(s: DraftSettings): Int? = when (this) {
         PACKS -> s.packsPerPlayer; PACK_SIZE -> s.cardsPerPack; KEEP -> s.keep; BURN -> s.burn
@@ -57,6 +59,7 @@ enum class PodSetting(val label: String) {
         TABLES -> s.tables
         PICKS -> s.packsPerPlayer; OFFER_CARDS -> s.cardsPerPack; TAKE -> s.keep; INITIAL_RARES -> s.initialRares
         RARE_EVERY -> s.rareEvery; UNCOMMON_EVERY -> s.uncommonEvery; MYTHIC -> s.mythicOneIn
+        BOTS -> s.bots
     }
     /** The empty value's tile and toggle text: Sideboard ∞, Rochester's open packs "1 each" (one per player), Arena's
      * rarity intervals and mythic chance "Never". */
@@ -90,6 +93,7 @@ enum class PodSetting(val label: String) {
         INITIAL_RARES -> 0..ArenaEngine.MAX_PICKS
         RARE_EVERY, UNCOMMON_EVERY -> 1..ArenaEngine.MAX_PICKS
         MYTHIC -> 1..ArenaEngine.MAX_MYTHIC_ONE_IN
+        BOTS -> 0..s.mode.maxBots
     }
     fun limit(s: DraftSettings): String = when (this) {
         PACKS -> if (s.mode.limited) "1–15" else "Open packs: ${s.packsOpenAtOnce}; maximum 30"
@@ -115,6 +119,7 @@ enum class PodSetting(val label: String) {
         INITIAL_RARES -> "0–${ArenaEngine.MAX_PICKS}"
         RARE_EVERY, UNCOMMON_EVERY -> "1–${ArenaEngine.MAX_PICKS} or Never"
         MYTHIC -> "1 in 1–${ArenaEngine.MAX_MYTHIC_ONE_IN} or Never"
+        BOTS -> "0–${s.mode.maxBots}; the pod needs one more player besides you"
     }
     /** Plain-words meaning shown in the value dialog. */
     fun explanation(s: DraftSettings): String = when (this) {
@@ -144,6 +149,7 @@ enum class PodSetting(val label: String) {
         RARE_EVERY -> "Every this many picks the offer is of rares. Never = no rare picks."
         UNCOMMON_EVERY -> "Every this many picks the offer is of uncommons, unless it is a rare pick. Other picks offer commons. Never = no uncommon picks."
         MYTHIC -> "On a rare pick, each card offered is a mythic rare instead with a chance of 1 in this number. Never = no mythic rares."
+        BOTS -> "Seats filled by draft bots. A bot picks the moment the draft reaches it, so nobody waits for it; bots only draft and play no games."
     }
     fun valid(text: String, s: DraftSettings) = text.toIntOrNull()?.let { it in range(s) } == true
     /** [s] with this setting [value]; null (no value) only for a setting with [emptyText], else [s] unchanged (reported). */
@@ -167,11 +173,14 @@ enum class PodSetting(val label: String) {
             PICKS -> s.copy(packsPerPlayer = value); OFFER_CARDS -> s.copy(cardsPerPack = value); TAKE -> s.copy(keep = value)
             INITIAL_RARES -> s.copy(initialRares = value)
             RARE_EVERY -> s.copy(rareEvery = value); UNCOMMON_EVERY -> s.copy(uncommonEvery = value); MYTHIC -> s.copy(mythicOneIn = value)
+            // DRF-028: Grid's two picks are for two players only, so a bot switches them off
+            BOTS -> s.copy(bots = value, twoPicks = s.twoPicks && value == 0)
         }
     }
 }
 
-/** The tiles a mode shows (DRF-022), Sideboard last; the pack size only where the source doesn't fix it (DRF-024). */
+/** The tiles a mode shows (DRF-022), Bots (DRF-296) and then Sideboard last; the pack size only where the source doesn't fix
+ * it (DRF-024). */
 fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSetting> {
     val packSize = source.kind == PodSourceKind.CUBE || source.boosterKind == SetBoosterKind.APPROXIMATE
     return when (settings.mode) {
@@ -188,7 +197,7 @@ fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSettin
         // DRF-281, DRF-282: offers are never a set's booster, so their size is always set
         DraftMode.ARENA -> listOf(PodSetting.PICKS, PodSetting.OFFER_CARDS, PodSetting.TAKE, PodSetting.INITIAL_RARES, PodSetting.RARE_EVERY,
             PodSetting.UNCOMMON_EVERY, PodSetting.MYTHIC)
-    } + PodSetting.SIDEBOARD
+    } + listOfNotNull(PodSetting.BOTS.takeIf { settings.mode.botSeats }) + PodSetting.SIDEBOARD
 }
 
 /** The modes the mode button's popup lists (DRF-020); Glimpse is a preset of Booster (DRF-031), not a mode. */
@@ -211,8 +220,9 @@ fun podModeChoice(mode: DraftMode): DraftMode = if (mode == DraftMode.GLIMPSE) D
 /** A mode with its engine's player range (DRF-150), e.g. "Winston · 2–4 players". */
 fun podModeOption(mode: DraftMode): String = "${podModeName(mode)} · ${mode.players.first}–${mode.players.last} players"
 
+/** DRF-020: a mode's defaults, keeping the sideboard limit, Librarians and bot seats (at most the new mode's, DRF-296). */
 fun podModeSettings(mode: DraftMode, current: DraftSettings) = DraftSettings.defaults(mode)
-    .copy(sideboardLimit = current.sideboardLimit, freshBoosters = current.freshBoosters,
+    .copy(sideboardLimit = current.sideboardLimit, freshBoosters = current.freshBoosters, bots = current.bots.coerceAtMost(mode.maxBots),
     librarians = if (mode.packPassing) current.librarians else 0,
     librarianDefinition = if (mode.packPassing) current.librarianDefinition else null)
 
@@ -273,7 +283,8 @@ fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean,
         }
     }
     if (settings.mode == DraftMode.GRID) Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(settings.twoPicks, { value -> change { it.copy(twoPicks = value) } }, enabled = enabled && members <= 2)
+        // DRF-028: two players only, bot seats included
+        Checkbox(settings.twoPicks, { value -> change { it.copy(twoPicks = value) } }, enabled = enabled && settings.seats(members) <= 2)
         Text("Two picks each")
     }
     // DRF-287: Arena's summary, members' too

@@ -386,7 +386,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (!validPodName(draft.name) || (draft.cubeId == null && draft.set == null)) {
             state = state.copy(error = "Enter a name and select a cube or MTG set."); return
         }
-        if (draft.settings.validate(2).isNotEmpty()) { state = state.copy(error = "Invalid settings."); return }
+        if (draft.settings.let { it.validate(it.seats(2)) }.isNotEmpty()) { state = state.copy(error = "Invalid settings."); return }
         val mixed = draft.packSets.takeIf { draft.cubeId == null && PodPackGrid.mixed(it) }
         val input = CreatePod(requestId(), draft.name, draft.cubeId, draft.mode, draft.settings,
             setCode = draft.set?.code?.takeIf { mixed == null }, packSets = mixed)
@@ -821,7 +821,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 setName = setName(packs.first()), boosterKind = detail.source.boosterKind.takeIf { detail.source.kind == PodSourceKind.SET },
                 packSets = packs) } ?: edit.set?.podSource() ?: state.cubes.find { it.id == edit.cubeId }
                 ?.let { PodSource(it.name, it.totalCopies) } ?: detail.source
-            val needed = edit.settings.supply(detail.members.size, emptyList()).needed
+            val needed = edit.settings.supply(edit.settings.seats(detail.members.size), emptyList()).needed
             detail = detail.copy(name = edit.name, settings = edit.settings, source = source,
                 supply = DraftSupply(needed, if (source.kind == PodSourceKind.SET) Long.MAX_VALUE else source.totalCopies))
         }
@@ -1030,7 +1030,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
 }
 
 fun podCanStart(detail: PodDetail) = detail.phase == PodPhase.SETUP && detail.members.size >= 2 &&
-    detail.settings.validate(detail.members.size).isEmpty() && detail.supply.sufficient
+    detail.settings.validate(detail.settings.seats(detail.members.size)).isEmpty() && detail.supply.sufficient
 
 /**
  * Why Start (too many members) or auto-start (too many members plus invitations) is not offered for this engine's
@@ -1041,10 +1041,13 @@ fun podPlayerLimitText(detail: PodDetail): String? {
     val name = podModeName(detail.settings.mode)
     val members = detail.members.size
     val invited = members + detail.pendingInvitations.size
+    // DRF-150, DRF-163: bot seats count as players
+    val bots = detail.settings.bots
+    val with = if (bots > 0) ", with $bots ${if (bots == 1) "bot" else "bots"}" else ""
     return when {
-        members > most -> "$name takes at most $most players; $members have joined."
-        detail.pendingInvitations.isNotEmpty() && !detail.autoStart && invited > most ->
-            "$name takes at most $most players; $invited are joined or invited."
+        members + bots > most -> "$name takes at most $most players; $members have joined$with."
+        detail.pendingInvitations.isNotEmpty() && !detail.autoStart && invited + bots > most ->
+            "$name takes at most $most players; $invited are joined or invited$with."
         else -> null
     }
 }
@@ -1068,7 +1071,7 @@ fun podPackCount(count: Int) = "$count ${if (count == 1) "pack" else "packs"}"
 fun podConfirmationText(action: PodConfirmation, detail: PodDetail): String = when (action) {
     PodConfirmation.DESTROY -> "Destroy this pod for everyone?"
     PodConfirmation.LEAVE -> if (detail.phase == PodPhase.DRAFTING)
-        "This cancels the draft for all ${detail.members.size} players and discards all picks." else "Leave this pod?"
+        "This cancels the draft for all ${detail.members.count { !it.bot }} players and discards all picks." else "Leave this pod?"
     PodConfirmation.CANCEL -> "Discard all picks and return to setup?"
     PodConfirmation.SUBMIT -> "Submit and lock your deck? Main, Side and basics cannot be changed afterwards."
     PodConfirmation.START -> "Start the draft now with the ${detail.members.size} accepted members? " +

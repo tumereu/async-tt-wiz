@@ -246,7 +246,8 @@ rework, 2026-11-12). Hidden information is display: what a host shows each playe
 - **What a player looked at:** an effect that looks at hidden cards (a search, scry, surveil, look, reveal, the cards of
   a choice among hidden cards) records a `Change.Shown(to, ids)` (`to` null: everyone) for exactly those cards; a
   reveal-until turns over one card at a time. `Host.revealed(before, changes, viewer)` tells a host which cards some
-  changes showed a player that they couldn't see before.
+  changes showed a player that they couldn't see before. A choice "from among" a group of cards lists the group's cards
+  it can't choose in `Decision.ChooseObjects.others`, so a host can show the whole group with the choice.
 - **A card by name:** "create a copy of the card with the chosen name" asks the host for that card
   (`Decision.NamedCard`, answered `Answer.NamedCard(definition)`, like a random result): the engine has no cards of its own.
 - Foretelling (CR 702.143) is a special action the rules give a card in a hand (`AbilityOrigin.Rule("foretell")`), taken

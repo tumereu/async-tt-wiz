@@ -153,6 +153,10 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         /** HIS-112 (owner, 2026-11-20): a sorcery with plot {R} (CR 702.170a): plotting it is a special action, which doesn't use the
          * Stack. */
         const val PLOTTER = "Ember Plotter"
+        /** STK-224: a free sorcery revealing its caster's top four cards, a creature card among them to choose. */
+        const val UNVEILING = "Ember Unveiling"
+        /** STK-224: a free sorcery looking at its caster's top four cards, a creature card among them to reveal. */
+        const val GLIMPSE = "Ember Glimpse"
     }
     private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
@@ -206,6 +210,10 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("stone", Choices.STONE, "Artifact", "{T}: Add {C}."),
         free("recall", Choices.RECALL, "Sorcery", "Return target card from your graveyard to your hand."),
         free("delve", Choices.DELVE, "Sorcery", "Exile the top two cards of your library. Until the end of your next turn, you may play those cards."),
+        free("unveiling", Choices.UNVEILING, "Sorcery", "Reveal the top four cards of your library. You may put a creature card from among them " +
+            "into your hand. Put the rest on the bottom of your library in a random order."),
+        free("glimpse", Choices.GLIMPSE, "Sorcery", "Look at the top four cards of your library. You may reveal a creature card from among them " +
+            "and put it into your hand. Put the rest on the bottom of your library in a random order."),
         free("urn", Choices.URN, "Artifact", "{T}, Exile a card from your graveyard: Add one mana of any color."),
         free("chime", Choices.CHIME, "Enchantment", "At the beginning of your upkeep, you gain 1 life."),
         free("leech", Choices.LEECH, "Creature — Elemental Leech", "Lifelink\nHaste", "2", "2"),

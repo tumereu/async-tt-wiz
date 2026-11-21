@@ -166,6 +166,45 @@ class DraftGalleryScreenshotTest {
             "\"Start when everyone accepts\".")
     }
 
+    // DRF-296, DRF-297, DRF-030 (owner, 2026-11-21): the Bots tile before Sideboard; the three bot seats listed after the
+    // members as "Bot 1"… and counted in Members (5/8) (a tall screen shows the whole form)
+    @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun botSeatsSetup() {
+        val detail = detail(PodPhase.SETUP, DraftSettings(bots = 3), listOf(PodMember(alice), PodMember(bob)), name = "Bot night")
+        show(opened(detail))
+        compose.onNodeWithTag("pod-setting-bots", useUnmergedTree = true).assertTextEquals("3")
+        compose.onNodeWithText("Members (5/8)").performScrollTo().assertIsDisplayed()
+        // In the strip over the setup and in its members list
+        compose.onAllNodesWithText("bot").assertCountEquals(6)
+        shot("setup-bots", "The creator's setup of a Booster pod with three bot seats: the Bots tile reads 3 just before " +
+            "Sideboard; the strip at the top and the members list (five of eight seats) show Alice and Bob, then Bot 1, Bot 2 and Bot 3 " +
+            "marked \"bot\".")
+    }
+
+    // DRF-296: a tap on the Bots tile opens its dialog with what bots do and the range, 0–6 in Booster
+    @Test fun botSeatsDialog() {
+        val detail = detail(PodPhase.SETUP, DraftSettings(bots = 3), listOf(PodMember(alice), PodMember(bob)), name = "Bot night")
+        show(opened(detail))
+        compose.onNodeWithText("Bots").performScrollTo().performClick()
+        settle()
+        compose.onNodeWithText("0–6").assertIsDisplayed()
+        shot("setup-bots-dialog", "The Bots tile tapped in a Booster pod's setup: its dialog says bots fill seats, pick the moment " +
+            "the draft reaches them and play no games, with a number field for 0–6 holding 3, Cancel and Save.")
+    }
+
+    // DRF-297, DRF-298: a started Booster pod with three bot seats: they are in the header's avatars after the people, ready (✓)
+    // because they pick the moment a pack reaches them, and Alice's pack came from Bot 2
+    @Test fun botSeatsPick() {
+        val members = listOf(PodMember(alice, packsWaiting = 2), PodMember(bob, packsWaiting = 1)) +
+            (1..3).map { PodMember(PodBots.identity(it), picksMade = 2, bot = true) }
+        val head = pack("pack-a", fourteen.take(13), pick = 3, passedBy = PodBots.id(2))
+        val detail = detail(PodPhase.DRAFTING, DraftSettings(bots = 3), members, name = "Bot night").copy(draft = DraftPrivateView(
+            "alice", head, 1, listOf(copy(16, 1), copy(22, 1)), queuedPacks = listOf(pack("pack-b", (0..11).toList())), round = 1, rounds = 3))
+        show(opened(detail))
+        compose.onNodeWithText("Round 1/3 · Pick 3 · from Bot 2").assertIsDisplayed()
+        shot("bots-pick", "Alice's third Booster pick in a pod with Bob and three bot seats: the header's avatars show Alice and Bob " +
+            "with picks waiting and Bot 1, Bot 2 and Bot 3 ready (✓), and the line above the pack says it came from Bot 2.")
+    }
+
     // DRF-262, DRF-020, DRF-022 (a tall screen shows the whole form)
     @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun customBoosterSetup() {
         val detail = detail(PodPhase.SETUP, DraftSettings.customBooster().copy(passes = listOf(DraftPass(2, 1)) +
@@ -173,7 +212,7 @@ class DraftGalleryScreenshotTest {
         show(opened(detail))
         compose.onNodeWithText("Passes (6)").performScrollTo().assertIsDisplayed()
         shot("setup-custom-booster", "The creator's setup of a Custom booster pod from the Runes cube: its tiles (packs, pack size, " +
-            "open packs, Librarians, sideboard) and under them its six passes, pick 2 and burn 1 first, then four of pick 1, " +
+            "open packs, Librarians, bots, sideboard) and under them its six passes, pick 2 and burn 1 first, then four of pick 1, " +
             "burn 1 and a last pick 1, each with its Pick and Burn buttons and a remove cross, then Add pass.")
     }
 

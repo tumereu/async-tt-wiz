@@ -348,6 +348,10 @@ number	item	screenshot	catalog	decisions	sequence
 404	Desktop draft: Auto on, Confirm yellow with its shine	desktop/autoconfirm-on.png	DRF-293 DRF-294		Autoconfirm
 405	Clip: a grid picked, the next grid sliding up into its place as it fades	clips/grid-next-slides-up.webp	DRF-295
 406	Desktop: What's new at twice the phone's width	desktop/whats-new.png	LOB-265
+410	Choice among revealed cards: one panel shows all of them, the ones that can't be chosen dimmed under "Other cards"	engine/choice-among-revealed.png	STK-224 STK-225 HIS-155		Choice among revealed cards
+411	Desktop table: the same choice among revealed cards as a centred overlay	desktop/choice-among-revealed.png	STK-224 STK-225 WEB-080		Choice among revealed cards
+412	The other player's reveal panel for the same reveal, all four cards in it	engine/choice-among-revealed-other.png	STK-225 HIS-110 HIS-150		Choice among revealed cards
+413	Choice among cards looked at privately: one panel, the ones that can't be chosen dimmed	engine/choice-among-looked.png	STK-224 STK-225		Choice among revealed cards
 420	Battlefield cards with their card type icons, nothing referring to a subtype	battlefield/types-icons.png	TBL-233		Type icons and tags
 421	Desktop table: the card type icons on the larger cards	desktop/types-icons.png	TBL-233 WEB-015		Type icons and tags
 422	Alice's Lizard lord in hand tags the Lizards on both sides; Bob's hidden Goblin lord tags nothing	battlefield/subtype-tags-alice.png	TBL-234 TBL-235 TBL-237		Type icons and tags
@@ -357,3 +361,7 @@ number	item	screenshot	catalog	decisions	sequence
 426	The crowded battlefield zoomed in as far as a pinch goes	battlefield/types-tags-close.png	TBL-233 TBL-235		Type icons and tags
 427	Desktop table: the crowded battlefield	desktop/types-tags-crowded.png	TBL-233 TBL-235 WEB-015		Type icons and tags
 428	Full pictures and a face-down card: the type icons on a white chip	battlefield/types-full-picture.png	TBL-236 TBL-235		Type icons and tags
+430	Draft bots: pod setup with the Bots tile and three bot seats after the members	draft/setup-bots.png	DRF-296 DRF-297 DRF-030		Draft bots
+431	Draft bots: the Bots dialog, what bots do and the range	draft/setup-bots-dialog.png	DRF-296		Draft bots
+432	Desktop: pod setup with two bot seats	desktop/setup-bots.png	DRF-296 DRF-297 WEB-038		Draft bots
+433	Draft bots: a Booster pick passed by Bot 2, the bots ready in the header	draft/bots-pick.png	DRF-297 DRF-298		Draft bots

@@ -240,6 +240,8 @@ fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, d
     val cards = decision.options.associate { it.toString() to choiceCardOf(flow, play, viewer, it) }
     val ids = decision.options.associateBy { it.toString() }
     val inspector = remember(decision.id) { ChoiceInspector() }
+    // STK-224: a choice from among cards revealed, looked at or exiled shows the group's cards it can't choose beside it
+    val among = remember(decision.id) { amongOthers(flow, decision) }
     Section(shape.title, shape.instruction) {
         when (shape.shape) {
             ObjectsShape.Shape.Places, ObjectsShape.Shape.Order -> {
@@ -247,6 +249,7 @@ fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, d
                 val places = shape.shape == ObjectsShape.Shape.Places
                 TwoAreaChoice(state, cards, ChoiceArea(shape.first, areaIcon(shape.first), ordered = !places || shape.orderFirst),
                     shape.second?.takeIf { places }?.let { ChoiceArea(it, areaIcon(it), ordered = shape.orderSecond) }, inspector)
+                if (among.isNotEmpty()) OtherCards(among.map { choiceCardOf(flow, play, viewer, it) }.sortedBy { it.name }, inspector)
                 val chosen = (if (!places || shape.chosenFirst) state.first else state.second).let { objectsOf(ids, it) }
                 val fits = chosen.size >= decision.min && decision.max.let { it == null || chosen.size <= it }
                 OkRow(decision, fits) {
@@ -276,11 +279,11 @@ fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, d
                     // Report DH3QX6: each tap on a card of a choice
                     AppLog.info("decision", "Card tapped in ${decision.id.value}: ${cards[key]?.name} ($key); chosen now $chosen of ${decision.min}..${decision.max}")
                 }
-                if (shape.search) {
-                    val engine = flow.engine
-                    val others = remember(decision.id, engine) { engine?.let { searchedOthers(it, decision) }.orEmpty() }
-                    if (others.isNotEmpty()) OtherCards(others.map { choiceCardOf(flow, play, viewer, it) }.sortedBy { it.name }, inspector)
+                val engine = flow.engine
+                val others = remember(decision.id, engine) {
+                    ((if (shape.search) engine?.let { searchedOthers(it, decision) }.orEmpty() else emptyList()) + among).distinct()
                 }
+                if (others.isNotEmpty()) OtherCards(others.map { choiceCardOf(flow, play, viewer, it) }.sortedBy { it.name }, inspector)
                 OkRow(decision, chosen.size >= decision.min && decision.max.let { it == null || chosen.size <= it } && selection?.done != false) {
                     cast.answer(Answer.Objects(chosen.let { objectsOf(ids, it) }))
                 }
@@ -297,8 +300,23 @@ fun searchedOthers(state: arcanum.engine.state.GameState, decision: Decision.Cho
     return zones.flatMap { (zone, owner) -> state.zone(zone, owner) }.distinct() - decision.options.toSet()
 }
 
+/**
+ * STK-224 (owner 2026-11-21): the cards of the group a choice is made from ("from among them": cards revealed, looked at or
+ * exiled just before) that it can't choose ([Decision.ChooseObjects.others]), as far as the viewer may see them: shown under
+ * "Other cards" as a search's are (STK-190), so the choice's panel shows the whole group and no reveal panel of the chooser's
+ * comes before it (HIS-155). Logged once per choice, with any left out as hidden.
+ */
+fun amongOthers(flow: FlowQuestions, decision: Decision.ChooseObjects): List<ObjectId> {
+    if (decision.others.isEmpty()) return emptyList()
+    val (shown, hidden) = decision.others.partition(flow::shown)
+    AppLog.info("decision", "Choice ${decision.id.value} from among a group: ${decision.options.size} to choose, beside them " +
+        shown.joinToString(prefix = "[", postfix = "]") { "${flow.atwCard(it) ?: it}" } +
+        if (hidden.isEmpty()) "" else ", left out as hidden from this viewer ${hidden.map { flow.atwCard(it) ?: it }}")
+    return shown
+}
+
 /** STK-056: a search's "Other cards": the searched zone's cards it can't find, drawn as cards, dimmed and not selectable
- * (a tap does nothing); holding one inspects it. */
+ * (a tap does nothing); holding one inspects it. The same for a choice from among a group's cards (STK-224). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun OtherCards(cards: List<ChoiceCardData>, inspector: ChoiceInspector) {

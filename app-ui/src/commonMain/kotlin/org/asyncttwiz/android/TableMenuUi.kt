@@ -41,6 +41,7 @@ fun menuIcon(name: String): ImageVector {
     val n = name.lowercase()
     return when {
         n == "timeline" -> Icons.Outlined.History
+        n == "game log" -> Icons.AutoMirrored.Outlined.ListAlt
         n == "view deck" -> Icons.AutoMirrored.Outlined.ViewList
         n == "concede" -> Icons.Outlined.OutlinedFlag
         n == "send problem report" -> Icons.Outlined.BugReport

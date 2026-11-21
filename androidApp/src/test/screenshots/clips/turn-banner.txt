@@ -1,0 +1,1 @@
+Alice's turn begins: Your turn shows in her green at the screen's centre over the board, then fades out and is gone.

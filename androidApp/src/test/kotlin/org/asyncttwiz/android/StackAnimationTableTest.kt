@@ -150,6 +150,71 @@ class StackAnimationTableTest {
         assertTrue(kit.field("Ember Cub").isEmpty(), "the Cub is gone")
     }
 
+    // HIS-112, HIS-133, HIS-136, STK-058: the gallery clip of the whole play shown (steps 1–4), from its flight in to its arrow read
+    @Test fun clipOfTheOtherPlayersPlayShownThenOnTheStack() {
+        val (kit, _) = bobsSparkShown()
+        render(kit)
+        compose.captureClip("$SCREENSHOTS/clips/play-shown.webp",
+            "Bob cast Storm Spark at Alice's Ember Cub: on her table it flies in from his hand, holds large in the middle with its line, flies to her Stack and lands there as its entry, whose red arrow then grows to the Cub.",
+            millis = PLAY_SHOW_FLIGHT_MILLIS + HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + PLAY_SHOW_FLIGHT_MILLIS +
+                StackSchedule.targetingMillis(1, 1f) + 200L)
+        compose.onNodeWithTag(PLAY_SHOW_TAG).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Stack, 1 entries").assertExists()
+    }
+
+    // STK-006, TBL-125: the gallery clip of Alice's own cast: her Ember Cub flies from her hand to the Stack, then resolves onto
+    // her battlefield
+    @Test fun clipOfAnOwnCastToTheStackAndResolving() {
+        val kit = EngineTableKit()
+        kit.opening()
+        kit.playLand()
+        val cub = kit.atw(kit.hand("Ember Cub").first())
+        val before = kit.alice.play()
+        assertTrue(kit.toolkit.cast.start(cub), "the cast begins: ${kit.toolkit.error}")
+        kit.playOn("the Cub resolving") { cub in kit.field("Ember Cub").map(kit::atw) && kit.aliceMain() }
+        // The board at her cast's event, the Cub on the Stack, as the table plays it before its resolution (TBL-125)
+        val cast = kit.alice.shown!!.line.last { e -> e.engine?.steps?.any { it.input is arcanum.engine.input.Input.Cast } == true }
+        val onStack = assertNotNull(kit.alice.reviewPlay(cast.id), "the board at the cast")
+        assertTrue(onStack.board.stackEffects.isNotEmpty(), "the Cub on the Stack there")
+        val board = androidx.compose.runtime.mutableStateOf(before)
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            MaterialTheme { NoRipples {
+                CompositionLocalProvider(LocalEngineRoutes provides kit.routes) {
+                    TableSurface(kit.f.game, board.value, kit.f.a, false, Modifier.fillMaxSize(), connected = true,
+                        onIntent = kit.toolkit::handle, toolkit = kit.toolkit,
+                        runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { kit.routes.undo() }, controlsConnected = true))
+                }
+            } }
+        }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        val after = kit.alice.play()
+        compose.captureClip("$SCREENSHOTS/clips/own-cast.webp",
+            "Alice, in her first main phase with a Mountain out, casts Ember Cub: its card flies from her hand to the Stack, and once it resolves it flies on from the Stack to its place on her battlefield.",
+            millis = 2_000L) { at ->
+            when (at) {
+                5 * CLIP_STEP_MILLIS -> board.value = onStack
+                20 * CLIP_STEP_MILLIS -> board.value = after
+            }
+        }
+    }
+
+    // TBL-150, STK-058, STK-006: the gallery clip of the Spark resolving after its arrows: off the Stack, its damage, the Cub dying
+    @Test fun clipOfTheSpellResolving() {
+        val (kit, _) = bobsSparkShown()
+        render(kit)
+        advance(PLAY_SHOW_FLIGHT_MILLIS + HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + PLAY_SHOW_FLIGHT_MILLIS + 100L)
+        advance(StackSchedule.targetingMillis(1, 1f) + 50)
+        kit.alice.pass()
+        kit.playOn("the Spark resolving on Alice's table") { kit.state().stack.isEmpty() }
+        compose.runOnIdle { version++ }
+        compose.captureClip("$SCREENSHOTS/clips/spell-resolves.webp",
+            "Alice passed with Bob's Storm Spark on her Stack aimed at her Ember Cub: the Spark resolves, leaving the Stack for his graveyard as its arrow fades, its 3 damage marks the Cub and the Cub goes to her graveyard.",
+            millis = 1_500L)
+        assertTrue(kit.field("Ember Cub").isEmpty(), "the Cub is gone")
+    }
+
     // HIS-112, HIS-136, WEB-017, WEB-078, STK-007 (spec step 3; owner playtest 2026-11-15: the Stack on the field, never in the chat pane): on the
     // desktop table the play shown flies into the Stack at the battlefields' right edge, left of the open chat dock, as on the
     // phone; the Stack shows the entry only as it lands

@@ -10,14 +10,25 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
+### Owner playtest (owner, 2026-11-21)
+
+- Arena gets an "Initial rares" tile: the first N picks are rare picks, default 1, before "Rare every" takes over (it was in the agreed spec and was left out) (DRF-281).
+- Desktop "What's new" dialog: at least twice its current, phone-like width (new entry or the What's new entry it changes).
+- Draft autoconfirm: a toggle beside Confirm, off at the start of every draft, with a Settings value for whether it starts on; when on, Confirm is yellow with a shine moving back and forth, and a pick confirms instantly once all its selections are made (DRF-044; new entries).
+- While a target is being chosen, tapping a glowing combat copy chooses that creature as the target; selecting or unstaging a copy happens only while declaring (CMB-003, CMB-032).
+- Grid draft: when another grid is coming, the current one fades out and the next slides up from underneath, so grids are easy to follow; picked cards don't fly anywhere. Reviewed as gallery clips (DRF-195; new entries).
+- Reveals and looks merged with the choice that follows, for the acting player: one panel shows all the revealed or looked-at cards with the choice on it, cards that can't be chosen dimmed, as the library search shows them; it covers pseudo-reveals ("exile the top N, choose one to put into your hand"); the other player still gets a real reveal, covered by e2e (HIS-110).
+- Declaring attackers or blockers is visible: a combat-coloured frame around the battlefield, a chip "Declaring attackers: abilities can't be used now", and cards that can't take part dimmed; gallery-reviewed before release (CMB-047).
+- Battlefield cards show small card type icons; subtypes show as small tags only when a card the player can see cares about them: their own hand, either battlefield, the Stack (never the other player's hidden hand), and a subtype shows on either player's permanents, since control can change (new entries).
+- Draft bot seats: 1–6 bots, any seat but one human can be a bot; bots burn when the logic is good enough; picks of several cards (keep > 1, Grid lines, Winston/Winchester piles) value cards sublinearly (one 99% card beats two 50% ones, two 80% beat one 99%); no deck building or play (new entries).
+- Game log and timeline texts name targets (HIS-091; the game log's entries).
+
 ### Post-0.3.0 (owner, 2026-11-20)
 
 Features, in this order:
 
 1. Hover sweep (desktop): everything that can be clicked (hand cards, Undo, the main button, Resolve …) answers the pointer with a hover look, beyond today's hand pointer (WEB-058; new entries).
-2. A text log of the game's events, keeping the players' colours on names, targets and the like (HIS-091's texts; new entries).
 4. Draft bots, in place of burns: drafters that pick by a simple heuristic (no outside pick data), plus a debug-build-only setting that shows the bot's score for each card and its pick on the draft screen, so the owner can draft as the bot and judge the deck (new entries).
-5. Gallery clips of key animations, for the owner's gallery review beside the screenshots (no catalog entry).
 
 - Test reliability (internal; no catalog entry): the e2e harness's declare and pickBlocker taps don't wait for the main button's Automatum worker (StagingFromStackTest's declared-attackers case depends on it); and tests that fail under load but pass on a rerun: CastDroppedOnRewindTest, StableDecisionIdTest, TurnBannerTest, EmblemInspectTest, WebNotificationsTest (socket error to the local server) and the screen tests' "Compose did not get idle" (PodCubePreparationTest, CardListEditorUiTest, the desktop deck editor and table stack).
 

@@ -61,11 +61,13 @@ The definition model (overview in `Definitions.kt`):
   types, plus scry, surveil, mill and fight), written in the library's own words, never the rules or reminder text;
   `named(text)` finds the keywords a text names (whole words, longest names first, variants such as megamorph and
   swampcycling too). A jvmTest checks that every keyword and keyword action has one; the parser checks the keywords it reads.
-- `RulesGlossary.tokens`, `token(name)`: the same for every token kind ("Treasure", "Food", "Monster Role", every
-  `PredefinedTokens.names`, and "Role"); `terms`: for other rules words cards print (the `AbilityLabel`s such as exhaust and
-  max speed, "Transform", "Suspect", "Face a dilemma", "Descend"); `lookup(name)` finds any of them by the name a card list
-  gives it ("Hexproof from", "Role token"). `reminders(text, names)` (and `rulesWords`, with whether each is explained) is a
-  card's rules reminders: the rules words its text names but doesn't explain with reminder text on the same line, ability and
+- `RulesGlossary.tokens`, `token(name)`: an explanation of every token kind ("Treasure", "Food", "Monster Role", every
+  `PredefinedTokens.names`, and "Role") in the manner of reminder text: what the token is, then its abilities in quotes as
+  `PredefinedTokens` gives them ("It's an artifact token with "{2}, Sacrifice this token: Draw a card.""); `terms`: for
+  other rules words cards print (the `AbilityLabel`s such as exhaust and max speed, "Transform", "Suspect", "Face a
+  dilemma", "Descend"); `lookup(name)` finds any of them by the name a card list gives it
+  ("Hexproof from", "Role token"). `reminders(text, names)` (and `rulesWords`, with whether each is explained) is a card's
+  rules reminders: the rules words its text names but doesn't explain with reminder text on the same line, ability and
   flavor words, reminder text and the card's own names aside; verbs count in their forms ("explores", "foraging").
   `:arcanum-tools:setSupport` checks that every rules word the supported sets print is covered.
 - Duskmourn (set `dsk`): Rooms (CR 709.5: `Door`, `ObjectMark.Unlocked`, `Effect.UnlockDoor`/`LockDoor`,

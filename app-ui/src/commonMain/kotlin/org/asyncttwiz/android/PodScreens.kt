@@ -419,6 +419,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     val buildSideBySide = rememberPodBuildSideBySide()
     val historyColumns = rememberPodHistoryColumns(podHistoryPackSize(detail))
     val waiting = podWaitingText(detail, accountId)
+    // DRF-293: this draft's Auto toggle beside Confirm, kept on the device per draft attempt
+    val autoconfirm = rememberPodAutoconfirm(detail.draftAttemptId ?: detail.id)
     // WEB-031 (decision 29): Tab / Shift+Tab move between the pod's tabs on the desktop layout
     val bindings = currentKeyBindings()
     DesktopKeyboard.Listen(LocalAppLayout.current == AppLayout.Desktop) { key ->
@@ -480,7 +482,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
                     nextPack = detail.draft?.queuedPacks?.firstOrNull(), columns = pickColumns,
                     waitingText = waiting, onMainMenu = mainMenu,
                     savedMarks = controller.marks(detail.draft?.head), onMarks = { controller.mark(detail.draft?.head, it) },
-                    orientation = podPickOrientationText(detail), pool = detail.draft?.pool.orEmpty()) } }
+                    orientation = podPickOrientationText(detail), pool = detail.draft?.pool.orEmpty(),
+                    autoconfirm = autoconfirm.first, onAutoconfirm = autoconfirm.second) } }
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, { index, delta -> controller.adjustBasic(index, delta) }, controller::submit, Modifier.fillMaxSize(),

@@ -310,4 +310,25 @@ class DesktopScreensScreenshotTest {
         captureShot("$SCREENSHOTS/desktop/settings.png",
             "Alex opened Settings on the desktop layout: its groups as cards in two columns at a readable width centred beside the side menu, Profile, Games, Table and the rest on the left, About & account and Keyboard on the right.")
     }
+
+    // LOB-265 (owner playtest 2026-11-21): What's new on the desktop layout is at least twice as wide as on the phone layout
+    @Test fun whatsNewIsWideOnTheDesktop() {
+        val notes = listOf(ReleaseNote("2026-11-21-a", ReleaseNoteKind.ADD, "Draft picks can confirm themselves: turn on Auto beside Confirm."),
+            ReleaseNote("2026-11-21-b", ReleaseNoteKind.MOD, "What's new is wider on the desktop."),
+            ReleaseNote("2026-11-21-c", ReleaseNoteKind.FIX, "The Arena setup has its Initial rares tile."))
+        val layout = androidx.compose.runtime.mutableStateOf<AppLayout>(AppLayout.Phone)
+        compose.setContent { ScreenTheme { CompositionLocalProvider(LocalAppLayout provides layout.value) {
+            Surface(Modifier.fillMaxSize(), color = ScreenBackground) { NoRipples { WhatsNewDialog(notes) {} } }
+        } } }
+        compose.waitForIdle()
+        // The title's row fills the dialog's content width
+        fun width() = compose.onNodeWithText("What's new").fetchSemanticsNode().boundsInRoot.width
+        val phone = width()
+        compose.runOnIdle { layout.value = AppLayout.Desktop }
+        compose.waitForIdle()
+        val desktop = width()
+        assertTrue(desktop >= 2 * phone, "desktop $desktop at least twice the phone's $phone")
+        captureShot("$SCREENSHOTS/desktop/whats-new.png",
+            "What's new on the desktop layout at 1440 × 900: the dialog twice the phone's width, its New, Changed and Fixed notes each on one line.")
+    }
 }

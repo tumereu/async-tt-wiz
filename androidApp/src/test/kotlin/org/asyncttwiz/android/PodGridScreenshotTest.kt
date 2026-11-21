@@ -166,4 +166,36 @@ class PodGridScreenshotTest {
         compose.onRoot().captureShot(File(directory, "pod-grid-column.png").path,
             "Three-player Grid draft after Alice selects row 3 of the live grid, then taps to select column 3.")
     }
+
+    // DRF-295 (owner, 2026-11-21): the gallery clip: Alice confirms row 2 of grid 1 and, with grid 2 waiting for her, grid 1 fades
+    // out while grid 2 slides up from underneath into its place (cards with their named placeholders, so every frame is the same
+    // run to run)
+    @Test @Config(qualifiers = "w412dp-h892dp-port-xhdpi") fun clipOfTheNextGridSlidingUp() {
+        val second = List(9) { DraftCopy("next-$it", "definition-${(it + 3) % 12}") }
+        val first = GridPublicBoard("grid-1", 1, cards, alice.accountId, 1, false, slots = cards.map { GridPublicSlot(it) })
+        // Bob took column 1 of grid 2 before; now it waits for Alice
+        val next = GridPublicBoard("grid-2", 2, second.mapIndexed { index, copy -> copy.takeIf { index % 3 != 0 } }, alice.accountId, 1, false,
+            slots = second.mapIndexed { index, copy -> GridPublicSlot(copy, "bob".takeIf { index % 3 == 0 }) })
+        val bobsPick = GridPublicPickLog("bob", "grid-2", line(GridLineType.COLUMN, 0), listOf(second[0], second[3], second[6]), emptyList())
+        val before = GridViewData(GridPublicView(1, 9, false, listOf("alice", "bob"), listOf(first, next), listOf(bobsPick)),
+            GridPrivateView(alice.accountId, emptyList(), first.id, queue = listOf(first.id, next.id), round = 1, rounds = 9))
+        val taken = first.copy(currentPlayer = bob.accountId, positions = cards.mapIndexed { index, copy -> copy.takeIf { index / 3 != 1 } },
+            slots = cards.mapIndexed { index, copy -> GridPublicSlot(copy, "alice".takeIf { index / 3 == 1 }) })
+        val alicesPick = GridPublicPickLog("alice", "grid-1", line(GridLineType.ROW, 1), cards.slice(3..5), emptyList())
+        val after = GridViewData(before.publicView.copy(grids = listOf(taken, next), log = listOf(bobsPick, alicesPick)),
+            before.mine.copy(headGridId = next.id, queue = listOf(next.id)))
+        var view by mutableStateOf(before)
+        compose.setContent { ScreenTheme { NoRipples { PodGridView(view, 18, definitions, listOf(alice, bob), false, { _, _, _ -> }) } } }
+        compose.onNodeWithContentDescription("Select row 2").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        compose.captureClip("$SCREENSHOTS/clips/grid-next-slides-up.webp",
+            "Alice confirmed row 2 of grid 1 with grid 2 waiting for her: grid 1 fades out while grid 2, Bob's column already taken, slides up from underneath into its place, its arrows ready.",
+            millis = 1_200L) { at ->
+            if (at == 6 * CLIP_STEP_MILLIS) view = after
+        }
+        compose.onNodeWithText("Your pick · Grid 2/18").assertExists()
+        compose.onNodeWithTag("pod-grid-leaving").assertDoesNotExist()
+    }
 }

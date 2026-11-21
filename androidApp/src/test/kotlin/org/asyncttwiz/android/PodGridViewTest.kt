@@ -106,6 +106,53 @@ class PodGridViewTest {
         assertHighlighted(3, false)
     }
 
+    /** Alice picked row 1 of grid 1, which went on to Bob; grid 2 is now her pick ([next]), or nothing is ([next] false). */
+    private fun afterPick(next: Boolean): GridViewData {
+        val picked = board.copy(currentPlayer = "bob", positions = List(3) { null } + cards.drop(3),
+            slots = cards.mapIndexed { index, copy -> GridPublicSlot(copy, "alice".takeIf { index < 3 }) })
+        val later = board.copy(id = "later", number = 2)
+        val log = listOf(GridPublicPickLog("alice", board.id, GridLine(GridLineType.ROW, 0), cards.take(3), emptyList()))
+        return initial.copy(publicView = initial.publicView.copy(grids = listOfNotNull(picked, later.takeIf { next }), log = log),
+            mine = mine.copy(headGridId = if (next) later.id else null, queue = listOfNotNull(later.id.takeIf { next })))
+    }
+
+    // DRF-295 (owner, 2026-11-21): after your pick, when your next grid is there, the grid you picked from fades out at
+    // the top while the next slides up into its place from underneath, in PodGridSwapMillis; the next grid ends where the
+    // picked one was
+    @Test fun thePickedGridFadesOutWhileTheNextSlidesUpIntoItsPlace() {
+        var view by mutableStateOf(initial.copy(publicView = initial.publicView.copy(grids = listOf(board, board.copy(id = "later", number = 2))),
+            mine = mine.copy(queue = listOf(board.id, "later"))))
+        show(view = { view })
+        compose.onNodeWithContentDescription("Select row 1").performClick()
+        val top = compose.onNodeWithText("Your pick · Grid 1/18").fetchSemanticsNode().positionInRoot.y
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { view = afterPick(next = true) }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithTag("pod-grid-leaving").assertExists()
+        val start = compose.onNodeWithText("Your pick · Grid 2/18").fetchSemanticsNode().positionInRoot.y
+        assertTrue(start > top + 200f, "the next grid starts below the leaving one: $start, $top")
+        compose.mainClock.advanceTimeBy(PodGridSwapMillis / 2L)
+        val middle = compose.onNodeWithText("Your pick · Grid 2/18").fetchSemanticsNode().positionInRoot.y
+        assertTrue(middle in top..start, "sliding up: $top < $middle < $start")
+        compose.mainClock.advanceTimeBy(PodGridSwapMillis.toLong())
+        compose.onNodeWithTag("pod-grid-leaving").assertDoesNotExist()
+        assertEquals(top, compose.onNodeWithText("Your pick · Grid 2/18").fetchSemanticsNode().positionInRoot.y, 1f)
+        assertTrue("Grid 1 picked: it fades out while grid 2 slides up into its place" in AppLog.text())
+    }
+
+    // DRF-295: no next grid to pick from: no fade, the waiting text shows at once
+    @Test fun withoutANextGridNothingSlides() {
+        var view by mutableStateOf(initial)
+        show(view = { view })
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { view = afterPick(next = false) }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithTag("pod-grid-leaving").assertDoesNotExist()
+        compose.onNodeWithText("Waiting for other players").assertExists()
+    }
+
     @Test fun waitingShowsAllOpenBoardsReadOnlyWithoutBuildShortcutAndStillPreviews() {
         val waitingBoard = board.copy(currentPlayer = "bob")
         show(view = { initial.copy(publicView = initial.publicView.copy(grids = listOf(waitingBoard, waitingBoard.copy(id = "later", number = 2))),

@@ -84,9 +84,12 @@ class ReleaseNotePreferences(private val platform: AppPlatform) {
     private companion object { const val SEEN = "seen" }
 }
 
+/** LOB-265 (owner playtest 2026-11-21): What's new on the desktop layout is twice the phone's dialog width. */
+val WhatsNewDesktopWidth = 760.dp
+
 @Composable
 fun WhatsNewDialog(notes: List<ReleaseNote>, dismiss: () -> Unit) {
-    ScreenDialog(dismiss, title = "What's new",
+    ScreenDialog(dismiss, title = "What's new", maxWidth = if (desktopLayout()) WhatsNewDesktopWidth else 380.dp,
         actions = { DialogMainButton("OK", dismiss, Modifier.testTag("whats-new-ok")) }) {
         Column(Modifier.testTag("whats-new-notes"),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {

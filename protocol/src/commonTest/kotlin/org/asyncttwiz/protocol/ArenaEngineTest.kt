@@ -18,8 +18,9 @@ class ArenaEngineTest {
     }
     private val rarityOf = { cards: List<ArenaCard> -> cards.flatMap { card -> card.printings.map { it to card.rarity } }.toMap() }
 
+    /** Without initial rares (DRF-281), so "Rare every" and "Uncommon every" alone decide each pick's rarity here. */
     private fun settings(picks: Int = 12, cards: Int = 5, take: Int = 1) =
-        DraftSettings.arena().copy(packsPerPlayer = picks, cardsPerPack = cards, keep = take)
+        DraftSettings.arena().copy(packsPerPlayer = picks, cardsPerPack = cards, keep = take, initialRares = 0)
     private fun start(cards: List<ArenaCard>, settings: DraftSettings = settings(), players: Int = 2, seed: String = this.seed,
         cube: Boolean = true, pickSets: List<String> = emptyList()) =
         ArenaEngine.start(List(players) { "p$it" }, cards, settings, seed, cube, pickSets)
@@ -36,7 +37,8 @@ class ArenaEngineTest {
     // DRF-281: the defaults and limits
     @Test fun defaultsAndLimits() {
         val base = DraftSettings.defaults(DraftMode.ARENA)
-        assertEquals(listOf(45, 5, 1, 10, 4, 8), listOf(base.packsPerPlayer, base.cardsPerPack, base.keep, base.rareEvery, base.uncommonEvery, base.mythicOneIn))
+        assertEquals(listOf(45, 5, 1, 1, 10, 4, 8), listOf(base.packsPerPlayer, base.cardsPerPack, base.keep, base.initialRares, base.rareEvery,
+            base.uncommonEvery, base.mythicOneIn))
         assertFalse(base.ignoreRarity); assertFalse(base.reuseCards)
         assertTrue(base.validate(2).isEmpty()); assertTrue(base.validate(8).isEmpty())
         assertTrue(base.copy(rareEvery = null, uncommonEvery = null, mythicOneIn = null).validate(2).isEmpty())
@@ -49,6 +51,10 @@ class ArenaEngineTest {
         assertContains(base.copy(uncommonEvery = 121).validate(2), DraftSettingsIssue.RARITY_SCHEDULE)
         assertContains(base.copy(rareEvery = 0).validate(2), DraftSettingsIssue.RARITY_SCHEDULE)
         assertContains(base.copy(mythicOneIn = 101).validate(2), DraftSettingsIssue.MYTHIC_CHANCE)
+        // Owner 2026-11-21: initial rares 0–120
+        assertTrue(base.copy(initialRares = 0).validate(2).isEmpty()); assertTrue(base.copy(initialRares = 120).validate(2).isEmpty())
+        assertContains(base.copy(initialRares = 121).validate(2), DraftSettingsIssue.RARITY_SCHEDULE)
+        assertContains(base.copy(initialRares = -1).validate(2), DraftSettingsIssue.RARITY_SCHEDULE)
         assertContains(base.copy(librarians = 1).validate(2), DraftSettingsIssue.LIBRARIANS)
         assertEquals(2..8, DraftMode.ARENA.players)
         assertTrue(DraftMode.ARENA.draftState); assertFalse(DraftMode.ARENA.packPassing); assertFalse(DraftMode.ARENA.limited)
@@ -58,15 +64,18 @@ class ArenaEngineTest {
         assertEquals(49L, base.supply(8, listOf(DraftCubeEntry("x", 49))).needed)
     }
 
-    // DRF-281: rare every 10th pick, uncommon every 4th, rare winning, common otherwise; each offer is of its pick's rarity
+    // DRF-281: the first pick (initial rares, default 1) and every 10th pick rare, uncommon every 4th, rare winning, common
+    // otherwise; each offer is of its pick's rarity
     @Test fun theRarityScheduleDecidesEachOffer() {
         val base = DraftSettings.arena()
-        assertEquals(SetCardRarity.COMMON, ArenaEngine.pickRarity(base, 1))
+        assertEquals(SetCardRarity.RARE, ArenaEngine.pickRarity(base, 1))
+        assertEquals(SetCardRarity.COMMON, ArenaEngine.pickRarity(base, 2))
         assertEquals(SetCardRarity.UNCOMMON, ArenaEngine.pickRarity(base, 4))
         assertEquals(SetCardRarity.RARE, ArenaEngine.pickRarity(base, 10))
         assertEquals(SetCardRarity.RARE, ArenaEngine.pickRarity(base, 20)) // both apply: rare wins
-        assertEquals(mapOf(SetCardRarity.RARE to 4, SetCardRarity.UNCOMMON to 9, SetCardRarity.COMMON to 32), ArenaEngine.schedule(base))
+        assertEquals(mapOf(SetCardRarity.RARE to 5, SetCardRarity.UNCOMMON to 9, SetCardRarity.COMMON to 31), ArenaEngine.schedule(base))
         assertEquals(SetCardRarity.COMMON, ArenaEngine.pickRarity(base.copy(rareEvery = null, uncommonEvery = null), 20))
+        assertEquals(SetCardRarity.RARE, ArenaEngine.pickRarity(base.copy(rareEvery = null, uncommonEvery = null), 1))
         val cards = cube()
         val rarity = rarityOf(cards)
         var state = start(cards, settings(picks = 10).copy(mythicOneIn = null))
@@ -78,6 +87,25 @@ class ArenaEngineTest {
             state = pickFirst(state, "p0")
         }
         assertTrue(state.queues.getValue("p0").isEmpty())
+    }
+
+    // DRF-281 (owner 2026-11-21): "Initial rares": the first N picks offer rares, then "Rare every" decides as before (counting
+    // from the first pick), an initial rare winning over an uncommon pick; 0 gives none; their offers are of rares
+    @Test fun initialRaresComeFirst() {
+        val three = DraftSettings.arena().copy(initialRares = 3, uncommonEvery = 2)
+        assertEquals(List(3) { SetCardRarity.RARE } + listOf(SetCardRarity.UNCOMMON, SetCardRarity.COMMON),
+            (1..5).map { ArenaEngine.pickRarity(three, it) })
+        assertEquals(SetCardRarity.RARE, ArenaEngine.pickRarity(three, 10))
+        assertEquals(SetCardRarity.COMMON, ArenaEngine.pickRarity(three.copy(initialRares = 0, uncommonEvery = null), 1))
+        // More initial rares than picks: every pick is rare
+        assertEquals(mapOf(SetCardRarity.RARE to 4), ArenaEngine.schedule(three.copy(packsPerPlayer = 4, initialRares = 120)))
+        val cards = cube()
+        val rarity = rarityOf(cards)
+        var state = start(cards, settings(picks = 3).copy(initialRares = 2, rareEvery = null, uncommonEvery = null, mythicOneIn = null))
+        for (expected in listOf(SetCardRarity.RARE, SetCardRarity.RARE, SetCardRarity.COMMON)) {
+            assertEquals(setOf(expected), offer(state, "p0").map { rarity.getValue(it.definition) }.toSet())
+            state = pickFirst(state, "p0")
+        }
     }
 
     // DRF-282: each card of a rare pick's offer is a mythic rare with chance 1 in N, drawn from the seed: the same seed

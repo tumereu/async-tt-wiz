@@ -83,6 +83,49 @@ class PodPickViewTest {
         assertEquals(listOf("2") to listOf("3"), confirmed)
     }
 
+    // DRF-293, DRF-044 (owner, 2026-11-21): with Auto on beside Confirm, the mark that completes the pick (its keep and both
+    // burns) confirms it at once; before that nothing is sent; Auto starts off
+    @Test fun autoConfirmsThePickOnceItsMarksAreComplete() {
+        val confirmed = mutableListOf<Pair<List<String>, List<String>>>()
+        show(settings = DraftSettings(keep = 1, burn = 2), onConfirm = { keep, burn -> confirmed += keep to burn })
+        compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOff().performClick().assertIsOn()
+        swipe("1", true)
+        swipe("2", false)
+        compose.runOnIdle { assertTrue(confirmed.isEmpty(), "not complete yet: $confirmed") }
+        card("3").performClick()
+        compose.onNodeWithText("Burn").performClick()
+        compose.runOnIdle { assertEquals(listOf(listOf("1") to listOf("2", "3")), confirmed) }
+        assertTrue("Autoconfirm on pack first: the burn of 3 completed the pick" in AppLog.text())
+    }
+
+    // DRF-293: Auto turned on over a pick already complete doesn't send it (Confirm does); with Auto off a complete pick waits for Confirm
+    @Test fun autoConfirmsOnlyAMarkMadeWhileItIsOn() {
+        val confirmed = mutableListOf<Pair<List<String>, List<String>>>()
+        show(settings = DraftSettings(keep = 1, burn = 0), onConfirm = { keep, burn -> confirmed += keep to burn })
+        swipe("1", true)
+        compose.onNodeWithTag("pod-pick-autoconfirm").performClick().assertIsOn()
+        compose.runOnIdle { assertTrue(confirmed.isEmpty(), "turning Auto on sends nothing: $confirmed") }
+        compose.onNodeWithText("Confirm").assertIsEnabled()
+        // Marking another card while on completes the pick again: it goes
+        swipe("2", true)
+        compose.runOnIdle { assertEquals(listOf(listOf("2") to emptyList<String>()), confirmed) }
+    }
+
+    // DRF-293: the draft's own Auto toggle (kept by the pod screen) is shown and changed through it
+    @Test fun autoToggleFollowsTheDraftsValue() {
+        var auto by mutableStateOf(true)
+        val confirmed = mutableListOf<List<String>>()
+        compose.setContent { ScreenTheme { Surface {
+            PodPickView(pack, DraftSettings(keep = 1, burn = 0), definitions, false, { keep, _ -> confirmed += keep },
+                autoconfirm = auto, onAutoconfirm = { auto = it })
+        } } }
+        compose.onNodeWithTag("pod-pick-autoconfirm").assertIsOn()
+        swipe("4", true)
+        compose.runOnIdle { assertEquals(listOf(listOf("4")), confirmed) }
+        compose.onNodeWithTag("pod-pick-autoconfirm").performClick().assertIsOff()
+        compose.runOnIdle { assertFalse(auto) }
+    }
+
     // DRF-062, DRF-063
     @Test fun menuUnmarkTrayTapAndHoldInspectionWork() {
         show()
@@ -374,14 +417,20 @@ class PodPickViewTest {
         compose.onNodeWithText("Burn").assertDoesNotExist()
     }
 
-    // DRF-056
+    // DRF-056, DRF-293 (owner, 2026-11-21): the Auto toggle and Confirm fill a full-width row under the trays, Confirm taking the
+    // rest of it
     @Test fun verticalScrollingKeepsTraysAndFullWidthConfirmFixed() {
         show()
         val tray = compose.onNodeWithTag("pod-pick-keep-tray").fetchSemanticsNode().boundsInRoot
         val confirm = compose.onNodeWithText("Confirm").fetchSemanticsNode().boundsInRoot
-        val confirmButton = compose.onNodeWithText("Confirm").getUnclippedBoundsInRoot()
+        val confirmButton = compose.onNodeWithTag("pod-pick-confirm").getUnclippedBoundsInRoot()
+        val row = compose.onNodeWithTag("pod-pick-confirm-row").getUnclippedBoundsInRoot()
+        val toggle = compose.onNodeWithTag("pod-pick-autoconfirm").getUnclippedBoundsInRoot()
         val list = compose.onNodeWithTag("pod-pick-list").getUnclippedBoundsInRoot()
-        assertEquals(list.right - list.left, confirmButton.right - confirmButton.left)
+        assertEquals(list.right - list.left, row.right - row.left)
+        assertEquals(list.left, toggle.left)
+        assertEquals(list.right, confirmButton.right)
+        assertTrue(confirmButton.right - confirmButton.left > (row.right - row.left) * .6f, "Confirm takes the rest of the row")
         compose.onNodeWithTag("pod-pick-list").performTouchInput { swipeUp() }
         card("15").assertIsDisplayed()
         assertEquals(tray, compose.onNodeWithTag("pod-pick-keep-tray").fetchSemanticsNode().boundsInRoot)

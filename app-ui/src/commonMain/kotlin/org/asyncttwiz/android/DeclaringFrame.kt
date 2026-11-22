@@ -46,10 +46,10 @@ import org.asyncttwiz.protocol.PlayZone
 
 /** CMB-095 (owner playtest 2026-11-21): what the viewer declares now, while nobody holds priority (CMB-047). */
 sealed interface CombatDeclaring {
-    /** The chip's words at the table's top. */
+    /** The chip's words at the table's top (owner 2026-11-22, F2: only what is declared). */
     val chip: String
-    data object Attackers : CombatDeclaring { override val chip = "Declaring attackers: abilities can't be used now" }
-    data object Blockers : CombatDeclaring { override val chip = "Declaring blockers: abilities can't be used now" }
+    data object Attackers : CombatDeclaring { override val chip = "Declaring attackers" }
+    data object Blockers : CombatDeclaring { override val chip = "Declaring blockers" }
 }
 
 /** CMB-095: the declaring chip's test tag. */
@@ -87,12 +87,15 @@ object DeclaringLook {
     }
 
     /**
-     * CMB-096 (owner playtest 2026-11-21): the cards on [viewer]'s battlefield of [board] that can't take part in the declaration:
-     * every card not in [takingPart] (the creatures that may attack, or block, staged or placed ones too).
+     * CMB-096 (owner playtest 2026-11-21; owner 2026-11-22, F2): the cards of [board] dimmed while [viewer] declares: every card on
+     * a battlefield not in [takingPart] (the viewer's creatures that may attack, or block, staged or placed ones too), so the
+     * other players' permanents too, and the cards in the viewer's hand. The combat copies on the band aren't battlefield cards:
+     * attackers being blocked stay bright there.
      */
     fun dimmed(board: BoardState, viewer: String, takingPart: Set<String>): Set<String> {
-        val fields = board.containers.filter { it.zone == PlayZone.BATTLEFIELD && it.accountId == viewer }.mapTo(HashSet()) { it.id }
-        return board.cards.filter { it.containerId in fields && it.id !in takingPart }.mapTo(HashSet()) { it.id }
+        val fields = board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.mapTo(HashSet()) { it.id }
+        val hand = board.containers.filter { it.zone == PlayZone.HAND && it.accountId == viewer }.mapTo(HashSet()) { it.id }
+        return board.cards.filter { it.containerId in hand || it.containerId in fields && it.id !in takingPart }.mapTo(HashSet()) { it.id }
     }
 }
 

@@ -47,6 +47,10 @@ class CollectEvidenceSelectionTest : E2e() {
         }
         assertEquals(milled, graveyard().size)
         play("Ember Witness") { alice.state.pending?.decision is Decision.May && alice.showsText("Yes") }
+        // STK-181 (owner 2026-11-22, F1): the Witness's ability text shows once; its "you may" sentence isn't repeated as the question
+        val may = assertIs<Decision.May>(alice.state.pending?.decision)
+        assertTrue(alice.shows(hasContentDescription("Ability: When this creature enters, you may collect evidence 2", substring = true)), "the ability's text: ${alice.screen()}")
+        assertFalse(alice.shows(hasContentDescription("Question: ${may.text}")), "\"${may.text}\" not repeated: ${alice.screen()}")
         alice.text("Yes").performClick()
         waitUntil("the evidence's panel") { alice.state.pending?.decision is Decision.ChooseObjects && alice.shows(spark) }
         return assertIs<Decision.ChooseObjects>(alice.state.pending?.decision)

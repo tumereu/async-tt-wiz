@@ -24,9 +24,47 @@ import arcanum.engine.state.ObjectId
 /**
  * Who looks at a choice and how it is framed (I-D47, I-D48): [viewer] for the cards' outlines and Inspect; [headed]: the
  * panel's own title already says what the choice is ("Scry 2 · Carrot Cake") with its instruction, so its section
- * shows neither again.
+ * shows neither again; [shownText]: the ability text the panel's head shows above the choice (STK-226), whose own clauses
+ * its question doesn't repeat ([QuestionLine]).
  */
-data class ChoiceFrame(val viewer: String = "", val headed: Boolean = false)
+data class ChoiceFrame(val viewer: String = "", val headed: Boolean = false, val shownText: String? = null)
+
+/**
+ * STK-181 (owner 2026-11-22, F1): a choice's question line shows only when it says something the ability text shown above it
+ * doesn't. It repeats that text when its words are a clause or a run of whole clauses of it, compared ignoring case,
+ * punctuation and spacing: "You may forage. If you do, put two +1/+1 counters on it." under "When this creature enters, you
+ * may forage. If you do, put two +1/+1 counters on it." does; a copy's "Choose new targets for the copy?" doesn't.
+ */
+object QuestionLine {
+    /** Whether [question] only repeats clauses of [shown] (the ability text above it; none: it repeats nothing). */
+    fun repeats(question: String, shown: String?): Boolean {
+        if (shown == null) return false
+        val asked = clauses(question).trim('|', ' ')
+        if (asked.isEmpty()) return false
+        return "| ${clauses(shown).trim('|', ' ')} |".contains("| $asked |")
+    }
+
+    /** [text] as lower-case words with "|" at each clause break (. , ; : ! ? brackets and dashes), single-spaced. */
+    private fun clauses(text: String): String {
+        val out = StringBuilder()
+        var word = StringBuilder()
+        fun token(t: String) {
+            if (t == "|" && out.endsWith("|")) return
+            if (out.isNotEmpty()) out.append(' ')
+            out.append(t)
+        }
+        fun endWord() { if (word.isNotEmpty()) { token(word.toString()); word = StringBuilder() } }
+        for (c in text.lowercase()) when {
+            c.isLetterOrDigit() -> word.append(c)
+            c in CLAUSE_BREAKS -> { endWord(); token("|") }
+            else -> endWord()
+        }
+        endWord()
+        return out.toString()
+    }
+
+    private const val CLAUSE_BREAKS = ".,;:!?()[]—–"
+}
 
 val LocalChoiceFrame = compositionLocalOf { ChoiceFrame() }
 

@@ -974,4 +974,26 @@ class CombatBandTest {
         captureShot("$SCREENSHOTS/combat-band/declaring-blockers.png",
             "Alice attacked with her Ember Cub and Bob declares blockers: the chip \"Declaring blockers\" sits at his table's top and the open combat band is orange with a wave of light crossing it under Alice's attacking Cub, which stays bright there; his Cub that may block glows red-orange while his Mountain, his hand and Alice's permanents are dimmed.")
     }
+
+    // CMB-096, TBL-128, TBL-212 (owner 2026-11-22, F2 follow-up): while Alice declares attackers her dimmed hand takes no taps: a tap
+    // or a double tap on a hand card only shakes it, saying "Not while declaring attackers.", raising and casting nothing; holding
+    // it still inspects it. Bob declaring blockers is told "Not while declaring blockers."
+    @Test fun whileDeclaringTheHandOnlyShakes() {
+        aliceDeclaring()
+        val play = k.alice.play()
+        assertEquals(CombatDeclaring.Attackers, k.toolkit.declaring(play))
+        val card = k.atw(k.state().player(k.me).hand.first())
+        k.tap(k.item(card, PlayZone.HAND))
+        assertEquals(card, k.toolkit.shaking?.id, "the card shakes")
+        assertEquals("Not while declaring attackers.", k.toolkit.shaking?.reason)
+        assertNull(k.toolkit.hand.raised, "not raised")
+        val (gestures, _) = k.gestures()
+        k.doubleTap(gestures, k.item(card, PlayZone.HAND).bounds.center)
+        assertFalse(k.toolkit.cast.open, "nothing cast")
+        assertEquals("Not while declaring attackers.", k.toolkit.shaking?.reason)
+        k.toolkit.peek(card)
+        assertNotNull(k.toolkit.peek, "holding still inspects it")
+        k.toolkit.peek(null)
+        assertEquals("Not while declaring blockers.", CombatDeclaring.Blockers.handRefusal)
+    }
 }

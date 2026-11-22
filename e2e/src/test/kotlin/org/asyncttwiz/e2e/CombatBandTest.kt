@@ -13,6 +13,7 @@ import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -63,7 +64,7 @@ class CombatBandTest : E2e() {
         waitUntil("${player.name}'s dims logged: $logged") { logged in AppLog.text() }
     }
 
-    // CMB-001, CMB-007, CMB-013, CMB-028, CMB-031, CMB-034, CMB-095, CMB-096, CMB-097, TRN-063, TRN-113
+    // CMB-001, CMB-007, CMB-013, CMB-028, CMB-031, CMB-034, CMB-095, CMB-096, CMB-097, TBL-128, TRN-063, TRN-113
     @Test fun attackersAreStagedInTheBandAndBlockedOnItsLanes() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald),
             deal = { a, b -> "Mountain" in hand(a) && hand(a).count { it == "Ember Cub" } >= 2 && "Mountain" in hand(b) &&
@@ -101,6 +102,18 @@ class CombatBandTest : E2e() {
         assertTrue(noneDeclaringShown(bob), "Bob declares nothing: ${bob.screen()}")
         // CMB-095, CMB-096 (owner 2026-11-22, F2): "Declaring attackers" only; her hand and Bob's permanents dimmed
         declaringLooks(alice, bob, "Declaring attackers")
+        // CMB-096, TBL-128, TBL-212 (owner 2026-11-22, F2 follow-up): a tap on a card of her dimmed hand only shakes it, saying why;
+        // nothing is raised or cast
+        val hand = alice.state.player(alice.me).hand
+        val tapped = assertNotNull(cardName(alice.state, hand.first()))
+        alice.handCard(tapped).performClick()
+        waitUntil("the hand card's refusal bubble: ${alice.screen()}") {
+            alice.told("Not while declaring attackers.") && alice.shows(hasTestTag("refusal-bubble"))
+        }
+        assertTrue(alice.raisedInHand() == null, "not raised")
+        run()
+        assertEquals(hand, alice.state.player(alice.me).hand, "nothing left her hand")
+        assertTrue(alice.state.stack.isEmpty() && alice.state.turn.step == TurnStep.DeclareAttackers, "nothing cast, still declaring")
         assertFalse(alice.bandOpen(), "collapsed")
         alice.tap("Attack ${bob.name}")
         run()

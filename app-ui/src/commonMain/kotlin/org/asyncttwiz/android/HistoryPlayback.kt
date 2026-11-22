@@ -122,7 +122,8 @@ class HistorySceneAnimation(initial: TableScene) {
         if (progress >= 1f) return presentation.fields
         val elapsed = progress.coerceIn(0f, 1f) * durationMillis
         val sceneProgress = (elapsed / MAX_CARD_MOVE_DURATION_MILLIS).coerceIn(0f, 1f)
-        val viewport = presentation.world?.viewport
+        // TBL-238: cut to where the battlefields are seen, as the scene's own fields are
+        val viewport = presentation.world?.visibleViewport
         return presentation.fields.map { field ->
             val to = field.gridBounds
             // Only its vertical place moves (its x and width follow the camera and the cards, which jump)

@@ -104,15 +104,19 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     }
     // WEB-015 (owner playtest 2026-11-15): on the desktop table the battlefields fill their room down to the window's bottom:
     // the land rows' colours go on beyond the rows (yours down under what floats over the bottom, the other player's up to the
-    // top row, WEB-016) where the rows don't reach
+    // top row, WEB-016) where the rows don't reach. TBL-238 (owner playtest 2026-11-22): on the phone a land row reaching the
+    // edge of the room the battlefields are laid out in goes on over the margin beyond it, up to the bar (landscape)
     val shown = scene.world?.clipViewport
+    val laid = scene.world?.viewport
     val top = scene.fields.firstOrNull()
     val own = scene.fields.lastOrNull()
-    if (scene.desktop && shown != null && top != null && own != null && top !== own) {
-        if (top.gridBounds.y > shown.y) drawRect(battlefieldColor(top.owner, viewer, turnPlayer, lands = true),
-            xy(shown.x, shown.y), size(shown.width, top.gridBounds.y - shown.y))
-        if (own.gridBounds.bottom < shown.bottom) drawRect(battlefieldColor(own.owner, viewer, turnPlayer, lands = true),
-            xy(shown.x, own.gridBounds.bottom), size(shown.width, shown.bottom - own.gridBounds.bottom))
+    if (shown != null && laid != null && top != null && own != null && top !== own) {
+        if (top.gridBounds.y > shown.y && (scene.desktop || top.gridBounds.y <= laid.y + .5f))
+            drawRect(battlefieldColor(top.owner, viewer, turnPlayer, lands = true),
+                xy(shown.x, shown.y), size(shown.width, top.gridBounds.y - shown.y))
+        if (own.gridBounds.bottom < shown.bottom && (scene.desktop || own.gridBounds.bottom >= laid.bottom - .5f))
+            drawRect(battlefieldColor(own.owner, viewer, turnPlayer, lands = true),
+                xy(shown.x, own.gridBounds.bottom), size(shown.width, shown.bottom - own.gridBounds.bottom))
     }
     // WEB-015, WEB-016, WEB-018: what floats over the desktop table's battlefields with a background of its own
     for ((b, color) in scene.floats) drawRect(color, xy(b.x, b.y), size(b.width, b.height))

@@ -39,7 +39,7 @@ class InfiniteBattlefieldTest {
     private fun scene(play: PlayState, width: Float, height: Float, landscape: Boolean, camera: TableCamera = TableCamera()) =
         TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", width, height, landscape, TableLayoutState(camera))
 
-    // SYS-041, TBL-005
+    // SYS-041, TBL-005, TBL-238
     @Test fun battlefieldFeelsInfiniteFieldsCoverTheWholePanAreaOnBothSides() {
         // Rule: battlefield feels infinite; panning is limited only by distance from the cards.
         for ((name, play) in cases) for ((width, height, landscape) in sizes) {
@@ -52,12 +52,13 @@ class InfiniteBattlefieldTest {
             for (camera in cameras) {
                 val scene = scene(play, width, height, landscape, camera)
                 val pan = scene.world!!.screen(scene.world!!.panBounds, scene.camera)
-                val viewport = scene.world!!.viewport
+                // TBL-238: the whole width the battlefields are seen in
+                val viewport = scene.world!!.visibleViewport
                 for (field in scene.fields) {
                     val label = "$name, landscape=$landscape, $camera, ${field.owner}"
                     assertTrue(field.gridBounds.x <= pan.x + .001f && field.gridBounds.right >= pan.right - .001f, label)
                     assertTrue(field.gridBounds.x <= viewport.x + .001f && field.gridBounds.right >= viewport.right - .001f, label)
-                    // Drop areas, roll chips and location pings use the visible field: always the full viewport width.
+                    // Drop areas, roll chips and location pings use the visible field: always the full width it is seen in.
                     if (field.bounds.height > 0f) {
                         assertEquals(viewport.x, field.bounds.x, .001f, label)
                         assertEquals(viewport.width, field.bounds.width, .001f, label)

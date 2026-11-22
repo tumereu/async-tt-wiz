@@ -32,8 +32,11 @@ fun TableUnavailable(title: String, landscape: Boolean, modifier: Modifier = Mod
             drawRect(Color(0xffe2efe6), Offset(left, middle + gap), Size(size.width - left - 6 * d, bottom - middle - gap))
         }
         Row(Modifier.height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-            ActionSquare("Open navigation", "", navigation != null, Modifier.width(48.dp),
-                icon = { TableChromeIcon("menu") }, onClick = { navigation?.invoke() })
+            // LOB-268: the dot of what waits for you elsewhere
+            WithNavigationDot(LocalNavigationDot.current.takeIf { navigation != null }, inset = 8.dp) {
+                ActionSquare("Open navigation", "", navigation != null, Modifier.width(48.dp),
+                    icon = { TableChromeIcon("menu") }, onClick = { navigation?.invoke() })
+            }
             Text(title, fontWeight = FontWeight.Bold, fontSize = 13.sp)
         }
         Surface(Modifier.align(Alignment.Center).padding(16.dp).widthIn(max = 368.dp),

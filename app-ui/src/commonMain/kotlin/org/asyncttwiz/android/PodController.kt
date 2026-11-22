@@ -106,6 +106,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private val quietFailures = QuietRefreshFailures(clock, tag = "pods")
     /** Why the pending refresh is [watch]'s re-read, if it is: its result is logged when it changes something. */
     private var watchReason: String? = null
+    /** LOB-270: the pending refresh is only a [watch] of the list (outside the pod screens): no open pod's detail is read.
+     * Any other refresh asked for meanwhile clears it. */
+    private var listOnlyPending = false
     /** [watch]'s re-reads since one was last logged, and why they last failed (logged once per stretch of failures). */
     private var quietReads = 0
     private var watchFailing: String? = null
@@ -262,19 +265,24 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         refresh()
     }
     fun refresh(requested: Boolean = false) {
-        if (!closed) { refreshPending = true; refreshRequested = refreshRequested || requested; pump() }
+        if (!closed) { refreshPending = true; listOnlyPending = false; refreshRequested = refreshRequested || requested; pump() }
     }
     /**
      * The pod list and the open pod read again every [everyMillis] on the main thread's clock, for [where] (the pod list, an
      * open pod), until the returned closer is called; the first one interval from now. On the main thread's clock, not a
      * composition's frame clock, which stands still in the e2e harness while nothing on the screen animates. A re-read that
      * changes something is logged, with the quiet ones counted; failures stay quiet on the screen ([QuietRefreshFailures]).
+     * With [listOnly] only the pod list is read, never the open pod's detail (LOB-270: the waiting dots outside the pod screens).
      */
-    fun watch(where: String, everyMillis: Long = 10_000): () -> Unit {
+    fun watch(where: String, everyMillis: Long = 10_000, listOnly: Boolean = false): () -> Unit {
         var active = true
         AppLog.info("pods", "Re-read every ${everyMillis / 1000} s ($where)")
         val cancel = repeatEvery(everyMillis, delayed) {
-            if (!closed) { watchReason = "every ${everyMillis / 1000} s, $where"; refresh() }
+            if (!closed) {
+                watchReason = "every ${everyMillis / 1000} s, $where"
+                // LOB-270: only the list, unless another refresh is already waiting
+                if (listOnly && !refreshPending) { refreshPending = true; listOnlyPending = true; pump() } else refresh()
+            }
         }
         return {
             if (active) {
@@ -293,7 +301,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         // Always refresh the list (Quick continue too); refresh the open detail in the same pass.
         refresh()
     }
-    fun retry() { syncCredential(); state = state.copy(uncertain = false, error = null); refreshPending = true; refreshRequested = true; pump() }
+    fun retry() { syncCredential(); state = state.copy(uncertain = false, error = null); refreshPending = true; listOnlyPending = false; refreshRequested = true; pump() }
     fun tab(tab: PodTab) { state = state.copy(tab = tab) }
     fun newPod(cubeId: String? = null) {
         if (writes.isNotEmpty()) return
@@ -899,7 +907,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             // A rejected credential can disappear before the request's posted completion.
             // Fence its result, but retain ambiguous writes and their original request IDs.
             if (active) {
-                refreshPending = true
+                refreshPending = true; listOnlyPending = false
                 cubesPending = cubesPending || state.creating != null
                 state = state.copy(loading = false, uncertain = writes.isNotEmpty())
             }
@@ -933,9 +941,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         active = true
         val requested = read && refreshRequested
         val watched = watchReason.takeIf { read }
-        if (read) { refreshPending = false; refreshRequested = false; watchReason = null }
+        // LOB-270: a list-only re-read leaves the open pod's detail alone
+        val listOnly = read && listOnlyPending
+        if (read) { refreshPending = false; refreshRequested = false; watchReason = null; listOnlyPending = false }
         cubesPending = false
-        val generation = epoch; val selected = state.selected
+        val generation = epoch; val selected = state.selected.takeUnless { listOnly }
         // Nothing shown yet: ride out a short outage on the loading indicator instead of failing fast.
         val firstLoad = read && (if (selected != null) state.detail == null else !state.loaded)
         val readDelays = if (firstLoad) firstLoadRetryDelays else quickRetryDelays
@@ -1049,7 +1059,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                         }
                     }
                     if ((failure as? PodFailure)?.code in listOf("draft_attempt_expired", "not_drafting", "not_found", "deck_submitted")) {
-                        writes.clear(); refreshPending = true
+                        writes.clear(); refreshPending = true; listOnlyPending = false
                     }
                     state = state.copy(loading = false, uncertain = uncertain,
                         error = if (write?.draftPick != null && !uncertain) "Pick rejected."

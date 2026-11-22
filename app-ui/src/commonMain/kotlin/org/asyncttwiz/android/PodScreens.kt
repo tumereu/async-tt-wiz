@@ -571,7 +571,10 @@ fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, tabs: (@Composab
     Surface {
         Row(Modifier.fillMaxWidth().height(PodPlayHeaderHeight).testTag("pod-play-header"),
             verticalAlignment = Alignment.CenterVertically) {
-            if (navigation != null) HoldTip("Open navigation") { IconButton(navigation, Modifier.size(48.dp)) { EntryIcon("Open navigation", "menu") } }
+            // DRF-306, LOB-268: the dot of what waits for you elsewhere
+            if (navigation != null) WithNavigationDot(LocalNavigationDot.current) {
+                HoldTip("Open navigation") { IconButton(navigation, Modifier.size(48.dp)) { EntryIcon("Open navigation", "menu") } }
+            }
             else Spacer(Modifier.width(8.dp))
             if (tabs != null) {
                 tabs()

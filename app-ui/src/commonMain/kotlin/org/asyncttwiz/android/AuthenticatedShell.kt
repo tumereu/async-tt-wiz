@@ -61,12 +61,24 @@ fun AuthenticatedShell(controller: AuthController, landscapeWindow: Boolean, cat
     LaunchedEffect(state.drawerOpen) {
         if (state.drawerOpen) pods?.refresh()
     }
+    // LOB-268: the play screens' hamburger dot: everything waiting for you but the game or pod open, logged when its colour
+    // changes, with the game or pod that lights it
+    val openGame = lobby?.state?.selected?.takeIf { state.destination == ShellDestination.GAMES }
+    val openPod = pods?.state?.selected?.takeIf { state.destination == ShellDestination.PODS }
+    val waiting = navigationDot(lobby?.state?.let { it.games + it.invitations }.orEmpty(), pods?.state?.pods.orEmpty(),
+        account.accountId, openGame, openPod)
+    LaunchedEffect(waiting?.dot) {
+        AppLog.info("waiting", "Hamburger dot: ${waiting?.let { "${it.dot.tag}, from ${it.why}" } ?: "none"} (open: " +
+            "${openGame?.let { "game ${it.take(8)}" } ?: openPod?.let { "pod ${it.take(8)}" } ?: state.destination.name.lowercase()})")
+    }
+    // LOB-270: outside the pod screens (which read it themselves, DRF-078) the pod list is read as often, for the dots
+    if (pods != null && state.destination != ShellDestination.PODS) WhileInFront(pods) { pods.watch("waiting dots", listOnly = true) }
     // Section 3.6: while the card records install, controls that read them are greyed and content needing them waits
     val records = catalog?.state?.records ?: CardRecords.Ready
     val content: @Composable () -> Unit = {
         Box(Modifier.fillMaxSize()) {
             CompositionLocalProvider(LocalCardRecords provides records, LocalCardRecordsRetry provides catalog?.let { it::retry },
-                LocalPodChat provides pods?.chat) {
+                LocalPodChat provides pods?.chat, LocalNavigationDot provides waiting?.dot) {
                 if (state.destination == ShellDestination.GAMES && lobby?.state?.picker?.importing == true && deckImport?.state?.active == true) {
                     DeckImportScreen(deckImport, landscape, if (!landscape) ({ controller.drawer(true) }) else null, catalog)
                 } else if (state.destination == ShellDestination.GAMES && lobby?.state?.selected != null && records != CardRecords.Ready) {
@@ -189,7 +201,8 @@ fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyControlle
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Avatar(game.opponent(accountId))
                         Column(Modifier.weight(1f)) {
-                            Text(game.gameName, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            // LOB-269: the row's waiting dot, never for the game you are looking at
+                            WaitingName(game.gameName, gameWaitingDot(game, accountId).takeUnless { selectedGame })
                             // Its own line: beside the chevron the narrow drawer squeezed the name to one letter.
                             if (incoming) Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             // LOB-252: an invitation whose creator lends you decks says so
@@ -226,7 +239,8 @@ fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyControlle
                                 AvatarStack(podNavigationAvatars(pod.members, controller.state.account?.accountId),
                                     ring = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.White, width = stackWidth)
                                 Column(Modifier.weight(1f)) {
-                                    Text(pod.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                    // LOB-269: the row's waiting dot, never for the pod you are looking at
+                                    WaitingName(pod.name, podWaitingDot(pod).takeUnless { selectedPod })
                                     Text(podStatus(pod), style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant, minLines = 2, maxLines = 2,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -300,7 +314,9 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
     }
     Column(readable.fillMaxSize()) {
         if (destination == ShellDestination.MENU) {
-            if (hamburger) ScreenHeader("", open) { WizardLogo(Modifier.padding(end = 8.dp), compact = true) }
+            // LOB-268: in portrait the Menu screen's hamburger carries the dot of everything waiting for you (nothing is open here)
+            if (hamburger) ScreenHeader("", open, navigationDot = navigationDot(lobby?.state?.let { it.games + it.invitations }.orEmpty(),
+                pods?.state?.pods.orEmpty(), accountId)?.dot) { WizardLogo(Modifier.padding(end = 8.dp), compact = true) }
         } else ScreenHeader(if (destination == ShellDestination.CONTACTS && lobby?.state?.choosingOpponent == true) "Choose opponent" else destination.title,
             if (hamburger) open else null, Modifier.testTag("destination-title")) {
             if (destination == ShellDestination.GAMES)
@@ -352,11 +368,12 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
                                      if (index > 0) HorizontalDivider(color = ScreenBorder)
                                      val incoming = incomingInvitation(game, accountId)
                                      val ready = cardRecordsReady()
+                                     // LOB-269: the menu panel's rows carry their waiting dot
                                      GameRow(game, accountId, Modifier.fillMaxWidth().testTag("quick-continue-${game.id}")
                                          .gameRowActions(lobby, game, enabled = ready || incoming, desktop = desktopLayout()) {
                                              navigate(ShellDestination.GAMES)
                                              if (!incoming) lobby.open(game.id)
-                                         }, trailing = if (incoming) ({
+                                         }, dot = gameWaitingDot(game, accountId), trailing = if (incoming) ({
                                              MenuInvitationActions(game.id in lobby.state.connectedGames && game.id !in lobby.state.pendingGames,
                                                  acceptEnabled = !game.invitationHeld && ready) {
                                                  lobby.respond(game, it)

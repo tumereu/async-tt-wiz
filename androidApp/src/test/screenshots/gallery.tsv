@@ -372,3 +372,7 @@ number	item	screenshot	catalog	decisions	sequence
 543	Main button held down: the whole button takes the pressed look	main-button/pressed.png	TRN-063		
 544	Settings: Card records installing, one even progress bar	settings/card-records-progress.png	LOB-093		
 545	Phone battlefields seen to the screen's edges: no margin at the sides (in landscape, layout-populated-landscape.png, also none above or below)	layout-populated-portrait.png	TBL-238 TBL-005		
+550	Waiting dots: the Menu screen, the hamburger red for your move, each row in its own colour (red, blue, green)	waiting-dots/menu.png	LOB-267 LOB-268 LOB-269		Waiting dots
+551	Waiting dots: at a game's table its own move gives none, the hamburger blue for a pick elsewhere	waiting-dots/table-pick.png	LOB-268		Waiting dots
+552	Waiting dots: a started pod's hamburger green for a deck to build in another pod	waiting-dots/pod-build.png	DRF-306 LOB-268		Waiting dots
+553	Waiting dots: the side menu over that pod, the other pod's row green, the open pod's none	waiting-dots/side-menu-pod.png	LOB-269		Waiting dots

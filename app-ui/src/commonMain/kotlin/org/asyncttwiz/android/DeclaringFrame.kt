@@ -48,8 +48,16 @@ import org.asyncttwiz.protocol.PlayZone
 sealed interface CombatDeclaring {
     /** The chip's words at the table's top (owner 2026-11-22, F2: only what is declared). */
     val chip: String
-    data object Attackers : CombatDeclaring { override val chip = "Declaring attackers" }
-    data object Blockers : CombatDeclaring { override val chip = "Declaring blockers" }
+    /** CMB-096 (owner 2026-11-22, F2 follow-up): why a tap on a card of the declarer's dimmed hand row shakes it. */
+    val handRefusal: String
+    data object Attackers : CombatDeclaring {
+        override val chip = "Declaring attackers"
+        override val handRefusal = "Not while declaring attackers."
+    }
+    data object Blockers : CombatDeclaring {
+        override val chip = "Declaring blockers"
+        override val handRefusal = "Not while declaring blockers."
+    }
 }
 
 /** CMB-095: the declaring chip's test tag. */

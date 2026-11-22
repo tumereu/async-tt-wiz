@@ -1,1 +1,1 @@
-mod: While you declare attackers or blockers, the chip just says what you declare, and your hand and the other player's permanents are dimmed.
+mod: While you declare attackers or blockers, the chip just says what you declare, your hand and the other player's permanents are dimmed, and your hand cards can't be played.

@@ -159,6 +159,21 @@ class CastMessagesTest {
         assertTrue(logged.filter { "refused as stale" in it.second }.all { it.first }, "stale steps are logged as warnings")
     }
 
+    // STK-138, STK-024 (owner problem report 4DKZET): a version worked out again in place (the X's payment previewed) keeps its
+    // number and makes no new one, so any number of them never leaves it behind as stale; a newer version still does
+    @Test fun aVersionWorkedOutAgainStaysKept() {
+        val sessions = FlowSessions<String>(log, keep = 2)
+        sessions.open(1, "cast", "Ember Burst")
+        assertEquals(1L, sessions.put(1, "X asked", "begun"))
+        repeat(10) { n -> assertEquals(1L, sessions.replace(1, 1, "X previewed at $n", "previewed")) }
+        assertEquals("X previewed at 9", sessions.get(1, 1, "answer").entry)
+        assertEquals(2L, sessions.put(1, "target asked", "X answered"))
+        assertEquals(3L, sessions.put(1, "payment", "target answered"))
+        assertNull(sessions.replace(1, 1, "late", "previewed"), "a version no longer kept isn't worked out again")
+        sessions.close(1, "cancelled")
+        assertNull(sessions.replace(1, 3, "late", "previewed"), "closed")
+    }
+
     // Sessions are kept apart; one opened again with the same number starts anew
     @Test fun sessionsAreKeptApart() {
         val sessions = FlowSessions<String>(log)

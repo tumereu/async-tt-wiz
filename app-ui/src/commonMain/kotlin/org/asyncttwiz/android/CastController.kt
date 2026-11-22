@@ -166,8 +166,10 @@ class CastController(
         val f = flow ?: return
         if (decision !is Decision.Announce || f.pending?.id != decision.id || busy) return
         val run = ++generation
-        AppLog.info("cast", "X set to $value in the panel: the payment worked out with it")
+        AppLog.info("cast", "X set to $value in the panel: the payment worked out with it (version ${f.version})")
         port.ask(CastRequest(session, f.version, null, CastOp.Preview(Answer.Number(value), choices())), null, { current()?.let(stacks) }) { answer ->
+            // Owner problem report 4DKZET: a refused preview says which version it named
+            if (answer is CastAnswer.Refuse) AppLog.info("cast", "X $value previewed on version ${f.version} (shown ${flow?.version}) refused: ${answer.message}")
             if (run != generation || flow !== f) return@ask
             apply(answer, null, f)
         }
@@ -711,6 +713,10 @@ class CastController(
         val opening = op is CastOp.Start || op is CastOp.FromHand || op is CastOp.Begin
         val request = CastRequest(session, if (opening) null else version, play?.values?.number, op)
         port.ask(request, play, { current()?.let(stacks) }) { answer ->
+            // Owner problem report 4DKZET: a refusal ("The table changed: cast it again.") says which version the step named
+            if (answer is CastAnswer.Refuse || answer is CastAnswer.Drop) AppLog.info("cast", "Cast step ${op::class.simpleName} " +
+                "on version ${request.version} (session $session, shown ${flow?.version}) ${if (answer is CastAnswer.Drop) "dropped the cast" else "refused"}: " +
+                ((answer as? CastAnswer.Refuse)?.message ?: (answer as CastAnswer.Drop).message) + if (run != generation) " (replaced meanwhile)" else "")
             if (run != generation) return@ask
             busy = false
             result = apply(answer, play, base)

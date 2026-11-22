@@ -585,6 +585,11 @@ class SharedFlowController(
         val request = SharedRequest(session, view?.version, play.values?.number, op)
         port.ask(request, play, { stacks(play) }) { answer ->
             busy = false
+            // Owner problem report 4DKZET: a "table changed" refusal says which version and board the step named
+            if (answer is SharedAnswer.Refuse) AppLog.info("decision", "Flow step ${op::class.simpleName} on version ${request.version} " +
+                "(board ${request.board}, now ${current()?.values?.number}) refused: ${answer.message}")
+            if (answer is SharedAnswer.Send && current()?.board !== play.board) AppLog.info("decision", "Flow step " +
+                "${op::class.simpleName} worked out on board ${request.board}; the board shown now is ${current()?.values?.number}")
             result = deliver(play, answer, route)
         }
         return result

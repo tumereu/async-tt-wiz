@@ -58,6 +58,27 @@ class StackAnimationTableTest {
         return kit to assertNotNull(kit.alice.shown?.show)
     }
 
+    /** From Alice's next Main 1 with a ready Cub to Bob's Main 1 on her table, his Mountain out and his Storm Spark at the Cub
+     * still in his hand: the returned step casts it and plays on until it shows on her table, which then draws it. */
+    private fun bobsSparkComing(): Pair<EngineTableKit, () -> Unit> {
+        val kit = EngineTableKit()
+        val cub = kit.toReadyCub()
+        kit.alice.showPlays(true)
+        kit.scenario.confirmStops[kit.f.a] = false
+        assertTrue(kit.toolkit.automatumStep(TableActionIntent.End(kit.scope)), "End turn")
+        kit.bobCastsSpark { s -> TargetRef.Object(s.battlefield.first { (it as arcanum.engine.state.ObjectId.Card).card.value == cub }) }
+        // Bob waits in his Main 1 with his Mountain out until the clip casts the Spark
+        val plan = assertNotNull(kit.bobMain)
+        var cast = false
+        kit.bobMain = { s -> if ((s.turn.landsPlayed[kit.other] ?: 0) == 0 || cast) plan(s) else true }
+        kit.playOn("Bob's Mountain on Alice's table", rounds = 40) { kit.field("Mountain", kit.other).isNotEmpty() }
+        return kit to {
+            cast = true
+            kit.playOn("Bob's Spark shown on Alice's table", rounds = 40) { kit.alice.shown?.show != null }
+            version++
+        }
+    }
+
     /** Bumped when Alice's table should draw her board published since. */
     private var version by androidx.compose.runtime.mutableIntStateOf(0)
 
@@ -150,14 +171,15 @@ class StackAnimationTableTest {
         assertTrue(kit.field("Ember Cub").isEmpty(), "the Cub is gone")
     }
 
-    // HIS-112, HIS-133, HIS-136, STK-058: the gallery clip of the whole play shown (steps 1–4), from its flight in to its arrow read
+    // HIS-112, HIS-133, HIS-136, STK-058: the gallery clip of the whole play shown (steps 1–4), from Alice's table before the cast
+    // (owner, 2026-11-21: a clip starts one step before its animation) through its flight in to its arrow read
     @Test fun clipOfTheOtherPlayersPlayShownThenOnTheStack() {
-        val (kit, _) = bobsSparkShown()
+        val (kit, cast) = bobsSparkComing()
         render(kit)
         compose.captureClip("$SCREENSHOTS/clips/play-shown.webp",
-            "Bob cast Storm Spark at Alice's Ember Cub: on her table it flies in from his hand, holds large in the middle with its line, flies to her Stack and lands there as its entry, whose red arrow then grows to the Cub.",
-            millis = PLAY_SHOW_FLIGHT_MILLIS + HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + PLAY_SHOW_FLIGHT_MILLIS +
-                StackSchedule.targetingMillis(1, 1f) + 200L)
+            "Bob, his Mountain out, casts Storm Spark at Alice's Ember Cub: on her table it flies in from his hand, holds large in the middle with its line while her Stack stays empty, flies to her Stack and lands there as its entry, whose red arrow then grows to the Cub.",
+            millis = CLIP_LEAD_MILLIS + PLAY_SHOW_FLIGHT_MILLIS + HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + PLAY_SHOW_FLIGHT_MILLIS +
+                StackSchedule.targetingMillis(1, 1f) + 200L) { at -> if (at == CLIP_LEAD_MILLIS) cast() }
         compose.onNodeWithTag(PLAY_SHOW_TAG).assertDoesNotExist()
         compose.onNodeWithContentDescription("Stack, 1 entries").assertExists()
     }
@@ -200,19 +222,67 @@ class StackAnimationTableTest {
         }
     }
 
-    // TBL-150, STK-058, STK-006: the gallery clip of the Spark resolving after its arrows: off the Stack, its damage, the Cub dying
+    // TBL-150, STK-058, STK-006: the gallery clip of the Spark resolving after its arrows: from its cast (owner, 2026-11-21: a clip
+    // starts one step before its animation) to the Stack and its arrow, then Alice's pass: off the Stack, its damage, the Cub dying
     @Test fun clipOfTheSpellResolving() {
-        val (kit, _) = bobsSparkShown()
+        val (kit, cast) = bobsSparkComing()
         render(kit)
-        advance(PLAY_SHOW_FLIGHT_MILLIS + HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + PLAY_SHOW_FLIGHT_MILLIS + 100L)
-        advance(StackSchedule.targetingMillis(1, 1f) + 50)
-        kit.alice.pass()
-        kit.playOn("the Spark resolving on Alice's table") { kit.state().stack.isEmpty() }
-        compose.runOnIdle { version++ }
+        val landed = CLIP_LEAD_MILLIS + PLAY_SHOW_FLIGHT_MILLIS + HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + PLAY_SHOW_FLIGHT_MILLIS
+        val pass = (landed + StackSchedule.targetingMillis(1, 1f) + 300L).let { it - it % CLIP_STEP_MILLIS }
         compose.captureClip("$SCREENSHOTS/clips/spell-resolves.webp",
-            "Alice passed with Bob's Storm Spark on her Stack aimed at her Ember Cub: the Spark resolves, leaving the Stack for his graveyard as its arrow fades, its 3 damage marks the Cub and the Cub goes to her graveyard.",
-            millis = 1_500L)
+            "Bob casts Storm Spark at Alice's Ember Cub: it shows in the middle of her table, lands on her Stack and its arrow grows to the Cub; she passes and the Spark resolves, leaving the Stack for his graveyard as its arrow fades, its 3 damage marks the Cub and the Cub goes to her graveyard.",
+            millis = pass + 1_500L) { at ->
+            when (at) {
+                CLIP_LEAD_MILLIS -> cast()
+                pass -> {
+                    assertEquals(kit.me, kit.state().priority.holder, "she holds priority over the Spark")
+                    kit.alice.pass()
+                    kit.playOn("the Spark resolving on Alice's table") { kit.state().stack.isEmpty() }
+                    version++
+                }
+            }
+        }
         assertTrue(kit.field("Ember Cub").isEmpty(), "the Cub is gone")
+    }
+
+    // HIS-112, HIS-136, WEB-017, STK-007, STK-058: the gallery clip of the play shown on the desktop table, from before Bob's cast
+    // (owner, 2026-11-21: the Stack animation's pictures as clips): it flies in, holds in the middle, flies into the Stack at the
+    // battlefields' right edge beside the open chat dock and lands there as its entry, whose arrow then grows to the Cub
+    @Config(qualifiers = "w1440dp-h900dp-land-mdpi")
+    @Test fun clipOfThePlayShownOnTheDesktopTable() {
+        val (kit, cast) = bobsSparkComing()
+        renderDesktop(kit)
+        compose.captureClip("$SCREENSHOTS/clips/play-shown-desktop.webp",
+            "On Alice's desktop table, the chat dock open, Bob casts Storm Spark at her Ember Cub: it flies in from his hand, holds large in the middle with its line, shrinks into the Stack at the battlefields' right edge beside the dock and lands there as its entry, whose red arrow then grows to the Cub.",
+            millis = CLIP_LEAD_MILLIS + PLAY_SHOW_FLIGHT_MILLIS + HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + PLAY_SHOW_FLIGHT_MILLIS +
+                StackSchedule.targetingMillis(1, 1f) + 200L) { at -> if (at == CLIP_LEAD_MILLIS) cast() }
+        compose.onNodeWithTag(PLAY_SHOW_TAG).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Stack, 1 entries").assertExists()
+    }
+
+    /** Alice's desktop table of [kit]'s game, the chat dock open, as [onTheDesktopTableThePlayFliesIntoTheStackBesideTheChatDock]
+     * draws it; the test clock stopped. */
+    private fun renderDesktop(kit: EngineTableKit) {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            MaterialTheme { NoRipples {
+                CompositionLocalProvider(LocalAppLayout provides AppLayout.Desktop, LocalEngineRoutes provides kit.routes,
+                    LocalDesktopFrame provides DesktopFrame()) {
+                    androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()) {
+                        DesktopTopRow(kit.f.game, kit.alice.play(), kit.f.a, kit.toolkit, reviewing = false, navigation = {},
+                            returnCurrent = null, changes = null, dockOpen = true, toggleDock = {}, chat = null, chatUnread = 0)
+                        Box(Modifier.weight(1f).fillMaxSize()) {
+                            StackAnimatedTable(kit, Modifier.fillMaxSize(), landscape = true, version = version) { play ->
+                                TableRuntimeHooks(navigation = {}, undo = { kit.routes.undo() }, controlsConnected = true,
+                                    waitingLine = kit.routes.waitingLine(play), desktopDock = { DesktopDock { } })
+                            }
+                        }
+                    }
+                }
+            } }
+        }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
     }
 
     // HIS-112, HIS-136, WEB-017, WEB-078, STK-007 (spec step 3; owner playtest 2026-11-15: the Stack on the field, never in the chat pane): on the

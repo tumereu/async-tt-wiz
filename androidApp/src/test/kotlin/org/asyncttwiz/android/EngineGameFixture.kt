@@ -153,6 +153,9 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         /** HIS-112 (owner, 2026-11-20): a sorcery with plot {R} (CR 702.170a): plotting it is a special action, which doesn't use the
          * Stack. */
         const val PLOTTER = "Ember Plotter"
+        /** HIS-112, HIS-238: a creature with morph {0} (CR 702.37a–b): cast face down for {3}; turning it face up, for nothing, is a
+         * special action (CR 116.2b). */
+        const val MASQUER = "Ember Masquer"
         /** STK-224: a free sorcery revealing its caster's top four cards, a creature card among them to choose. */
         const val UNVEILING = "Ember Unveiling"
         /** STK-224: a free sorcery looking at its caster's top four cards, a creature card among them to reveal. */
@@ -229,6 +232,9 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         Invented(DefinitionFace("plotter", Choices.PLOTTER, typeLine = "Sorcery", manaCost = "{3}{R}",
             rulesText = "Ember Plotter deals 2 damage to any target.\nPlot {R}"),
             OracleCard(Choices.PLOTTER, "{3}{R}", "Sorcery", "Ember Plotter deals 2 damage to any target.\nPlot {R}")),
+        Invented(DefinitionFace("masquer", Choices.MASQUER, typeLine = "Creature — Elemental Rogue", manaCost = "{2}{R}",
+            rulesText = "Morph {0}", power = "3", toughness = "3"),
+            OracleCard(Choices.MASQUER, "{2}{R}", "Creature — Elemental Rogue", "Morph {0}", "3", "3")),
         free("tollkeeper", Choices.TOLLKEEPER, "Creature — Elemental", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1"),
         Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",
             rulesText = BROODRAIDER_TEXT, power = "2", toughness = "2"),

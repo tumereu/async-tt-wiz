@@ -375,13 +375,18 @@ fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden
     val slot = remember(decision.id) { DockSlot() }
     // STK-049 (owner gallery review, 2026-11-06): a "you may pay" of mana is its payment, with "Don't pay" beside Pay
     val payment = questions.paymentAfter(decision)
-    val shownLine = if (payment != null && decision is Decision.May) decision.text else line
+    val askedLine = if (payment != null && decision is Decision.May) decision.text else line
     val words = ChoiceSourceWords.of(source, copy)
     // E12: an ability's whole text shows once, also where it is the sentence the question asks about
-    val abilityText = words?.text?.takeIf { it != shownLine?.trim() }
+    val abilityText = words?.text?.takeIf { it != askedLine?.trim() }
+    // STK-181 (owner 2026-11-22, F1): a question that only repeats clauses of the ability text above it isn't shown
+    val shownLine = askedLine?.takeUnless { QuestionLine.repeats(it, abilityText) }
+    // F1: nor is a "you may" of the choice itself (OpenSection's) that repeats them
+    val ownRepeats = decision is Decision.May && payment == null && QuestionLine.repeats(decision.text, abilityText)
     LaunchedEffect(decision.id) {
         AppLog.info("decision", "Choice panel of ${decision.id.value} (${decision.kind}): from ${words?.name ?: "no source named"}" +
-            (if (copy) " (for a copy)" else "") + ", ability text ${if (words?.text == null) "none" else if (abilityText == null) "as its question" else "shown"}")
+            (if (copy) " (for a copy)" else "") + ", ability text ${if (words?.text == null) "none" else if (abilityText == null) "as its question" else "shown"}" +
+            (if (askedLine != null && shownLine == null || ownRepeats) ", question repeats the ability text: not shown" else ""))
     }
     AutomatumDockPanel("Automatum choice", hidden, toggleHidden, "Automatum panel", buttons = { slot.buttons?.invoke(this) }) {
         CompositionLocalProvider(LocalDockSlot provides slot) {
@@ -400,7 +405,7 @@ fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden
         }
         if (about.isNotEmpty()) AboutRow("About", about.map { AboutItem.Card(choiceCardOf(questions, play, viewer, it)) }, inspector)
         (if (payment != null) PAY_OR_DECLINE else choiceHint(decision))?.let { ChoiceHintText(it) }
-        CompositionLocalProvider(LocalChoiceFrame provides LocalChoiceFrame.current.copy(headed = true)) {
+        CompositionLocalProvider(LocalChoiceFrame provides LocalChoiceFrame.current.copy(headed = true, shownText = abilityText)) {
             when {
                 decision is Decision.ManaPayment -> {
                     ManaSection(questions, questions, play, decision)

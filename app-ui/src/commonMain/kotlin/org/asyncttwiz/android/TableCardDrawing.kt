@@ -90,39 +90,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
     }
     /** The glyph of a pile's [zone] (a tombstone, a portal, the Stack's layers, a book), centred on [cx], [cy] at scale [z]: an
      * empty pile's, and the zone badge of a hand row card from another zone (ZON-079). */
-    fun DrawScope.zoneGlyph(zone: PlayZone?, cx: Float, cy: Float, z: Float, ink: Color) {
-        fun line(a: Float, b: Float, c: Float, d: Float) = drawLine(ink,
-            xy(cx + a * z, cy + b * z), xy(cx + c * z, cy + d * z), 1.4f * density * z)
-        when (zone) {
-            PlayZone.GRAVEYARD -> {
-                val stone = androidx.compose.ui.graphics.Path().apply {
-                    moveTo((cx - 7 * z) * density, (cy + 8 * z) * density)
-                    lineTo((cx - 7 * z) * density, (cy - 3 * z) * density)
-                    quadraticTo(cx * density, (cy - 13 * z) * density, (cx + 7 * z) * density, (cy - 3 * z) * density)
-                    lineTo((cx + 7 * z) * density, (cy + 8 * z) * density); close()
-                }
-                drawPath(stone, ink, style = Stroke(1.4f * density * z))
-                line(0f, -3f, 0f, 5f); line(-3f, 0f, 3f, 0f); line(-10f, 8f, 10f, 8f)
-            }
-            PlayZone.EXILE -> {
-                drawOval(ink, xy(cx - 7 * z, cy - 10 * z), size(14 * z, 20 * z), style = Stroke(1.4f * density * z))
-                drawOval(ink, xy(cx - 3 * z, cy - 6 * z), size(6 * z, 12 * z), style = Stroke(density * z))
-                line(-10f, -6f, -7f, -4f); line(7f, 4f, 10f, 6f)
-            }
-            PlayZone.STACK -> {
-                for (dy in listOf(-4f, 2f)) {
-                    line(-9f, dy, 0f, dy - 5f); line(0f, dy - 5f, 9f, dy)
-                    line(9f, dy, 0f, dy + 5f); line(0f, dy + 5f, -9f, dy)
-                }
-            }
-            PlayZone.LIBRARY -> {
-                line(-7f, -8f, 5f, -8f); line(-7f, -8f, -7f, 7f)
-                line(-7f, 7f, 5f, 7f); line(5f, -8f, 5f, 7f)
-                line(-3f, 10f, 8f, 10f); line(8f, -5f, 8f, 10f)
-            }
-            else -> Unit
-        }
-    }
+    fun DrawScope.zoneGlyph(zone: PlayZone?, cx: Float, cy: Float, z: Float, ink: Color) = drawZoneGlyph(zone, cx, cy, z, ink, density)
     /**
      * TBL-135 (owner, 2026-11-11): the card's counters, but the one its corner shows, as small bubbles with their number on its
      * art ([CounterBubbles] says how each looks): left to right along the art's bottom, a further row above when they don't fit.
@@ -182,10 +150,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         val z = cardWidth / 28f
         val r = 7.5f * maxOf(1f, z * .8f)
         // Inside the room its outline leaves around the card (drawing is clipped there)
-        val cx = x + r - 2f; val cy = y + cardHeight - r + 2f
-        drawCircle(HandRowBadgeColor, r * density, xy(cx, cy))
-        drawCircle(Color.White, r * density, xy(cx, cy), style = Stroke(density))
-        zoneGlyph(zone, cx, cy + r * .06f, r / 13f, Color.White)
+        drawZoneBadge(zone, x + r - 2f, y + cardHeight - r + 2f, r, density)
     }
     /**
      * TBL-233 (owner, 2026-11-21): the card's types as small icons ([CardTypeIcons]) at its bottom left, from [left] up to [right]
@@ -508,3 +473,54 @@ fun fullPictureCorner(i: TableItem): Boolean = i.corner.isNotEmpty() &&
 
 /** How far a state's word on a card's chip may shrink to fit (TBL-133). */
 private const val MIN_STATE_TEXT = .72f
+
+/** [drawZoneGlyph]'s points and sizes in dp. */
+private fun glyphXy(x: Float, y: Float, density: Float) = Offset(x * density, y * density)
+private fun glyphSize(w: Float, h: Float, density: Float) = Size(w * density, h * density)
+
+/** The glyph of a pile's [zone] (a tombstone, a portal, the Stack's layers, a book), centred on [cx], [cy] at scale [z]: an
+ * empty pile's, and the zone badge of a hand row card from another zone (ZON-079); [density] px per dp. */
+fun DrawScope.drawZoneGlyph(zone: PlayZone?, cx: Float, cy: Float, z: Float, ink: Color, density: Float) {
+    fun line(a: Float, b: Float, c: Float, d: Float) = drawLine(ink,
+        glyphXy(cx + a * z, cy + b * z, density), glyphXy(cx + c * z, cy + d * z, density), 1.4f * density * z)
+    when (zone) {
+        PlayZone.GRAVEYARD -> {
+            val stone = androidx.compose.ui.graphics.Path().apply {
+                moveTo((cx - 7 * z) * density, (cy + 8 * z) * density)
+                lineTo((cx - 7 * z) * density, (cy - 3 * z) * density)
+                quadraticTo(cx * density, (cy - 13 * z) * density, (cx + 7 * z) * density, (cy - 3 * z) * density)
+                lineTo((cx + 7 * z) * density, (cy + 8 * z) * density); close()
+            }
+            drawPath(stone, ink, style = Stroke(1.4f * density * z))
+            line(0f, -3f, 0f, 5f); line(-3f, 0f, 3f, 0f); line(-10f, 8f, 10f, 8f)
+        }
+        PlayZone.EXILE -> {
+            drawOval(ink, glyphXy(cx - 7 * z, cy - 10 * z, density), glyphSize(14 * z, 20 * z, density), style = Stroke(1.4f * density * z))
+            drawOval(ink, glyphXy(cx - 3 * z, cy - 6 * z, density), glyphSize(6 * z, 12 * z, density), style = Stroke(density * z))
+            line(-10f, -6f, -7f, -4f); line(7f, 4f, 10f, 6f)
+        }
+        PlayZone.STACK -> {
+            for (dy in listOf(-4f, 2f)) {
+                line(-9f, dy, 0f, dy - 5f); line(0f, dy - 5f, 9f, dy)
+                line(9f, dy, 0f, dy + 5f); line(0f, dy + 5f, -9f, dy)
+            }
+        }
+        PlayZone.LIBRARY -> {
+            line(-7f, -8f, 5f, -8f); line(-7f, -8f, -7f, 7f)
+            line(-7f, 7f, 5f, 7f); line(5f, -8f, 5f, 7f)
+            line(-3f, 10f, 8f, 10f); line(8f, -5f, 8f, 10f)
+        }
+        else -> Unit
+    }
+}
+
+/**
+ * ZON-079, ZON-136: a pile's zone as a badge, the empty pile's glyph ([drawZoneGlyph]) white in a dark teal disc ringed in white,
+ * [r] dp in radius around [cx], [cy] (dp); [density] px per dp. A hand row card from another zone carries it, and the other
+ * player's playable list puts it under each card.
+ */
+fun DrawScope.drawZoneBadge(zone: PlayZone, cx: Float, cy: Float, r: Float, density: Float) {
+    drawCircle(HandRowBadgeColor, r * density, Offset(cx * density, cy * density))
+    drawCircle(Color.White, r * density, Offset(cx * density, cy * density), style = Stroke(density))
+    drawZoneGlyph(zone, cx, cy + r * .06f, r / 13f, Color.White, density)
+}

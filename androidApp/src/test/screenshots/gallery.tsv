@@ -51,7 +51,7 @@ number	item	screenshot	catalog	decisions	sequence
 50	Press feedback on a glowing card	combat-band/pressed.png	CMB-028 TBL-117
 51	Dungeon on the table	engine/dungeon-on-table.png	TRN-035 TRN-069
 52	Emblem chips	emblem-chips-portrait.png	TRN-053
-53	Question: you may pay a cost	questions/may-forage.png	STK-030 ZON-082	May
+53	Question: you may pay a cost, the ability's text not repeated as the question	questions/may-forage.png	STK-030 ZON-082 STK-181	May
 54	Question: choose one way	questions/forage-way.png	STK-050 ZON-082	ChooseOption
 55	Question: choose cards	questions/forage-exile.png	STK-050	ChooseObjects
 56	Question: order triggers (drag to reorder)	questions/offspring-order-triggers.png	STK-030 STK-050	OrderTriggers
@@ -292,7 +292,7 @@ number	item	screenshot	catalog	decisions	sequence
 305	Choosing the card a mana ability's cost exiles while paying	cast-panel/mana-cost-pick.png	STK-214 STK-191		
 307	Game Inspect pinned: rules reminder chips under the card, a tap on Ward explains it	inspect/reminders-pinned.png	TBL-209 TBL-210		Rules reminders
 308	Draft Inspect: rules reminder chips under the card, each with its explanation	inspect/reminders-draft.png	TBL-209 TBL-210 DRF-063		Rules reminders
-309	The other player's cards they may play from other zones: a cyan chip in their row of round chips and its list of cards	states/other-playable.png	ZON-136		
+309	The other player's cards they may play from other zones: a cyan chip in their row of round chips and its list of cards, each with its zone's pile badge	states/other-playable.png	ZON-136		
 310	A shake says why in a bubble rising from what shook	engine/refusal-bubble.png	TBL-118 TBL-212		
 315	Draft: "While you were away" in a Rotisserie pod	pod-rotisserie-away.png	DRF-239 DRF-240		
 316	Desktop draft: the quick look of a double-faced pack card	desktop/draft-quick-look.png	WEB-117		
@@ -323,10 +323,10 @@ number	item	screenshot	catalog	decisions	sequence
 364	Clip: the turn banner shows and fades	clips/turn-banner.webp	TRN-074
 365	Clip: tapping an earlier event in the Undo dialog's strip	clips/undo-strip.webp	HIS-099 HIS-207 HIS-208
 380	Resizable panels: the search panel dragged shorter by its handle at the top edge	choice-source/library-search-resized.png	STK-222 STK-223
-390	Declaring attackers: the combat band orange with a wave of light, the chip at the top, what can't attack dimmed	combat-band/declaring-attackers.png	CMB-095 CMB-097 CMB-096		
-391	Declaring blockers: the orange glowing band with the blockers' chip, what can't block dimmed	combat-band/declaring-blockers.png	CMB-095 CMB-097 CMB-096		
-392	Desktop table: declaring attackers, the orange glowing band and chip, what can't attack dimmed	desktop/declaring-attackers.png	CMB-095 CMB-097 CMB-096 WEB-015		
-393	Desktop table: declaring blockers, the orange glowing band and chip, what can't block dimmed	desktop/declaring-blockers.png	CMB-095 CMB-097 CMB-096 WEB-015		
+390	Declaring attackers: the combat band orange with a wave of light, the chip at the top, what can't attack, the hand and the other player's permanents dimmed	combat-band/declaring-attackers.png	CMB-095 CMB-097 CMB-096		
+391	Declaring blockers: the orange glowing band with the blockers' chip, what can't block, the hand and the attacker's permanents dimmed, the attackers bright on the band	combat-band/declaring-blockers.png	CMB-095 CMB-097 CMB-096		
+392	Desktop table: declaring attackers, the orange glowing band and chip, what can't attack, the hand and the other player's permanents dimmed	desktop/declaring-attackers.png	CMB-095 CMB-097 CMB-096 WEB-015		
+393	Desktop table: declaring blockers, the orange glowing band and chip, what can't block, the hand and the attacker's permanents dimmed	desktop/declaring-blockers.png	CMB-095 CMB-097 CMB-096 WEB-015		
 400	Draft: Auto off, the tip at the right end of Confirm	draft/autoconfirm-off.png	DRF-293		Autoconfirm
 401	Draft: Auto on, the tip and Confirm yellow, Confirm with its shine	draft/autoconfirm-on.png	DRF-293 DRF-294		Autoconfirm
 402	Clip: Auto (Confirm's tip) turning on, the shine sweeping across Confirm and back	clips/autoconfirm-shine.webp	DRF-294 DRF-293		Autoconfirm

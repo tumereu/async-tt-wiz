@@ -681,8 +681,9 @@ class DesktopTableScreenshotTest {
             "Alice declares attackers on the desktop table: her Ember Cub is staged in the combat band's lane against Bob between the battlefields, the combat's quick actions sit over the main button, which reads Attack.")
     }
 
-    // CMB-095, CMB-097, CMB-096, WEB-015 (owner playtest 2026-11-21; E13): on the desktop table too, Alice declaring attackers sees the
-    // chip and the orange glowing combat band, her Mountain dimmed and her ready Cub glowing
+    // CMB-095, CMB-097, CMB-096, WEB-015 (owner playtest 2026-11-21; E13; owner 2026-11-22, F2): on the desktop table too, Alice
+    // declaring attackers sees the chip and the orange glowing combat band, her Mountain, her hand and Bob's permanents dimmed and
+    // her ready Cub glowing
     @Test fun declaringAttackersGlowsTheDesktopBand() {
         val kit = EngineTableKit()
         val cub = kit.toReadyCub()
@@ -690,16 +691,20 @@ class DesktopTableScreenshotTest {
         kit.toolkit.combat.show(kit.alice.play(), AutomatumBoards.combat(kit.alice.play()))
         val play = kit.alice.play()
         assertEquals(CombatDeclaring.Attackers, kit.toolkit.combat.declaring(play, kit.f.a))
-        assertFalse(cub in DeclaringLook.dimmed(play.board, kit.f.a, kit.toolkit.combat.attackable(play, kit.f.a)), "the Cub undimmed")
+        val dimmed = DeclaringLook.dimmed(play.board, kit.f.a, kit.toolkit.combat.attackable(play, kit.f.a))
+        assertFalse(cub in dimmed, "the Cub undimmed")
+        val hand = play.board.containers.filter { it.zone == PlayZone.HAND && it.accountId == kit.f.a }.flatMap { it.cards }
+        assertTrue(hand.isNotEmpty() && dimmed.containsAll(hand), "her hand dimmed")
         render(kit)
         compose.onNodeWithTag(DECLARING_CHIP_TAG).assert(hasContentDescription(CombatDeclaring.Attackers.chip))
         compose.onNodeWithTag(DECLARING_BAND_TAG).assertExists()
         captureShot("$SCREENSHOTS/desktop/declaring-attackers.png",
-            "Alice moved on to declaring attackers on the desktop table: the chip \"Declaring attackers: abilities can't be used now\" sits at the battlefields' top and the combat band between them is orange with a wave of light crossing it, her ready Ember Cub glows red-orange and her Mountain is dimmed.")
+            "Alice moved on to declaring attackers on the desktop table: the chip \"Declaring attackers\" sits at the battlefields' top and the combat band between them is orange with a wave of light crossing it, her ready Ember Cub glows red-orange while her Mountain, her hand and Bob's permanents are dimmed.")
     }
 
-    // CMB-095, CMB-097, CMB-096, WEB-015 (owner playtest 2026-11-21; E13): Bob declaring blockers on the desktop table: the blockers'
-    // chip and the orange combat band, his Mountain dimmed and his Cub that may block glowing
+    // CMB-095, CMB-097, CMB-096, WEB-015 (owner playtest 2026-11-21; E13; owner 2026-11-22, F2): Bob declaring blockers on the desktop
+    // table: the blockers' chip and the orange combat band, his Mountain, his hand and Alice's permanents dimmed (her attacking Cub's
+    // copy on the band bright) and his Cub that may block glowing
     @Test fun declaringBlockersGlowsTheDesktopBand() {
         val kit = EngineTableKit()
         kit.bobMain = { s ->
@@ -727,11 +732,14 @@ class DesktopTableScreenshotTest {
         }
         kit.bobToolkit.combat.show(kit.bob.play(), AutomatumBoards.combat(kit.bob.play()))
         assertEquals(CombatDeclaring.Blockers, kit.bobToolkit.combat.declaring(kit.bob.play(), kit.f.b))
+        val bobPlay = kit.bob.play()
+        val dimmed = DeclaringLook.dimmed(bobPlay.board, kit.f.b, kit.bobToolkit.combat.blockable(bobPlay, kit.f.b, assuming = false))
+        assertTrue(cub in dimmed, "Alice's attacking Cub dimmed on her battlefield (its copy on the band isn't a battlefield card)")
         render(kit, viewer = kit.f.b)
         compose.onNodeWithTag(DECLARING_CHIP_TAG).assert(hasContentDescription(CombatDeclaring.Blockers.chip))
         compose.onNodeWithTag(DECLARING_BAND_TAG).assertExists()
         captureShot("$SCREENSHOTS/desktop/declaring-blockers.png",
-            "Alice attacked with her Ember Cub and Bob declares blockers on the desktop table: the chip \"Declaring blockers: abilities can't be used now\" sits at the battlefields' top and the open combat band is orange with a wave of light crossing it, his Cub that may block glows red-orange and his Mountain is dimmed.")
+            "Alice attacked with her Ember Cub and Bob declares blockers on the desktop table: the chip \"Declaring blockers\" sits at the battlefields' top and the open combat band is orange with a wave of light crossing it, Alice's attacking Cub bright on it; his Cub that may block glows red-orange while his Mountain, his hand and Alice's permanents are dimmed.")
     }
 
     // WEB-019, STK-047 (D3): picking targets needs the board: the target bar is a strip at the bottom centre of the

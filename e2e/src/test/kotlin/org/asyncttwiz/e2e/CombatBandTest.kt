@@ -1,11 +1,14 @@
 package org.asyncttwiz.e2e
 
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
+import org.asyncttwiz.android.AppLog
 import org.asyncttwiz.android.DECLARING_BAND_TAG
 import org.asyncttwiz.android.DECLARING_CHIP_TAG
+import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -43,7 +46,24 @@ class CombatBandTest : E2e() {
     private fun declaringShown(player: E2ePlayer) = player.shows(hasTestTag(DECLARING_CHIP_TAG)) && player.shows(hasTestTag(DECLARING_BAND_TAG))
     private fun noneDeclaringShown(player: E2ePlayer) = !player.shows(hasTestTag(DECLARING_CHIP_TAG)) && !player.shows(hasTestTag(DECLARING_BAND_TAG))
 
-    // CMB-001, CMB-007, CMB-013, CMB-028, CMB-031, CMB-034, CMB-095, CMB-097, TRN-063, TRN-113
+    /** The number of cards in [owner]'s [zone] on [player]'s table. */
+    private fun count(player: E2ePlayer, zone: PlayZone, owner: E2ePlayer) =
+        player.shown.board.board.containers.filter { it.zone == zone && it.accountId == owner.id }.sumOf { it.cards.size }
+
+    /**
+     * CMB-095, CMB-096 (owner 2026-11-22, F2): [player]'s chip reads only [chip], and their table dimmed their hand and all of
+     * [other]'s permanents (as its log says).
+     */
+    private fun declaringLooks(player: E2ePlayer, other: E2ePlayer, chip: String) {
+        assertTrue(player.shows(hasTestTag(DECLARING_CHIP_TAG) and hasContentDescription(chip)), "the chip reads \"$chip\": ${player.screen()}")
+        val hand = count(player, PlayZone.HAND, player)
+        val others = count(player, PlayZone.BATTLEFIELD, other)
+        assertTrue(hand > 0 && others > 0, "cards in ${player.name}'s hand and on ${other.name}'s battlefield")
+        val logged = "$chip on ${player.id.take(8)}'s table: dimmed $hand hand card(s), $others of the other players' permanents"
+        waitUntil("${player.name}'s dims logged: $logged") { logged in AppLog.text() }
+    }
+
+    // CMB-001, CMB-007, CMB-013, CMB-028, CMB-031, CMB-034, CMB-095, CMB-096, CMB-097, TRN-063, TRN-113
     @Test fun attackersAreStagedInTheBandAndBlockedOnItsLanes() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald),
             deal = { a, b -> "Mountain" in hand(a) && hand(a).count { it == "Ember Cub" } >= 2 && "Mountain" in hand(b) &&
@@ -79,6 +99,8 @@ class CombatBandTest : E2e() {
         // CMB-095, CMB-097 (owner 2026-11-21, E13): Alice's band glows orange with the declaring chip; Bob, waiting, sees neither
         waitUntil("Alice's declaring band and chip: ${alice.screen()}") { declaringShown(alice) }
         assertTrue(noneDeclaringShown(bob), "Bob declares nothing: ${bob.screen()}")
+        // CMB-095, CMB-096 (owner 2026-11-22, F2): "Declaring attackers" only; her hand and Bob's permanents dimmed
+        declaringLooks(alice, bob, "Declaring attackers")
         assertFalse(alice.bandOpen(), "collapsed")
         alice.tap("Attack ${bob.name}")
         run()
@@ -104,6 +126,8 @@ class CombatBandTest : E2e() {
         }
         // CMB-095, CMB-097: now Bob's band glows with the blockers' chip, and Alice's no longer
         waitUntil("Bob's declaring band and chip: ${bob.screen()}") { declaringShown(bob) && noneDeclaringShown(alice) }
+        // CMB-095, CMB-096 (F2): "Declaring blockers" only; his hand and Alice's permanents dimmed (the attackers' copies on the band aren't)
+        declaringLooks(bob, alice, "Declaring blockers")
         // CMB-034: his Herald picked as the blocker, then Alice's first attacking Cub's copy in the band blocks it
         bob.pickBlocker("Ember Herald", this)
         run(skip = java.time.Duration.ofSeconds(1)) // past the double-tap window: the tap is a single tap

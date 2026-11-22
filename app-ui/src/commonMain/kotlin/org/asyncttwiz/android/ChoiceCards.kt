@@ -466,7 +466,8 @@ fun ChoiceButton(text: String, icon: ImageVector, modifier: Modifier = Modifier,
     val content: @Composable RowScope.() -> Unit = {
         Icon(icon, null, Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
-        Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // TBL-159 (problem report 9HBW6Y): an option holding a cost ("Pay {3}{B}") shows it in mana symbols
+        CardText(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     val padding = PaddingValues(start = 12.dp, end = 16.dp)
     if (primary) Button(onClick, modifier, enabled = enabled, contentPadding = padding,

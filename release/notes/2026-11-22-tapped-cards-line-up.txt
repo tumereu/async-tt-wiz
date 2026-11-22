@@ -1,0 +1,1 @@
+mod: Tapped cards on the battlefield lie on the same line as the other cards of their row, so all tapped cards line up.

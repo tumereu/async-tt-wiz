@@ -1,0 +1,1 @@
+The main button saying Resolve held down beside an End turn button at rest: the whole pressed button shrinks a little and takes the pressed tint edge to edge, its left edge included.

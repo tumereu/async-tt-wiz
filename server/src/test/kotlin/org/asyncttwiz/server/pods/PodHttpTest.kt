@@ -553,10 +553,10 @@ class PodHttpTest {
         val wrong = PickPod(id(), attempt, head.id, listOf(head.cards[0].id), listOf(head.cards[1].id))
         assertEquals("wrong_counts", json.decodeFromString<PodError>(f.send(f.a, "POST", "/v1/pods/${created.id}/pick", wrong, 409)).code)
         f.finish(created.id, listOf(f.a, f.b))
-        // Each pack: 2 + 1 + 1 picked, 1 + 1 burned, the last 2 thrown away when the passes ran out
+        // Each pack: 2 + 1 + 1 picked, 1 + 1 burned, and (owner 2026-11-22) the last 2 burned on the last pass
         assertEquals(8, f.get(f.a, created.id).draft!!.pool.size); assertEquals(8, f.get(f.b, created.id).draft!!.pool.size)
         val history = json.decodeFromString<PodDraftHistory>(f.request(f.a, "GET", "/v1/pods/${created.id}/draft/history").body())
-        assertEquals(listOf(1, 1, 1, 1, 0, 0), history.picks.sortedBy { it.pick }.map { it.burned.size })
+        assertEquals(listOf(1, 1, 1, 1, 2, 2), history.picks.sortedBy { it.pick }.map { it.burned.size })
     }
 
     private fun autoStart(f: Fixture, pod: String, enabled: Boolean, status: Int = 200, who: SessionCreated = f.a) =

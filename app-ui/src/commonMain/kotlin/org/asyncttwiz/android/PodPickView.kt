@@ -233,11 +233,6 @@ fun PodPickView(
                 }
             }
         }
-        // DRF-263: a Custom booster's pass, fixed above the trays
-        podPickPassText(rules, settings)?.let { pass ->
-            Text(pass, Modifier.fillMaxWidth().padding(top = 4.dp).testTag("pod-pick-pass"), style = MaterialTheme.typography.labelLarge,
-                maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
         val trays: @Composable () -> Unit = {
             PodPickTrays(marks.keeps, burnIds, rules, baseRules, copies, definitions, unmark, inspect,
                 onInspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) },

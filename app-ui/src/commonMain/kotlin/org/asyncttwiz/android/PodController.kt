@@ -93,6 +93,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     val filters: PodCardFilters = PodCardFilters()) : AutoCloseable {
     var state by mutableStateOf(PodState())
         private set
+    /** DRF-181: told on the main thread when the server confirmed a deck submit, with the pod's id
+     * ([LobbyController.podDeckSubmitted]). */
+    var onDeckSubmitted: ((String) -> Unit)? = null
     @Volatile private var epoch = 0L
     @Volatile private var closed = false
     private var active = false
@@ -980,6 +983,12 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                     state = state.copy(loading = false, unreachable = false, error = state.error.takeUnless { it == previousError })
                     if (write != null) {
                         writes.removeAt(0)
+                        // DRF-181, DRF-122: the server released the pod's challenges waiting for this deck; the lobby counts
+                        // them acceptable at once
+                        if (write.submit) {
+                            AppLog.info("pods", "Pod ${write.pod?.take(8)}: deck submit confirmed")
+                            write.pod?.let { onDeckSubmitted?.invoke(it) }
+                        }
                         if (write.setupRevision == state.setup?.revision) state = state.copy(setup = null)
                         state = state.copy(confirmation = null)
                         // Leaving a pod closes it, not another pod opened while the request was retried (open())

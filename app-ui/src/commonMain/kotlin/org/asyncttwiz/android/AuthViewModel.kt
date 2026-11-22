@@ -138,6 +138,8 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
         deckImport.cardRecords = cardRecords; decks.cardRecords = cardRecords; cubes.cardRecords = cardRecords
         deckImport.categories = { decks.state.categories }
         pods.cardRecords = cardRecords; lobby.cardRecords = cardRecords
+        // DRF-181: a confirmed deck submit releases the pod's challenges waiting for it in the lobby at once
+        pods.onDeckSubmitted = lobby::podDeckSubmitted
         lobby.gameInput = heartbeat::input
         activity.authenticationRequired = ::authenticationRequired
         activity.activityHints = { hints ->

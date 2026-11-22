@@ -36,8 +36,12 @@ import org.jooq.JSONB
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 
+/** DRF-181, DRF-122: told after a commit that changed games of a pod outside a game request (challenges released by a deck submit),
+ * so the tables subscribed to them hear it at once instead of at their next heartbeat or list read. */
+fun interface PodGamesListener { fun changed(gameIds: List<String>) }
+
 /** Every transition and its activity records commit under the same pod row lock. */
-class PodService(private val runtime: ServiceRuntime) {
+class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, private val gamesChanged: PodGamesListener = PodGamesListener {}) {
     private val json = DeckJson.format
     private val random = SecureRandom()
     private fun error(status: Int, code: String) = Result(status, json.encodeToString(PodError(code)))
@@ -752,8 +756,21 @@ class PodService(private val runtime: ServiceRuntime) {
         save(sql, row); detail(sql, row, owner)
     }
 
-    fun submit(principal: AccountService.Principal, id: String, input: SubmitPodDeck): Result =
+    fun submit(principal: AccountService.Principal, id: String, input: SubmitPodDeck): Result {
+        // DRF-181, DRF-122: the challenges this submit released, told to their subscribed tables once it has committed (a
+        // retried transaction starts the list anew)
+        val released = mutableListOf<String>()
+        return submit(principal, id, input, released).also {
+            if (it.status == 200 && released.isNotEmpty()) {
+                log("pod $id submit released ${released.size} challenge(s): ${released.joinToString()}; their tables told now")
+                gamesChanged.changed(released.toList())
+            }
+        }
+    }
+
+    private fun submit(principal: AccountService.Principal, id: String, input: SubmitPodDeck, released: MutableList<String>): Result =
         mutate(principal, id, input.requestId, "submitPod", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
+            released.clear()
             member(sql, row, owner)?.let { return@mutate it }
             // DRF-119 (owner, 2026-11-21, MT74XQ): a member submits once their own draft is done, whatever the others still draft
             val wait = if (row.phase == "DRAFTING") draft(row).wait(owner.toString()) else null
@@ -780,7 +797,7 @@ class PodService(private val runtime: ServiceRuntime) {
                 DraftDeckStore.save(sql, owner, row.id!!, row.name!!, member.deckName ?: "${row.name} draft", entries,
                     member.deckCover?.takeIf { it in coverChoices(row, build) })
             }
-            releaseChallenges(sql, row.id!!, owner)
+            released += releaseChallenges(sql, row.id!!, owner)
             if (members(sql, row.id!!).all { it.submittedDeck != null }) {
                 // I-D57: one notice per thing that needs you: a member with a challenge of this pod queued (sent or received,
                 // not yet played) hears of it from the challenge, not from "Decks ready" too
@@ -864,7 +881,7 @@ class PodService(private val runtime: ServiceRuntime) {
 
     /** Challenges sent while [recipient] was still building become ordinary pending invitations once they submit; their
      * notice went at once when they were sent (DRF-137), so this one adds none. */
-    private fun releaseChallenges(sql: DSLContext, pod: UUID, recipient: UUID) {
+    private fun releaseChallenges(sql: DSLContext, pod: UUID, recipient: UUID): List<String> {
         // Pod lock is held; lock games in identity order like withdrawal.
         val games = sql.selectFrom(GAME).where(GAME.POD_ID.eq(pod)).and(GAME.RECIPIENT_ID.eq(recipient))
             .and(GAME.LIFECYCLE.eq("LOBBY")).and(GAME.POD_INVITATION_HELD.isTrue).orderBy(GAME.ID).forUpdate().fetch()
@@ -877,6 +894,7 @@ class PodService(private val runtime: ServiceRuntime) {
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, row.id).set(GAME_REVISION.REVISION, row.revision!! + 1)
                 .set(GAME_REVISION.PAYLOAD, GameWire.encode(revision)).execute()
         }
+        return games.map { it.id.toString() }
     }
 
     /** Called under the game lock, in the same transaction as invitation acceptance. */

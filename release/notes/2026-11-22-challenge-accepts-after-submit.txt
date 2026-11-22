@@ -1,0 +1,1 @@
+fix: Right after you submit your pod deck, the Challenge button beside a player who challenged you accepts their challenge instead of making a new game.

@@ -1,0 +1,1 @@
+Settings → Card records while they install, at 40%: one even bar, the done part and then the track to its right end, with no gap between them and no dot at the end.

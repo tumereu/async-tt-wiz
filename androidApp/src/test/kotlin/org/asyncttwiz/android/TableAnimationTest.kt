@@ -189,8 +189,8 @@ class TableAnimationTest {
         }
     }
 
-    // TBL-002, TBL-143
-    @Test fun adjacentGroupsKeepFixedCentersThroughoutRotationsAndEndpointsDoNotIntersect() {
+    // TBL-002, TBL-143 (owner, 2026-11-22: tapped cards settle on the row's bottom line)
+    @Test fun adjacentGroupsKeepTheirSlotsThroughoutRotationsAndEndpointsDoNotIntersect() {
         // Three different cards, each a group of its own one slot apart (the upper band's row nearest the middle from the right,
         // the first rightmost; the 2nd and 4th cards lie behind them, TBL-004, TBL-140); tapping never moves a group
         for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 1.37f, 2f)) {
@@ -217,8 +217,14 @@ class TableAnimationTest {
                                 assertEquals(card.bounds.width, b.width, .001f)
                                 assertEquals(card.bounds.height, b.height, .001f)
                                 val endpoint = scenes[to].items.single { it.cardId == card.item.cardId }.bounds
-                                assertEquals(endpoint.center.x, b.center.x, .001f, "Tap rotates in place")
-                                assertEquals(endpoint.center.y, b.center.y, .001f, "Tap rotates in place")
+                                val start = scenes[from].items.single { it.cardId == card.item.cardId }.bounds
+                                assertEquals(endpoint.center.x, b.center.x, .001f, "Tap turns the card where its group lies")
+                                // TBL-143 (owner, 2026-11-22): it settles on its row's bottom line, from where it lay
+                                assertTrue(b.center.y in minOf(start.center.y, endpoint.center.y) - .001f..maxOf(start.center.y, endpoint.center.y) + .001f,
+                                    "between where it lay and its row's bottom line")
+                                // Mid-rotation it stays within its group's footprint, top to bottom, so rows never overlap
+                                assertTrue(b.y >= footprint.y - .001f && b.bottom <= footprint.bottom + .001f,
+                                    "within its footprint mid-rotation: $b in $footprint")
                                 assertEquals(42f * zoom, footprint.width, .001f)
                                 // A rigid 28x40 face sweeps wider than the 42dp pitch mid-rotation.
                                 assertTrue(b.width <= 49f * zoom && b.height <= 49f * zoom)

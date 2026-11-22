@@ -1,0 +1,1 @@
+fix: When casting asks you to choose how to pay an extra cost, a choice that pays mana now shows that mana as symbols.

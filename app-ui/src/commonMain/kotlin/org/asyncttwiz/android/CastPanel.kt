@@ -386,7 +386,7 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
                 if (cast.hand == null && cast.ways.size > 1) Section("Cast as") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (way in cast.ways) FilterChip(way == flow.begin, { if (way != flow.begin) cast.way(way) },
-                            label = { Text(wayLabel(play, flow, way), fontSize = 12.sp) })
+                            label = { CardText(wayLabel(play, flow, way), style = TextStyle(fontSize = 12.sp)) })
                     }
                 }
                 flow.steps.forEachIndexed { index, (decision, answer) -> AnsweredSection(cast, flow, play, names, index, decision, answer) }
@@ -483,7 +483,8 @@ private fun AnsweredSection(cast: CastController, flow: CastShown, play: TableBo
         }
         else -> Section(sectionTitle(decision)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(answerLabel(cast, play, names, decision, answer), Modifier.weight(1f), fontSize = 12.sp)
+                // TBL-159 (9HBW6Y): an answer holding a cost ("Pay {3}{B}") in mana symbols
+                CardText(answerLabel(cast, play, names, decision, answer), Modifier.weight(1f), style = TextStyle(fontSize = 12.sp))
                 TextButton({ cast.back(index) }) { IconText(Icons.Outlined.Edit, "Change") }
             }
         }
@@ -528,6 +529,11 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
         }
         is Decision.Modes -> ModesSection(cast, decision)
         is Decision.ChooseOption -> Section(choiceWhat(decision), choiceHint(decision)) {
+            // 9HBW6Y: what the buttons show (an option's cost drawn in mana symbols, TBL-159), so a report of them explains itself
+            LaunchedEffect(decision.id) {
+                AppLog.info("decision", "Option choice ${decision.id.value} shown: ${decision.options.joinToString(" | ") { option ->
+                    option + if (parseCardText(option).any { it is CardTextPart.Symbol }) " (in symbols)" else "" }.take(400)}")
+            }
             NumberedOptions(decision.options.map { option -> { cast.answer(Answer.Option(option)) } })
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (option in decision.options) ChoiceButton(option.replaceFirstChar { it.uppercase() }, Icons.Outlined.RadioButtonUnchecked) {
@@ -705,7 +711,7 @@ fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, deci
                         badge = label.substringAfterLast(' '))
                 } else FilterChip(used != null, { cast.toggleMana(group) },
                     modifier = Modifier.semantics { contentDescription = "Mana source $label${if (used != null) ", tapped" else ""}" },
-                    label = { Text(label, fontSize = 12.sp) },
+                    label = { CardText(label, style = TextStyle(fontSize = 12.sp)) },
                     leadingIcon = { TapGlyph(used != null) },
                     colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AutomatumViolet.copy(alpha = .18f)))
             }
@@ -749,7 +755,7 @@ private fun PaymentLine(cast: CastController, play: TableBoard) {
         val choosable = cast.mana.filter { cast.costChoiceOf(it) != null }
         if (choosable.isNotEmpty() && cast.costPick == null) for (use in choosable) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(useName(cast, play, use), Modifier.weight(1f), fontSize = 12.sp)
+                CardText(useName(cast, play, use), Modifier.weight(1f), style = TextStyle(fontSize = 12.sp))
                 TextButton({ cast.openCostPick(use) }, Modifier.semantics { contentDescription = "Change the cards ${useName(cast, play, use)} uses" }) {
                     Text("Change", fontSize = 12.sp)
                 }
@@ -764,7 +770,7 @@ private fun PaymentLine(cast: CastController, play: TableBoard) {
                 val label = useName(cast, play, used ?: group.first())
                 FilterChip(used != null, { cast.toggleMana(group) },
                     modifier = Modifier.semantics { contentDescription = "Mana source $label${if (used != null) ", chosen" else ""}" },
-                    label = { Text(label, fontSize = 12.sp) }, leadingIcon = { TapGlyph(used != null) },
+                    label = { CardText(label, style = TextStyle(fontSize = 12.sp)) }, leadingIcon = { TapGlyph(used != null) },
                     colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AutomatumViolet.copy(alpha = .18f)))
             }
         }

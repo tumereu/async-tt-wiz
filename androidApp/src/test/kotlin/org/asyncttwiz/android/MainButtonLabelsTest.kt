@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
@@ -115,6 +116,35 @@ class MainButtonLabelsTest {
         labels.forEach(::readsWhole)
         compose.onNodeWithTag("buttons").captureShot("$SCREENSHOTS/main-button/names-narrow-large-text.png",
             "The main button's names on a narrow phone with large system text: each reads whole on at most two lines (Assume pass and Assume no blockers on two), drawn a little smaller where needed.")
+    }
+
+    // TRN-063 (owner 2026-11-22): pressed, the whole main button takes the pressed look, a strip at its left edge too, whatever it
+    // says (it showed "Resolve" when the owner saw the strip untouched)
+    @Test fun aPressedMainButtonTakesThePressedLookEdgeToEdge() {
+        compose.setContent {
+            MaterialTheme {
+                androidx.compose.foundation.layout.Row(Modifier.testTag("pressed").background(Color(0xfff3f5f5)).padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AutomatumStepFace(AutomatumStep.Resolve, "Resolve", true, Modifier.width(128.dp))
+                    AutomatumStepFace(AutomatumStep.EndTurn, "End turn", true, Modifier.width(128.dp))
+                }
+            }
+        }
+        compose.mainClock.autoAdvance = false
+        for (index in 0..1) {
+            val button = compose.onAllNodesWithTag("main-button")[index]
+            button.performTouchInput { down(center) }
+            compose.mainClock.advanceTimeBy(50)
+            val image = button.captureToImage().toPixelMap()
+            // Just inside its left edge, half way down: tinted as the rest of it, not the button's plain white
+            val edge = image[3, image.height / 2]
+            assertTrue(edge != Color.White, "the left edge takes the pressed look too (button $index): $edge")
+            if (index == 0) compose.onNodeWithTag("pressed").captureShot("$SCREENSHOTS/main-button/pressed.png",
+                "The main button saying Resolve held down beside an End turn button at rest: the whole pressed button shrinks a " +
+                    "little and takes the pressed tint edge to edge, its left edge included.")
+            button.performTouchInput { up() }
+            compose.mainClock.advanceTimeBy(50)
+        }
     }
 
     // TRN-063, TRN-110, TRN-070, TRN-154 (owner, 2026-11-10): the main button tells an assumption from your own action at a glance: your own

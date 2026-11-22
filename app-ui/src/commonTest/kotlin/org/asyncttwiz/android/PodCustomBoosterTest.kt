@@ -30,25 +30,29 @@ class PodCustomBoosterTest {
         assertEquals("Pick 1 ×2, Pick 2, Pick 1", podPassesSummary(listOf(DraftPass(1), DraftPass(1), DraftPass(2), DraftPass(1))))
     }
 
-    // DRF-260, DRF-263: the pick screen asks what the pack's pass says
+    // DRF-260, DRF-261: the pick screen asks what the pack's pass says
     @Test fun pickRulesFollowThePass() {
         val first = PodPickRules(pack(11, 1), settings)
         assertEquals(listOf(2, 1, 1), listOf(first.requiredKeeps, first.manualBurns, first.requiredBurns))
-        assertEquals("Pass 1/3 · Pick 2 of 11 · Burn 1", podPickPassText(first, settings))
+        assertFalse(first.automaticBurns)
         val second = PodPickRules(pack(8, 2), settings)
         assertEquals(listOf(1, 1), listOf(second.requiredKeeps, second.manualBurns))
-        assertEquals("Pass 2/3 · Pick 1 of 8 · Burn 1", podPickPassText(second, settings))
-        // DRF-261: the last pass throws the rest away
+        // DRF-261 (owner 2026-11-22): on the last pass only the picks are chosen; every other card burns by itself, whatever
+        // the pack's size
         val last = PodPickRules(pack(5, 3), settings)
-        assertEquals(listOf(1, 0), listOf(last.requiredKeeps, last.manualBurns))
-        assertEquals("Pass 3/3 · Pick 1 of 5 · the rest are thrown away", podPickPassText(last, settings))
-        assertEquals("Pass 3/3 · Pick 1 of 1", podPickPassText(PodPickRules(pack(1, 3), settings), settings))
+        assertTrue(last.automaticBurns)
+        assertEquals(listOf(1, 0, 4), listOf(last.requiredKeeps, last.manualBurns, last.requiredBurns))
+        val marked = PodPickMarks(keeps = listOf("2"))
+        assertEquals(listOf("1", "3", "4", "5"), last.burnIds(marked))
+        assertTrue(last.canConfirm(marked, busy = false))
+        assertTrue(last.burnIds(PodPickMarks()).isEmpty(), "the burns show once the picks are marked")
+        val bigLast = PodPickRules(pack(12, 3), settings)
+        assertTrue(bigLast.automaticBurns); assertEquals(11, bigLast.requiredBurns)
         // Near a pack's end only the picks are chosen; the rest burn by themselves (DRF-045)
         val small = PodPickRules(pack(3, 1), settings)
         assertTrue(small.automaticBurns); assertEquals(0, small.manualBurns); assertEquals(1, small.requiredBurns)
         // A spent Librarian adds a card and a pick
-        assertEquals("Pass 1/3 · Pick 3 of 12 · Burn 1", podPickPassText(PodPickRules(pack(11, 1), settings, listOf("lib")), settings))
-        // Booster has no pass line
-        assertNull(podPickPassText(PodPickRules(pack(11, 1), DraftSettings.booster()), DraftSettings.booster()))
+        val librarian = PodPickRules(pack(11, 1), settings, listOf("lib"))
+        assertEquals(listOf(3, 1), listOf(librarian.requiredKeeps, librarian.manualBurns))
     }
 }

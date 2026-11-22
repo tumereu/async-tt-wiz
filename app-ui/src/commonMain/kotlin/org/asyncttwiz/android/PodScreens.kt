@@ -641,7 +641,8 @@ fun podWaitingText(detail: PodDetail, accountId: String): String {
     return status + (round?.let { "\nRound ${it.first} of ${it.second}" } ?: "")
 }
 
-/** The pick screen's orientation line: "Round 2/6 · Pick 2 · from Matti", or "… · your pack" before its first pick. */
+/** The pick screen's orientation line: "Round 2/6 · Pick 2 · from Matti", or "… · your pack" before its first pick; a Custom
+ * booster's names the pack's pass instead of its pick, "Round 2/3 · Pass 2/7 · from Matti" (DRF-057, DRF-263). */
 fun podPickOrientationText(detail: PodDetail): String? {
     val draft = detail.draft ?: return null
     val head = draft.head ?: return null
@@ -651,7 +652,8 @@ fun podPickOrientationText(detail: PodDetail): String? {
         "from " + (detail.members.firstOrNull { it.account.accountId == id }?.account?.username ?: "another player")
     } ?: "your pack"
     val round = if (draft.rounds > 0 && draft.round in 1..draft.rounds) "Round ${draft.round}/${draft.rounds} · " else ""
-    return "${round}Pick ${head.pick} · $from"
+    val step = if (detail.settings.mode == DraftMode.CUSTOM_BOOSTER) "Pass ${head.pick}/${detail.settings.passes.size}" else "Pick ${head.pick}"
+    return "$round$step · $from"
 }
 
 /** Members with a submitted deck can challenge each other; the new game opens in the normal lobby. */
@@ -665,7 +667,8 @@ fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
         detail.members.filterNot { it.bot }.forEach { member ->
             MemberLine(member.account, podGamesMemberStatus(member, detail.phase)) {
                 if (podChallengeOffered(detail, member, accountId) && lobby != null)
-                    PodChallengeButtons(detail, member, accountId, lobby, games, enabled = mine?.submitted == true && !lobby.state.mutating)
+                    PodChallengeButtons(detail, member, accountId, lobby, games, submitted = mine?.submitted == true,
+                        enabled = mine?.submitted == true && !lobby.state.mutating)
             }
         }
         // DRF-121 (game history §3.2): the pod's standings and every match of it, played or being played, no decks
@@ -708,8 +711,15 @@ fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
  * again as before. */
 @Composable
 private fun RowScope.PodChallengeButtons(detail: PodDetail, member: PodMember, accountId: String, lobby: LobbyController,
-    games: List<GameSummary>, enabled: Boolean) {
-    val open = podOpenChallengeFrom(games, detail.id, member.account.accountId, accountId)
+    games: List<GameSummary>, submitted: Boolean, enabled: Boolean) {
+    // DRF-181 (owner 2026-11-22): once your deck is submitted, their challenge still waiting for it (your submit not confirmed
+    // yet) is theirs to accept too: the button accepts it, greyed until it can be, never making a second game meanwhile
+    val acceptable = podOpenChallengeFrom(games, detail.id, member.account.accountId, accountId)
+    val open = acceptable ?: if (submitted) podHeldChallengeFrom(games, detail.id, member.account.accountId, accountId) else null
+    LaunchedEffect(open?.id, open?.invitationHeld) {
+        if (open != null) AppLog.info("lobby", "Pod ${detail.id.take(8)}: Challenge beside ${member.account.username} accepts their " +
+            "challenge ${open.id.take(8)}" + if (open.invitationHeld) " once your submit is confirmed (it waits for your deck)" else "")
+    }
     fun challenge(why: String) {
         AppLog.info("lobby", "Pod ${detail.id.take(8)}: new challenge to ${member.account.username} ($why)")
         lobby.challengeFromPod(detail.id, member.account.accountId)
@@ -730,7 +740,7 @@ private fun RowScope.PodChallengeButtons(detail: PodDetail, member: PodMember, a
             lobby.respond(open, true)
         // As the challenge's own Accept (MenuInvitationActions): once its game is connected and nothing of it is on its way
         }, Modifier.testTag("pod-challenge-accept-${member.account.accountId}"),
-            enabled = enabled && open.id in lobby.state.connectedGames && open.id !in lobby.state.pendingGames) {
+            enabled = enabled && !open.invitationHeld && open.id in lobby.state.connectedGames && open.id !in lobby.state.pendingGames) {
             Icon(AppPlatform.current.swordsOutlined(), contentDescription = accept)
         }
     }
@@ -750,6 +760,11 @@ private fun RowScope.PodChallengeButtons(detail: PodDetail, member: PodMember, a
 /** DRF-181: [opponentId]'s oldest open challenge to [accountId] in pod [podId], acceptable now (not waiting for a deck). */
 fun podOpenChallengeFrom(games: List<GameSummary>, podId: String, opponentId: String, accountId: String): GameSummary? =
     games.filter { it.podId == podId && it.inviter.accountId == opponentId && incomingInvitation(it, accountId) && !it.invitationHeld }
+        .minByOrNull { it.createdAt }
+
+/** DRF-181: [opponentId]'s oldest challenge to [accountId] in pod [podId] still waiting for [accountId]'s deck. */
+fun podHeldChallengeFrom(games: List<GameSummary>, podId: String, opponentId: String, accountId: String): GameSummary? =
+    games.filter { it.podId == podId && it.inviter.accountId == opponentId && incomingInvitation(it, accountId) && it.invitationHeld }
         .minByOrNull { it.createdAt }
 
 /** DRF-121, DRF-122: once the draft has started any other member can be challenged (by a member who has submitted); one still

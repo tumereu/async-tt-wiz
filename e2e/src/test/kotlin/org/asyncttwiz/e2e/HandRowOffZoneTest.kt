@@ -62,6 +62,35 @@ class HandRowOffZoneTest : E2e() {
         assertFalse(alice.shows(hasContentDescription(inRow)), "out of her hand row")
     }
 
+    // ZON-106, ZON-107, ZON-136 (owner 2026-11-22): holding a card you may use from another zone inspects it, as a hand card's
+    // hold does: Alice's Ember Flare in her hand row from her graveyard, and the same Flare in the list of Bob's chip for her
+    @Test fun holdingACardFromAnotherZoneInspectsIt() {
+        startGame(TestDeck("Flashback", listOf(TestCards.mountain to 20, TestCards.flare to 20)), TestDeck.glimmers(), deal = { a, _ ->
+            hand(a).count { it == "Ember Flare" } >= 1 && hand(a).count { it == "Mountain" } >= 1
+        })
+        bothOpen()
+        bothKeep(bobAway = false)
+        mountainAndCast("Ember Flare")
+        waitUntil("the Flare in her graveyard, on the server", along = listOf(bob)) {
+            alice.named(alice.state.player(alice.me).graveyard, "Ember Flare").size == 1 && alice.inOwnMain() &&
+                alice.engine { device.session.pending.isEmpty() }
+        }
+        waitUntil("the Flare in her hand row: ${alice.screen()}") { alice.shows(hasContentDescription(inRow)) }
+        waitUntil("Alice's game settled") { alice.settled(this) }
+        holding(alice.described(inRow)) {
+            assertTrue(alice.shows(hasContentDescription("Card inspection content")), "the hand row's Flare inspected: ${alice.screen()}")
+        }
+        assertFalse(alice.shows(hasContentDescription("Card inspection content")), "closed on release")
+        val chip = hasContentDescription("${alice.name} may play 1 card from other zones")
+        waitUntil("Alice's playable chip on Bob's table: ${bob.screen()}") { bob.shows(chip) }
+        bob.node(chip).performClick()
+        waitUntil("the chip's list names the Flare: ${bob.screen()}") { bob.shows(hasContentDescription("Ember Flare, Graveyard")) }
+        holding(bob.node(hasContentDescription("Ember Flare, Graveyard"))) {
+            assertTrue(bob.shows(hasContentDescription("Card inspection content")), "the listed Flare inspected: ${bob.screen()}")
+        }
+        assertFalse(alice.refusalSeen, "no refusal or shake: ${alice.shownTexts}")
+    }
+
     private val greyed = SemanticsMatcher("greyed") { "can't be paid now" in it.config.getOrElse(SemanticsProperties.StateDescription) { "" } }
 
     /** Whether [card] glows on [player]'s table (TBL-117): Automatum lets them do something with it now other than make mana. */

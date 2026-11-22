@@ -222,6 +222,12 @@ object DraftEngine {
             return reject(DraftPickRejection.WRONG_COUNTS)
         val rest = cards.filter { it !in pick.keep }
         val nearEnd = state.settings.keepsOnly(cards.size, keep, taken)
+        if (state.settings.lastPass(taken)) {
+            // DRF-261 (owner 2026-11-22): a Custom booster pack's last pass burns every card not kept; a pick names no burns
+            // or all of them
+            if (pick.burn.isNotEmpty() && pick.burn.toSet() != rest.toSet()) return reject(DraftPickRejection.WRONG_COUNTS)
+            return DraftPickResult(state = Working(state).applyPick(pick, rest))
+        }
         if (nearEnd) {
             // No burns, all of the rest, or (needed by nobody, still accepted) an ordinary burn-count choice.
             if (pick.burn.isNotEmpty() && pick.burn.toSet() != rest.toSet() && pick.burn.size != burnCount)
@@ -387,8 +393,10 @@ object DraftEngine {
                 val keep = settings.keepAt(picks(id))
                 // Queued packs always hold more than keep cards (smaller ones are awarded on arrival).
                 if (keep < 1 || cards.size < keep) break
-                // Normal or near-end burns alike (DRF-045): the threshold discards whatever near-end burns leave.
-                move(DraftPick(player, id, cards.take(keep)), cards.drop(keep).take(settings.burnAt(picks(id))))
+                // Normal or near-end burns alike (DRF-045): the threshold discards whatever near-end burns leave; a Custom
+                // booster pack's last pass burns all the rest (DRF-261)
+                move(DraftPick(player, id, cards.take(keep)),
+                    if (settings.lastPass(picks(id))) cards.drop(keep) else cards.drop(keep).take(settings.burnAt(picks(id))))
                 open()
                 count++
             }

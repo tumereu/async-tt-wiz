@@ -70,12 +70,32 @@ class CustomBoosterEngineTest {
         while (state.queues.getValue("p0").first() != first) state = pick(state, "p0")
         val last = choice(state, "p0")
         assertEquals(1, last.keep.size); assertTrue(last.burn.isEmpty())
-        state = pick(state, "p0") // pass 3, the last: pick 1 → the other 2 are thrown away
+        // DRF-261 (owner 2026-11-22): on the last pass only the pick is chosen; a partial burn is refused
+        val partial = last.copy(burn = state.packs.first { it.id == first }.cards.filter { it !in last.keep }.take(1))
+        assertEquals(DraftPickRejection.WRONG_COUNTS, DraftEngine.pick(state, partial).reason)
+        state = pick(state, "p0") // pass 3, the last: pick 1 → the other 2 burn
         val entry = state.log.last { it.packId == first }
-        assertEquals(2, entry.discarded.size)
+        assertEquals(2, entry.burned.size); assertTrue(entry.discarded.isEmpty())
         assertTrue(state.packs.first { it.id == first }.cards.isEmpty())
-        assertEquals(listOf(listOf(2, 1, 0), listOf(1, 1, 0), listOf(1, 0, 2)),
+        assertEquals(listOf(listOf(2, 1, 0), listOf(1, 1, 0), listOf(1, 2, 0)),
             state.log.filter { it.packId == first }.map { listOf(it.kept.size, it.burned.size, it.discarded.size) })
+    }
+
+    // DRF-261 (owner 2026-11-22): a last pass burns every card not picked whatever the pack's size, when the pick names them
+    // all too; a bot's pick ([DraftBotSeats]) on it names no burns and the rest burn the same
+    @Test fun theLastPassBurnsEveryCardNotPicked() {
+        var state = start(settings(listOf(DraftPass(1, 0)), cards = 9))
+        val own = state.queues.getValue("p0").first()
+        val cards = state.packs.first { it.id == own }.cards
+        assertTrue(state.settings.keepsOnly(cards.size, 1, 0))
+        state = assertNotNull(DraftEngine.pick(state, DraftPick("p0", own, cards.take(1), cards.drop(1))).state)
+        assertEquals(listOf(1, 8, 0), state.log.last { it.packId == own }.let { listOf(it.kept.size, it.burned.size, it.discarded.size) })
+        val theirs = state.queues.getValue("p1").first()
+        val move = assertNotNull(DraftBotSeats.booster(state, "p1") { DraftBotCard(it, null) })
+        assertTrue(move.move.burn.isEmpty())
+        state = assertNotNull(DraftEngine.pick(state, move.move).state)
+        assertEquals(listOf(1, 8, 0), state.log.last { it.packId == theirs }.let { listOf(it.kept.size, it.burned.size, it.discarded.size) })
+        assertTrue(state.finished)
     }
 
     // DRF-261: a pack that runs out before its passes is done; one too small for its pass's picks is given automatically
@@ -124,7 +144,7 @@ class CustomBoosterEngineTest {
         }
     }
 
-    // DRF-263: burned cards show in the draft history like picks, marked as burned
+    // DRF-263, DRF-261 (owner 2026-11-22): burned cards show in the draft history like picks, marked as burned, the last pass's too
     @Test fun historyShowsEachPassBurns() {
         var state = start(settings(listOf(DraftPass(1, 2), DraftPass(1, 1), DraftPass(1, 0))))
         while (!state.finished) state = pick(state, ready(state))
@@ -132,6 +152,6 @@ class CustomBoosterEngineTest {
         val own = history.first { it.pick == 1 }
         assertEquals(1, own.kept.size); assertEquals(2, own.burned.size); assertEquals(8, own.cards.size)
         val third = history.first { it.pick == 3 }
-        assertEquals(1, third.kept.size); assertTrue(third.burned.isEmpty()); assertEquals(3, third.cards.size)
+        assertEquals(1, third.kept.size); assertEquals(2, third.burned.size); assertEquals(3, third.cards.size)
     }
 }

@@ -915,11 +915,13 @@ object TablePresentation {
                 val footprint = TableBounds(x, y, columnPitch * zoom, envelope)
                 val lift = (spot.lifts / 2f - spot.lift) * BattlefieldLayout.PEEK * fieldScale
                 val centred = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, if (c.tapped) cw else ch, lift)
-                // TBL-177 (owner, 2026-11-19): in a stack with both tapped and untapped members each lies with its bottom-left
-                // corner (a tapped one's as it lies turned) at the bottom-left of the square both fit in, so the corners line up
+                // TBL-143 (owner, 2026-11-22): every card lies on its row's bottom line, tapped or not, so all tapped cards share
+                // one line: its bottom at the bottom of the square both a tapped and an untapped card fit in. TBL-177 (owner,
+                // 2026-11-19): in a stack with both tapped and untapped members each lies with its bottom-left corner (a tapped
+                // one's as it lies turned) at the bottom-left of that square, so the corners line up
                 val square = maxOf(cw, ch)
-                val b = if (!spot.aligned) centred else centred.copy(x = footprint.center.x - square / 2,
-                    y = footprint.center.y + square / 2 + lift - centred.height)
+                val bottom = footprint.center.y + square / 2 + lift - centred.height
+                val b = if (!spot.aligned) centred.copy(y = bottom) else centred.copy(x = footprint.center.x - square / 2, y = bottom)
                 if (spot.staged == null) stackBottoms.getOrPut(spot.group) { b }
                 card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
                 items[items.lastIndex] = items.last().copy(group = spot.group, copies = maxOf(1, spot.copies), staged = spot.staged,

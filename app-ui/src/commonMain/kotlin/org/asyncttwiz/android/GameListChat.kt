@@ -6,6 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -17,6 +18,15 @@ import org.asyncttwiz.appui.screenOrientation
 
 /** LOB-148: the game row menu's chat button: "Chat", or "Chat · 2 unread" while the other player's messages wait. */
 fun gameRowChatLabel(unread: Int): String = if (unread > 0) "Chat · $unread unread" else "Chat"
+
+/** LOB-148: the game row menu's Chat (with its unread count): opens the game's chat without opening the game; [closeMenu]
+ * closes the menu it sits in when that isn't the game menu (the setup's, LOB-026). */
+@Composable
+fun GameRowChatButton(controller: LobbyController, game: org.asyncttwiz.protocol.GameSummary, closeMenu: () -> Unit = {}) {
+    val unread = controller.state.chatUnread[game.id] ?: 0
+    ScreenOutlinedButton({ closeMenu(); controller.openListChat(game) }, Modifier.fillMaxWidth().testTag("game-row-chat"),
+        enabled = controller.state.selected == null) { ButtonLabel("chat", gameRowChatLabel(unread)) }
+}
 
 /**
  * LOB-148: a game's chat opened from the games list (its row's menu): the table's Game chat (LOB-067, LOB-068, LOB-138) as a
@@ -43,7 +53,7 @@ fun GameListChat(controller: LobbyController, accountId: String) {
                             }
                             IconButton(onClick = controller::closeChat) { EntryIcon("Close chat", "close") }
                         }
-                        val staleDraft = state.chat.draft != null && state.chat.draft.playId != game.playId
+                        val staleDraft = state.chat.draft?.staleIn(game) == true
                         GameChatBody(controller, game, accountId, staleDraft, Modifier.weight(1f), visible = true)
                     }
                 }

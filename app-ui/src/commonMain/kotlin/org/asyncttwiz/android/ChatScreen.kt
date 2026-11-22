@@ -89,7 +89,7 @@ fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier
     val chat = state.chat
     val deliveryFailure = chat.outgoing.lastOrNull { it.failure != null }?.failure
     var deliveryDismissed by remember(deliveryFailure) { mutableStateOf(false) }
-    val staleDraft = chat.draft != null && chat.draft.playId != game.playId
+    val staleDraft = chat.draft?.staleIn(game) == true
     var staleDismissed by remember(chat.draft?.playId, game.playId) { mutableStateOf(false) }
     BackHandler(enabled = !docked) { controller.closeChat() }
     // LOB-138: messages showing in the chat are read; docked, it always shows

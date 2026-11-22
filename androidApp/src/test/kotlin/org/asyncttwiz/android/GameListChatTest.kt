@@ -29,7 +29,7 @@ class GameListChatTest {
         ChatMessage("m2", game.id, "play", other.accountId, "Thinking, one sec", "3", "2026-10-31T09:01:00Z"),
         ChatMessage("m3", game.id, "play", other.accountId, "Ok, done. Your turn", "4", "2026-10-31T09:12:00Z"))
 
-    private inner class Fixture : AutoCloseable {
+    private inner class Fixture(val game: GameSummary = this@GameListChatTest.game, chat: List<ChatMessage> = messages) : AutoCloseable {
         val worker = Worker(); val wire = Wire()
         val lobby = LobbyController(proxy<Lobbies> { name, args -> when (name) {
             "contacts" -> ContactList(emptyList())
@@ -43,7 +43,7 @@ class GameListChatTest {
             wire.listener.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
             val stream = wire.frames.filterIsInstance<OpenGameStream>().single().streamId
             wire.listener.message(GameStreamReady(game.id, stream, "1", emptyList()))
-            wire.listener.message(GameHead(game.id, game.revision, game, chat = messages))
+            wire.listener.message(GameHead(game.id, game.revision, game, chat = chat))
         }
         override fun close() { lobby.close(); worker.drain() }
     }
@@ -91,6 +91,39 @@ class GameListChatTest {
         assertNull(f.lobby.state.listChat)
         assertFalse(f.lobby.state.chatOpen)
         compose.onNodeWithText("Thanks!").assertDoesNotExist()
+    }
+
+    private val setup = game.copy(lifecycle = GameLifecycle.LOBBY, playId = null)
+    private val lobbyMessages = listOf(ChatMessage("l1", setup.id, null, other.accountId, "Cube or constructed?", "4", "2026-10-31T09:12:00Z"))
+
+    // LOB-148, LOB-026 (owner, 2026-11-22): a game in setup or preparing offers its chat in its row's menu beside Cancel game (no
+    // Delete game), counting its unread messages; the chat opens over the list and sends with no play
+    @Test fun aGameInSetupOffersItsChatBesideCancelGame() = Fixture(setup, lobbyMessages).use { f ->
+        f.wire.state = ChatReadState(setup.id, readThrough = "0", throughRevision = "4", unread = 1)
+        compose.setContent { ScreenTheme { NoRipples {
+            SetupCancellationDialogs(f.lobby)
+            GameDeletionDialogs(f.lobby)
+            GameListChat(f.lobby, self.accountId)
+        } } }
+        assertTrue(f.lobby.offersListChat(setup))
+        assertFalse(f.lobby.offersGameDeletion(setup))
+        f.lobby.showGameContext(setup)
+        compose.onNodeWithText("Chat · 1 unread").assertIsDisplayed()
+        compose.onNodeWithText("Cancel game").assertIsDisplayed()
+        compose.onNodeWithText("Delete game").assertDoesNotExist()
+        captureShot("$SCREENSHOTS/chat/games-list-setup-row-menu.png",
+            "alex held the row of Azure Spark, a game still being set up: its menu offers the game's chat with riley's unread message, and Cancel game.")
+        f.wire.state = ChatReadState(setup.id, readThrough = "4", throughRevision = "4", unread = 0)
+        compose.onNodeWithText("Chat · 1 unread").performClick()
+        compose.waitForIdle()
+        assertEquals(setup.id, f.lobby.state.listChat)
+        assertNull(f.lobby.setupCancellation.context, "the menu closed")
+        compose.onNodeWithText("Cube or constructed?").assertIsDisplayed()
+        f.lobby.composeChat("Cube!")
+        f.lobby.sendChat()
+        val sent = f.wire.frames.filterIsInstance<GameCommand>().single()
+        assertEquals(GameAction.SendChat("Cube!"), sent.action)
+        assertEquals(GameScope(setup.id), sent.scope, "a message before the game starts has no play")
     }
 
     // LOB-148: with nothing unread the menu says just "Chat"

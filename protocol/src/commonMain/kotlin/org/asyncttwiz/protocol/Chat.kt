@@ -2,8 +2,9 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-/** Immutable game-wide communication, deliberately outside the board/history tree. */
-@Serializable data class ChatMessage(val id: String, val gameId: String, val playId: String,
+/** Immutable game-wide communication, deliberately outside the board/history tree. [playId]: the play it was written in;
+ * null for a message written before the game started, in its lobby (LOB-271). */
+@Serializable data class ChatMessage(val id: String, val gameId: String, val playId: String?,
     val author: String, val text: String, val revision: String, val createdAt: String)
 
 @Serializable data class ChatSync(val revision: String = "0", val messageId: String? = null)

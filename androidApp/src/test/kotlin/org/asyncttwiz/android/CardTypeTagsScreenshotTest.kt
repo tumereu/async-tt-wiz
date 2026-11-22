@@ -89,6 +89,9 @@ class CardTypeTagsScreenshotTest {
     private val blade = face("Scalebound Blade", "Artifact — Equipment", "{1}", "Equipped creature gets +1/+1.\nEquip {1}")
     private val armorer = face("Armory Scout", "Creature — Human Soldier", "{1}{W}", "This creature gets +1/+0 for each Equipment you control.", "1/2")
     private val mechanic = face("Pit Mechanic", "Creature — Human Artificer", "{1}{R}", "This creature gets +1/+1 for each Vehicle you control.", "1/1")
+    private val spark = face("Quick Spark", "Instant", "{R}", "Quick Spark deals 2 damage to any target.")
+    private val surge = face("Rolling Surge", "Sorcery", "{1}{R}", "Rolling Surge deals 3 damage to any target.")
+    private val siege = face("Siege of Ashford", "Battle — Siege", "{2}{R}", defense = "5")
 
     /** One card of a test board: [face] in [owner]'s [zone]. */
     private class Put(val owner: String, val zone: PlayZone, val face: DefinitionFace, val tapped: Boolean = false, val damage: String = "",
@@ -148,6 +151,12 @@ class CardTypeTagsScreenshotTest {
         bf(b, mountain, 4) + bf(b, goblin, 2) + bf(b, basker) + bf(b, charger, tapped = true) + bf(b, lantern) + bf(b, wagon) +
         bf(b, mimic) + bf(b, face("Hidden Shape", "Creature — Lizard", "{R}", pt = "1/1"), faceDown = true) + hand(b, mountain)) }
 
+    /** TBL-239: Alice holds a creature, an artifact creature, an instant, a sorcery, a planeswalker and a battle (her hand row's
+     * cards from other zones: HandRowOffZoneTest). */
+    private val handBoard by lazy { board(
+        bf(a, forest, 3) + bf(a, mountain, 2) + hand(a, basker, plow, spark, surge, oracle, siege) +
+        bf(b, mountain, 3) + bf(b, goblin) + hand(b, mountain, goblin)) }
+
     /** [viewer]'s table of [play], in the phone's portrait layout or ([desktop]) the desktop layout's, as the app draws it. */
     private fun render(play: PlayState, viewer: String = a, desktop: Boolean = false, closeOn: String? = null) {
         val toolkit = TableToolkitController(viewer, { engineTableBoard(play, viewer) }, { true }, { _, _ -> true })
@@ -191,6 +200,69 @@ class CardTypeTagsScreenshotTest {
         return scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && !it.projection }
     }
     private fun List<TableItem>.named(name: String, owner: String) = filter { it.label.startsWith("$name, ") && it.owner == owner }
+    /** [viewer]'s hand row items of [play]: their hand's cards and those from other zones. */
+    private fun handRow(play: PlayState, viewer: String = a, appearance: CardAppearance = CardAppearance()): List<TableItem> {
+        val board = engineTableBoard(play, viewer)
+        val scene = TablePresentation.scene(game, board, viewer, 412f, 892f, false, appearance = appearance,
+            computed = assertNotNull(board.values).computed)
+        return scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == viewer && !it.projection }
+    }
+
+    // TBL-239, TBL-233, TBL-021: your hand's cards show their type icons and,
+    // in the bottom row's right corner, a creature's P/T, a planeswalker's loyalty and a battle's defense, read aloud after the types;
+    // the instant and the sorcery their new icons
+    @Test fun handCardsShowTheirTypesAndPowerAndToughness() {
+        val items = handRow(handBoard)
+        val basker = items.named("Sunbaked Basker", a).single()
+        assertEquals(listOf("Creature"), basker.cardTypes)
+        assertEquals("1/1", basker.corner)
+        assertTrue(basker.label.endsWith(", Creature, 1/1"), basker.label)
+        assertEquals(listOf("Artifact", "Creature"), items.named("Brass Plow", a).single().cardTypes)
+        assertEquals(listOf("Instant"), items.named("Quick Spark", a).single().cardTypes)
+        assertEquals("", items.named("Quick Spark", a).single().corner)
+        assertEquals(listOf("Sorcery"), items.named("Rolling Surge", a).single().cardTypes)
+        val walker = items.named("Ash Oracle", a).single()
+        assertEquals("3", walker.corner)
+        assertTrue(walker.label.endsWith(", Planeswalker, loyalty 3"), walker.label)
+        val battle = items.named("Siege of Ashford", a).single()
+        assertEquals("5", battle.corner)
+        assertTrue(battle.label.endsWith(", Battle, defense 5"), battle.label)
+        assertTrue(handRow(handBoard, viewer = b).none { it.owner == a }, "Bob sees none of Alice's hand")
+        render(handBoard)
+        captureShot("$SCREENSHOTS/hand/types-pt.png",
+            "Alice's hand holds a creature, an artifact creature, an instant, a sorcery, a planeswalker and a battle: each card shows its type icons at the left of its bottom row (the instant a lightning bolt, the sorcery a swirl) and in its right corner the creatures' P/T, the planeswalker's loyalty 3 and the battle's defense 5.")
+    }
+
+    // TBL-239: at the smallest hand size the bottom row's icons and P/T stay legible
+    @Test fun handCardTypesAtTheSmallestHandSize() {
+        val preferences = CardAppearancePreferences(org.asyncttwiz.appui.AppPlatform.current, AppLayout.Phone)
+        preferences.customizeAreas(true)
+        preferences.setSize(MIN_CARD_SCALE, CardArea.HAND)
+        try {
+            render(handBoard)
+            captureShot("$SCREENSHOTS/hand/types-pt-small.png",
+                "The same hand with the Hand card size at its smallest: the type icons and the P/T, loyalty and defense in each card's bottom row, smaller with the cards.")
+        } finally {
+            preferences.setSize(1f, CardArea.HAND)
+            preferences.customizeAreas(false)
+        }
+    }
+
+    // TBL-239, TBL-236: with "Hand cards: full picture" on, the hand's type icons sit on the small white chip
+    @Test fun fullPictureHandCardsShowTheirTypesOnAChip() {
+        val preferences = CardAppearancePreferences(org.asyncttwiz.appui.AppPlatform.current, AppLayout.Phone)
+        preferences.fullPicture(hand = true, enabled = true)
+        try {
+            assertTrue(handRow(handBoard, appearance = preferences.read()).named("Sunbaked Basker", a).single().fullPicture)
+            render(handBoard)
+            compose.mainClock.advanceTimeBy(1000)
+            compose.waitForIdle()
+            captureShot("$SCREENSHOTS/hand/types-full-picture.png",
+                "With \"Hand cards: full picture\" on, Alice's hand cards show their printed pictures with their type icons on a small white chip at the bottom left.")
+        } finally {
+            preferences.fullPicture(hand = true, enabled = false)
+        }
+    }
 
     // TBL-233, TBL-236: each permanent's card types, as icons and read aloud
     @Test fun battlefieldCardsShowTheirTypes() {

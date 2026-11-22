@@ -134,6 +134,12 @@ class ComputedBoard private constructor(
     /** Web client (web frame rate, 2026-11-15): a restored board's [withEffects] as the engine side worked them out with its own
      * view, so the page doesn't run the layers for each board it receives; null: worked out here when first read. */
     private val givenWithEffects: Set<String>? = null,
+    /**
+     * TBL-239 (owner, 2026-11-22): the cards outside the Battlefield the table draws with the battlefield's bottom row, by ATW
+     * card id: the viewer's hand and hand row ([handRow]) with their card types and [ComputedCard.corner] (a creature's P/T, a
+     * planeswalker's loyalty, a battle's defense), and the Stack's cards with their card types; only cards the viewer may see.
+     */
+    val offBattlefield: Map<String, ComputedCard> = emptyMap(),
 ) {
     /** The view worked out on the page for a restored board ([restoredView]). */
     private var workedView: View? = null
@@ -152,12 +158,13 @@ class ComputedBoard private constructor(
         val computed: Boolean = false,
         /** [withEffects] as the engine side worked them out (null: none sent, worked out on the page). */
         val withEffects: Set<String>? = null,
-        val othersPlayable: Map<String, List<OtherPlayable>> = emptyMap())
+        val othersPlayable: Map<String, List<OtherPlayable>> = emptyMap(),
+        val offBattlefield: Map<String, ComputedCard> = emptyMap())
 
     /** These values as the page receives them ([Wire]), with [withEffects] worked out here (where the board's view is) rather
      * than on the page (web frame rate, 2026-11-15: the page ran the layers again for each board it drew). */
     fun wire(): Wire = Wire(cards, unsupported, manualAbilities, manualCards, exileStates, handRow, state != null,
-        withEffects.takeIf { state != null }, othersPlayable)
+        withEffects.takeIf { state != null }, othersPlayable, offBattlefield)
     /**
      * TBL-136 effects marker (owner, 2026-11-12; 2026-11-19: only effects the board doesn't show otherwise): the Battlefield cards
      * (by ATW card id) a continuous effect other than counters applies to that can't be seen without Inspect: those Inspect lists
@@ -411,9 +418,9 @@ class ComputedBoard private constructor(
          * state the engine side worked them out from); the view is worked out on the page when an explanation needs it. */
         fun restored(wire: Wire, state: GameState): ComputedBoard = if (!wire.computed)
             ComputedBoard(wire.cards, wire.unsupported, wire.manualAbilities, wire.manualCards, null, null, null, wire.exileStates, wire.handRow,
-                wire.othersPlayable)
+                wire.othersPlayable, offBattlefield = wire.offBattlefield)
             else ComputedBoard(wire.cards, wire.unsupported, wire.manualAbilities, wire.manualCards, state, null, CardIds(), wire.exileStates,
-                wire.handRow, wire.othersPlayable, restoredView = true, givenWithEffects = wire.withEffects)
+                wire.handRow, wire.othersPlayable, restoredView = true, givenWithEffects = wire.withEffects, offBattlefield = wire.offBattlefield)
 
         /** Nothing computed (Automatum off, or the board not built yet). */
         val NONE = ComputedBoard(emptyMap(), emptyList(), 0, emptyList(), null, null, null)
@@ -473,11 +480,48 @@ class ComputedBoard private constructor(
                 val o = state.obj(ObjectId.Card(ids.engine(card.id), card.zoneChanges)) ?: return@mapNotNull null
                 if (o.marks.isEmpty()) null else CardStates.words(o, view[o.id]?.statuses ?: o.statuses).takeIf { it.isNotEmpty() }?.let { card.id to it }
             }.toMap()
+            // ZON-079: the cards from other zones the viewer's hand row shows, worked out with the board
+            val handRow = OffZoneCards.permitted(state, view, viewer)
             return ComputedBoard(cards, emptyList(), manualAbilities, manualCards, state, view, ids, exileStates,
-                // ZON-079: the cards from other zones the viewer's hand row shows, worked out with the board
-                handRow = OffZoneCards.permitted(state, view, viewer),
+                handRow = handRow,
                 othersPlayable = board.players.filter { it.accountId != viewer }
-                    .associate { it.accountId to OffZoneCards.playableBy(state, view, it.accountId, viewer) }.filterValues { it.isNotEmpty() })
+                    .associate { it.accountId to OffZoneCards.playableBy(state, view, it.accountId, viewer) }.filterValues { it.isNotEmpty() },
+                offBattlefield = offBattlefield(board, state, view, viewer, ids, handRow))
+        }
+
+        /**
+         * TBL-239 (owner, 2026-11-22): [offBattlefield]'s values: the viewer's hand cards and hand row cards ([handRow], which they
+         * may see) with their card types and P/T, or a planeswalker's loyalty or a battle's defense (the
+         * printed number, as no counters are on it there); the Stack's cards the viewer may see with their card types.
+         */
+        private fun offBattlefield(board: BoardState, state: GameState, view: View, viewer: String, ids: CardIds,
+            handRow: List<String>): Map<String, ComputedCard> {
+            val ownHand = board.containers.filter { it.zone == PlayZone.HAND && it.accountId == viewer }.flatMap { it.cards }.toSet()
+            // a spell's card stays in the zone it was cast from (STK-001): the Stack's cards are those the engine has there
+            val battlefield = board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.flatMap { it.cards }.toSet()
+            val rowCards = handRow.toSet()
+            val shown = LinkedHashMap<String, ComputedCard>()
+            for (card in board.cards) {
+                if (card.id in battlefield) continue
+                val framed = card.id in ownHand || card.id in rowCards
+                val o = view[ObjectId.Card(ids.engine(card.id), card.zoneChanges)] ?: continue
+                if (!framed && o.zone != Zone.Stack) continue
+                if (card.id !in rowCards && !CardVisibility.isVisibleFaceUp(board, card, viewer)) continue
+                val chars = o.characteristics ?: continue
+                val base = o.base ?: chars
+                val pt = framed && chars.power != null && chars.toughness != null
+                fun counted(kind: CounterKind, count: Int?) = count?.let { ShownCounter(kind, counterName(EngineCodec.counterName(kind)), it) }
+                shown[card.id] = ComputedCard(cardId = card.id,
+                    power = chars.power.takeIf { pt }, toughness = chars.toughness.takeIf { pt },
+                    basePower = base.power.takeIf { pt }, baseToughness = base.toughness.takeIf { pt },
+                    primary = if (!framed || pt) null else when {
+                        chars.isType(CardType.Planeswalker) -> counted(CounterKind.Loyalty, chars.loyalty)
+                        chars.isType(CardType.Battle) -> counted(CounterKind.Defense, chars.defense)
+                        else -> null
+                    },
+                    cardTypes = chars.types.map(CardType::toString))
+            }
+            return shown
         }
 
         private fun manual(board: BoardState, submitted: List<SubmittedDefinition>, definitions: Map<String, CardDefinition>,

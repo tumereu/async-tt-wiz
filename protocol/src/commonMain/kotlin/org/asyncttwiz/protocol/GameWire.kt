@@ -239,7 +239,9 @@ object GameWire {
         require(listOfNotNull(command.requestId, command.scope.gameId, command.scope.preparationId,
             command.scope.invitationId, command.scope.playId, command.streamId, command.invocationId).all(DeckValidation::uuid))
         if (command.action == GameAction.DeleteGame || command.action is GameAction.SendChat) {
-            require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
+            // LOB-271: a chat message before the game starts (its lobby) has no play
+            require((command.scope.playId != null || command.action is GameAction.SendChat) &&
+                command.scope.preparationId == null && command.scope.invitationId == null)
             if (command.action is GameAction.SendChat) require(ChatValidation.text(command.action.text))
         } else if (command.action is GameAction.Submit) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)

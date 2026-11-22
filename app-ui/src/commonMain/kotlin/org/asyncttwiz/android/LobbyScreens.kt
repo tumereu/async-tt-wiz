@@ -35,6 +35,8 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import org.asyncttwiz.appui.edgeToEdgeDialogProperties
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -128,14 +130,13 @@ fun GamesContent(controller: LobbyController, accountId: String) {
 fun GameDeletionDialogs(controller: LobbyController) {
     controller.state.gameContext?.let { game ->
         // A context menu without a cancel button keeps its ✕; its one action sits at the right.
+        // LOB-026: Delete game only for a game in play; LOB-148: a game in setup or preparing offers its chat alone
+        val delete = controller.offersGameDeletion(game)
         ScreenDialog(controller::dismissGameContext, Modifier.widthIn(max = 300.dp), title = game.gameName,
             close = "Close game actions", actions = {
-                DialogMainButton("Delete game", { controller.requestGameDeletion(game) }, danger = true)
+                if (delete) DialogMainButton("Delete game", { controller.requestGameDeletion(game) }, danger = true)
             }) {
-            // LOB-148: the game's chat, with its unread count, without opening the game
-            val unread = controller.state.chatUnread[game.id] ?: 0
-            ScreenOutlinedButton({ controller.openListChat(game) }, Modifier.fillMaxWidth().testTag("game-row-chat"),
-                enabled = controller.state.selected == null) { ButtonLabel("chat", gameRowChatLabel(unread)) }
+            GameRowChatButton(controller, game)
         }
     }
     controller.state.deletion?.let { capture ->
@@ -177,6 +178,8 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
     ScreenBusyOverlay(lobbyBusyMessage(state, "Loading game…")) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(state.detail?.gameName ?: "Loading game…", hamburger) {
+            // LOB-271 (owner, 2026-11-22): the game's chat before it starts, with the unread dot (LOB-163)
+            state.detail?.takeIf(::gameChatOpen)?.let { game -> LobbyChatButton(controller, game, accountId) }
             state.detail?.takeIf(controller::offersSetupCancellation)?.let { game ->
                 ScreenIconButton("Cancel game", "cancel", { controller.requestCancelSetup(game) }, danger = true)
             }
@@ -311,6 +314,39 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
     }
     }
     }
+    // LOB-271, LOB-145 (owner, 2026-11-22): the lobby's chat, the table's chat panel (Game and Pod tabs in a pod game), over the
+    // lobby as a side panel, on the desktop too (as its pod screens' and games list's chats)
+    val chatGame = state.detail?.takeIf { state.chatOpen && state.listChat == null && gameChatOpen(it) }
+    val podChat = LocalPodChat.current
+    val podId = state.detail?.takeIf(::gameChatOpen)?.podId
+    if (podChat != null && podId != null) PodChatRefresh(podChat, podId, chatGame != null, "game lobby")
+    if (chatGame != null) {
+        Dialog(onDismissRequest = controller::closeChat, properties = edgeToEdgeDialogProperties()) {
+            Box(Modifier.fillMaxSize()) {
+                ChatPanel(controller, accountId, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (landscape) .5f else 1f))
+            }
+        }
+    }
+}
+
+/** LOB-271, LOB-163 (owner, 2026-11-22): the game lobby's chat button, a dot on it while the game's chat (or the pod's, in a pod
+ * game) holds messages you haven't read; it opens on the tab LOB-145 says. */
+@Composable
+private fun LobbyChatButton(controller: LobbyController, game: GameSummary, accountId: String) {
+    val podChat = LocalPodChat.current
+    val podView = game.podId?.let { id -> podChat?.views?.get(id) }?.takeIf { !it.unavailable }
+    val podUnread = podView?.unread(accountId) ?: 0
+    val podAvailable = podChat != null && game.podId != null && podChat.views[game.podId]?.unavailable != true
+    val gameUnread = controller.state.chat.unread
+    val unread = ChatTabs.buttonUnread(gameUnread, podUnread)
+    Box {
+        HoldTip("Game chat") {
+            IconButton({ controller.openChat(tab = ChatTabs.opening(podAvailable, gameUnread, podUnread, controller.lastChatTab(game.id))) },
+                Modifier.size(48.dp).testTag("lobby-chat-button")
+                    .semantics { stateDescription = if (unread > 0) "$unread unread messages" else "" }) { EntryIcon("Game chat", "chat") }
+        }
+        if (unread > 0) UnreadDot(Modifier.align(Alignment.TopEnd).padding(10.dp).testTag("lobby-chat-unread"))
+    }
 }
 
 @Composable
@@ -350,19 +386,21 @@ fun Modifier.gameRowActions(controller: LobbyController, game: GameSummary, enab
     desktop: Boolean = false, open: () -> Unit): Modifier {
     val cancel = controller.offersSetupCancellation(game)
     val delete = controller.offersGameDeletion(game)
+    // LOB-148 (owner, 2026-11-22): the menu's Chat also before the game starts (setup, preparing)
+    val chat = controller.offersListChat(game)
     val hold: (() -> Unit)? = when {
         cancel -> ({ controller.showGameContext(game) })
-        delete -> ({ controller.gameContext(game) })
+        delete || chat -> ({ controller.gameContext(game) }) // a chat-only menu (no setup to cancel, LOB-148)
         else -> null
     }
     // Ahead of the row's click, so the right button never opens the game
-    val rightClick = if (!desktop) Modifier else Modifier.desktopControl(listOf(game, enabled, cancel, delete), onRight = {
-        AppLog.info("lobby", "Right-click on the game row ${game.id}: ${if (enabled && hold != null) if (cancel) "Cancel game" else "Delete game" else "no game actions"}")
+    val rightClick = if (!desktop) Modifier else Modifier.desktopControl(listOf(game, enabled, cancel, delete, chat), onRight = {
+        AppLog.info("lobby", "Right-click on the game row ${game.id}: ${if (enabled && hold != null) if (cancel) "Cancel game" else if (delete) "Delete game" else "Chat" else "no game actions"}")
         if (enabled) hold?.invoke()
     })
     // Section 3.6: opening a game reads card records; greyed while they install
     return then(rightClick).alpha(if (enabled) 1f else .38f).combinedClickable(enabled = enabled, onClick = open, role = Role.Button,
-        onLongClickLabel = if (cancel || delete) "Game actions" else null,
+        onLongClickLabel = if (cancel || delete || chat) "Game actions" else null,
         onLongClick = hold)
         .semantics {
             if (cancel) customActions = listOf(CustomAccessibilityAction("Cancel game") {
@@ -381,7 +419,10 @@ fun SetupCancellationDialogs(controller: LobbyController) {
         ScreenDialog(cancellation::dismissContext, Modifier.widthIn(max = 300.dp), title = game.gameName,
             close = "Close game actions", actions = {
                 DialogMainButton("Cancel game", { controller.requestCancelSetup(game) }, danger = true, icon = "cancel")
-            })
+            }) {
+            // LOB-148 (owner, 2026-11-22): the game's chat before it starts, with its unread count
+            if (controller.offersListChat(game)) GameRowChatButton(controller, game, cancellation::dismissContext)
+        }
     }
     cancellation.confirmation?.let { game ->
         val connected = game.id in controller.state.connectedGames

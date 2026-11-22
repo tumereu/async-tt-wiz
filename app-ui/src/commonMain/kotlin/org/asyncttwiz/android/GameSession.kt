@@ -88,7 +88,8 @@ class GameSession(private val connection: GameConnection, private val credential
     fun loadOlderChat(gameId: String): Boolean = chats.loadOlderChat(gameId)
     fun sendChat(game: GameSummary, text: String): Boolean = measureLatency(game, GameAction.SendChat(text)) {
         val current = summary(game)
-        if (game.lifecycle != GameLifecycle.ACTIVE || current.lifecycle != GameLifecycle.ACTIVE || current.playId == null ||
+        // LOB-271 (owner, 2026-11-22): in play and before the game starts, in the play (or the lobby) it was written for
+        if (!gameChatOpen(game) || !gameChatOpen(current) || game.lifecycle != current.lifecycle ||
             game.playId != current.playId || !ChatValidation.text(text)) return false
         val command = command(current, GameAction.SendChat(text)) ?: return false
         chats.submitted(command)

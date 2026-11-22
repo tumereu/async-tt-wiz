@@ -80,8 +80,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     /** Opens the game's chat; [focus]: at that message (holding its bubble on the table, LOB-136); [tab]: on that tab in a pod
      * game (LOB-145). */
     fun openChat(focus: String? = null, tab: ChatTab = ChatTab.GAME) {
-        if (state.detail?.lifecycle == GameLifecycle.ACTIVE) {
-            AppLog.info("chat", "Chat opened on ${tab.name.lowercase()}" + (focus?.let { " at message $it" } ?: "") +
+        // LOB-271 (owner, 2026-11-22): at the table and in the game's lobby before it starts
+        val game = state.detail
+        if (game != null && gameChatOpen(game)) {
+            AppLog.info("chat", "Chat opened on ${tab.name.lowercase()}" + (if (game.lifecycle == GameLifecycle.LOBBY) " in the game's lobby" else "") +
+                (focus?.let { " at message $it" } ?: "") +
                 (state.detail?.id?.let { id -> lastChatTabs[id]?.let { " (last used here: ${it.name.lowercase()})" } } ?: ""))
             state.detail?.id?.let { lastChatTabs[it] = tab }
             state = state.copy(chatOpen = true, chatFocus = focus, chatTab = tab); connectionState()
@@ -97,8 +100,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     /** LOB-148: opens [game]'s chat from the games list (its row's menu), without opening the game; its Game chat only. */
     fun openListChat(game: GameSummary) {
-        if (closed || state.selected != null || game.lifecycle != GameLifecycle.ACTIVE || state.games.none { it.id == game.id }) return
-        AppLog.info("chat", "Chat of ${game.id.take(8)} opened from the games list (${state.chatUnread[game.id] ?: 0} unread)")
+        if (closed || state.selected != null || !gameChatOpen(game) || state.games.none { it.id == game.id }) return
+        AppLog.info("chat", "Chat of ${game.id.take(8)} (${game.lifecycle.name.lowercase()}) opened from the games list " +
+            "(${state.chatUnread[game.id] ?: 0} unread)")
         state = state.copy(listChat = game.id, chatOpen = true, chatFocus = null, chatWrite = false, chatTab = ChatTab.GAME,
             gameContext = null)
         connectionState()
@@ -169,7 +173,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             chat = (state.selected ?: state.listChat)?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation(),
             chatLoaded = (state.selected ?: state.listChat)?.let(wire::chatLoaded) == true,
             // LOB-148: the games list's unread counts, once each game's read state is known
-            chatUnread = state.games.filter { it.lifecycle == GameLifecycle.ACTIVE && personalChat.readKnown(it.id) }
+            chatUnread = state.games.filter { gameChatOpen(it) && personalChat.readKnown(it.id) }
                 .associate { it.id to personalChat.unread(it.id, accountId(), wire.chat(it.id)) }.filterValues { it > 0 })
         // Never re-enter the session from its own status callback; run waiting taps right after it.
         if (queue.anyReady()) post(queue::runQueued)
@@ -240,6 +244,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun gameContext(game: GameSummary) = removal.gameContext(game)
     fun dismissGameContext() = removal.dismissGameContext()
     fun offersGameDeletion(game: GameSummary): Boolean = removal.offersGameDeletion(game)
+    /** LOB-148: whether [game]'s row menu offers its chat (in play, setup or preparing). */
+    fun offersListChat(game: GameSummary): Boolean = removal.offersListChat(game)
     fun requestGameDeletion(game: GameSummary) = removal.requestGameDeletion(game)
     fun dismissGameDeletion() = removal.dismissGameDeletion()
     fun confirmGameDeletion(): Boolean = removal.confirmGameDeletion()

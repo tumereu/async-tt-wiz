@@ -5,6 +5,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.generated.tables.ActivitySummary.ACTIVITY_SUMMARY
 import org.asyncttwiz.server.generated.tables.GameChat.GAME_CHAT
 import org.asyncttwiz.server.generated.tables.GameChatReadCursor.GAME_CHAT_READ_CURSOR
+import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.records.GameRecord
 import org.jooq.DSLContext
 
@@ -40,7 +41,7 @@ internal object ChatStore {
     }
 
     private fun message(it: org.asyncttwiz.server.generated.tables.records.GameChatRecord) =
-        ChatMessage(it.id.toString(), it.gameId.toString(), it.playId.toString(), it.authorId.toString(),
+        ChatMessage(it.id.toString(), it.gameId.toString(), it.playId?.toString(), it.authorId.toString(),
             it.text!!, it.revision.toString(), it.createdAt!!.toInstant().toString())
 
     fun sync(sql: DSLContext, game: UUID): ChatSync = sql.select(GAME_CHAT.ID, GAME_CHAT.REVISION).from(GAME_CHAT)
@@ -72,8 +73,14 @@ internal object ChatStore {
 
     data class Change(val reason: String? = null, val message: ChatMessage? = null)
     fun apply(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): Change {
-        if (game.lifecycle != "ACTIVE") return Change("lifecycleEnded")
-        if (command.scope.playId != game.currentPlay.toString()) return Change("inapplicable")
+        when (game.lifecycle) {
+            "ACTIVE" -> {}
+            // LOB-271 (owner, 2026-11-22): also before the game starts, in its lobby (no play), once both players are in it
+            "LOBBY" -> if (sql.select(INVITATION.STATE).from(INVITATION).where(INVITATION.ID.eq(game.currentInvitation))
+                    .fetchOne(INVITATION.STATE) != "ACCEPTED") return Change("inapplicable")
+            else -> return Change("lifecycleEnded")
+        }
+        if (command.scope.playId != game.currentPlay?.toString()) return Change("inapplicable")
         val text = (command.action as GameAction.SendChat).text
         if (!ChatValidation.text(text)) return Change("invalidInput")
         val inserted = sql.insertInto(GAME_CHAT).set(GAME_CHAT.ID, UUID.fromString(command.requestId))

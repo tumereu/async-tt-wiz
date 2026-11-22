@@ -93,6 +93,19 @@ object ManaWays {
         return ordered.firstOrNull(completes) ?: ordered.firstOrNull()
     }
 
+    /**
+     * STK-154 (owner, 2026-11-22): for the log, what Autotap's suggestion keeps open beside the plain order's payment ([kept], the
+     * engine's [arcanum.engine.decision.Decision.ManaPayment.keptOpen]), objects named by [name]; null when it is the plain order's.
+     */
+    fun keptOpen(kept: arcanum.engine.decision.KeptOpen?, name: (arcanum.engine.state.ObjectId) -> String): String? {
+        kept ?: return null
+        val plain = kept.plain.joinToString { use -> if (use is ManaUse.Ability) "${name(use.source)} ${label(use)}" else label(use) }
+        return if (kept.tooMany) "Autotap had too many payments to compare: the plain order's ($plain) keeps ${kept.keeps} of ${kept.wanted} " +
+            "spells and abilities payable"
+        else "Autotap keeps ${kept.keeps} of ${kept.wanted} spells and abilities payable, the plain order ($plain) ${kept.plainKeeps}; " +
+            "kept open: ${kept.opened.joinToString { name(it) }}"
+    }
+
     /** A way as the chip of a source's ways names it: the mana it makes ("{G}", "{W}{U}"; "{C}" for colourless or what the
      * payment doesn't name), "Convoke", "Improvise" and the like for the ways that spend no mana, "2 life", "Pool mana". */
     fun label(use: ManaUse): String = when (use) {

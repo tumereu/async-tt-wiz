@@ -173,6 +173,10 @@ object TestCards {
     val xStone = card("Measure Stone", "Artifact", "{0}", "{X}, {T}: Add X mana of any one color.")
     val blueNote = card("Blue Note", "Sorcery", "{U}", "Draw a card.")
     val twoPence = card("Two Pence", "Sorcery", "{2}", "Draw a card.")
+    /** STK-154: a generic {1}, for Autotap to pay with the source a coloured card in hand doesn't need. */
+    val onePence = card("One Pence", "Sorcery", "{1}", "Draw a card.")
+    /** STK-154: a free blue mana rock beside the Ember Shard. */
+    val blueShard = card("Blue Shard", "Artifact", "{0}", "{T}: Add {U}.")
     /** Its additional cost is a land: tapped for its mana first, then sacrificed (CR 601.2g before 601.2h). */
     val landEater = card("Land Eater", "Sorcery", "{R}", "As an additional cost to cast this spell, sacrifice a land.\nDraw a card.")
     val tapPact = card("Tap Pact", "Sorcery", "{R}", "As an additional cost to cast this spell, tap an untapped creature you control.\nDraw a card.")

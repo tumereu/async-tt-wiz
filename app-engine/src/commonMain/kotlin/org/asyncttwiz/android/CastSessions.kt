@@ -114,6 +114,7 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
                 AppLog.info("cast", "Payment of ${outcome.flow.cardId} opens: ${pay.cost}; Autotap suggests " +
                     "${pay.suggestion.joinToString { ManaWays.label(it) }.ifEmpty { "nothing" }}; ${pay.options.size} ways offered: " +
                     pay.options.take(24).joinToString { ManaWays.label(it) })
+                keptOpen(outcome.flow, pay)?.let { AppLog.info("cast", "Payment of ${outcome.flow.cardId}: $it") }
             }
             if (v == null) CastAnswer.Drop(TABLE_CHANGED) else CastAnswer.Show(outcome.panel(flowValue(outcome.flow, v, outcome.fresh)))
         }
@@ -394,6 +395,7 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
                 next.complete -> null
                 payment != null && picked != null -> picked
                 payment != null && autotapOn && payment.suggestion.isNotEmpty() && next.pays(payment.suggestion) -> suggestion(next, payment)
+                    .also { keptOpen(next, payment)?.let { AppLog.info("cast", "${next.cardId} paid by Autotap: $it") } }
                 else -> return null
             }
             val sending = try { next.sending(uses) } catch (_: IllegalArgumentException) { return null }
@@ -417,6 +419,14 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
         const val FAILED = "Automatum couldn't work that cast out."
         /** STK-024: a payment that can't be made with the mana chosen. */
         fun notPaid(payment: Decision.ManaPayment) = "Not enough mana to pay ${payment.cost}."
+
+        /** STK-154: what Autotap's choice for [payment] of [flow] keeps open beside the plain order, for the log; null when it is the
+         * plain order's ([ManaWays.keptOpen]). */
+        fun keptOpen(flow: CastFlow, payment: Decision.ManaPayment): String? {
+            payment.keptOpen ?: return null
+            val view = Engine.view(flow.state)
+            return ManaWays.keptOpen(payment.keptOpen) { id -> "${view[id]?.name ?: id} ${flow.atwCard(id) ?: id}" }
+        }
 
         fun cardName(play: TableBoard, cardId: String): String {
             val card = play.board.cards.singleOrNull { it.id == cardId }

@@ -1093,8 +1093,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Assist -> Decision.ChooseOption(id, player, sourceId, listOf(NOBODY) + q.among.map { it.value }, "Choose a player to assist")
         is Question.AssistAmount -> Decision.ChooseNumber(id, q.player, sourceId, 0, q.max)
         // CR 702.132a, 106.6: the assisting player spends mana to cast this spell: mana restricted to such spells may pay
-        is Question.AssistPay -> Decision.ManaPayment(id, q.player, sourceId, q.cost, Mana.options(snap, q.player, q.cost, itemId, emptyList(), xCost = total.hasX),
-            Mana.suggest(snap, q.player, q.cost, itemId, emptyList(), xCost = total.hasX))
+        is Question.AssistPay -> Mana.suggestion(snap, q.player, q.cost, itemId, emptyList(), xCost = total.hasX).let { s ->
+            Decision.ManaPayment(id, q.player, sourceId, q.cost, Mana.options(snap, q.player, q.cost, itemId, emptyList(), xCost = total.hasX),
+                s.uses, keptOpen = s.keptOpen)
+        }
         // eoe: objects chosen with the costs ("choose a creature you control or a warped creature card you own in exile", CR 601.2f)
         is Question.CostChoice -> (q.part.choice as? arcanum.api.Choice.Objects)?.let { choice ->
             Decision.ChooseObjects(id, player, sourceId, costChoiceObjects(choice), eval.value(choice.min), choice.max?.let { eval.value(it) }, "Choose",
@@ -1104,9 +1106,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX, lifeBarred = lifeBarred)
                 .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false, reserved = reserved, xCost = total.hasX, lifeBarred = lifeBarred))
         } else Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved, xCost = total.hasX, lifeBarred = lifeBarred).let { options ->
-            Decision.ManaPayment(id, player, sourceId, q.cost, options,
-                Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved, xCost = total.hasX, lifeBarred = lifeBarred),
-                costChoices = Mana.costChoices(snap, player, options))
+            val suggested = Mana.suggestion(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved, xCost = total.hasX, lifeBarred = lifeBarred)
+            Decision.ManaPayment(id, player, sourceId, q.cost, options, suggested.uses,
+                costChoices = Mana.costChoices(snap, player, options), keptOpen = suggested.keptOpen)
         }
     }
 

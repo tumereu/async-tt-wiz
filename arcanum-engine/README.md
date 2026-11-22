@@ -86,6 +86,10 @@ activation only answers after which it can still be finished are listed, so no d
 dead end; X is listed at the least values that work, up to what can be paid. Whether a payment exists is `Mana.verdict`
 (found, none, or maybe when a bound stopped it or a source can't be read); `Mana.suggest` (Autotap, `Decision.ManaPayment.suggestion`) is a
 convenience in its order (pool; no side effects; damage or life; sacrifices; a lethal source last) and may find nothing where a way exists.
+Within those tiers it keeps options open: of the payments with no more of the later tiers, the one whose leftover sources can still make the
+mana of the most of the payer's other spells and abilities (hand cards, cards playable from other zones, permanents' activated abilities, any
+timing), ties and a candidate space past its bound keeping the plain order; `Decision.ManaPayment.keptOpen` says what it kept beside the plain
+order (or that the bound was hit), for a host's logs.
 A payment names every mana ability it uses (CR 605.3a), with what its activation asks in `ManaUse.Ability.answers` (the objects its cost uses, an
 amount, a combination's colours) and in `ManaUse.Ability.triggered` the colours of the triggered mana abilities it sets off (CR 605.4a; one not said is asked, at once, never on the Stack); the payment runs them in an order that works, whatever order they are listed in, an ability's own mana coming from
 what the payment has by then. `Decision.ManaPayment.options` leaves a mana ability out only when its cost certainly can't be paid: too few

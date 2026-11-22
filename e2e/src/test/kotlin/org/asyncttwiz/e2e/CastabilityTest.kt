@@ -464,6 +464,25 @@ class CastabilityTest : E2e() {
         activatesEngine(null) { alice.tappedCount("Pain Stone") == 1 }
     }
 
+    // STK-154, ZON-101 (owner, 2026-11-22): Autotap keeps options open: with a blue card in hand the raised {1} card outlines the
+    // Ember Shard, not the Blue Shard the plain order takes first, and its cast leaves the Blue Shard untapped for the Blue Note
+    @Test fun autotapKeepsTheOnlyBlueSourceOpenForABlueCardInHand() {
+        start(deck(TestCards.blueShard to 10, TestCards.shard to 10, TestCards.onePence to 10, TestCards.blueNote to 10),
+            mapOf("Blue Shard" to 1, "Ember Shard" to 1, "One Pence" to 1, "Blue Note" to 1))
+        plays(alice, "Blue Shard", "Ember Shard")
+        alice.handCard("One Pence").performClick()
+        waitUntil("the Ember Shard outlined, the Blue Shard not: ${alice.screen()}") {
+            alice.raisedInHand() == "One Pence" && "source" in alice.marks("Ember Shard") && "source" !in alice.marks("Blue Shard")
+        }
+        alice.handCard("One Pence").performClick()
+        waitUntil("the Pence resolved, paid by the Ember Shard", along = listOf(bob)) {
+            alice.tappedCount("Ember Shard") == 1 && alice.inOwnMain() && alice.state.stack.isEmpty() && alice.engine { device.session.pending.isEmpty() }
+        }
+        assertEquals(0, alice.tappedCount("Blue Shard"), "the Blue Shard stays for the Blue Note")
+        alice.playFromHand("Blue Note", this)
+        waitUntil("the Blue Note paid by the Blue Shard", along = listOf(bob)) { alice.tappedCount("Blue Shard") == 1 && alice.inOwnMain() && alice.state.stack.isEmpty() }
+    }
+
     // STK-024, STK-154, STK-059, STK-165, TRN-065, TRN-137, HIS-084, HIS-200, CR 605.3a, 704.3, 704.5a (spec §5, §6.10): a lethal source only when it's the only way: the cast finishes, the
     // game ends when priority would next come, and Undo reaches back from there
     @Test fun aLethalSourceOnlyWhenItIsTheOnlyWayThenUndoReachesBack() {

@@ -84,6 +84,20 @@ class ManaWaysTest {
         assertEquals(Color.White, (chosen as ManaUse.Ability).color)
     }
 
+    // STK-154 (owner, 2026-11-22): a cast's payment keeps the only Island open for a blue card in hand, and the log says so beside
+    // the plain order's payment; the plain order's own choice says nothing
+    @Test fun whatAutotapKeepsOpenIsLogged() {
+        val (island) = table.put(alice, Zone.Battlefield, "Island")
+        val (mountain) = table.put(alice, Zone.Battlefield, "Mountain")
+        val (blue) = table.put(alice, Zone.Hand, Cards.invent("Wayfinder Blue Note", "{U}", "Sorcery", "Draw a card."))
+        val (_, payment) = payment(Cards.invent("Wayfinder Penny", "{1}", "Sorcery", "Draw a card."))
+        assertEquals(listOf(table.obj(mountain)), payment.suggestion.filterIsInstance<ManaUse.Ability>().map { it.source })
+        val names = mapOf<arcanum.engine.state.ObjectId, String>(table.obj(island) to "Island", table.obj(mountain) to "Mountain", table.obj(blue) to "Blue Note")
+        assertEquals("Autotap keeps 1 of 1 spells and abilities payable, the plain order (Island {U}) 0; kept open: Blue Note",
+            ManaWays.keptOpen(payment.keptOpen) { names.getValue(it) })
+        assertEquals(null, ManaWays.keptOpen(null) { it.toString() })
+    }
+
     @Test fun waysAreNamedByTheirMana() {
         val (fordId) = table.put(alice, Zone.Battlefield, ford)
         val (_, payment) = payment(Cards.invent("Wayfinder Errand", "{1}", "Sorcery", "Draw a card."))

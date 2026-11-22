@@ -104,6 +104,9 @@ sealed interface Decision {
          * graveyard): the payer chooses them (CR 601.2h, 605.3a, 701.59a). An option lists one working set; a [ManaUse.Ability] of
          * the same ability with any other set these allow pays too. */
         val costChoices: List<ManaCostChoice> = emptyList(),
+        /** How [suggestion] keeps the payer's other spells and abilities payable, when it differs from the plain order or the
+         * candidates were too many to compare ([KeptOpen]); null otherwise. For a host's logs: it changes nothing. */
+        val keptOpen: KeptOpen? = null,
     ) : Decision
 
     /** Yes or no: "you may …" (CR 608.2d), or pay [cost] on resolution (CR 118.12, D40) when given. Not [payable]: the
@@ -296,6 +299,19 @@ sealed interface RandomKind {
  * [options] (with [total], those whose property reaches it: collecting evidence, CR 701.59a), said as [text]; the choice is the
  * [index]th [Answer.Objects] of a [ManaUse.Ability] of it.
  */
+/**
+ * What a suggested payment ([Decision.ManaPayment.suggestion]) keeps open: of the payer's [wanted] spells and abilities (the cards
+ * in their hand, those they may use from other zones, their permanents' activated abilities, whatever their timing), how many
+ * the sources left after it can still pay the mana of ([keeps]), and after the plain order's payment [plain] ([plainKeeps]);
+ * [opened]: the objects whose spell or ability only the suggestion leaves payable. [tooMany]: the payments to compare were too
+ * many, so the suggestion is the plain order's.
+ */
+@Serializable
+data class KeptOpen(
+    val wanted: Int, val keeps: Int, val plainKeeps: Int, val plain: List<ManaUse>,
+    val opened: List<ObjectId> = emptyList(), val tooMany: Boolean = false,
+)
+
 @Serializable
 data class ManaCostChoice(
     val source: ObjectId, val ability: arcanum.engine.view.AbilityOrigin, val index: Int, val options: List<ObjectId>,

@@ -20,6 +20,7 @@ import arcanum.api.isManaAbility
 import arcanum.engine.casting.Legality
 import arcanum.engine.casting.Snapshot
 import arcanum.engine.decision.Answer
+import arcanum.engine.decision.KeptOpen
 import arcanum.engine.decision.ManaUse
 import arcanum.engine.query.Evaluator
 import arcanum.engine.state.Bindings
@@ -746,12 +747,12 @@ internal object Mana {
 
     /**
      * Assigns [payers] to the [needs] (CR 601.2h): each need gets one payer per part of one of its alternatives; generic
-     * needs come last. Returns the payers used, or null when they can't pay it all.
+     * needs come last. Returns the payers used, or null when they can't pay it all (or [budget] steps didn't tell).
      */
-    fun assign(needs: List<Need>, payers: List<Payer>, stopped: (() -> Unit)? = null): List<Payer>? {
+    fun assign(needs: List<Need>, payers: List<Payer>, budget: Int = 20_000, stopped: (() -> Unit)? = null): List<Payer>? {
         val ordered = needs.filterNot { it.life }.sortedBy { if (it.generic) 2 else if (it.alternatives.size > 1 || it.alternatives.firstOrNull()?.size != 1) 1 else 0 }
         val used = BooleanArray(payers.size)
-        var budget = 20_000
+        var budget = budget
         fun go(i: Int): Boolean {
             if (budget-- <= 0) { stopped?.invoke(); return false }
             if (i == ordered.size) return true
@@ -894,23 +895,38 @@ internal object Mana {
      * the payment must hold (a player's picks), [removed]: uses it must not. This is a convenience: it never decides whether
      * something can be paid ([verdict] does). A pinned mana ability keeps its source, its colour free; one in [exact] is kept
      * exactly as given (its ability, colour and answers), as is any other use there.
+     *
+     * Within the tiers (owner, 2026-11-22, [KeepOpen]): among the payments using no more of the later tiers than the plain
+     * order's first, the one after which the sources left can still pay the most of [player]'s other spells and abilities;
+     * ties keep the plain order. When the payments to compare are too many, the plain order's.
      */
     fun suggest(
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
         ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: AsAnyColor = AsAnyColor.None,
         reserved: Reserved = Reserved.NONE, pinned: List<ManaUse> = emptyList(), removed: List<ManaUse> = emptyList(),
         exact: List<ManaUse> = emptyList(), xCost: Boolean = false, lifeBarred: Boolean = false,
-    ): List<ManaUse> {
-        if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return emptyList()
+    ): List<ManaUse> = suggestion(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, pinned, removed, exact, xCost, lifeBarred).uses
+
+    /** A suggested payment ([suggest]) and what it keeps open, when that is worth a host's log ([KeptOpen]). */
+    data class Suggestion(val uses: List<ManaUse>, val keptOpen: KeptOpen? = null)
+
+    /** [suggest] with what it keeps open ([Suggestion.keptOpen]). */
+    fun suggestion(
+        snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
+        ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: AsAnyColor = AsAnyColor.None,
+        reserved: Reserved = Reserved.NONE, pinned: List<ManaUse> = emptyList(), removed: List<ManaUse> = emptyList(),
+        exact: List<ManaUse> = emptyList(), xCost: Boolean = false, lifeBarred: Boolean = false,
+    ): Suggestion {
+        if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return Suggestion(emptyList())
         val payment = PaymentSearch(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, pinned + exact, removed,
             exact.filterIsInstance<ManaUse.Ability>().toSet(), xCost, lifeBarred)
-        if (payment.impossible()) return emptyList()
+        if (payment.impossible()) return Suggestion(emptyList())
         // Without other ways, then with them; each from the fewest side effects up, never a lethal source; then lethal ones
         val wayRounds = if (!canSpendMana) listOf(true) else if (ways.isEmpty()) listOf(false) else listOf(false, true)
         for (keepAlive in listOf(true, false)) for (withWays in wayRounds) for (tier in if (keepAlive) 0..2 else 2..2) {
-            payment.search(tier, withWays, keepAlive)?.let { return payment.withPinned(it) }
+            payment.search(tier, withWays, keepAlive, keepOpen = keepAlive)?.let { (uses, kept) -> return Suggestion(payment.withPinned(uses), kept) }
         }
-        return emptyList()
+        return Suggestion(emptyList())
     }
 
     /**
@@ -927,7 +943,7 @@ internal object Mana {
         val payment = PaymentSearch(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved, emptyList(), emptyList(), xCost = xCost,
             lifeBarred = lifeBarred)
         if (payment.impossible()) return if (payment.cantTell) Verdict.Maybe else Verdict.None
-        payment.search(2, withWays = ways.isNotEmpty() || !canSpendMana, keepAlive = false)?.let { return Verdict.Found(it) }
+        payment.search(2, withWays = ways.isNotEmpty() || !canSpendMana, keepAlive = false)?.let { return Verdict.Found(it.first) }
         return if (payment.cantTell) Verdict.Maybe else Verdict.None
     }
 
@@ -1066,19 +1082,74 @@ internal object Mana {
         fun withPinned(uses: List<ManaUse>): List<ManaUse> = uses + pinned.filter { it !is ManaUse.Ability && it !in uses }
 
         /** The first payment found from sources of tier up to [tier]: with [withWays] the spell's other ways count, with
-         * [keepAlive] nothing that would take the payer to 0 life or less. Null when none is found (see [cantTell]). */
-        fun search(tier: Int, withWays: Boolean, keepAlive: Boolean): List<ManaUse>? {
+         * [keepAlive] nothing that would take the payer to 0 life or less. Null when none is found (see [cantTell]). With
+         * [keepOpen], the one among the payments of the same life and no more of the later tiers that keeps the most open
+         * ([keepingOpen]), with what it keeps when that is worth a log. */
+        fun search(tier: Int, withWays: Boolean, keepAlive: Boolean, keepOpen: Boolean = false): Pair<List<ManaUse>, KeptOpen?>? {
             val required = pinnedSources.map { p -> searched.filter { sameSource(p, it) } }
             if (required.any { it.isEmpty() }) return null
             val from = searched.filter { it.tier <= tier && required.none { r -> it in r } }
             for (lifeFor in lifeWays) {
-                val found = Search(this, needs(cost, lifeFor), if (withWays) pool + specials else pool, from, required,
-                    reserved.paidLife + 2 * lifeFor.size, keepAlive).run()
-                if (found != null) return found + lifeFor.sorted().map { ManaUse.Life(it) }
+                fun search() = Search(this, needs(cost, lifeFor), if (withWays) pool + specials else pool, from, required,
+                    reserved.paidLife + 2 * lifeFor.size, keepAlive)
+                val first = search()
+                val found = first.run() ?: continue
+                val life = lifeFor.sorted().map { ManaUse.Life(it) }
+                if (!keepOpen) return found + life to null
+                val (uses, kept) = keepingOpen(found, first.picks()) { search().collect() }
+                return uses + life to kept
             }
             return null
         }
+
+        /** The payer's spells and abilities to keep payable ([KeepOpen.wants]). */
+        private val wants: List<KeepOpen.Want> by lazy { KeepOpen.wants(snap, player) }
+
+        /** What is left to pay with after [uses] (activations [picks]), and the objects no longer there to tap. */
+        private fun left(uses: List<ManaUse>, picks: List<Source>): Pair<List<Payer>, Set<ObjectId>> {
+            val (left, used) = KeepOpen.leftover(all, pool, uses, picks)
+            return left to used + uses.filterIsInstance<ManaUse.Special>().flatMap { it.objects } + reserved.tapped
+        }
+
+        /** How many of [wants] the sources left after [uses] (activations [picks]) still pay. */
+        private fun keeps(uses: List<ManaUse>, picks: List<Source>): Int = left(uses, picks).let { (left, used) -> KeepOpen.score(wants, left, used) }
+
+        /**
+         * Owner, 2026-11-22: of [plain] (the plain order's first payment, its activations [plainPicks]) and the other payments
+         * [collect] finds, the one that keeps the most of [wants] payable among those with no more sacrifices, then no more damage
+         * or life, than the plain one (the tiers never trade off); ties keep the plain order. [collect] null: too many to compare,
+         * the plain one stays.
+         */
+        private fun keepingOpen(plain: List<ManaUse>, plainPicks: List<Source>, collect: () -> List<Candidate>?): Pair<List<ManaUse>, KeptOpen?> {
+            if (plain.none { it is ManaUse.Ability } || wants.isEmpty()) return plain to null
+            val plainKeeps = keeps(plain, plainPicks)
+            // Nothing can keep more than paying nothing does
+            if (plainKeeps >= keeps(emptyList(), emptyList())) return plain to null
+            val candidates = collect() ?: return plain to KeptOpen(wants.size, plainKeeps, plainKeeps, plain, tooMany = true)
+            fun tiers(picks: List<Source>) = picks.count { it.tier >= 2 } to picks.count { it.tier == 1 }
+            val plainTiers = tiers(plainPicks)
+            var best: Candidate? = null
+            var bestKeeps = plainKeeps
+            var bestTiers = plainTiers
+            for (c in candidates) {
+                val t = tiers(c.picks)
+                if (compareTiers(t, plainTiers) > 0) continue
+                val k = keeps(c.uses, c.picks)
+                val byTier = compareTiers(t, bestTiers)
+                if (byTier < 0 || byTier == 0 && k > bestKeeps) { best = c; bestKeeps = k; bestTiers = t }
+            }
+            val chosen = best ?: return plain to null
+            val (plainLeft, plainUsed) = left(plain, plainPicks)
+            val (chosenLeft, chosenUsed) = left(chosen.uses, chosen.picks)
+            val opened = wants.filter { KeepOpen.payable(it, chosenLeft, chosenUsed) && !KeepOpen.payable(it, plainLeft, plainUsed) }.map { it.of }.distinct()
+            return chosen.uses to KeptOpen(wants.size, bestKeeps, plainKeeps, plain, opened)
+        }
+
+        private fun compareTiers(a: Pair<Int, Int>, b: Pair<Int, Int>): Int = compareValuesBy(a, b, { it.first }, { it.second })
     }
+
+    /** One payment a search found ([Search.collect]): its [uses] and the activations [picks] that make them. */
+    private class Candidate(val uses: List<ManaUse>, val picks: List<Source>)
 
     /** One depth-first search of [PaymentSearch]: sources are added one at a time, cheapest first, until the mana covers it. */
     private class Search(val p: PaymentSearch, val needs: List<Need>, val base: List<Payer>, val sources: List<Source>, val required: List<List<Source>>,
@@ -1094,12 +1165,48 @@ internal object Mana {
             val found = pinned(0)
             if (budget <= 0) p.cantTell = true
             if (found == null) return null
-            // Nothing tapped for no reason: a source a chain was begun with that the later one made unneeded goes (never a player's own pick)
+            prune()
+            return payment() ?: found
+        }
+
+        /** Nothing tapped for no reason: a source a chain was begun with that the later one made unneeded goes (never a player's own pick). */
+        private fun prune() {
             chosen.drop(required.size).forEach { pick ->
                 chosen.remove(pick)
                 if (payment() == null) chosen.add(pick)
             }
-            return payment() ?: found
+        }
+
+        /** The activations of the payment [run] found. */
+        fun picks(): List<Source> = chosen.map { it.source }
+
+        /** Every payment the search finds, each with no activation it doesn't need, in the order it finds them (the first is
+         * [run]'s), one for each set of activations whatever colours they make; null when there are more than [MAX_CANDIDATES]
+         * or the steps ran out before all were found. */
+        fun collect(): List<Candidate>? {
+            val found = mutableListOf<Candidate>()
+            collected = found
+            budget = COLLECT_STEPS
+            pinned(0)
+            return if (overflow || budget <= 0) null else found
+        }
+
+        private var collected: MutableList<Candidate>? = null
+        private var overflow = false
+        private val seen = mutableSetOf<List<Any>>()
+
+        private fun record(into: MutableList<Candidate>) {
+            val saved = chosen.toList()
+            prune()
+            val uses = payment()
+            if (uses != null) {
+                val key = uses.filter { it !is ManaUse.Ability }.map { it as Any } +
+                    chosen.map { Triple(it.source.id, it.source.origin, it.source.answers) }.sortedBy { it.toString() }
+                if (seen.add(key)) into += Candidate(uses, chosen.map { it.source })
+                if (into.size > MAX_CANDIDATES) { overflow = true; budget = 0 }
+            }
+            chosen.clear()
+            chosen.addAll(saved)
         }
 
         private fun pinned(i: Int): List<ManaUse>? {
@@ -1135,7 +1242,11 @@ internal object Mana {
 
         private fun go(from: Int, life: Int, damage: Int): List<ManaUse>? {
             if (budget-- <= 0) return null
-            payment()?.let { return it }
+            payment()?.let { found ->
+                val into = collected ?: return found
+                record(into)
+                return null
+            }
             if (chosen.size >= mostActivations) return null
             for (k in from until sources.size) {
                 val s = sources[k]
@@ -1257,6 +1368,10 @@ internal object Mana {
     }
 
     private const val SEARCH_STEPS = 3_000
+    /** The steps a search collecting the payments to compare may take ([KeepOpen]); past it, the plain order's payment. */
+    private const val COLLECT_STEPS = 4_000
+    /** The most payments compared for what they keep open ([KeepOpen]); past it, the plain order's payment. */
+    private const val MAX_CANDIDATES = 48
     /** How many objects a cost's choice of one is tried with, in a search. */
     private const val MAX_OBJECTS = 8
     private val ALL_ZONES: Set<Zone> = setOf(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command, Zone.Outside)

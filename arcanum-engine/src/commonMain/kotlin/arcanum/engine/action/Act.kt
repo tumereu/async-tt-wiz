@@ -273,8 +273,9 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         val snap = arcanum.engine.casting.Snapshot(state)
         val uses = (ask {
             val options = arcanum.engine.mana.Mana.options(snap, player, cost, null, xCost = xCost)
-            Decision.ManaPayment(it, player, source, cost, options, arcanum.engine.mana.Mana.suggest(snap, player, cost, null, xCost = xCost),
-                xCost = xCost, costChoices = arcanum.engine.mana.Mana.costChoices(snap, player, options))
+            val suggested = arcanum.engine.mana.Mana.suggestion(snap, player, cost, null, xCost = xCost)
+            Decision.ManaPayment(it, player, source, cost, options, suggested.uses,
+                xCost = xCost, costChoices = arcanum.engine.mana.Mana.costChoices(snap, player, options), keptOpen = suggested.keptOpen)
         } as Answer.ManaPayment).uses
         arcanum.engine.casting.Payment.payOnResolution(this, player, cost, uses, xCost = xCost)
     }

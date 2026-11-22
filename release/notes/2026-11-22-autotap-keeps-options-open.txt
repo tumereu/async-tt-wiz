@@ -1,0 +1,1 @@
+mod: Autotap keeps your options open: it taps the sources that leave the most of your other spells and abilities castable, such as paying a generic cost with a Mountain rather than your only Island while you hold a blue card.

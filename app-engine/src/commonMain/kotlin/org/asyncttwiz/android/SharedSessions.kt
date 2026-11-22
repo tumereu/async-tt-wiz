@@ -103,7 +103,13 @@ class SharedSessions(private val viewer: String, private val log: EngineLog = En
         val mana = when {
             payment == null -> emptyList()
             kept -> op.keep
-            op.autotap -> suggestion(flow, payment, stacks)
+            op.autotap -> suggestion(flow, payment, stacks).also {
+                payment.keptOpen?.let { kept ->
+                    val view = arcanum.engine.Engine.view(flow.state)
+                    ManaWays.keptOpen(kept) { id -> "${view[id]?.name ?: id} ${flow.atwCard(id) ?: id}" }
+                        ?.let { AppLog.info("shared", "Payment of ${payment.cost} while resolving: $it") }
+                }
+            }
             else -> emptyList()
         }
         val paid = payment != null && flow.pays(mana)

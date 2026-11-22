@@ -10,6 +10,12 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
+Catalog review notes (owner, 2026-11-22):
+
+- A pod's games already being played when its draft is cancelled carry on (DRF-039); they could be orphaned so they don't count in the pod's Standings and Matches (DRF-235, DRF-236). Not a blocker.
+- Solo draft: one person with bots (today bots leave room for two people, DRF-296), with a warning that there is no one in the pod to play against (bots play no games, DRF-301).
+- A pod challenge declined on one device can keep its notification on your other devices until you submit your deck (DRF-135, DRF-138, LOB-243).
+
 ### Earlier
 
 Desktop playtest notes (owner, 2026-11-14): high priority.

@@ -1,0 +1,1 @@
+fix: A contact added on another device now shows up in your contacts and invite lists without restarting the app.

@@ -239,6 +239,15 @@ object ServerSetup {
         }
     }
 
+    /** [b] accepts [a]'s invitation to pod [pod] and [a] starts its draft. */
+    fun acceptAndStart(a: TestAccount, b: TestAccount, pod: String) = runBlocking {
+        fun id() = UUID.randomUUID().toString()
+        org.asyncttwiz.android.PodApi(origin).use { api ->
+            api.accept(b.token, pod, PodRequest(id()))
+            api.start(a.token, pod, PodRequest(id())).also { check(it.phase == PodPhase.DRAFTING) { "the draft didn't start: $it" } }
+        }
+    }
+
     /** A pod [name] of [a] (its creator) still in setup, with a cube of [TestCards] (12 copies) and [settings] (Booster's
      * defaults when null). Returns the pod's id. */
     fun setupPod(a: TestAccount, name: String, cards: List<TestCard> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark),

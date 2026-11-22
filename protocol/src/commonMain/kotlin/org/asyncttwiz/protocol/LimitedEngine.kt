@@ -176,6 +176,7 @@ object LimitedEngine {
 
     private class Random(seed: String) {
         private val words = RandomV1.Words(seed)
+        fun sample(bound: Int): Int = RandomV1.sample(bound, words::next)
         fun <T> shuffled(values: List<T>): List<T> {
             val result = values.toMutableList()
             for (i in result.lastIndex downTo 1) {
@@ -197,7 +198,8 @@ object LimitedEngine {
         require(cube.all { it.definition.isNotBlank() && it.quantity > 0 }) { "Invalid cube entries" }
         require(cube.sumOf { it.quantity.toLong() } >= needed(settings, players.size)) { "Insufficient cube supply" }
         val random = Random(seed)
-        val seating = random.shuffled(players.sorted())
+        // DRF-043: random, the bot seats spread between the people
+        val seating = DraftSeating.seat(players, random::sample)
         val copies = cube.groupBy { it.definition }.entries.sortedBy { it.key }.flatMap { (definition, entries) ->
             val quantity = entries.sumOf { it.quantity.toLong() }
             require(quantity <= Int.MAX_VALUE) { "Too many copies of one definition" }
@@ -225,7 +227,8 @@ object LimitedEngine {
     fun startFromSet(players: List<String>, sources: SetPackSources, settings: DraftSettings, seed: String): LimitedDraftState {
         check(players, settings)
         val random = Random(seed)
-        val seating = random.shuffled(players.sorted())
+        // DRF-043: random, the bot seats spread between the people
+        val seating = DraftSeating.seat(players, random::sample)
         val set = sources.first
         val material = if (settings.mode == DraftMode.ROTISSERIE) {
             val needed = needed(settings, players.size)

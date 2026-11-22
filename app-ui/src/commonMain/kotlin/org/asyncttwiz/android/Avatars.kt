@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Casino
+import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +38,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.asyncttwiz.protocol.AccountIdentity
 import org.asyncttwiz.protocol.PodSummary
+import org.asyncttwiz.protocol.PodBots
 import org.asyncttwiz.storage.ArtworkReference
 import org.asyncttwiz.storage.CatalogAvatar
 import org.asyncttwiz.storage.CatalogPhase
@@ -57,7 +59,9 @@ fun Avatar(account: AccountIdentity, modifier: Modifier = Modifier, size: Dp = 3
     Box(modifier.size(size).clip(CircleShape).background(avatarColor(account.accountId))
         .semantics { contentDescription = "${account.username}'s avatar" }, contentAlignment = Alignment.Center) {
         CompositionLocalProvider(LocalContentColor provides Color.White) {
-            CardArtwork(reference, initial, 192, 192, Modifier.fillMaxSize(), crop = true)
+            // DRF-297 (owner, 2026-11-22): a draft bot seat's avatar is a robot, never an initial
+            if (PodBots.isBot(account.accountId)) Icon(Icons.Outlined.SmartToy, null, Modifier.fillMaxSize(.66f))
+            else CardArtwork(reference, initial, 192, 192, Modifier.fillMaxSize(), crop = true)
         }
     }
 }

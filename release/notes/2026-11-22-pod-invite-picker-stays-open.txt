@@ -1,0 +1,1 @@
+mod: Inviting players to a pod keeps the list open and marks each one "invited", so you can invite several in a row.

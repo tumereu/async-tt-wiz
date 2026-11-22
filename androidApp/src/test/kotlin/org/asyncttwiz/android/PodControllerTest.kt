@@ -1175,6 +1175,25 @@ class PodControllerTest {
         assertEquals("Auto-start off — Pod", podActivityText(ActivityKind.POD_AUTO_START_OFF, "Pod"))
     }
 
+    // DRF-030 (owner, 2026-11-22): inviting from the pod's picker keeps it open and shows the player invited at once; a second
+    // tap on someone invited sends nothing; Back closes the picker
+    @Test fun invitingKeepsThePickerOpenAndShowsThePlayerInvitedAtOnce() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        f.controller.chooseMember(true)
+        f.controller.invite(invitee)
+        assertTrue(f.controller.state.choosingMember)
+        // Before the server's answer
+        assertEquals(listOf(invitee), f.controller.state.detail!!.pendingInvitations)
+        f.controller.invite(invitee)
+        f.api.saved = f.api.saved.copy(pendingInvitations = listOf(invitee)); f.deliver()
+        assertEquals(listOf("invite"), f.api.calls.map { it.first })
+        assertEquals(InviteToPod((f.api.calls.single().second as InviteToPod).requestId, invitee.accountId), f.api.calls.single().second)
+        assertTrue(f.controller.state.choosingMember)
+        assertEquals(listOf(invitee), f.controller.state.detail!!.pendingInvitations)
+        f.controller.back()
+        assertFalse(f.controller.state.choosingMember)
+    }
+
     // DRF-039
     @Test fun startInviteAndConfirmedLifecycleActionsHaveRequestsAndRefresh() {
         Fixture(PodPhase.SETUP).use { f ->

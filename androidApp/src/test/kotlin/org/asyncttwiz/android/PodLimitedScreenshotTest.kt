@@ -445,6 +445,32 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithTag("pod-history-retry").assertExists()
     }
 
+    // DRF-297, DRF-210, DRF-043 (owner, 2026-11-22): the draft history's seat ring shows the bot seats among the people, two
+    // people and four bots seated person, bot, bot, person, bot, bot as the server seats them; round 1 passes to Bot 1
+    @Test fun draftHistorySeatRingShowsTheBots() {
+        val picks = listOf(DraftHistoryPick(1, 1, copies.take(8), kept = listOf("copy-3"), burned = listOf("copy-0")))
+        val seating = listOf("alice", PodBots.id(1), PodBots.id(2), "bob", PodBots.id(3), PodBots.id(4))
+        // The players as the pod's members give them: the people, then the bot seats (DRF-297)
+        val players = listOf(alice, bob) + (1..4).map { PodBots.identity(it) }
+        show({ "pod-history-0-${it.id}" }, picks.single().cards) {
+            PodHistoryDialog("pod", PodDraftHistory(picks, seating = seating), false, definitions, 8, players, "alice", {}) {}
+        }
+        compose.onNodeWithTag("pod-history-seats").assertContentDescriptionEquals(
+            "Seating: Alice, Bot 1, Bot 2, Bob, Bot 3, Bot 4; round 1 passes clockwise")
+        compose.onNodeWithTag("pod-history-seat-round").assertTextEquals("Round 1 · passed to Bot 1 · clockwise")
+        // The bots' avatars are robots, never an initial; Bob keeps his "B"
+        for (bot in 1..4) {
+            compose.onNodeWithContentDescription("Bot $bot's avatar", useUnmergedTree = true).assertExists()
+            compose.onAllNodes(hasText("B") and hasAnyAncestor(hasContentDescription("Bot $bot's avatar")), useUnmergedTree = true)
+                .assertCountEquals(0)
+        }
+        compose.onAllNodes(hasText("B") and hasAnyAncestor(hasContentDescription("Bob's avatar")), useUnmergedTree = true)
+            .assertCountEquals(1)
+        captureShot(File(SCREENSHOTS, "draft/history-bots.png").path, "Draft history of a Booster draft of Alice and Bob with " +
+            "four bot seats: the seat ring shows Alice at the bottom, then clockwise Bot 1, Bot 2, Bob, Bot 3 and Bot 4 (the bots " +
+            "as robot icons), two bots between the two people each way, beside Round 1 · passed to Bot 1 · clockwise, over Alice's first pick.")
+    }
+
     // DRF-239: "While you were away" in a Rotisserie draft: the queue line, the count, then each pick since Alice last looked
     @Test fun whileYouWereAwayTellsThePicksAndTheClearedQueue() {
         val view = LimitedView(DraftMode.ROTISSERIE, "alice", listOf("alice", "bob", "carol"), emptyList(), false, picks = listOf(

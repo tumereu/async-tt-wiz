@@ -467,6 +467,7 @@ class PodService(private val runtime: ServiceRuntime) {
         } else if (settings.mode.limited) {
             val next = if (set == null) LimitedEngine.startFromCube(players, cube, settings, seed)
                 else LimitedEngine.startFromSet(players, set, settings, seed)
+            seated(row, settings, next.seating)
             advanceLimited(sql, row, null, next)
         } else if (settings.mode == DraftMode.GRID) {
             val next = if (set == null) GridEngine.start(players, cube, settings, seed)
@@ -477,15 +478,22 @@ class PodService(private val runtime: ServiceRuntime) {
                 // Set grids consume generated packs in card order (including refills), not cube-shuffled cards.
                 GridEngine.startWithCards(players, GridEngine.setCards(set, settings, players.size, seed), settings, seed)
             }
+            seated(row, settings, next.seating)
             advanceGrid(sql, row, null, next)
         } else {
             val digests = librarianDigests(sql, (cube.map { it.definition } + set?.sets.orEmpty().flatMap { it.cards }.map { it.definition }).toSet())
             val next = if (set == null) DraftEngine.start(players, cube.map { it.copy(librarian = it.definition in digests) }, settings, seed) else
                 DraftEngine.startWithPacks(players, SetBoosters.generate(set, PodPackGrid.packSets(set.packs, settings, players.size), seed,
                     settings.cardsPerPack).map { pack -> pack.cards.map { it.copy(librarian = it.definition in digests) } }, settings, seed)
+            seated(row, settings, next.seating)
             advance(sql, row, null, next)
         }
         return null
+    }
+
+    /** DRF-043: a pod with bot seats logs its seating, the bots spread between the people. */
+    private fun seated(row: PodRecord, settings: DraftSettings, seating: List<String>) {
+        if (settings.bots > 0) log("pod ${row.id} seating: ${seating.joinToString { PodBots.identity(it)?.username ?: it }}")
     }
 
     fun pick(principal: AccountService.Principal, id: String, input: PickPod): Result =

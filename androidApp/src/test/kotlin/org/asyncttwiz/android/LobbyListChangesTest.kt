@@ -9,8 +9,8 @@ import kotlin.test.*
 
 /**
  * Switch-review #11 (owner, 2026-11-04): after the first read the games list is read as "changed since" the token the
- * last read answered: no contacts or head, only the changed summaries and the ids that left each list, applied to the
- * rows shown; back from the background the whole lists are read again.
+ * last read answered: no head, only the changed summaries and the ids that left each list, applied to the rows shown, and
+ * the contacts while no game is open (LOB-266, owner 2026-11-22); back from the background the whole lists are read again.
  */
 class LobbyListChangesTest {
     private class Worker : AbstractExecutorService() {
@@ -34,8 +34,12 @@ class LobbyListChangesTest {
         var games = listOf(game("First"), game("Second"), game("Third"))
         var changed = emptyList<GameSummary>()
         var removed = emptyList<String>()
+        var contacts = listOf(recipient)
+        var contactsFailure: String? = null
         override suspend fun search(token: String, query: String) = UserSearch(emptyList())
-        override suspend fun contacts(token: String, after: String?): ContactList { reads += "contacts"; return ContactList(listOf(recipient)) }
+        override suspend fun contacts(token: String, after: String?): ContactList {
+            reads += "contacts"; contactsFailure?.let { throw LobbyFailure(it) }; return ContactList(contacts)
+        }
         override suspend fun games(token: String, invitations: Boolean, after: String?): GameList {
             reads += if (invitations) "invitations" else "games"
             return GameList(if (invitations) emptyList() else games, token = "10")
@@ -63,12 +67,12 @@ class LobbyListChangesTest {
             api.changed = listOf(second, fourth); api.removed = listOf(api.games[2].id)
             api.reads.clear()
             controller.refresh(); worker.drain()
-            assertEquals(listOf("games since 10", "invitations since 10"), api.reads, "no contacts, no whole lists")
+            assertEquals(listOf("contacts", "games since 10", "invitations since 10"), api.reads, "the contacts, no whole lists")
             assertEquals(listOf("First", "Second, changed", "Fourth"), controller.state.games.map { it.gameName })
             // The next read is since the token the changes answered
             api.changed = emptyList(); api.removed = emptyList(); api.reads.clear()
             controller.refresh(); worker.drain()
-            assertEquals(listOf("games since 11", "invitations since 11"), api.reads)
+            assertEquals(listOf("contacts", "games since 11", "invitations since 11"), api.reads)
             assertEquals(listOf("First", "Second, changed", "Fourth"), controller.state.games.map { it.gameName })
             // Back from the background: the whole lists again
             controller.background(); controller.foreground(); worker.drain()
@@ -85,8 +89,30 @@ class LobbyListChangesTest {
             assertNotNull(controller.state.detail)
             api.reads.clear()
             controller.refresh(); worker.drain()
-            assertEquals(listOf("games since 11", "invitations since 11"), api.reads, "the open game's head isn't read again")
+            assertEquals(listOf("games since 11", "invitations since 11"), api.reads, "the open game's head and the contacts aren't read")
             assertEquals(api.games[0].id, controller.state.detail?.id)
+        } finally { controller.close(); worker.drain() }
+    }
+
+    // LOB-266, SYS-020 (owner, 2026-11-22): a contact added on another device shows with the next background refresh, without a
+    // restart; a background refresh whose contacts read fails keeps the shown contacts and says nothing
+    @Test fun contactsAddedElsewhereShowWithTheNextRefreshAndAFailureStaysQuiet() {
+        val worker = Worker(); val api = Api()
+        val controller = LobbyController(api, { "token" }, worker, { it() })
+        try {
+            controller.refresh(); worker.drain()
+            assertEquals(listOf(recipient), controller.state.contacts)
+            val added = AccountIdentity(id(), "Added elsewhere")
+            api.contacts = listOf(recipient, added)
+            controller.refresh(background = true); worker.drain()
+            assertEquals(listOf(recipient, added), controller.state.contacts)
+            api.contactsFailure = "network"
+            controller.refresh(background = true); worker.drain()
+            assertNull(controller.state.error)
+            assertEquals(listOf(recipient, added), controller.state.contacts)
+            api.contactsFailure = null; api.contacts = listOf(added)
+            controller.refresh(background = true); worker.drain()
+            assertEquals(listOf(added), controller.state.contacts, "a contact removed elsewhere leaves too")
         } finally { controller.close(); worker.drain() }
     }
 

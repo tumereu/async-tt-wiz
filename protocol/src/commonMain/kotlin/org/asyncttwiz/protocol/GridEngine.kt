@@ -162,7 +162,8 @@ object GridEngine {
             }
             return result
         }
-        val seating = shuffled(players.sorted())
+        // DRF-043: random, the bot seats spread between the people
+        val seating = DraftSeating.seat(players) { RandomV1.sample(it, words::next) }
         val copies = cube.groupBy { it.definition }.entries.sortedBy { it.key }.flatMap { (definition, entries) ->
             require(entries.all { it.colors == entries.first().colors }) { "Conflicting cube colors" }
             val quantity = entries.sumOf { it.quantity.toLong() }
@@ -256,12 +257,9 @@ object GridEngine {
             "Invalid copies"
         }
         val words = RandomV1.Words(seed)
-        val seating = players.sorted().toMutableList()
-        for (i in seating.lastIndex downTo 1) {
-            val j = RandomV1.sample(i + 1, words::next)
-            val player = seating[i]; seating[i] = seating[j]; seating[j] = player
-        }
-        return initial(settings, seating.toList(), cards, cards.asReversed().map { it.id })
+        // DRF-043: random, the bot seats spread between the people
+        val seating = DraftSeating.seat(players) { RandomV1.sample(it, words::next) }
+        return initial(settings, seating, cards, cards.asReversed().map { it.id })
     }
 
     /** [supply] is drawn from its end. Every grid is dealt now, so its cards never depend on pick timing. */

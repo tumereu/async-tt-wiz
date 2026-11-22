@@ -205,6 +205,40 @@ class BotSeatsHttpTest {
         assertFalse(f.get(f.a, armed).autoStart)
     }
 
+    // DRF-043, DRF-297 (owner, 2026-11-22): the server seats the bots spread between the people: two people and four bots always
+    // sit person, bot, bot, person, bot, bot, which the draft history's seating (its seat ring) shows with the bots in it;
+    // two people and three bots in Rochester person, bot, person, bot, bot; the people's places stay random
+    @Test fun `the server spreads the bot seats evenly between the people`() = fixture { f ->
+        val people = setOf(f.a.account.accountId, f.b.account.accountId)
+        /** The bot groups after each person round the ring. */
+        fun groups(seating: List<String>): List<Int> {
+            val seats = seating.indices.filter { seating[it] in people }
+            return seats.indices.map { i -> (seats[(i + 1) % seats.size] - seats[i] - 1).mod(seating.size) }
+        }
+        val firsts = mutableSetOf<Int>()
+        repeat(6) {
+            val pod = f.pod(DraftSettings(packsPerPlayer = 1, cardsPerPack = 5, keep = 1, burn = 0, bots = 4))
+            f.join(pod, f.b)
+            f.start(pod)
+            val response = f.request(f.a, "GET", "/v1/pods/$pod/draft/history")
+            assertEquals(200, response.statusCode(), response.body())
+            val seating = json.decodeFromString<PodDraftHistory>(response.body()).seating
+            assertEquals(people + PodBots.ids(4), seating.toSet())
+            assertEquals(listOf(2, 2), groups(seating), "$seating")
+            firsts += seating.indexOf(f.a.account.accountId)
+        }
+        // Six pods seat Alice in more than one place: the seating stays random
+        assertTrue(firsts.size > 1, "Alice always sat in seat $firsts")
+        val rochester = f.pod(DraftSettings.rochester().copy(packsPerPlayer = 1, cardsPerPack = 5, bots = 3))
+        f.join(rochester, f.b)
+        f.start(rochester)
+        assertEquals(listOf(1, 2), groups(f.get(f.a, rochester).limited!!.seating).sorted())
+        val grid = f.pod(DraftSettings.grid().copy(grids = 2, bots = 2))
+        f.join(grid, f.b)
+        f.start(grid)
+        assertEquals(listOf(1, 1), groups(f.get(f.a, grid).grid!!.publicView.seating))
+    }
+
     // DRF-298, DRF-299, DRF-300: every mode with bot seats drafts to its end with two people, the bots moving on the server
     // whenever the draft reaches them
     @Test fun `every mode with bot seats drafts to its end without waiting for a bot`() = fixture { f ->

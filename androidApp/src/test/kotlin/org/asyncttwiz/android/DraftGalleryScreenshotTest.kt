@@ -186,6 +186,31 @@ class DraftGalleryScreenshotTest {
             "\"bot\", and under them the invite button with the \"Bots − 3 +\" stepper at the row's right.")
     }
 
+    // DRF-030 (owner, 2026-11-22): the pod's invite picker stays open after an invite (pods are often multiplayer): Bob, just
+    // invited, reads "invited", Dave, a member, "member", and Carol still has her Invite button; Back closes the picker
+    @Test fun invitePickerStaysOpenShowingWhoIsInvited() {
+        val dave = AccountIdentity("dave", "Dave")
+        val lobby = LobbyController(unused<Lobbies>(), { "token" }, worker, { it() }, accountId = { alice.accountId })
+        try {
+            lobby.seed(LobbyState(loaded = true, contacts = listOf(bob, carol, dave)))
+            val detail = detail(PodPhase.SETUP, DraftSettings.booster(), listOf(PodMember(alice), PodMember(dave)))
+                .copy(pendingInvitations = listOf(bob))
+            pods.seed(opened(detail).copy(choosingMember = true))
+            compose.setContent { ScreenTheme { NoRipples { Surface(Modifier.fillMaxSize(), color = ScreenBackground) {
+                PodsDestination(pods, alice.accountId, {}, lobby, {}, mainMenu = {})
+            } } } }
+            settle()
+            compose.onNodeWithTag("pod-invite-status-bob").assertTextEquals("invited")
+            compose.onNodeWithTag("pod-invite-status-dave").assertTextEquals("member")
+            compose.onNodeWithTag("pod-invite-status-carol").assertDoesNotExist()
+            compose.onNodeWithContentDescription("Invite player").assertIsEnabled()
+            shot("invite-picker", "The creator's pod invite picker after inviting Bob: it stays open with her contacts, Bob " +
+                "marked \"invited\", Dave \"member\" and Carol with her Invite button, the members strip above it.")
+            compose.runOnIdle { pods.back() }
+            compose.runOnIdle { kotlin.test.assertFalse(pods.state.choosingMember) }
+        } finally { lobby.close() }
+    }
+
     // DRF-296: Sealed and Arena take no bots, so their setup has no stepper; Grid's stops at two (+ greyed)
     @Test fun botSeatsStepperFollowsTheMode() {
         show(opened(detail(PodPhase.SETUP, DraftSettings.arena(), listOf(PodMember(alice), PodMember(bob)))))

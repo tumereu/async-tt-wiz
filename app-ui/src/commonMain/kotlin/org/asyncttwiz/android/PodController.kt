@@ -120,6 +120,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val deckName: String? = null, val deckCover: String? = null, val submit: Boolean = false,
         /** A Rotisserie pick queue being set (DRF-164): shown at once until the server's answer comes. */
         val pickQueue: List<String>? = null,
+        /** DRF-030: a player being invited, shown as invited at once until the server's answer comes. */
+        val invitee: AccountIdentity? = null,
         val send: suspend (String) -> PodDetail?)
     private val writes = mutableListOf<Write>()
     /** Keep/burn/Librarian marks survive tab switches here, and app restarts through the server copy. */
@@ -448,13 +450,21 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             packSets = edit.packSets)
         enqueue(Write(detail.id, setupRevision = edit.revision, send = { api.update(it, detail.id, input) }))
     }
-    fun chooseMember(value: Boolean) { state = state.copy(choosingMember = value) }
+    fun chooseMember(value: Boolean) {
+        if (value != state.choosingMember) AppLog.info("pods", "Pod ${state.selected}: invite picker ${if (value) "opened" else "closed"}")
+        state = state.copy(choosingMember = value)
+    }
+    /** DRF-030 (owner, 2026-11-22): the invite picker stays open, the player shown as invited; the creator closes it. */
     fun invite(account: AccountIdentity) {
         val detail = state.detail ?: return
         if (state.uncertain) return
+        // Shown invited at once, so a second tap before the server's answer sends nothing
+        if (detail.pendingInvitations.any { it.accountId == account.accountId }) {
+            AppLog.info("pods", "Pod ${detail.id}: ${account.username} is already invited"); return
+        }
+        AppLog.info("pods", "Pod ${detail.id}: inviting ${account.username} (${account.accountId}); the picker stays open")
         val input = InviteToPod(requestId(), account.accountId)
-        state = state.copy(choosingMember = false)
-        enqueue(Write(detail.id, send = { api.invite(it, detail.id, input) }))
+        enqueue(Write(detail.id, invitee = account, send = { api.invite(it, detail.id, input) }))
     }
     fun start() {
         val detail = state.detail ?: return
@@ -835,6 +845,12 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             val needed = edit.settings.supply(edit.settings.seats(detail.members.size), emptyList()).needed
             detail = detail.copy(name = edit.name, settings = edit.settings, source = source,
                 supply = DraftSupply(needed, if (source.kind == PodSourceKind.SET) Long.MAX_VALUE else source.totalCopies))
+        }
+        detail?.let { base ->
+            // DRF-030: players being invited show as invited at once
+            val invited = writes.filter { it.pod == base.id }.mapNotNull { it.invitee }.filter { account ->
+                base.members.none { it.account.accountId == account.accountId } && base.pendingInvitations.none { it.accountId == account.accountId } }
+            if (invited.isNotEmpty() && base.phase == PodPhase.SETUP) detail = base.copy(pendingInvitations = base.pendingInvitations + invited)
         }
         detail?.let { base ->
             val pending = writes.filter { it.pod == base.id && it.attempt == base.draftAttemptId }

@@ -10,10 +10,12 @@ object PodBots {
     /** The player ids of [count] bot seats, in number order. */
     fun ids(count: Int): List<String> = (1..count).map(::id)
     fun isBot(player: String): Boolean = player.startsWith(PREFIX)
+    /** A bot seat's number from its player id; null for anyone else's. */
+    fun number(player: String): Int? = player.takeIf(::isBot)?.removePrefix(PREFIX)?.toIntOrNull()
     fun identity(number: Int): AccountIdentity = AccountIdentity(id(number), "Bot $number")
     /** A bot seat's identity from its player id; null for anyone else's. */
     fun identity(player: String): AccountIdentity? =
-        player.takeIf(::isBot)?.removePrefix(PREFIX)?.toIntOrNull()?.let(::identity)
+        number(player)?.let(::identity)
 }
 
 /**

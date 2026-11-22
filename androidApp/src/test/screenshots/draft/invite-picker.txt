@@ -1,0 +1,1 @@
+The creator's pod invite picker after inviting Bob: it stays open with her contacts, Bob marked "invited", Dave "member" and Carol with her Invite button, the members strip above it.

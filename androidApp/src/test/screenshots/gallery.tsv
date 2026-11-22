@@ -364,3 +364,5 @@ number	item	screenshot	catalog	decisions	sequence
 502	Clip: the same combat on the defender's phone, his blocks declared on the band	clips/combat-bob.webp	CMB-050 CMB-090 HIS-113 CMB-034 CMB-031
 503	Clip: the other player's plot (a special action) shown, then flying toward its card instead of the Stack	clips/special-plot.webp	HIS-112 HIS-237 HIS-238
 504	Clip: the other player turns a face-down creature face up: shown, flying into the card, then the card flips	clips/special-face-up.webp	HIS-112 HIS-237 HIS-238 HIS-031
+530	Draft bots: the draft history's seat ring with two people and four bots, two bots between the people each way	draft/history-bots.png	DRF-297 DRF-210 DRF-043		Draft bots
+531	Pod invite picker staying open after an invite: Bob "invited", Dave "member", Carol still with Invite	draft/invite-picker.png	DRF-030		

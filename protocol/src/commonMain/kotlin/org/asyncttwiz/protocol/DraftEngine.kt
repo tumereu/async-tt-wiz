@@ -136,7 +136,8 @@ object DraftEngine {
             }
             return result
         }
-        val seating = shuffled(players.sorted())
+        // DRF-043: random, the bot seats spread between the people
+        val seating = DraftSeating.seat(players) { RandomV1.sample(it, words::next) }
         val copies = cube.groupBy { it.definition }.entries.sortedBy { it.key }.flatMap { (definition, entries) ->
             require(entries.all { it.colors == entries.first().colors }) { "Conflicting cube colors" }
             val quantity = entries.sumOf { it.quantity.toLong() }
@@ -179,17 +180,14 @@ object DraftEngine {
         require(copies.all { it.id.isNotBlank() && it.definition.isNotBlank() }) { "Invalid copies" }
         require(copies.map { it.id }.distinct().size == copies.size) { "Duplicate copy IDs" }
         val words = RandomV1.Words(seed)
-        val seating = players.sorted().toMutableList()
-        for (i in seating.lastIndex downTo 1) {
-            val j = RandomV1.sample(i + 1, words::next)
-            val player = seating[i]; seating[i] = seating[j]; seating[j] = player
-        }
+        // DRF-043: random, the bot seats spread between the people
+        val seating = DraftSeating.seat(players) { RandomV1.sample(it, words::next) }
         val draftPacks = packs.mapIndexed { index, cards ->
             val number = index / seating.size + 1
             DraftPack("pack-$index", (number - 1) / settings.packsOpenAtOnce,
                 seating[index % seating.size], number, cards.map { it.id })
         }
-        return initial(settings, seating.toList(), copies, draftPacks)
+        return initial(settings, seating, copies, draftPacks)
     }
 
     private fun initial(settings: DraftSettings, seating: List<String>, copies: List<DraftCopy>, packs: List<DraftPack>): DraftState {

@@ -413,10 +413,15 @@ fun podCubeSections(source: PodSource) = "${source.totalCopies} main · ${source
 
 @Composable
 private fun PodChooseMember(controller: PodController, lobby: LobbyController, detail: PodDetail) {
+    // DRF-030 (owner, 2026-11-22): inviting keeps the picker open (pods are often multiplayer); each invited player reads
+    // "invited", a member "member"; Back closes it
     PlayerPicker(lobby) { account ->
-        val existing = detail.members.any { it.account.accountId == account.accountId } || detail.pendingInvitations.any { it.accountId == account.accountId }
-        ScreenIconButton(if (existing) "Invited / member" else "Invite player", if (existing) "ready" else "send",
-            { controller.invite(account) }, enabled = !existing)
+        val status = if (detail.members.any { it.account.accountId == account.accountId }) "member"
+            else if (detail.pendingInvitations.any { it.accountId == account.accountId }) "invited" else null
+        if (status != null) Text(status, Modifier.testTag("pod-invite-status-${account.accountId}"),
+            style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else ScreenIconButton("Invite player", "send", { controller.invite(account) }, Modifier.testTag("pod-invite-${account.accountId}"),
+            enabled = !controller.state.uncertain && detail.members.size + detail.pendingInvitations.size < 8)
     }
 }
 

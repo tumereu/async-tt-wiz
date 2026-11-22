@@ -180,9 +180,6 @@ internal class LiveTableKit(val f: EngineGameFixture) : AutoCloseable {
 
     private fun message(message: GameServerMessage) = wire.listener.message(message)
 
-    /** The server tells Alice Bob's presence ([idle] seconds idle). */
-    fun presence(idle: Int) = message(GamePresenceUpdate(summary.id, OpponentPresence(PresenceState.ONLINE, idleSeconds = idle)))
-
     /** What the server sends Alice goes over her connection: a revision with the game's summary at it; a refusal was
      * answered as the command's result already ([forward]). */
     private fun toAlice(delivery: EngineAppSim.Delivery): Boolean {
@@ -213,15 +210,10 @@ internal class LiveTableKit(val f: EngineGameFixture) : AutoCloseable {
     /** What Bob's phone does by itself: it gets the server's messages, plays them back at once, answers its stops with
      * what was assumed and Bob's decisions with the first answer, and sends what it made. */
     var bobOnline = true
-    /** Stall investigation (work in progress): a presence message every frame, which recomposes the table, as an unrelated
-     * message does on a phone. Off: the app exactly as it is (its playback then never goes on after a play shown's arrows). */
-    var nudge = false
-    private var nudges = 0
 
     /** The network and Bob's phone, at once: Alice's commands reach the server, its messages reach both phones, Bob's phone
      * goes on ([bobOnline]) and what it sends reaches the server. */
     fun pump() {
-        if (nudge) presence(++nudges % 2)
         sim.now = SystemClock.uptimeMillis()
         repeat(4) {
             forward()

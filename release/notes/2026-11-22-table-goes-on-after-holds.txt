@@ -1,0 +1,1 @@
+fix: Games could pause after a play, a combat hold or a trigger's target arrows until something else happened; the table now goes on by itself

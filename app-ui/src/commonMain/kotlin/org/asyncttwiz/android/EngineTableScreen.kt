@@ -49,6 +49,10 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val game = if (detail.playId == live.playId) detail else detail.copy(playId = live.playId)
     val engine = controller.engineGame() ?: return
     // What the engine thread published last (I-D56 step D2): the table reads nothing else of the device
+    // Every board published composes the table again, read as snapshot state (owner, 2026-11-22: a board that only ended a
+    // play shown or a combat hold, the same board otherwise, changed nothing the lobby holds, and the table waited for an
+    // unrelated message to begin what came next)
+    engine.shownVersion
     val shown = engine.shown ?: return
     val interactive = game.id !in state.reconnectingGames
     val routes = remember(controller, game.id, accountId) {

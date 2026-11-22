@@ -4,7 +4,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.unit.dp
 import org.asyncttwiz.storage.CatalogMetadata
 import org.asyncttwiz.storage.CatalogPhase
 import org.asyncttwiz.storage.CatalogProgress
@@ -39,6 +45,26 @@ class CatalogControlsTest {
         compose.onNodeWithTag("catalog-status").assertDoesNotExist()
         assertFalse(compose.onAllNodesWithText("Refresh full catalog").fetchSemanticsNodes().isNotEmpty())
         compose.onNodeWithText(CARD_RECORDS_NOT_KEPT).assertDoesNotExist()
+    }
+
+    // LOB-093 (owner 2026-11-22): the bar is one even bar, every progress bar of the app ([PlainProgressBar]): no gap after
+    // what is done and no dot at its right end
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    @Test fun theProgressBarIsEvenToItsEnd() {
+        compose.setContent { MaterialTheme {
+            androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.testTag("bar-box").width(300.dp)
+                .background(androidx.compose.ui.graphics.Color.White).padding(16.dp)) {
+                CatalogControls(CatalogUiState(progress = CatalogProgress(CatalogPhase.INDEXING, 50, 100))) {}
+            }
+        } }
+        val bar = compose.onNodeWithTag("catalog-status").captureToImage().toPixelMap()
+        val y = bar.height / 2
+        val track = bar[bar.width * 3 / 4, y]
+        val done = (bar.width * .4f).toInt()
+        for (x in done + 3 until bar.width - 2) assertEquals(track, bar[x, y], "the track at x $x of ${bar.width}")
+        compose.onNodeWithTag("bar-box").captureShot("$SCREENSHOTS/settings/card-records-progress.png",
+            "Settings → Card records while they install, at 40%: one even bar, the done part and then the track to its right end, " +
+                "with no gap between them and no dot at the end.")
     }
 
     // WEB-009: a browser that couldn't keep the card records says so under the installed line

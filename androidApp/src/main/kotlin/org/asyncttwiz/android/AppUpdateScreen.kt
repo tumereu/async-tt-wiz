@@ -42,7 +42,7 @@ fun AppUpdateScreen(updates: AppUpdateViewModel, install: (File) -> Unit) {
                         Column(Modifier.width(240.dp).heightIn(min = 24.dp), horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             if (updates.downloading) {
-                                LinearProgressIndicator(progress = { updates.progress }, modifier = Modifier.fillMaxWidth())
+                                PlainProgressBar(progress = { updates.progress }, modifier = Modifier.fillMaxWidth())
                                 updates.release?.let { release ->
                                     val total = release.size / 1_000_000
                                     Text("${(updates.progress * total).toInt()} / $total MB", style = MaterialTheme.typography.bodySmall)

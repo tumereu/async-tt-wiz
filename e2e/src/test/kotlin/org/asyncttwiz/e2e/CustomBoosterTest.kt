@@ -17,16 +17,18 @@ import org.asyncttwiz.protocol.*
 import org.junit.Test
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 /**
- * Custom booster (owner, 2026-11-19): Booster with a list of passes, "Pick n, Burn k", set by the pod's creator; the
- * cards left when the passes run out are thrown away.
+ * Custom booster (owner, 2026-11-19): Booster with a list of passes, "Pick n, Burn k", set by the pod's creator; on a
+ * pack's last pass only the picks are chosen and every other card burns (owner, 2026-11-22).
  */
 class CustomBoosterTest : E2e() {
-    // DRF-260, DRF-261, DRF-262, DRF-263, DRF-264: Alice edits her Custom booster's passes in pod setup to "pick 2, burn 1" then
-    // "pick 1"; Bob's invitation reads them; in the draft Alice's pick screen asks each pass, she keeps two and burns one of
-    // her 6-card pack, Bob takes one of its last 3 and the other two are thrown away; her history marks her burn
-    @Test fun aCustomBoosterPodDraftsItsPassesWithABurnAndADiscardAtTheEnd() {
+    // DRF-260, DRF-261, DRF-262, DRF-263, DRF-264, DRF-057: Alice edits her Custom booster's passes in pod setup to "pick 2, burn 1"
+    // then "pick 1"; Bob's invitation reads them; in the draft Alice's pick screen's first line names each pass, she keeps two
+    // and burns one of her 6-card pack; on Bob's pack's last pass she only picks one of its 3 cards, the other two burning by
+    // themselves; her history marks her burns
+    @Test fun aCustomBoosterPodDraftsItsPassesWithABurnAndTheLastPassBurningTheRest() {
         launchPlayers()
         val name = "E2E Custom booster ${UUID.randomUUID().toString().take(6)}"
         val pod = ServerSetup.setupPod(alice.account, name, settings = DraftSettings.customBooster().copy(
@@ -67,7 +69,11 @@ class CustomBoosterTest : E2e() {
         // Alice's own pack, pass 1: pick 2 of 6, burn 1
         alice.pods.refresh()
         waitUntil("Alice's first pack") { alice.pods.state.detail?.draft?.head?.cards?.size == 6 }
-        waitUntil("the pass line") { alice.shows(hasTestTag("pod-pick-pass") and hasText("Pass 1/2 · Pick 2 of 6 · Burn 1")) }
+        waitUntil("the first line names the pass") {
+            alice.shows(hasTestTag("pod-pick-orientation") and hasText("Round 1/1 · Pass 1/2 · your pack"))
+        }
+        // No pass line of its own above the trays (owner 2026-11-22)
+        assertFalse(alice.shows(hasTestTag("pod-pick-pass")))
         val own = alice.pods.state.detail!!.draft!!.head!!
         val (keep1, keep2, burn) = own.cards.map { it.id }
         fun mark(id: String, how: String) {
@@ -82,18 +88,24 @@ class CustomBoosterTest : E2e() {
             ServerSetup.pod(alice.account, pod).draft!!.pool.map { it.id }.toSet() == setOf(keep1, keep2)
         }
 
-        // Bob picks his own pack (pass 1), then Alice's on its last pass: one of its 3 cards, the other 2 thrown away
+        // Bob picks his own pack (pass 1), then Alice's on its last pass: one of its 3 cards, the other 2 burned
         ServerSetup.pickUntil(listOf(bob.account), pod) { ServerSetup.pod(bob.account, pod).draft?.head == null }
         assertEquals(3, ServerSetup.pod(bob.account, pod).draft!!.pool.size)
 
-        // Bob's pack comes to Alice on its last pass: 3 cards left, she picks 1 and the rest are thrown away
+        // Bob's pack comes to Alice on its last pass: 3 cards left, she picks 1 and the other 2 burn by themselves
         alice.pods.refresh()
         waitUntil("Bob's pack at Alice") { alice.pods.state.detail?.draft?.head?.pick == 2 }
-        waitUntil("the last pass's line") {
-            alice.shows(hasTestTag("pod-pick-pass") and hasText("Pass 2/2 · Pick 1 of 3 · the rest are thrown away"))
+        waitUntil("the last pass named") {
+            alice.shows(hasTestTag("pod-pick-orientation") and hasText("Round 1/1 · Pass 2/2 · from ${bob.name}"))
         }
-        val last = alice.pods.state.detail!!.draft!!.head!!.cards.first().id
+        assertFalse(alice.showsText("thrown away", substring = true))
+        val cards = alice.pods.state.detail!!.draft!!.head!!.cards.map { it.id }
+        val last = cards.first()
         mark(last, "Keep")
+        // DRF-261, DRF-045: the other two show as automatic burns once the pick is marked
+        waitUntil("the other two shown burned") {
+            cards.drop(1).all { id -> alice.shows(hasTestTag("pod-pick-card-$id") and hasStateDescription("Automatic burn")) }
+        }
         alice.tagged("pod-pick-confirm").performClick()
         waitUntil("the draft over") { ServerSetup.pod(alice.account, pod).phase == PodPhase.DRAFTED }
         assertEquals(3, ServerSetup.pod(alice.account, pod).draft!!.pool.size)
@@ -106,7 +118,7 @@ class CustomBoosterTest : E2e() {
             alice.pods.history?.picks?.firstOrNull()?.burned == listOf(burn) &&
                 alice.shows(hasTestTag("pod-history-0-$burn") and hasContentDescription("burned", substring = true))
         }
-        assertEquals(listOf(2 to 1, 1 to 0), alice.pods.history!!.picks.map { it.kept.size to it.burned.size })
+        assertEquals(listOf(2 to 1, 1 to 2), alice.pods.history!!.picks.map { it.kept.size to it.burned.size })
     }
 
     private fun hasStateDescription(value: String) = androidx.compose.ui.test.SemanticsMatcher.expectValue(

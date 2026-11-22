@@ -21,8 +21,14 @@ fun CatalogControls(state: CatalogUiState, retry: () -> Unit) {
         SettingsLabel(installed?.let { "Installed: ${it.date} · ${formatIn(FormatLocale.Us, "%,d", it.records)} records" }
             ?: state.records.line().orEmpty(), CARD_RECORDS_NOT_KEPT.takeIf { installed != null && !state.kept },
             Modifier.padding(vertical = 4.dp))
-        if (!state.ready && !state.failed) LinearProgressIndicator(progress = { (state.progress?.percent ?: 0) / 100f },
+        if (!state.ready && !state.failed) PlainProgressBar(progress = { (state.progress?.percent ?: 0) / 100f },
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("catalog-status"))
         if (state.failed) SettingsActionRow("Retry", "refresh", retry, Modifier.testTag("catalog-retry"))
     }
 }
+
+/** A progress bar of how far something has come (owner 2026-11-22): one even bar without Material 3's stop dot and gap at its
+ * right end; every determinate progress bar of the app is one. */
+@Composable
+fun PlainProgressBar(progress: () -> Float, modifier: Modifier = Modifier) =
+    LinearProgressIndicator(progress = progress, modifier = modifier, gapSize = 0.dp, drawStopIndicator = {})

@@ -116,7 +116,7 @@ fun CatalogDownloadStatus(catalog: CatalogViewModel, modifier: Modifier = Modifi
         CompositionLocalProvider(LocalCardRecords provides state.records, LocalCardRecordsRetry provides catalog::retry) {
             Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 CardRecordsNote(Modifier.fillMaxWidth())
-                if (!state.failed) LinearProgressIndicator(progress = { (state.progress?.percent ?: 0) / 100f }, modifier = Modifier.fillMaxWidth())
+                if (!state.failed) PlainProgressBar(progress = { (state.progress?.percent ?: 0) / 100f }, modifier = Modifier.fillMaxWidth())
             }
         }
     }

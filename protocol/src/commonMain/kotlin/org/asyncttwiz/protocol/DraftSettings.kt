@@ -100,14 +100,19 @@ data class DraftSettings(
     val discardAt: Int get() = if (custom) 0 else discardRemainingAt
     /** A Custom booster's passes have run out after [taken] manual picks from a pack: the rest of it is thrown away (DRF-261). */
     fun passesEnd(taken: Int): Boolean = custom && taken >= passes.size
+    /** DRF-261 (owner 2026-11-22): a Custom booster pack's last pass, after [taken] manual picks: its player chooses only the
+     * picks, and every other card of the pack burns, whatever its size. */
+    fun lastPass(taken: Int): Boolean = custom && taken == passes.size - 1
 
     /**
      * DRF-045: a pick from a pack holding [cards] cards (spent Librarians included) with [keep] keep slots needs only the
      * keeps when the rest would all go anyway: burned, or discarded at the threshold after the burns. The engine then
      * burns up to burn-count of the rest and discards the others. A Librarian spend adds as many cards as keep slots, so
-     * it never changes the answer. [taken]: the manual picks already taken from the pack (a Custom booster's pass).
+     * it never changes the answer. [taken]: the manual picks already taken from the pack (a Custom booster's pass). On a
+     * Custom booster pack's last pass ([lastPass]) only the keeps are chosen too, and all the rest burns.
      */
-    fun keepsOnly(cards: Int, keep: Long, taken: Int = 0): Boolean = cards <= keep + burnAt(taken) + discardAt
+    fun keepsOnly(cards: Int, keep: Long, taken: Int = 0): Boolean =
+        lastPass(taken) || cards <= keep + burnAt(taken) + discardAt
 
     /** What is wrong with these settings for a draft of [players] seats, bot seats included ([seats]). */
     fun validate(players: Int): List<DraftSettingsIssue> = buildList {

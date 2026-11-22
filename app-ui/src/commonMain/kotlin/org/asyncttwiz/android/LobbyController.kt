@@ -76,7 +76,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val lastChatTabs = mutableMapOf<String, ChatTab>()
     /** The chat tab last shown in [gameId]'s chat, null before any. */
     fun lastChatTab(gameId: String): ChatTab? = lastChatTabs[gameId]
-    fun clear() { lastChatTabs.clear(); queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); history.clear(); state = LobbyState() }
+    fun clear() { lastChatTabs.clear(); queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); releasedHeld.clear(); session?.clear(); history.clear(); state = LobbyState() }
     /** Opens the game's chat; [focus]: at that message (holding its bubble on the table, LOB-136); [tab]: on that tab in a pod
      * game (LOB-145). */
     fun openChat(focus: String? = null, tab: ChatTab = ChatTab.GAME) {
@@ -175,7 +175,34 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         if (queue.anyReady()) post(queue::runQueued)
     }
     fun dismissSessionError() { session?.dismissError(); state = state.copy(error = null, searchError = null) }
-    private fun accepted(game: GameSummary) {
+    /** DRF-181, DRF-122: the pod challenges to you that waited for your deck and your confirmed submit released (the server
+     * releases them in the same request), by game id: acceptable at once, whatever an older revision of them says. */
+    private val releasedHeld = mutableSetOf<String>()
+    private fun released(game: GameSummary): GameSummary =
+        if (game.invitationHeld && game.id in releasedHeld) game.copy(invitationHeld = false) else game
+
+    /**
+     * DRF-181, DRF-122 (owner 2026-11-22): your deck for pod [podId] was submitted, confirmed by the server, which released
+     * every challenge to you of the pod that waited for it in the same request. They count as acceptable at once (the pod's
+     * Challenge beside their sender accepts theirs, their own Accept is live), without waiting for the next lobby read, which
+     * is made at once too.
+     */
+    fun podDeckSubmitted(podId: String) {
+        if (closed) return
+        val mine = accountId()
+        val held = (state.games + state.invitations + latest.values).filter {
+            it.podId == podId && it.recipient.accountId == mine && it.invitationHeld }.map { it.id }.distinct()
+        AppLog.info("lobby", "Pod ${podId.take(8)}: deck submitted; " + if (held.isEmpty()) "no challenge to you waited for it"
+            else "${held.size} challenge(s) to you released at once: ${held.joinToString { it.take(8) }}; lobby read now")
+        releasedHeld += held
+        for (id in held) latest[id]?.let { latest[id] = released(it) }
+        state = state.copy(games = state.games.map(::released), invitations = state.invitations.map(::released),
+            detail = state.detail?.let(::released))
+        refresh()
+    }
+
+    private fun accepted(incoming: GameSummary) {
+        val game = released(incoming)
         val old = latest[game.id]
         if (old != null && !GameSession.newerOrEqual(game.revision, old.revision)) return
         latest[game.id] = game

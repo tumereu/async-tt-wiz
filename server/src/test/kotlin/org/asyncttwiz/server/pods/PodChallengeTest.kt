@@ -29,7 +29,9 @@ class PodChallengeTest {
             return accounts.authenticate(accounts.login("$name@example.invalid", "fixture password")!!.token)!!
         }
         val a = account("ChallengeA"); val b = account("ChallengeB"); val c = account("ChallengeC")
-        val pods = PodService(runtime); val games = GameService(runtime); val lobby = LobbyService(runtime)
+        /** DRF-181: the games each committed change outside a game request told the game tables of ([PodGamesListener]). */
+        val told = mutableListOf<List<String>>()
+        val pods = PodService(runtime) { told += it }; val games = GameService(runtime); val lobby = LobbyService(runtime)
         val decks = DeckService(runtime)
         val cube: SavedCube
         init {
@@ -541,9 +543,13 @@ class PodChallengeTest {
         assertEquals("accepted", owner.execute(GameAction.Ready).outcome)
         assertEquals(GameLifecycle.LOBBY, f.games.head(f.a, game.id).summary.lifecycle)
 
+        assertTrue(f.told.isEmpty(), "Alice's submit released nothing")
         f.submit(f.b, pod)
         val released = json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.single()
         assertEquals(game.id, released.id); assertFalse(released.invitationHeld)
+        // DRF-181 (owner 2026-11-22): the release is told to the game's subscribed tables once it has committed, not left to
+        // their next heartbeat or list read
+        assertEquals(listOf(listOf(game.id)), f.told)
         assertFalse(json.decodeFromString<GameSummary>(f.lobby.head(f.a, game.id).body).invitationHeld)
         // No second notice: the one sent with the challenge now reads as an acceptable one
         assertEquals(notice.copy(held = false), invitations(f.b).single())

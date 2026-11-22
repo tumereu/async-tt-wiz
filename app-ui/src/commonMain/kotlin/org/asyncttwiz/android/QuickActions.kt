@@ -345,9 +345,11 @@ fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifi
         if (enabled && currentPerformHold != null) { AppLog.info("game", "A hotkey held $name"); currentPerformHold?.invoke() }
         else AppLog.info("game", "A hotkey held $name: no hold action now")
     })
-    Box(modifier.then(if (compactContent) Modifier.height(48.dp) else Modifier.size(48.dp)).graphicsLayer {
+    // Pressed, the whole control shrinks a little and takes the tint edge to edge: its shape, outline and shadow from [modifier]
+    // too (owner 2026-11-22: the main button's "Resolve" left a strip at its left untouched when only its inside shrank)
+    Box(Modifier.graphicsLayer {
         scaleX = if (pressed) .92f else 1f; scaleY = scaleX
-    }.background(fill).hoverLook(HoverLook.Tint(foreground), enabled && !refused).drawWithContent {
+    }.then(modifier).then(if (compactContent) Modifier.height(48.dp) else Modifier.size(48.dp)).background(fill).hoverLook(HoverLook.Tint(foreground), enabled && !refused).drawWithContent {
         drawContent()
         if (pressed && enabled) drawRect(foreground.copy(alpha = .16f))
     }.onKeyEvent { event ->

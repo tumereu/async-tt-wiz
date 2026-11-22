@@ -178,6 +178,8 @@ object TestCards {
     val tapPact = card("Tap Pact", "Sorcery", "{R}", "As an additional cost to cast this spell, tap an untapped creature you control.\nDraw a card.")
     val bloodPact = card("Blood Pact", "Sorcery", "{R}", "As an additional cost to cast this spell, pay 2 life.\nDraw a card.")
     val offering = card("Altar Offering", "Sorcery", "{R}", "As an additional cost to cast this spell, sacrifice a creature.\nDraw a card.")
+    /** Problem report 9HBW6Y: an additional cost of two alternatives, one of them mana: its option is "Pay {1}{R}" (STK-030). */
+    val feast = card("Ember Feast", "Sorcery", "{0}", "As an additional cost to cast this spell, sacrifice a creature or pay {1}{R}.\nDraw a card.")
     /** An instant castable only through a pain source, for Quick mode's windows. */
     val redFlash = card("Red Flash", "Instant", "{R}", "Draw a card.")
     /** An instant castable only on a tapped creature with this mana. */

@@ -301,7 +301,7 @@ number	item	screenshot	catalog	decisions	sequence
 320	Draft: the Rotisserie pool filtered by its popup (red, mana value 1), the button filled with a dot	pod-rotisserie-filter.png	DRF-250 DRF-252 DRF-253		Draft filter
 321	Desktop: Build filtered by its popup (Creature and "human"), only the matching cards in the columns	desktop/build-filter.png	WEB-120 DRF-251 DRF-254		Draft filter
 325	Draft: Custom booster setup with its list of passes	draft/setup-custom-booster.png	DRF-262 DRF-020		Custom booster
-326	Draft: Custom booster pick screen saying what the pass asks	draft/custom-booster-pick.png	DRF-263 DRF-260		Custom booster
+326	Draft: Custom booster pick screen naming the pack's pass in its first line	draft/custom-booster-pick.png	DRF-263 DRF-260		Custom booster
 330	The other player's spell on the Stack, its "you" as their name: "Bob gains 2 life" under the band's main line	stack/opponent-you-named.png	STK-220 STK-057 STK-131	
 340	Desktop chat bubbles twice the size, shown with the chat dock open	desktop/chat-bubbles.png	WEB-137 WEB-138
 341	Attackers declared from a stack lie together in one pile beside the rest	battlefield/attackers-pile.png	TBL-230 CMB-070
@@ -368,3 +368,6 @@ number	item	screenshot	catalog	decisions	sequence
 531	Pod invite picker staying open after an invite: Bob "invited", Dave "member", Carol still with Invite	draft/invite-picker.png	DRF-030		
 540	Game log: under each line, smaller and indented, what it caused; a log-only "Combat damage" line with the life lost and the total after	history/game-log-consequences.png	HIS-246 HIS-247 HIS-240		Game log consequences
 541	Game log: the same indented lines from the other player's side	history/game-log-consequences-bob.png	HIS-246 HIS-247 HIS-249		Game log consequences
+542	Draft: Custom booster pick screen on a pack's last pass, the cards not picked burning by themselves	draft/custom-booster-last-pass.png	DRF-261 DRF-045 DRF-057		
+543	Main button held down: the whole button takes the pressed look	main-button/pressed.png	TRN-063		
+544	Settings: Card records installing, one even progress bar	settings/card-records-progress.png	LOB-093		

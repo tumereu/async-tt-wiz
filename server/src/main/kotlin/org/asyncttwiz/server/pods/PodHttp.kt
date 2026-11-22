@@ -13,9 +13,11 @@ import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.OwnershipFailure
 import org.asyncttwiz.server.decks.DeckService.Result
 
-class PodHttp(private val runtime: ServiceRuntime) {
+class PodHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
+    /** DRF-181: the game tables to tell of pod games changed outside a game request ([PodService]). */
+    gamesChanged: PodGamesListener = PodGamesListener {}) {
     private val accounts = AccountService(runtime)
-    private val pods = PodService(runtime)
+    private val pods = PodService(runtime, gamesChanged)
     private val presets = PodPresetService(runtime)
     private val limits = AccountRateLimits()
     private val json = DeckJson.format

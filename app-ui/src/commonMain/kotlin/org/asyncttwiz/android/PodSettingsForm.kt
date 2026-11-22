@@ -317,7 +317,7 @@ fun PodPassesSection(passes: List<DraftPass>, editable: Boolean, change: ((Draft
     var editing by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
     Column(Modifier.fillMaxWidth().testTag("pod-passes"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Passes (${passes.size})", style = MaterialTheme.typography.titleSmall)
-        Text("Each pack goes through these passes in order; when they run out, the cards left are thrown away.",
+        Text("Each pack goes through these passes in order; on its last pass, the cards not picked are burned.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         passes.forEachIndexed { index, pass ->
             if (!editable) Text("Pass ${index + 1} · ${podPassText(pass)}", Modifier.testTag("pod-pass-$index"))

@@ -59,8 +59,6 @@ class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings, val libraria
     val automaticBurns = settings.keepsOnly(ids.size, requiredKeeps.toLong(), taken)
     val manualBurns = if (automaticBurns) 0 else settings.burnAt(taken)
     val requiredBurns = if (automaticBurns) ids.size - requiredKeeps else settings.burnAt(taken)
-    /** A Custom booster's last pass: what is left after it is thrown away (DRF-261). */
-    val lastPass = settings.passesEnd(taken + 1)
 
     fun burnIds(marks: PodPickMarks): List<String> = when {
         !automaticBurns -> marks.burns
@@ -73,18 +71,6 @@ class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings, val libraria
         return !busy && ids.isNotEmpty() && marks.librarians == librarians && marks.keeps.size == requiredKeeps && burns.size == requiredBurns &&
             (marks.keeps + burns).let { selected -> selected.distinct().size == selected.size && selected.all { it in ids } }
     }
-}
-
-/**
- * DRF-263: what a Custom booster pick's pass asks, "Pass 2/7 · Pick 2 of 11 · Burn 1", ending "· the rest are thrown
- * away" on the last pass while cards would be left; null for the other modes.
- */
-fun podPickPassText(rules: PodPickRules, settings: DraftSettings): String? {
-    if (settings.mode != org.asyncttwiz.protocol.DraftMode.CUSTOM_BOOSTER) return null
-    val parts = mutableListOf("Pass ${rules.taken + 1}/${settings.passes.size}", "Pick ${rules.requiredKeeps} of ${rules.ids.size}")
-    if (rules.requiredBurns > 0) parts += "Burn ${rules.requiredBurns}"
-    if (rules.lastPass && rules.ids.size > rules.requiredKeeps + rules.requiredBurns) parts += "the rest are thrown away"
-    return parts.joinToString(" · ")
 }
 
 /** [this] pack with the spent Librarians (in spend order) added as cards, as the picker sees it before confirming. */

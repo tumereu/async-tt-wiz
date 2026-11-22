@@ -246,7 +246,7 @@ class DraftGalleryScreenshotTest {
             "burn 1 and a last pick 1, each with its Pick and Burn buttons and a remove cross, then Add pass.")
     }
 
-    // DRF-263, DRF-260
+    // DRF-263, DRF-260, DRF-057 (owner 2026-11-22: the pass in the first line, no line above the trays)
     @Test fun customBoosterPick() {
         val settings = DraftSettings.customBooster().copy(passes = listOf(DraftPass(2, 1)) + List(4) { DraftPass(1, 1) } + DraftPass(1, 0))
         val detail = boosterPick(settings, fourteen.take(11), pick = 2).copy(name = "Burn night")
@@ -255,9 +255,23 @@ class DraftGalleryScreenshotTest {
             pods.mark(detail.draft!!.head, PodPickMarks("pack-a", keeps = listOf(copy(15).id), burns = listOf(copy(0).id)))
         }
         settle()
-        compose.onNodeWithTag("pod-pick-pass").assertTextEquals("Pass 2/6 · Pick 1 of 11 · Burn 1")
-        shot("custom-booster-pick", "A Custom booster draft on the second pass of a pack passed by Bob: the line above the trays " +
-            "says what this pass asks (\"Pass 2/6 · Pick 1 of 11 · Burn 1\"), Cinder Whelp marked keep and Dawnward Sentry marked burn.")
+        compose.onNodeWithTag("pod-pick-orientation").assertTextEquals("Round 1/3 · Pass 2/6 · from Bob")
+        compose.onNodeWithTag("pod-pick-pass").assertDoesNotExist()
+        shot("custom-booster-pick", "A Custom booster draft on the second pass of a pack passed by Bob: the first line above the " +
+            "cards names it (\"Round 1/3 · Pass 2/6 · from Bob\"), Cinder Whelp marked keep and Dawnward Sentry marked burn, " +
+            "the trays below saying the pick and burn counts.")
+    }
+
+    // DRF-261, DRF-045, DRF-057 (owner 2026-11-22): on a pack's last pass only the pick is chosen; every other card burns by itself
+    @Test fun customBoosterLastPass() {
+        val settings = DraftSettings.customBooster().copy(passes = listOf(DraftPass(2, 1), DraftPass(1, 1), DraftPass(1, 1)))
+        val detail = boosterPick(settings, fourteen.take(6), pick = 3).copy(name = "Burn night")
+        show(opened(detail))
+        compose.runOnIdle { pods.mark(detail.draft!!.head, PodPickMarks("pack-a", keeps = listOf(copy(15).id))) }
+        settle()
+        compose.onNodeWithTag("pod-pick-orientation").assertTextEquals("Round 1/3 · Pass 3/3 · from Bob")
+        shot("custom-booster-last-pass", "A Custom booster draft on a pack's last pass, passed by Bob: Alice marked Cinder Whelp " +
+            "keep, and the other five cards show as automatic burns, red with 🔥, without her choosing them.")
     }
 
     // DRF-182, DRF-152, DRF-022

@@ -61,6 +61,9 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
     fun presenceChanged(change: org.asyncttwiz.server.activity.PresenceChange) { sockets.forEach { it.presence(change) } }
     /** LOB-138: a chat read cursor of [gameId] moved: every table showing it (both players' devices) asks for its read state. */
     fun chatReadChanged(gameId: String) { sockets.forEach { it.chatRead(gameId) } }
+    /** DRF-181, DRF-122: games changed outside a game request (pod challenges released by a deck submit, already committed):
+     * every table subscribed to one gets its head now, as at a heartbeat, instead of waiting up to 30 s. */
+    fun gamesChanged(gameIds: List<String>) { sockets.forEach { it.heads(gameIds) } }
     override fun close() {
         workers.shutdownNow()
         // toArray is weakly consistent; toList() can throw when a socket leaves between size() and next().
@@ -211,6 +214,12 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 send(GamePresenceUpdate(change.gameId, change.presence))
         }
         fun chatRead(gameId: String) { if (gameId in subscriptions) send(GameChatReadUpdate(gameId)) }
+        /** [gameIds]' heads to this socket, for those it is subscribed to ([gamesChanged]). */
+        fun heads(gameIds: List<String>) {
+            for (gameId in gameIds) if (gameId in subscriptions) dispatcher.submit(gameId) {
+                send(games.subscriptionHead(principal(), gameId, presence = true, engine = false))
+            }.whenComplete { _, failure -> if (failure != null) stop() }
+        }
         private fun send(message: GameServerMessage) = sendText(GameWire.encode(message))
         @Synchronized private fun sendText(text: String) {
             if (stopped) return

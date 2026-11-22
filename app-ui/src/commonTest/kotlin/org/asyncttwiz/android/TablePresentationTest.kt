@@ -228,8 +228,8 @@ class TablePresentationTest {
         }
     }
 
-    // TBL-002, TBL-143
-    @Test fun battlefieldGroupsHaveFixed42DpSlotsAndRotateAroundTheSameCenter() {
+    // TBL-002, TBL-143 (owner, 2026-11-22: every card on its row's bottom line, tapped or not)
+    @Test fun battlefieldGroupsHaveFixed42DpSlotsAndLieOnTheRowsBottomLine() {
         // The 1st and 3rd cards lie side by side in the upper band's row nearest the middle (the 2nd behind the 1st, TBL-004, TBL-140)
         val play = TableFixture.apart(TableFixture.play(board = 3))
         for (tapped in listOf(false, true)) {
@@ -239,7 +239,8 @@ class TablePresentationTest {
             assertEquals(42f, cards[1].bounds.x - cards[0].bounds.x, .001f)
             assertEquals(if (tapped) 2f else 14f, cards[1].bounds.x - cards[0].bounds.right, .001f)
             val upright = TableFixture.scene(play).items.single { it.cardId == cards[0].cardId }
-            assertEquals(upright.bounds.center, cards[0].bounds.center)
+            assertEquals(upright.bounds.center.x, cards[0].bounds.center.x, .001f)
+            assertEquals(upright.bounds.bottom, cards[0].bounds.bottom, .001f, "tapped or not, its bottom on the row's bottom line")
             assertEquals(56f, cards[0].footprint.height)
         }
     }
@@ -315,10 +316,14 @@ class TablePresentationTest {
                 assertTrue(cards[2].label.endsWith(", stack of 3, 1 untapped"), cards[2].label)
             }
         }
-        // A lone card, and a stack all of whose members are tapped, lie centred as before
+        // TBL-143 (owner 2026-11-22): a lone card, and a stack all of whose members are tapped, lie centred sideways and on the
+        // row's bottom line, where an upright card's bottom is, so every tapped card shares one line
         val all = TableFixture.play(board = 2).let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map { it.copy(tapped = true) })) }
         val cards = (0..1).map { n -> TableFixture.scene(all).items.single { it.cardId == "a/BATTLEFIELD/$n" } }
-        assertEquals(cards[1].footprint.center.y, cards[1].bounds.center.y, .01f)
+        val upright = TableFixture.scene(TableFixture.play(board = 2)).items.single { it.cardId == "a/BATTLEFIELD/1" }
+        assertEquals(cards[1].footprint.center.x, cards[1].bounds.center.x, .01f)
+        assertEquals(upright.bounds.bottom, cards[1].bounds.bottom, .01f)
+        assertEquals(cards[1].footprint.center.y + maxOf(cards[1].bounds.width, cards[1].bounds.height) / 2, cards[1].bounds.bottom, .01f)
         assertEquals(cards[0].bounds, cards[1].countCorner, "0/2")
     }
 

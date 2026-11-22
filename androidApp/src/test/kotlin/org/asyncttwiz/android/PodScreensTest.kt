@@ -516,7 +516,7 @@ class PodScreensTest {
         assertEquals("Waiting for Bob · Round 3 of 6", podWaitingText(early, alice.accountId))
     }
 
-    // DRF-057
+    // DRF-057, DRF-263
     @Test fun pickOrientationNamesRoundPickAndWhoPassedThePack() {
         val pack = org.asyncttwiz.protocol.DraftPrivatePack("pack", 1, emptyList(), pick = 2, passedBy = bob.accountId)
         val detail = PodDetail("pod", "Pod", PodPhase.DRAFTING, alice, DraftSettings(), PodSource("Cube", 540),
@@ -528,5 +528,10 @@ class PodScreensTest {
         val departed = detail.copy(draft = detail.draft!!.copy(head = pack.copy(passedBy = "gone")))
         assertEquals("Round 2/6 · Pick 2 · from another player", podPickOrientationText(departed))
         assertNull(podPickOrientationText(detail.copy(draft = detail.draft!!.copy(head = null))))
+        // DRF-057, DRF-263 (owner 2026-11-22): a Custom booster's line names the pack's pass of its passes in place of the pick
+        val custom = detail.copy(settings = DraftSettings.customBooster(), draft = detail.draft!!.copy(rounds = 3))
+        assertEquals("Round 2/3 · Pass 2/7 · from Bob", podPickOrientationText(custom))
+        assertEquals("Round 2/3 · Pass 1/7 · your pack",
+            podPickOrientationText(custom.copy(draft = custom.draft!!.copy(head = pack.copy(pick = 1, passedBy = null)))))
     }
 }

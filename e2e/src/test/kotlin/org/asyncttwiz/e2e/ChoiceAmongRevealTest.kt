@@ -28,14 +28,14 @@ class ChoiceAmongRevealTest : E2e() {
     private val inChoice = hasAnyAncestor(hasContentDescription("Automatum choice"))
     private val inReveal = hasAnyAncestor(hasContentDescription("Reveal"))
 
-    /** A game where Alice holds [spell] and her top [n] cards hold an Ember Cub and a card that isn't a creature; both phones at her Main 1.
+    /** A game where Alice holds [spell] and her top [n] cards hold an Ember Cub and a Mountain; both phones at her Main 1.
      * Bob holds Mountains and Storm Sparks, which he can't cast in her first turn, so his phone passes by itself; hers assumes his passes
      * (no player plays along for him: that would tap his reveal's OK). */
     private fun start(spell: TestCard, n: Int = 4) {
         startGame(TestDeck("Choices", listOf(TestCards.mountain to 14, spell to 13, TestCards.cub to 13)),
             TestDeck("Sparks", listOf(TestCards.mountain to 20, TestCards.spark to 20)),
             aliceSettings = PlaySettings(assume = AssumeResolves.Always), deal = { a, _ ->
-            spell.name in hand(a) && library(a).take(n).let { top -> "Ember Cub" in top && top.any { it != "Ember Cub" } }
+            spell.name in hand(a) && library(a).take(n).let { top -> "Ember Cub" in top && "Mountain" in top }
         })
         bothOpen()
         bothKeep(bobAway = false)

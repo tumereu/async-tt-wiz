@@ -22,6 +22,9 @@ Playtest notes (owner, 2026-11-22):
 - Autotap keeps your options open: within each tier of STK-154 (sources with no downsides always first), it pays the way that leaves the most of your spells and abilities still payable with the untapped sources left (your hand, your cards from other zones, your permanents' abilities, whatever their timing; mana only, no trial casts, fast enough for the raised card's outline, ZON-101); ties keep today's order (STK-154, ZON-101).
 - Phone battlefield: the battlefield's view has padding around it on the phone; make that area part of the view (cards pan and show into it), with no change to where anything is placed (TBL-005, SYS-041).
 
+- A game's chat before it starts: the game's prepare screen gets a chat button in its header with the unread dot (LOB-163), opening the same chat panel (Game and Pod tabs in a pod game, LOB-145); the games list's row menu Chat (LOB-148, LOB-173) also offers it for games in setup or preparing, not only in play. The server takes chat messages before the game starts if it doesn't yet.
+- Type icons on hand cards too (TBL-233, TBL-236): your hand's cards (and your hand row's cards from other zones) show their type icons as battlefield cards do, and the Stack's cards too; instants get a lightning bolt and sorceries a swirl (new icons, also wherever TBL-233's icons show). The zone badge of a card from another zone (ZON-106) moves from the bottom-left corner to the bottom-right corner of the art box, just above the P/T row, so the type icons sit in the same place on every card.
+
 ### Earlier
 
 Desktop playtest notes (owner, 2026-11-14): high priority.

@@ -463,11 +463,17 @@ private fun FlowPayBar(flows: SharedFlowController, flow: SharedShown, play: Tab
             !org.asyncttwiz.automatum.ManaPicks.usesObjects(group.first()) }
         for (group in others) {
             val used = flows.mana.firstOrNull { it in group }
-            val label = org.asyncttwiz.automatum.ManaWays.label(used ?: group.first())
-            FilterChip(used != null, { flows.toggleMana(group) },
-                modifier = Modifier.padding(start = 4.dp).semantics { contentDescription = "Mana source $label${if (used != null) ", chosen" else ""}" },
-                label = { CardText(label, style = androidx.compose.ui.text.TextStyle(fontSize = 12.sp)) },
-                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AutomatumViolet.copy(alpha = .18f)))
+            val use = used ?: group.first()
+            // STK-049 (owner problem report 2026-11-22): a pool mana is its symbol in its colour on a small card, as the sources are
+            if (use is arcanum.engine.decision.ManaUse.Pool) PoolManaTile(poolManaLook(flows, play, payment.player,
+                LocalChoiceFrame.current.viewer, use), used != null, { flows.toggleMana(group) }, Modifier.padding(start = 4.dp, top = 2.dp, bottom = 2.dp))
+            else {
+                val label = org.asyncttwiz.automatum.ManaWays.label(use)
+                FilterChip(used != null, { flows.toggleMana(group) },
+                    modifier = Modifier.padding(start = 4.dp).semantics { contentDescription = "Mana source $label${if (used != null) ", chosen" else ""}" },
+                    label = { CardText(label, style = androidx.compose.ui.text.TextStyle(fontSize = 12.sp)) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AutomatumViolet.copy(alpha = .18f)))
+            }
         }
         if (decision is Decision.May) BarButton("Don't pay", Icons.Outlined.Close) {
             AppLog.info("decision", "Don't pay tapped for ${decision.id.value}")

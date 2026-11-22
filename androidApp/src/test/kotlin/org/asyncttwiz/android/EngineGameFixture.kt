@@ -160,6 +160,10 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val UNVEILING = "Ember Unveiling"
         /** STK-224: a free sorcery looking at its caster's top four cards, a creature card among them to reveal. */
         const val GLIMPSE = "Ember Glimpse"
+        /** STK-228: a free green mana rock, "{T}: Add {G}." (green pool mana beside a Shard's red). */
+        const val MOSS = "Moss Shard"
+        /** STK-228: a {2} "Draw a card." sorcery: any two mana of the pool pay it. */
+        const val PENNY = "Hedge Penny"
     }
     private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
@@ -194,6 +198,9 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("foresight", Choices.FORESIGHT, "Instant", "Reveal the top card of your library and put that card into your hand."),
         free("kit", Choices.KIT, "Creature — Elemental Fox", KIT_TEXT, "1", "1"),
         free("shard", Choices.SHARD, "Artifact", "{T}: Add {R}."),
+        free("moss", Choices.MOSS, "Artifact", "{T}: Add {G}."),
+        Invented(DefinitionFace("penny", Choices.PENNY, typeLine = "Sorcery", manaCost = "{2}", rulesText = "Draw a card."),
+            OracleCard(Choices.PENNY, "{2}", "Sorcery", "Draw a card.")),
         free("altar", Choices.ALTAR, "Artifact", "{T}, Sacrifice another creature: Each opponent loses 2 life and you gain 2 life."),
         free("pup", Choices.PUP, "Creature — Elemental Dog", "", "1", "1"),
         free("hauberk", Choices.HAUBERK, "Artifact — Equipment", "Equipped creature gets +4/+2.\nEquip—Sacrifice a creature."),

@@ -382,3 +382,4 @@ number	item	screenshot	catalog	decisions	sequence
 557	Hand card types: a hand of every kind with its type icons (instant a bolt, sorcery a swirl) and the P/T, loyalty or defense in the bottom row	hand/types-pt.png	TBL-239 TBL-233 TBL-021		Hand card types
 558	Hand card types: the same hand at the smallest Hand card size	hand/types-pt-small.png	TBL-239		Hand card types
 559	Hand card types: full-picture hand cards with their type icons on the white chip	hand/types-full-picture.png	TBL-239 TBL-236		Hand card types
+560	Payment with mana in the pool: each mana a small card with its symbol in its colour, the red one chosen	cast-panel/pool-mana.png	STK-228 STK-157 STK-024	ManaPayment

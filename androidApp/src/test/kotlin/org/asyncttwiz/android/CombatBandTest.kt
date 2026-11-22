@@ -380,6 +380,148 @@ class CombatBandTest {
 
     private fun bobName() = listOf(k.f.game.inviter, k.f.game.recipient).single { it.accountId == k.f.b }.username
 
+    /** The table drawn turns its device's plays shown and combat holds on (its "Show plays and combat" time); a clip drawing the
+     * boards itself turns them off and on ([holdsByTheTables]) as theWholeCombatFromBothPhones's pictures of both tables do, so
+     * both devices play on as there: no holds until after Alice's attack. */
+    private fun holdsByTheClip() {
+        k.alice.showPlays(false)
+        k.bob.showPlays(false)
+    }
+
+    /** After Alice's attack both devices hold the combat's moments, as once theWholeCombatFromBothPhones has drawn both tables. */
+    private fun holdsByTheTables() {
+        k.alice.showPlays(true)
+        k.bob.showPlays(true)
+    }
+
+    // CMB-050, CMB-090, HIS-113, CMB-034, CMB-040, CMB-029 (owner, 2026-11-21: the combat's pictures as clips): the gallery clip of the whole
+    // combat on Alice's phone, as theWholeCombatFromBothPhones pictures it: her three staged Cubs attack and the attack holds, her
+    // wait for Bob's blocks in assume mode, his block shown with the damage preview, her Next, the damage's hold on the band, and
+    // her second main phase with the band closing
+    @Test fun clipOfTheWholeCombatOnAlicesPhone() {
+        val cubs = aliceStagedThree()
+        val blocker = k.atw(k.field("Ember Cub", k.other).single())
+        val bobScope = TableActionScope(k.f.game.id, k.bob.play().playId)
+        k.scenario.confirmStops[k.f.b] = false
+        val board = androidx.compose.runtime.mutableStateOf(k.alice.play())
+        renderLive(board)
+        holdsByTheClip()
+        val f = CLIP_STEP_MILLIS
+        compose.captureClip("$SCREENSHOTS/clips/combat-alice.webp",
+            "Alice's phone: she attacks Bob with her three staged Ember Cubs and the attack holds in the band, then she waits for his blocks with her band in assume mode; his Cub blocks her first, the damage preview shows, she taps Next and the damage holds on the band (Bob's chip splashing his 4, a skull with its 2 on each Cub that fought) before her second main phase, where the band closes and the dead Cubs go to the graveyards.",
+            millis = 128 * f) { at ->
+            when (at) {
+                CLIP_LEAD_MILLIS -> {
+                    assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (3)")
+                    k.playOn("Bob's stop at Alice's attack", bobActs = false) { k.bob.device.status is GameDevice.Status.Stopped }
+                    holdsByTheTables()
+                    // Her own attack holds the view on the board at its event (HIS-113)
+                    val declaration = k.alice.shown!!.line.last { e -> e.engine?.steps?.any { it.input is Input.DeclareAttackers } == true }
+                    board.value = assertNotNull(k.alice.reviewPlay(declaration.id), "the board at Alice's attack")
+                }
+                31 * f -> board.value = k.alice.play().let { b -> k.routes.assuming()?.board(b) ?: b }
+                48 * f -> {
+                    (k.bob.device.status as GameDevice.Status.Stopped).let { k.bob.act(it.assumed) }
+                    k.playOn("Bob declaring blockers", bobActs = false) { Engine.options(k.bob.device.model.engine, k.other, org.asyncttwiz.protocol.game.EnginePreferences.of(k.bob.device.model.engine)).any { it is Input.DeclareBlockers } }
+                    k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
+                    val pair = k.bob.play().board.combat!!.pairs.first { p -> p.attackers.any { it.sourceId == cubs.first() } }.id
+                    assertTrue(k.bobToolkit.block(k.bob.play(), blocker, pair), "Bob's Cub blocks: ${k.bobToolkit.error}")
+                    k.settle(bobActs = false)
+                    assertTrue(k.bobToolkit.automatumStep(TableActionIntent.Next(bobScope)), "Block (1)")
+                    k.playOn("Alice's move after the blocks", bobActs = false) {
+                        k.alice.device.status == GameDevice.Status.YourMove && k.state().combat?.blockers?.isNotEmpty() == true
+                    }
+                    k.toolkit.combat.show(k.alice.play(), AutomatumBoards.combat(k.alice.play()))
+                    board.value = k.alice.play()
+                }
+                73 * f -> {
+                    assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Alice passes")
+                    k.settle(bobActs = false)
+                    assertTrue(k.alice.assume() !is GameDevice.Acted.Refused, "Bob's pass assumed")
+                    val aliceDealt = k.alice.transition?.steps.orEmpty().lastOrNull { it.damageDealt }
+                    k.playOn("the damage dealt on Alice's phone", bobActs = false) { k.state().turn.step == TurnStep.CombatDamage }
+                    board.value = assertNotNull(aliceDealt ?: step(k.f.a) { it.damageDealt }, "the damage's hold board on Alice's phone")
+                }
+                98 * f -> {
+                    k.playOn("Alice's second main phase") {
+                        for (game in listOf(k.alice, k.bob)) game.shown?.combatHold?.let { game.dismissCombatHold(it) }
+                        val main2 = k.alice.device.status == GameDevice.Status.YourMove && k.state().turn.step == TurnStep.PostcombatMain
+                        if (!main2 && k.alice.device.status == GameDevice.Status.YourMove) k.toolkit.automatumStep(TableActionIntent.Next(k.scope))
+                        main2
+                    }
+                    board.value = k.alice.play()
+                }
+            }
+        }
+        assertEquals(16, k.state().player(k.other).life, "Bob at 16")
+    }
+
+    // CMB-050, CMB-090, HIS-113, CMB-034, CMB-031, CMB-029 (owner, 2026-11-21: the combat's pictures as clips): the gallery clip of the same
+    // combat on Bob's phone: Alice's three Cubs attack and the band opens on his table, his stop, then his own move: he declares
+    // blockers, his Cub blocks her first Cub and he taps Block; his wait for her, the damage's hold mirrored on his side, and her
+    // second main phase with the band closing
+    @Test fun clipOfTheWholeCombatOnBobsPhone() {
+        val cubs = aliceStagedThree()
+        val blocker = k.atw(k.field("Ember Cub", k.other).single())
+        val bobScope = TableActionScope(k.f.game.id, k.bob.play().playId)
+        k.scenario.confirmStops[k.f.b] = false
+        val board = androidx.compose.runtime.mutableStateOf(k.bob.play())
+        renderLive(board, k.f.b)
+        holdsByTheClip()
+        val f = CLIP_STEP_MILLIS
+        compose.captureClip("$SCREENSHOTS/clips/combat-bob.webp",
+            "Bob's phone: Alice attacks him with three Ember Cubs and the band opens between the battlefields, his phone stopping there; then he declares blockers, puts his Cub on her first Cub's lane and taps Block, waits for her with the damage preview on the band, and the damage holds mirrored on his side (his chip splashing his 4, a skull with its 2 on each Cub that fought) before her second main phase, where the band closes.",
+            millis = 130 * f) { at ->
+            when (at) {
+                CLIP_LEAD_MILLIS -> {
+                    assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (3)")
+                    k.playOn("Bob's stop at Alice's attack", bobActs = false) { k.bob.device.status is GameDevice.Status.Stopped }
+                    holdsByTheTables()
+                    board.value = k.bob.play()
+                }
+                31 * f -> {
+                    (k.bob.device.status as GameDevice.Status.Stopped).let { k.bob.act(it.assumed) }
+                    k.playOn("Bob declaring blockers", bobActs = false) { Engine.options(k.bob.device.model.engine, k.other, org.asyncttwiz.protocol.game.EnginePreferences.of(k.bob.device.model.engine)).any { it is Input.DeclareBlockers } }
+                    k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
+                    board.value = k.bob.play()
+                }
+                48 * f -> {
+                    val pair = k.bob.play().board.combat!!.pairs.first { p -> p.attackers.any { it.sourceId == cubs.first() } }.id
+                    assertTrue(k.bobToolkit.block(k.bob.play(), blocker, pair), "Bob's Cub blocks: ${k.bobToolkit.error}")
+                    k.settle(bobActs = false)
+                    board.value = k.bob.play()
+                }
+                64 * f -> {
+                    assertTrue(k.bobToolkit.automatumStep(TableActionIntent.Next(bobScope)), "Block (1)")
+                    k.playOn("Alice's move after the blocks", bobActs = false) {
+                        k.alice.device.status == GameDevice.Status.YourMove && k.state().combat?.blockers?.isNotEmpty() == true
+                    }
+                    k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
+                    board.value = k.bob.play()
+                }
+                80 * f -> {
+                    assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Alice passes")
+                    k.settle(bobActs = false)
+                    assertTrue(k.alice.assume() !is GameDevice.Acted.Refused, "Bob's pass assumed")
+                    k.playOn("the damage dealt on Alice's phone", bobActs = false) { k.state().turn.step == TurnStep.CombatDamage }
+                    k.scenario.confirmStops[k.f.b] = true
+                    k.playOn("the damage dealt on Bob's phone", bobActs = false) { k.scenario.shown[k.f.b].orEmpty().any { t -> t.steps.any { it.damageDealt } } }
+                    board.value = assertNotNull(step(k.f.b) { it.damageDealt }, "the damage's hold board on Bob's phone")
+                }
+                105 * f -> {
+                    k.playOn("Alice's second main phase") {
+                        for (game in listOf(k.alice, k.bob)) game.shown?.combatHold?.let { game.dismissCombatHold(it) }
+                        val main2 = k.alice.device.status == GameDevice.Status.YourMove && k.state().turn.step == TurnStep.PostcombatMain
+                        if (!main2 && k.alice.device.status == GameDevice.Status.YourMove) k.toolkit.automatumStep(TableActionIntent.Next(k.scope))
+                        main2
+                    }
+                    board.value = k.bob.play()
+                }
+            }
+        }
+        assertEquals(16, k.bob.device.model.engine.player(k.other).life, "Bob at 16 on his phone")
+    }
+
     // CMB-001, CMB-051, CMB-013, CMB-028, CMB-066, CMB-068 (owner playtest 2026-11-06): while Alice declares attackers with none staged the band
     // stays collapsed at its chip row and shows a chip for Bob (crossed swords, his round avatar, his name), the active
     // target filled violet; the creatures that may attack glow red-orange; a tap on the chip keeps its target active and
@@ -474,20 +616,22 @@ class CombatBandTest {
             "Alice tapped her ready Ember Cub: the band opened by itself between the battlefields, pushing Bob's battlefield up while hers stayed where it was, with the Cub's copy at battlefield size in the lane under Bob's chip, his life on the chip after his name, and the main button reading Attack (1).")
     }
 
-    /** Alice's table as [render] draws it, drawing whatever board [board] holds, so a clip sees the table animate from one to
-     * the next; the test clock stopped. */
-    private fun renderLive(board: androidx.compose.runtime.MutableState<TableBoard>) {
+    /** [viewer]'s table (Alice's by default) as [render] draws it, drawing whatever board [board] holds, so a clip sees the table
+     * animate from one to the next; the test clock stopped. */
+    private fun renderLive(board: androidx.compose.runtime.MutableState<TableBoard>, viewer: String = k.f.a) {
+        val routes = if (viewer == k.f.a) k.routes else k.bobRoutes
+        val toolkit = if (viewer == k.f.a) k.toolkit else k.bobToolkit
         compose.mainClock.autoAdvance = false
         compose.setContent {
             MaterialTheme {
                 NoRipples {
-                    CompositionLocalProvider(LocalEngineRoutes provides k.routes) {
+                    CompositionLocalProvider(LocalEngineRoutes provides routes) {
                         Box(Modifier.fillMaxSize()) {
                             val play = board.value
-                            TableSurface(k.f.game, play, k.f.a, false, Modifier.fillMaxSize(), connected = true,
-                                onIntent = k.toolkit::handle, toolkit = k.toolkit,
-                                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { k.routes.undo() }, controlsConnected = true,
-                                    waitingLine = k.routes.waitingLine(play)))
+                            TableSurface(k.f.game, play, viewer, false, Modifier.fillMaxSize(), connected = true,
+                                onIntent = toolkit::handle, toolkit = toolkit,
+                                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { routes.undo() }, controlsConnected = true,
+                                    waitingLine = routes.waitingLine(play)))
                         }
                     }
                 }

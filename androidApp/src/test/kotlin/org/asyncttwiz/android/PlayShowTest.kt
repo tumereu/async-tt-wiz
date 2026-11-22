@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -243,7 +245,8 @@ class PlayShowTest {
     }
 
     // HIS-134, HIS-135, HIS-136: the gallery clip of a trigger appearing: Bob's cycling ability and its trigger fly in together
-    // and pile up, the trigger shows on top with its line and flies to the Stack, then the ability shows
+    // and pile up, the trigger shows on top with its line and flies to the Stack, then the ability shows; from Alice's table before
+    // the cycling (owner, 2026-11-21: a clip starts one step before its animation)
     @Test fun clipOfATriggerAppearing() {
         val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(bobCards = listOf(Choices.REASON, "Mountain"))))
         kit.opening()
@@ -251,13 +254,32 @@ class PlayShowTest {
         kit.alice.showPlays(true)
         kit.scenario.confirmStops[kit.f.a] = false
         kit.bobCycles(Choices.REASON)
+        // Bob waits in his Main 1 with his Mountain out until the clip cycles
+        val plan = assertNotNull(kit.bobMain)
+        var cycle = false
+        kit.bobMain = { s -> if ((s.turn.landsPlayed[kit.other] ?: 0) == 0 || cycle) plan(s) else true }
         assertTrue(kit.toolkit.automatumStep(TableActionIntent.End(kit.scope)), "End turn")
-        kit.playOn("Bob's cycling shown on Alice's table", rounds = 40) { kit.alice.shown?.show != null }
+        kit.playOn("Bob's Mountain on Alice's table", rounds = 40) { kit.field("Mountain", kit.other).isNotEmpty() }
+        var version by androidx.compose.runtime.mutableIntStateOf(0)
         compose.mainClock.autoAdvance = false
-        render(kit, flyIn = false)
+        compose.setContent {
+            MaterialTheme { NoRipples {
+                CompositionLocalProvider(LocalEngineRoutes provides kit.routes) {
+                    Box(Modifier.fillMaxSize()) { StackAnimatedTable(kit, Modifier.fillMaxSize(), version = version) }
+                }
+            } }
+        }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
         compose.captureClip("$SCREENSHOTS/clips/trigger-appears.webp",
-            "Bob cycled Shattered Reason: on Alice's table his cycling ability and its cycling trigger fly in from his graveyard together and pile up in the middle, the trigger on top with its line; it flies to the Stack and the cycling ability under it shows next.",
-            millis = PLAY_SHOW_FLIGHT_MILLIS + 50L + HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + PLAY_SHOW_FLIGHT_MILLIS + 900L)
+            "Bob, his Mountain out, cycles Shattered Reason: on Alice's table his cycling ability and its cycling trigger fly in from his graveyard together and pile up in the middle, the trigger on top with its line; it flies to the Stack and the cycling ability under it shows next.",
+            millis = CLIP_LEAD_MILLIS + PLAY_SHOW_FLIGHT_MILLIS + 50L + HistoryPlaybackPreferences.DEFAULT_SHOW_PLAYS_MILLIS + PLAY_SHOW_FLIGHT_MILLIS + 900L) { at ->
+            if (at == CLIP_LEAD_MILLIS) {
+                cycle = true
+                kit.playOn("Bob's cycling shown on Alice's table", rounds = 40) { kit.alice.shown?.show != null }
+                version++
+            }
+        }
     }
 
     // HIS-112, HIS-136, LOB-082: at 0 s ("Off") nothing shows: Bob's Spark goes to the Stack and resolves on Alice's table as before

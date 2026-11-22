@@ -50,6 +50,10 @@ private fun writeCaption(path: String, caption: String, extension: String = ".pn
 /** A clip's frames are this far apart on the test clock: three 16 ms Compose frames, about 21 frames a second. */
 const val CLIP_STEP_MILLIS = 48L
 
+/** How long a clip shows what was there before the action it shows begins (owner, 2026-11-21: a clip starts one step earlier
+ * than its animation, so its timing can be judged): six frames; the test acts at this time ([captureClip]'s onFrame). */
+const val CLIP_LEAD_MILLIS = 6 * CLIP_STEP_MILLIS
+
 /** How long a clip holds its last frame before it loops, so its end state can be read. */
 private const val CLIP_END_HOLD_MILLIS = 1_200L
 

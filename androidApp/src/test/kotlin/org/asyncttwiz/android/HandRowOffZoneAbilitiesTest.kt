@@ -101,7 +101,8 @@ class HandRowOffZoneAbilitiesTest {
         assertEquals(listOf(Triple("Flashback", "{R}{R}", false), Triple("Activate", "{R}", true)),
             assertNotNull(toolkit.hand.chips).chips.map { Triple(it.name, it.cost, it.affordable) })
         render()
-        compose.onNodeWithContentDescription("Ember Reprise, owner Alice, untapped, from graveyard").assertExists()
+        // TBL-239: read aloud with its types
+        compose.onNodeWithContentDescription("Ember Reprise, owner Alice, untapped, Sorcery, from graveyard").assertExists()
         captureShot("$SCREENSHOTS/hand/hand-row-ability-chips.png",
             "Alice's Ember Reprise lies in her graveyard with one Mountain untapped: tapped in her hand row it is raised with a greyed Flashback {R}{R} chip and a live chip for its {R} ability that returns it to her hand.")
         assertTrue(toolkit.hand.chip(1), "the ability's chip")

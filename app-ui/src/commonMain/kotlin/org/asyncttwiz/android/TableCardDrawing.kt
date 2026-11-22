@@ -142,15 +142,16 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         drawPath(star, AutomatumViolet)
     }
     /**
-     * ZON-079 (owner, 2026-11-12): a card of the hand row from another zone: its pile's zone as a badge in its bottom-left
-     * corner (the empty pile's glyph, white in a dark teal disc ringed in white).
+     * ZON-079 (owner, 2026-11-12): a card of the hand row from another zone: its pile's zone as a badge in its top-right corner
+     * (owner, 2026-11-22: clear of the bottom row's type icons and P/T, TBL-239) (the empty pile's glyph, white in a dark teal
+     * disc ringed in white).
      */
     fun DrawScope.handZoneBadge(i: TableItem, x: Float, y: Float, cardWidth: Float, cardHeight: Float) {
         val zone = i.handZone ?: return
         val z = cardWidth / 28f
         val r = 7.5f * maxOf(1f, z * .8f)
         // Inside the room its outline leaves around the card (drawing is clipped there)
-        drawZoneBadge(zone, x + r - 2f, y + cardHeight - r + 2f, r, density)
+        drawZoneBadge(zone, x + cardWidth - r + 2f, y + r - 2f, r, density)
     }
     /**
      * TBL-233 (owner, 2026-11-21): the card's types as small icons ([CardTypeIcons]) at its bottom left, from [left] up to [right]
@@ -300,7 +301,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         fun chipIcons(badge: Boolean) {
             val inset = if (i.token) cardWidth * .22f else 1.5f * z
             val right = minOf(if (badge) cornerBadgeLeft() else cardWidth, damageLeft(i, corner, z, cardWidth) ?: cardWidth) - z
-            typeIcons(i, z, inset, right, typeIconChipCenter(cardHeight, z), chip = true, rowHeight = cardHeight)
+            typeIcons(i, tz, inset, right, typeIconChipCenter(cardHeight, tz), chip = true, rowHeight = cardHeight)
         }
         fun cornerBadge() {
             if (i.corner.isEmpty()) return
@@ -380,13 +381,14 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
         fittedText(corner, x + cardWidth - titleInset, y + cardHeight - 3 * tz, cardWidth - 2 * titleInset, right = true)
         paint.color = previousColor
-        // TBL-233: the type icons left of the P/T (and of the damage badge) on the bottom row
+        // TBL-233: the type icons left of the P/T (and of the damage badge) on the bottom row, sized with its text (WEB-022: on
+        // the desktop hand's large cards no larger than the P/T)
         if (i.cardTypes.isNotEmpty()) {
-            val cornerWidth = if (corner.isEmpty()) 0f else minOf(cache.measure(corner) / density, cardWidth - 2 * titleInset) + 1.5f * z
+            val cornerWidth = if (corner.isEmpty()) 0f else minOf(cache.measure(corner) / density, cardWidth - 2 * titleInset) + 1.5f * tz
             val right = minOf(cardWidth - titleInset - cornerWidth, (damageLeft(i, corner, z, cardWidth) ?: cardWidth) - .5f * z)
             // a token's cut corner leaves room nearer its edge at the icons' height than at its title's
             val left = if (i.token) cardWidth * .16f else titleInset
-            typeIcons(i, z, left, right, (artEnd + cardHeight) / 2, chip = false, rowHeight = cardHeight - artEnd)
+            typeIcons(i, tz, left, right, (artEnd + cardHeight) / 2, chip = false, rowHeight = cardHeight - artEnd)
         }
         crewLine()
         damageBadge()

@@ -73,6 +73,10 @@ class HandRowOffZoneTest {
         val flare = flareInGraveyard()
         val item = rowItem(flare)
         assertEquals(PlayZone.GRAVEYARD, item.handZone)
+        // TBL-239 (owner, 2026-11-22): it shows the bottom row's type icons as the hand's cards do (its badge at its top right)
+        val play = kit.alice.play()
+        assertEquals(listOf("Sorcery"), TablePresentation.scene(kit.f.game, play, kit.f.a, 412f, 892f, false,
+            computed = assertNotNull(play.values).computed, handRow = HandRow.cards(play, kit.f.a)).items.single { it.id == "handRow/$flare" }.cardTypes)
         val divider = assertNotNull(kit.scene().items.single { it.kind == TableItemKind.HAND && it.owner == kit.f.a }.handDivider, "a divider")
         assertTrue(divider < item.bounds.x, "the divider before it")
         assertEquals(PlayZone.HAND, item.zone)
@@ -81,9 +85,9 @@ class HandRowOffZoneTest {
         assertTrue(flare in kit.pile(PlayZone.GRAVEYARD).cards, "its pile still holds it")
         assertTrue(flare in toolkit.playable(kit.alice.play()), "it glows: castable now")
         render()
-        compose.onNodeWithContentDescription("Ember Flare, owner Alice, untapped, from graveyard").assertExists()
+        compose.onNodeWithContentDescription("Ember Flare, owner Alice, untapped, Sorcery, from graveyard").assertExists()
         captureShot("$SCREENSHOTS/hand/hand-row-flashback.png",
-            "Alice cast her Ember Flare and it went to her graveyard: with flashback it shows at the right end of her hand row after a thin divider, with a Graveyard badge, glowing because her untapped Mountain can pay its flashback cost.")
+            "Alice cast her Ember Flare and it went to her graveyard: with flashback it shows at the right end of her hand row after a thin divider, with a Graveyard badge at its top right and its sorcery icon at its bottom left, glowing because her untapped Mountain can pay its flashback cost.")
         kit.tap(rowItem(flare))
         assertEquals(flare, toolkit.hand.raised, "raised as a hand card")
         assertEquals(listOf("Flashback" to "{R}"), assertNotNull(toolkit.hand.chips).chips.map { it.name to it.cost })

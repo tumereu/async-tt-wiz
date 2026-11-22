@@ -19,9 +19,10 @@ import kotlin.test.assertTrue
  * there as a hand card is, its chips included; the other player's table shows no such card.
  */
 class HandRowOffZoneTest : E2e() {
-    private val inRow get() = "Ember Flare, owner ${alice.name}, untapped, from graveyard"
-    private val ghoulInRow get() = "Ember Ghoul, owner ${alice.name}, untapped, from graveyard"
-    private val repriseInRow get() = "Ember Reprise, owner ${alice.name}, untapped, from graveyard"
+    // TBL-239 (owner, 2026-11-22): a hand row card from another zone reads its types (and a creature's P/T) aloud, as hand cards do
+    private val inRow get() = "Ember Flare, owner ${alice.name}, untapped, Sorcery, from graveyard"
+    private val ghoulInRow get() = "Ember Ghoul, owner ${alice.name}, untapped, Creature, 2/2, from graveyard"
+    private val repriseInRow get() = "Ember Reprise, owner ${alice.name}, untapped, Sorcery, from graveyard"
 
     // ZON-079, ZON-105, ZON-107, CR 702.34a: Alice casts her Ember Flare from her hand, then from her graveyard by its flashback through her hand
     // row: two taps, Autotap tapping her Mountain; it is exiled and she gained 2 life twice. ZON-136: meanwhile Bob's table lists it

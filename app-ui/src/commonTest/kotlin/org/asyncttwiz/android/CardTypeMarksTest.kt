@@ -16,9 +16,9 @@ class CardTypeMarksTest {
         assertEquals(listOf("Land"), CardTypeIcons.fit(listOf("Kindred", "Land"), room = 12f, step = 6f), "kindred has no icon")
     }
 
-    // TBL-233: every type a permanent can have but kindred has its icon (drawn in the screenshot tests)
-    @Test fun everyPermanentTypeHasAnIcon() {
-        assertEquals(setOf("Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"), CardTypeIcons.drawn)
+    // TBL-233, TBL-239: every card type but kindred has its icon, instant and sorcery too (drawn in the screenshot tests)
+    @Test fun everyCardTypeHasAnIcon() {
+        assertEquals(setOf("Artifact", "Battle", "Creature", "Enchantment", "Instant", "Land", "Planeswalker", "Sorcery"), CardTypeIcons.drawn)
     }
 
     // TBL-235: at most two tags; with more, the first and "+N"; with room for one only, the first with the count

@@ -4,12 +4,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 
 /**
- * TBL-233 (owner, 2026-11-21): a battlefield card's card types now as small icons at its bottom left, one per type, each a plain
- * silhouette: artifact a goblet, battle a shield, creature a paw, enchantment a starburst, land a mountain, planeswalker a spark.
+ * TBL-233 (owner, 2026-11-21): a card's card types now as small icons at its bottom left, one per type, each a plain silhouette:
+ * artifact a goblet, battle a shield, creature a paw, enchantment a starburst, land a mountain, planeswalker a spark; TBL-239
+ * (owner, 2026-11-22): instant a lightning bolt, sorcery a swirl.
  */
 object CardTypeIcons {
-    /** The card types that have an icon, by the engine's names; a permanent's other types (kindred) have none. */
-    val drawn: Set<String> = setOf("Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker")
+    /** The card types that have an icon, by the engine's names; the other types (kindred) have none. */
+    val drawn: Set<String> = setOf("Artifact", "Battle", "Creature", "Enchantment", "Instant", "Land", "Planeswalker", "Sorcery")
 
     /** The icons' ink. */
     val Ink = Color(0xff3c3c3c)
@@ -65,6 +66,24 @@ object CardTypeIcons {
                 "Battle" -> {
                     moveTo(x(-.82f), y(-.88f)); lineTo(x(.82f), y(-.88f)); lineTo(x(.82f), y(-.05f))
                     quadraticTo(x(.8f), y(.62f), x(0f), y(1f)); quadraticTo(x(-.8f), y(.62f), x(-.82f), y(-.05f)); close()
+                }
+                // TBL-239: a lightning bolt
+                "Instant" -> {
+                    moveTo(x(.22f), y(-1f)); lineTo(x(-.62f), y(.14f)); lineTo(x(-.06f), y(.14f)); lineTo(x(-.32f), y(1f))
+                    lineTo(x(.64f), y(-.24f)); lineTo(x(.06f), y(-.24f)); lineTo(x(.4f), y(-1f)); close()
+                }
+                // TBL-239: a swirl, a band winding in from its outer end, thinning as it goes
+                "Sorcery" -> {
+                    val steps = 48
+                    val turns = 1.55
+                    fun point(t: Float, inset: Float): Pair<Float, Float> {
+                        val angle = -kotlin.math.PI / 2 + t * turns * 2 * kotlin.math.PI
+                        val r = 1f - .78f * t - inset * (.3f - .18f * t)
+                        return x((r * kotlin.math.cos(angle)).toFloat()) to y((r * kotlin.math.sin(angle)).toFloat())
+                    }
+                    for (k in 0..steps) point(k / steps.toFloat(), 0f).let { (px, py) -> if (k == 0) moveTo(px, py) else lineTo(px, py) }
+                    for (k in steps downTo 0) point(k / steps.toFloat(), 1f).let { (px, py) -> lineTo(px, py) }
+                    close()
                 }
                 else -> return null
             }

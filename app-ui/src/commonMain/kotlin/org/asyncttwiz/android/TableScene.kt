@@ -531,10 +531,20 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             val attackGlow = if (runtime.reviewing || !writable) emptySet() else toolkit?.combat?.let {
                 it.attackable(play, accountId) + if (placingBlocks) it.blockable(play, accountId, assumingBlocks) else emptySet() }.orEmpty()
             // CMB-095, CMB-096 (owner playtest 2026-11-21): while the viewer declares attackers or blockers a chip says so, the
-            // combat band glows orange (owner 2026-11-21, E13) and the cards on their battlefield that can't take part are dimmed
+            // combat band glows orange (owner 2026-11-21, E13) and what can't take part is dimmed: the cards on their battlefield
+            // that can't, the other player's permanents and their hand (owner 2026-11-22, F2)
             val declaring = if (runtime.reviewing || !writable || LocalEngineRoutes.current?.mayAct() == false) null
                 else toolkit?.combat?.declaring(play, accountId)
             val declareDimmed = if (declaring == null) emptySet() else DeclaringLook.dimmed(play.board, accountId, attackGlow)
+            LaunchedEffect(declaring, declareDimmed) {
+                if (declaring == null) return@LaunchedEffect
+                val fields = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.associate { it.id to it.accountId }
+                val dimmedCards = play.board.cards.filter { it.id in declareDimmed }
+                val own = dimmedCards.count { fields[it.containerId] == accountId }
+                val others = dimmedCards.count { it.containerId in fields && fields[it.containerId] != accountId }
+                AppLog.info("combat", "${declaring.chip} on ${accountId.take(8)}'s table: dimmed ${dimmedCards.size - own - others} hand card(s), " +
+                    "$others of the other players' permanents, $own of their own (${dimmedCards.joinToString { it.id }})")
+            }
             // Read while drawing: its fade redraws the table and the band, recomposing nothing
             val declaringLevel = androidx.compose.animation.core.animateFloatAsState(if (declaring != null) 1f else 0f,
                 tween(DeclaringLook.FADE_MILLIS), label = "Declaring")
@@ -584,7 +594,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 val targetAlphas = if (declareDimmed.isEmpty()) pickAlphas else pickAlphas + frame.scene.items
                     .filter { it.battlefieldCard && it.cardId in declareDimmed }
                     .associate { it.id to minOf(pickAlphas[it.id] ?: 1f, DeclaringLook.DIMMED) }
-                val alphas = if (!handDim) targetAlphas else targetAlphas + frame.scene.items
+                // F2: and while declaring (its hand row's cards from other zones too)
+                val alphas = if (!handDim && declaring == null) targetAlphas else targetAlphas + frame.scene.items
                     .filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == accountId }
                     .associate { it.id to minOf(targetAlphas[it.id] ?: 1f, HAND_DIMMED) }
                 drawTable(frame.scene, accountId, play.board.turn.accountId, preview, alphas, artwork, drawCache,

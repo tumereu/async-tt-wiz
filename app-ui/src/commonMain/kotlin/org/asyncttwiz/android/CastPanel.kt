@@ -396,7 +396,9 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
                     is Decision.ManaPayment -> Unit
                     // A hand card's panel still choosing its way: Cast goes on to the targets (D1: or the permanents a cost picks)
                     else -> cast.pick?.let { CardText("Then ${it.prompt} on the table.", style = TextStyle(fontSize = 12.sp)) }
-                        ?: CompositionLocalProvider(LocalCastOk provides ok) { OpenSection(cast, cast, play, names, open) }
+                        ?: CompositionLocalProvider(LocalCastOk provides ok,
+                            // F1: an ability's text shows above its choice
+                            LocalChoiceFrame provides LocalChoiceFrame.current.copy(shownText = cast.abilityText)) { OpenSection(cast, cast, play, names, open) }
                 }
                 // STK-211 (owner 2026-11-19): the cards a mana ability's cost uses, chosen by the payer
                 cast.costPick?.let { pick -> CostPickSection(cast, play, names, pick) }
@@ -499,8 +501,10 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
     fun card(id: ObjectId?) = id?.let { choiceCardOf(flow, play, viewer, it) }
     when (decision) {
         is Decision.May -> Section(mayTitle(decision)) {
-            // STK-030 (owner playtest 2026-11-06): the sentence asked about and the cost, without holding anything
-            CardText(decision.text, Modifier.semantics { contentDescription = "Question: ${decision.text}" }, style = TextStyle(fontSize = 12.sp))
+            // STK-030 (owner playtest 2026-11-06): the sentence asked about and the cost, without holding anything; STK-181 (owner
+            // 2026-11-22, F1): not when it only repeats clauses of the ability text shown above it
+            if (!QuestionLine.repeats(decision.text, LocalChoiceFrame.current.shownText))
+                CardText(decision.text, Modifier.semantics { contentDescription = "Question: ${decision.text}" }, style = TextStyle(fontSize = 12.sp))
             decision.cost?.let { CostLine(it) }
             DockButtons {
                 ChoiceButton("No", Icons.Outlined.Close) { cast.answer(Answer.YesNo(false)) }

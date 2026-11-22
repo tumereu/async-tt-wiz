@@ -1,0 +1,1 @@
+mod: A choice no longer repeats a sentence of the ability text shown just above it.

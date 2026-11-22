@@ -18,6 +18,8 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -442,6 +444,7 @@ class CardStatesTest {
         val chip = scene.items.single { it.id == "life/${f.b}" }.stateChips.single { it.playable.isNotEmpty() }
         val name = f.initial.definitions.single { it.digest == grave.definition }.definition.faces.single().name
         assertEquals(listOf(name to "Graveyard", "The top card of their library" to "Library"), chip.playable.map { it.name to it.zone })
+        assertEquals(listOf(PlayZone.GRAVEYARD, PlayZone.LIBRARY), chip.playable.map { it.pile }, "each with its pile")
         assertEquals(null, chip.playable.last().artwork, "nothing of the hidden card")
         assertEquals("Bob may play 2 cards from other zones", chip.label)
         assertTrue(scene.items.single { it.id == "life/${f.a}" }.stateChips.none { it.playable.isNotEmpty() }, "none on Alice's own row")
@@ -450,13 +453,17 @@ class CardStatesTest {
         compose.onNode(hasTestTag(OtherPlayableChip.TAG)).performClick()
         compose.waitForIdle()
         compose.onNode(hasTestTag(OtherPlayableChip.LIST_TAG)).assertExists()
-        // Owner 2026-11-21 (E9, cards as cards): each a small card with its zone's word under it, the hidden one a card back
+        // Owner 2026-11-21 (E9, cards as cards): each a small card, read with its zone's word, the hidden one a card back; owner
+        // 2026-11-22 (F4): under each its zone's pile badge, as Alice's own hand row cards from other zones carry (ZON-106), no word
         compose.onNodeWithContentDescription("$name, Graveyard").assertExists()
         compose.onNodeWithContentDescription("The top card of their library, Library").assertExists()
+        compose.onNodeWithTag("$ZONE_BADGE_TAG/graveyard", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("$ZONE_BADGE_TAG/library", useUnmergedTree = true).assertExists()
+        compose.onNode(hasText("Graveyard") and hasAnyAncestor(hasTestTag(OtherPlayableChip.LIST_TAG)), useUnmergedTree = true).assertDoesNotExist()
         captureShot("$SCREENSHOTS/states/other-playable.png",
             "Bob may cast a card from his graveyard and play his library's top card: on Alice's table a round chip edged in cyan with " +
                 "\"▶2\" sits in his row of round chips; Alice tapped it and its list shows them as small cards: the graveyard card " +
-                "with \"Graveyard\" under it, and the library's top card as a card back with \"Library\" under it.")
+                "with the graveyard's tombstone badge under it, and the library's top card as a card back with the library's book badge under it.")
         // Holding the card Alice may see inspects it; the card back doesn't open
         compose.mainClock.autoAdvance = false
         val seen = compose.onNode(hasContentDescription(name) and hasAnyAncestor(hasTestTag(OtherPlayableChip.LIST_TAG)), useUnmergedTree = true)

@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import org.asyncttwiz.automatum.StateChip
+import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.automatum.StateGlyph
 import org.asyncttwiz.storage.ArtworkReference
 
@@ -48,9 +49,11 @@ import org.asyncttwiz.storage.ArtworkReference
  * what you may know: a card you can't see is a card back, named by where it is ("The top card of their library").
  */
 object OtherPlayableChip {
-    /** One listed card: its [name] (or where a hidden one is), its [zone] word, its picture ([artwork], none when hidden) and
-     * the ATW card ([cardId], null when hidden), for Inspect. */
-    data class Shown(val name: String, val zone: String, val artwork: ArtworkReference?, val cardId: String? = null)
+    /** One listed card: its [name] (or where a hidden one is), its [zone] word (read aloud), its picture ([artwork], none when
+     * hidden), the ATW card ([cardId], null when hidden), for Inspect, and its [pile] (whose badge shows under it; none for a
+     * zone without a pile, whose word shows instead). */
+    data class Shown(val name: String, val zone: String, val artwork: ArtworkReference?, val cardId: String? = null,
+        val pile: PlayZone? = null)
 
     /** The chip for [player]'s [count] cards. */
     fun chip(player: String, count: Int) = StateChip(label(player, count), null, StateGlyph.Letters("▶$count"))
@@ -65,7 +68,16 @@ object OtherPlayableChip {
         else -> "A hidden card"
     }
 
-    /** The zone's word under a listed card's name. */
+    /** The pile of [zone] whose badge shows under a listed card (owner 2026-11-22, F4: as the viewer's own hand row cards
+     * from other zones carry, ZON-106); null for a zone without a pile on the table (the command zone). */
+    fun pile(zone: String): PlayZone? = when (zone) {
+        "graveyard" -> PlayZone.GRAVEYARD
+        "exile" -> PlayZone.EXILE
+        "library" -> PlayZone.LIBRARY
+        else -> null
+    }
+
+    /** The zone's word a listed card is read aloud with ("…, Graveyard"), and shown under it without a [pile]. */
     fun zoneWord(zone: String): String = when (zone) {
         "graveyard" -> "Graveyard"
         "exile" -> "Exile"
@@ -110,8 +122,9 @@ fun OtherPlayableChipView(placed: PlacedStateChip, play: TableBoard?, viewer: St
 }
 
 /** ZON-136 (owner 2026-11-21, E9: cards as cards): the list a tap on the chip opens: each card drawn as a small card, as a
- * choice panel's are ([ChoiceCardFace]), with its zone's word under it; holding one the viewer may see inspects it ([play],
- * [viewer]); one they can't is a card back. */
+ * choice panel's are ([ChoiceCardFace]), with its zone's pile badge under it (owner 2026-11-22, F4: [ZoneBadge], as the
+ * viewer's own hand row cards from other zones carry); holding one the viewer may see inspects it ([play], [viewer]); one they
+ * can't is a card back. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun OtherPlayableList(title: String, cards: List<OtherPlayableChip.Shown>, play: TableBoard?, viewer: String) {
@@ -130,7 +143,8 @@ fun OtherPlayableList(title: String, cards: List<OtherPlayableChip.Shown>, play:
                             if (holding) AppLog.info("table", "Other player's playable card held: ${card.name} (${card.zone})")
                             inspector.hold(data, holding)
                         }, moved = inspector::moved))
-                        Text(card.zone, fontSize = 11.sp, lineHeight = 13.sp, color = Color(0xff5f6368), maxLines = 1)
+                        card.pile?.let { ZoneBadge(it, Modifier.testTag("$ZONE_BADGE_TAG/${it.name.lowercase()}")) }
+                            ?: Text(card.zone, fontSize = 11.sp, lineHeight = 13.sp, color = Color(0xff5f6368), maxLines = 1)
                     }
                 }
             }
@@ -138,6 +152,21 @@ fun OtherPlayableList(title: String, cards: List<OtherPlayableChip.Shown>, play:
     }
     if (play != null) ChoiceInspection(inspector, play, viewer)
 }
+
+/** F4: the test tag of a listed card's zone badge, followed by "/" and its zone in lower case. */
+const val ZONE_BADGE_TAG = "zone-badge"
+
+/** ZON-136, ZON-106 (owner 2026-11-22, F4): a pile's zone badge on its own ([drawZoneBadge]), as a hand row card from another
+ * zone carries in its corner. */
+@Composable
+fun ZoneBadge(zone: PlayZone, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier.size((2 * ZONE_BADGE_RADIUS).dp)) {
+        drawZoneBadge(zone, ZONE_BADGE_RADIUS, ZONE_BADGE_RADIUS, ZONE_BADGE_RADIUS - .5f, density)
+    }
+}
+
+/** F4: the zone badge's radius (dp) under a listed card, about as large as a hand row card's. */
+private const val ZONE_BADGE_RADIUS = 10f
 
 /** ZON-136: the chip's ink, a dark shade of the playable cyan. */
 private val PlayableInk = Color(0xff0b5e6b)

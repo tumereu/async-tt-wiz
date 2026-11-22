@@ -179,10 +179,12 @@ class OffspringForageWalkthroughTest {
         untilDecision<Decision.May>("the original's forage question")
         assertEquals(1, kit.state().stack.size - 1, "the offspring trigger waits under the resolving forage trigger")
         compose.onNode(hasText("You may pay") and isHeading()).assertExists()
-        compose.onNodeWithContentDescription("Question: You may forage. If you do, put two +1/+1 counters on it.").assertExists()
+        // STK-181 (owner 2026-11-22, F1): the ability's text shows once; its "you may" sentence isn't repeated as the question
+        compose.onNodeWithContentDescription("Ability: $forage").assertExists()
+        compose.onNodeWithContentDescription("Question: You may forage. If you do, put two +1/+1 counters on it.").assertDoesNotExist()
         compose.onNodeWithContentDescription("Cost: Forage").assertExists()
         captureShot("$SCREENSHOTS/questions/may-forage.png",
-            "The Sentry's forage trigger resolves: the panel above Alice's hand is titled \"You may pay\", says \"You may forage. If you do, put two +1/+1 counters on it.\" with a \"Cost\" chip reading Forage, the trigger's token at its right, and No and Yes at its bottom.")
+            "The Sentry's forage trigger resolves: the panel above Alice's hand is titled \"You may pay\", names the Sentry's ability with its text \"When this creature enters, you may forage. If you do, put two +1/+1 counters on it.\" (not repeated as a question), a \"Cost\" chip reading Forage, the trigger's token at its right, and No and Yes at its bottom.")
         // Meanwhile holding the offspring trigger on the Stack shows its kind (owner playtest 2026-11-07) and its keyword's
         // line (STK-050, STK-123)
         holdInStackList("2 · ${Choices.SENTRY}'s ability", "Offspring {R}", "$SCREENSHOTS/questions/offspring-stack-inspect.png",

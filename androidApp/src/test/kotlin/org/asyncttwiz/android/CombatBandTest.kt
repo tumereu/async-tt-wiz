@@ -37,6 +37,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -916,9 +917,13 @@ class CombatBandTest {
         return attacker
     }
 
-    // CMB-095, CMB-097, CMB-096, CMB-047 (owner playtest 2026-11-21; E13): while Alice declares attackers the chip says abilities can't
-    // be used and the combat band glows orange (no frame); her lands and the Cub cast this turn (it can't attack) are dimmed, the
-    // ready Cub keeps its glow
+    /** The cards in [zone] containers of [player] on [play]'s board. */
+    private fun cardsIn(play: TableBoard, zone: PlayZone, player: String) =
+        play.board.containers.filter { it.zone == zone && it.accountId == player }.flatMapTo(HashSet()) { it.cards }
+
+    // CMB-095, CMB-097, CMB-096, CMB-047 (owner playtest 2026-11-21; E13; owner 2026-11-22, F2): while Alice declares attackers the
+    // chip says only "Declaring attackers" and the combat band glows orange (no frame); her lands and the Cub cast this turn (it
+    // can't attack) are dimmed, as are her hand and Bob's permanents; the ready Cub keeps its glow
     @Test fun declaringAttackersGlowsTheBandAndDimsWhatCantAttack() {
         bobCastsACub()
         val ready = k.toReadyCub()
@@ -932,27 +937,63 @@ class CombatBandTest {
         assertNull(k.bobToolkit.combat.declaring(k.bob.play(), k.f.b), "Bob declares nothing")
         val dimmed = DeclaringLook.dimmed(play.board, k.f.a, k.toolkit.combat.attackable(play, k.f.a))
         val mountains = k.field("Mountain").map(k::atw)
-        assertEquals((mountains + sick).toSet(), dimmed, "the lands and the summoning-sick Cub dimmed, not $ready")
+        val hand = cardsIn(play, PlayZone.HAND, k.f.a)
+        val bobs = cardsIn(play, PlayZone.BATTLEFIELD, k.f.b)
+        assertTrue(hand.isNotEmpty() && bobs.isNotEmpty(), "cards in her hand and on Bob's battlefield")
+        assertEquals((mountains + sick).toSet() + hand + bobs, dimmed,
+            "the lands, the summoning-sick Cub, her hand and Bob's permanents dimmed, not $ready")
+        assertEquals("Declaring attackers", CombatDeclaring.Attackers.chip)
         render()
         compose.onNodeWithTag(DECLARING_CHIP_TAG).assert(hasContentDescription(CombatDeclaring.Attackers.chip))
         compose.onNodeWithTag(DECLARING_BAND_TAG).assertExists()
         captureShot("$SCREENSHOTS/combat-band/declaring-attackers.png",
-            "Alice moved on to declaring attackers: the chip \"Declaring attackers: abilities can't be used now\" sits at the table's top and the combat band between the battlefields is orange with a wave of light crossing it; her ready Ember Cub glows red-orange while her Mountains and the Cub cast this turn are dimmed.")
+            "Alice moved on to declaring attackers: the chip \"Declaring attackers\" sits at the table's top and the combat band between the battlefields is orange with a wave of light crossing it; her ready Ember Cub glows red-orange while her Mountains, the Cub cast this turn, her hand and Bob's permanents are dimmed.")
     }
 
-    // CMB-095, CMB-097, CMB-096, CMB-034 (owner playtest 2026-11-21; E13): while Bob declares blockers he sees the blockers' chip and
-    // the orange combat band; his Mountain is dimmed, his Cub that may block keeps its glow; Alice, waiting for his blocks, declares nothing
+    // CMB-095, CMB-097, CMB-096, CMB-034 (owner playtest 2026-11-21; E13; owner 2026-11-22, F2): while Bob declares blockers he sees
+    // the chip "Declaring blockers" and the orange combat band; his Mountain, his hand and Alice's permanents are dimmed, but her
+    // attacking Cub's copy on the band stays bright; his Cub that may block keeps its glow; Alice, waiting for his blocks, declares nothing
     @Test fun declaringBlockersGlowsTheBandAndDimsWhatCantBlock() {
-        bobDeclaringAgainstOne()
+        val attacker = bobDeclaringAgainstOne()
         val play = k.bob.play()
         assertEquals(CombatDeclaring.Blockers, k.bobToolkit.combat.declaring(play, k.f.b))
         assertNull(k.toolkit.combat.declaring(k.alice.play(), k.f.a), "Alice waits, declaring nothing")
         val dimmed = DeclaringLook.dimmed(play.board, k.f.b, k.bobToolkit.combat.blockable(play, k.f.b, assuming = false))
-        assertEquals(k.field("Mountain", k.other).map(k::atw).toSet(), dimmed, "only his Mountain dimmed")
+        val hand = cardsIn(play, PlayZone.HAND, k.f.b)
+        val alices = cardsIn(play, PlayZone.BATTLEFIELD, k.f.a)
+        assertTrue(hand.isNotEmpty() && attacker in alices, "cards in his hand, Alice's attacker on her battlefield")
+        assertEquals(k.field("Mountain", k.other).map(k::atw).toSet() + hand + alices, dimmed,
+            "his Mountain, his hand and Alice's permanents dimmed")
+        // The attacker's copy on the band isn't a battlefield card, so it stays bright
+        val copy = k.scene(k.f.b).items.single { it.viewport == "combat" && it.sourceId == attacker }
+        assertFalse(copy.battlefieldCard, "the band's copy of the attacker isn't dimmed")
+        assertEquals("Declaring blockers", CombatDeclaring.Blockers.chip)
         render(k.f.b)
         compose.onNodeWithTag(DECLARING_CHIP_TAG).assert(hasContentDescription(CombatDeclaring.Blockers.chip))
         compose.onNodeWithTag(DECLARING_BAND_TAG).assertExists()
         captureShot("$SCREENSHOTS/combat-band/declaring-blockers.png",
-            "Alice attacked with her Ember Cub and Bob declares blockers: the chip \"Declaring blockers: abilities can't be used now\" sits at his table's top and the open combat band is orange with a wave of light crossing it under Alice's attacking Cub; his Cub that may block glows red-orange and his Mountain is dimmed.")
+            "Alice attacked with her Ember Cub and Bob declares blockers: the chip \"Declaring blockers\" sits at his table's top and the open combat band is orange with a wave of light crossing it under Alice's attacking Cub, which stays bright there; his Cub that may block glows red-orange while his Mountain, his hand and Alice's permanents are dimmed.")
+    }
+
+    // CMB-096, TBL-128, TBL-212 (owner 2026-11-22, F2 follow-up): while Alice declares attackers her dimmed hand takes no taps: a tap
+    // or a double tap on a hand card only shakes it, saying "Not while declaring attackers.", raising and casting nothing; holding
+    // it still inspects it. Bob declaring blockers is told "Not while declaring blockers."
+    @Test fun whileDeclaringTheHandOnlyShakes() {
+        aliceDeclaring()
+        val play = k.alice.play()
+        assertEquals(CombatDeclaring.Attackers, k.toolkit.declaring(play))
+        val card = k.atw(k.state().player(k.me).hand.first())
+        k.tap(k.item(card, PlayZone.HAND))
+        assertEquals(card, k.toolkit.shaking?.id, "the card shakes")
+        assertEquals("Not while declaring attackers.", k.toolkit.shaking?.reason)
+        assertNull(k.toolkit.hand.raised, "not raised")
+        val (gestures, _) = k.gestures()
+        k.doubleTap(gestures, k.item(card, PlayZone.HAND).bounds.center)
+        assertFalse(k.toolkit.cast.open, "nothing cast")
+        assertEquals("Not while declaring attackers.", k.toolkit.shaking?.reason)
+        k.toolkit.peek(card)
+        assertNotNull(k.toolkit.peek, "holding still inspects it")
+        k.toolkit.peek(null)
+        assertEquals("Not while declaring blockers.", CombatDeclaring.Blockers.handRefusal)
     }
 }

@@ -456,6 +456,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         return asked.none { decision -> decisionObjects(decision).any { it in hand } }
     }
 
+    /** CMB-095, CMB-096 (owner 2026-11-22, F2 follow-up): what the viewer declares now on [play] (their hand row dimmed and
+     * refusing taps), as the table shows it: not while they may not act. */
+    fun declaring(play: TableBoard): CombatDeclaring? = if (engine?.mayAct() == false) null else combat.declaring(play, viewer)
+
     /** The ATW cards [decision] chooses among (its objects or targets), for [handDimmed]. */
     private fun decisionObjects(decision: arcanum.engine.decision.Decision): List<String> = when (decision) {
         is arcanum.engine.decision.Decision.ChooseObjects -> decision.options
@@ -778,6 +782,13 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                     "${flows.answering?.kind}, panel $panel): the hand is dimmed, nothing done")
                 return
             }
+            // CMB-096 (owner 2026-11-22, F2 follow-up): while the viewer declares, their dimmed hand row's cards only shake
+            if (item.owner == viewer) declaring(play)?.let { declaring ->
+                dismiss(); hand.lower()
+                AppLog.info("table", "Tap on hand card ${item.cardId} while ${declaring.chip.lowercase()}: refused")
+                item.cardId?.let { shake(it, declaring.handRefusal) }
+                return
+            }
             dismiss()
             // TBL-118: while the other player's choice is open the viewer's own hand card only shakes
             val card = item.cardId
@@ -931,6 +942,14 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         // ZON-095 (owner notes 2026-11-14): the viewer's dimmed hand takes no double taps or drags while a panel is open
         if (play != null && handDimmed(play) && CastController.inHandRow(play, cardId, viewer) == true) {
             AppLog.info("table", "Double tap or drag of hand card $cardId while a panel is open: the hand is dimmed, nothing done")
+            return false
+        }
+        // CMB-096 (owner 2026-11-22, F2 follow-up): nor while the viewer declares: it shakes, nothing is cast
+        val declaring = play?.let(::declaring)
+        if (declaring != null && CastController.inHandRow(play, cardId, viewer) == true) {
+            AppLog.info("table", "Double tap or drag of hand card $cardId while ${declaring.chip.lowercase()}: refused")
+            hand.lower()
+            shake(cardId, declaring.handRefusal)
             return false
         }
         val known = hand.known(cardId)

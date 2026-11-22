@@ -36,6 +36,16 @@ class ChatTest {
         assertFalse(GameWire.valid(command.copy(scope = command.scope.copy(invitationId = play))))
         assertFalse(GameWire.valid(command.copy(scope = command.scope.copy(preparationId = play))))
     }
+    // LOB-271: a message before the game starts (its lobby) has no play; it still names no preparation or invitation, and a
+    // message of a play is the play's
+    @Test fun aLobbyChatMessageHasNoPlay() {
+        val lobby = command.copy(scope = GameScope(game))
+        assertTrue(GameWire.valid(lobby))
+        assertFalse(GameWire.valid(lobby.copy(scope = GameScope(game, preparationId = play))))
+        assertFalse(GameWire.valid(command.copy(action = GameAction.DeleteGame, scope = GameScope(game))))
+        val message = ChatMessage("m", game, null, "a", "Hi", "3", "2026-11-22T10:00:00Z")
+        assertEquals(message, GameWire.json.decodeFromString<ChatMessage>(GameWire.json.encodeToString(message)))
+    }
     @Test fun textIsPreservedNotCardNormalizedAndTransportBoundsApply() {
         assertTrue(ChatValidation.text(" \nHello\n "))
         listOf("", " \n\t", "bad\u0000text", "\uD800", "x".repeat(DeckValidation.FIELD_BYTES + 1)).forEach {

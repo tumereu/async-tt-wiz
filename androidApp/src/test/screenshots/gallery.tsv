@@ -376,3 +376,6 @@ number	item	screenshot	catalog	decisions	sequence
 551	Waiting dots: at a game's table its own move gives none, the hamburger blue for a pick elsewhere	waiting-dots/table-pick.png	LOB-268		Waiting dots
 552	Waiting dots: a started pod's hamburger green for a deck to build in another pod	waiting-dots/pod-build.png	DRF-306 LOB-268		Waiting dots
 553	Waiting dots: the side menu over that pod, the other pod's row green, the open pod's none	waiting-dots/side-menu-pod.png	LOB-269		Waiting dots
+554	Chat before the game starts: the lobby header's chat button with the unread dot	chat/lobby-chat-button.png	LOB-271 LOB-163		Chat before the game starts
+555	Chat before the game starts: the game's chat open over the lobby	chat/lobby-chat.png	LOB-271		Chat before the game starts
+556	Chat before the game starts: a game in setup offers its chat in its row's menu, beside Cancel game	chat/games-list-setup-row-menu.png	LOB-148 LOB-026		Chat before the game starts

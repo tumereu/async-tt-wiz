@@ -240,12 +240,54 @@ class GameChatTest {
                 assertEquals("inapplicable", f.owner.execute(stale).reason)
                 val late = f.owner.command(GameAction.SendChat("late")); f.owner.admit(late)
                 // I28 owns the actual ending/return path. This is execution-time lifecycle refusal, not its qualification.
-                sql(db, "UPDATE game SET lifecycle='LOBBY' WHERE id='${f.game.id}'")
-                f.games.executeOne(); assertEquals("lifecycleEnded", f.owner.result(late).reason)
+                // LOB-271 (owner, 2026-11-22): the lobby takes chat too, but a message written for the play that ended isn't the lobby's
+                sql(db, "UPDATE game SET lifecycle='LOBBY', current_play=NULL WHERE id='${f.game.id}'")
+                f.games.executeOne(); assertEquals("inapplicable", f.owner.result(late).reason)
                 assertEquals(result, f.owner.admit(accepted)); assertEquals(1, count(db, "game_chat"))
                 assertEquals("invalidInput", assertThrows(GameProtocolFailure::class.java) {
                     f.owner.admit(accepted.copy(requestId = id(), scope = accepted.scope.copy(preparationId = f.game.preparationRound))) }.code)
                 println("PASS captured play only, stale first delivery rejected, admitted lifecycle change refused at execution, accepted original result recovers unchanged; actual end/rematch integration deferred to I28/I31")
+            }
+        }
+    }
+    // LOB-271, LOB-148 (owner, 2026-11-22): a game's chat before it starts: refused while the invitation waits, taken in its
+    // lobby once both players are in it (no play), counted unread for the other player, and still there once the game starts
+    @Test fun `chat before the game starts is taken once the invitation is accepted and stays when it starts`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                ready(runtime)
+                val a = account(runtime, "LobbyChatA"); val b = account(runtime, "LobbyChatB")
+                val games = GameService(runtime)
+                val lobby = LobbyService(runtime); lobby.add(a, AddContact(id(), b.account.accountId))
+                val game = json.decodeFromString<GameSummary>(lobby.create(a, CreateInvitation(id(), b.account.accountId, "Lobby Chat")).body)
+                val owner = Stream(games, a, game); val recipient = Stream(games, b, game)
+                assertEquals("inapplicable", owner.execute(GameAction.SendChat("Before the answer")).reason)
+                recipient.execute(GameAction.AcceptInvitation)
+                val question = owner.command(GameAction.SendChat("Cube or constructed?"))
+                assertNull(question.scope.playId)
+                assertEquals("accepted", owner.execute(question).outcome)
+                assertEquals("accepted", recipient.execute(GameAction.SendChat("Cube!")).outcome)
+                assertEquals(GameLifecycle.LOBBY, games.head(a, game.id).summary.lifecycle)
+                val chat = games.chat(b, game.id)
+                assertEquals(listOf("Cube or constructed?", "Cube!"), chat.messages.map { it.text })
+                assertTrue(chat.messages.all { it.playId == null })
+                assertEquals(1, chat.readState!!.unread)
+                assertEquals(1, games.chatRead(a, game.id).unread)
+                // The game starts: the lobby's messages stay, and the play's chat follows them
+                for ((actor, stream) in listOf(a to owner, b to recipient)) {
+                    val saved = DeckService(runtime).create(actor, CreateDeck(id(), "Selected deck",
+                        listOf(org.asyncttwiz.server.TestPrintings.entry("Forest", 1))))
+                    val deck = GameWire.json.decodeFromString<SavedDeck>(saved.body)
+                    stream.execute(GameAction.SelectDeck(deck.deck.id, deck.deck.revision))
+                }
+                owner.execute(GameAction.Ready); recipient.execute(GameAction.Ready)
+                val started = games.head(a, game.id)
+                assertNotNull(started.play)
+                assertEquals("accepted", owner.execute(GameAction.SendChat("GL")).outcome)
+                val after = games.chat(b, game.id).messages
+                assertEquals(listOf("Cube or constructed?", "Cube!", "GL"), after.map { it.text })
+                assertEquals(started.play!!.id, after.last().playId)
             }
         }
     }

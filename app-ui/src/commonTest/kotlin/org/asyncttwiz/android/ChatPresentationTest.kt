@@ -55,4 +55,28 @@ class ChatPresentationTest {
         local.clear(); assertNull(local.presentation(game.id, "b", emptyList(), emptyList()).draft)
         assertEquals(1, local.presentation(game.id, "b", listOf(message("1", "a")), emptyList()).unread)
     }
+    private val lobby = game.copy(lifecycle = GameLifecycle.LOBBY, playId = null)
+    // LOB-271, LOB-148 (owner, 2026-11-22): a game's chat before it starts, once both players are in it; not while the
+    // invitation waits or after it was declined
+    @Test fun aGamesChatIsOpenInPlayAndInItsLobbyOnceTheInvitationIsAccepted() {
+        assertTrue(gameChatOpen(game))
+        assertTrue(gameChatOpen(lobby))
+        assertFalse(gameChatOpen(lobby.copy(invitationState = InvitationState.PENDING)))
+        assertFalse(gameChatOpen(lobby.copy(invitationState = InvitationState.DECLINED)))
+        assertFalse(gameChatOpen(game.copy(lifecycle = GameLifecycle.CANCELLED)))
+    }
+    // LOB-271, LOB-070: a draft written in the lobby sends there and belongs to the play that follows; an earlier play's draft
+    // is stale in the lobby
+    @Test fun aLobbyDraftSendsAndCarriesIntoTheNextPlay() {
+        val local = GameChat(); local.compose(lobby, "Cube?")
+        val draft = local.presentation(game.id, "a", emptyList(), emptyList())
+        assertNull(draft.draft!!.playId)
+        assertTrue(draft.canSend(lobby, true))
+        assertTrue(draft.canSend(game, true), "not stale once the game starts")
+        local.compose(game, "Cube? GL")
+        assertEquals("play", local.presentation(game.id, "a", emptyList(), emptyList()).draft!!.playId)
+        val ended = local.presentation(game.id, "a", emptyList(), emptyList())
+        assertTrue(ended.draft!!.staleIn(lobby))
+        assertFalse(ended.canSend(lobby, true))
+    }
 }

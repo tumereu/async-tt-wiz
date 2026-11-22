@@ -34,7 +34,10 @@ fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: TableBoar
         .padding(end = if (compact) 0.dp else 8.dp),
         horizontalArrangement = Arrangement.spacedBy(spacing),
         verticalAlignment = Alignment.CenterVertically) {
-        ActionSquare("Open navigation", "", runtime.navigation != null, Modifier.width(48.dp), icon = { TableChromeIcon("menu") }, onClick = { runtime.navigation?.invoke() })
+        // LOB-268: the dot of what waits for you elsewhere
+        WithNavigationDot(LocalNavigationDot.current.takeIf { runtime.navigation != null }, inset = 8.dp) {
+            ActionSquare("Open navigation", "", runtime.navigation != null, Modifier.width(48.dp), icon = { TableChromeIcon("menu") }, onClick = { runtime.navigation?.invoke() })
+        }
         Box(Modifier.weight(1f)) {
             // Keep the weighted space for right-aligned controls, but not for title/chip hit targets.
             Column(Modifier.widthIn(max = titleWidth).fillMaxWidth().padding(horizontal = 4.dp)) {

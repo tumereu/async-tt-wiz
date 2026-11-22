@@ -270,8 +270,11 @@ fun DesktopTopRow(game: GameSummary, play: TableBoard, viewer: String, toolkit: 
     BoxWithConstraints(modifier.fillMaxWidth()) { DesktopScaled(DesktopTable.topRowScale(maxWidth.value)) {
     Row(Modifier.fillMaxWidth().height(DesktopTable.TOP_ROW.dp).background(tableBarColor(play.board, viewer, reviewing))
         .padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ActionSquare("Open navigation", "", navigation != null, Modifier.width(48.dp), icon = { TableChromeIcon("menu") },
-            onClick = { navigation?.invoke() })
+        // LOB-268: the dot of what waits for you elsewhere
+        WithNavigationDot(LocalNavigationDot.current.takeIf { navigation != null }, inset = 6.dp) {
+            ActionSquare("Open navigation", "", navigation != null, Modifier.width(48.dp), icon = { TableChromeIcon("menu") },
+                onClick = { navigation?.invoke() })
+        }
         Column(Modifier.width(168.dp)) {
             val header = turnHeader(game, play.board.turn, viewer)
             Text(header, Modifier.semantics { contentDescription = game.gameName }, color = turnColor, fontSize = 13.sp,

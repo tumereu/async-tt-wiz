@@ -42,7 +42,7 @@ fun GameRows(games: List<GameSummary>, controller: LobbyController, accountId: S
 
 @Composable
 fun GameRow(game: GameSummary, accountId: String, modifier: Modifier,
-    trailing: (@Composable () -> Unit)? = null) {
+    trailing: (@Composable () -> Unit)? = null, dot: WaitingDot? = null) {
     val move = gameRowMove(game, accountId)
     val chip: @Composable () -> Unit = {
         if (trailing != null) trailing() else {
@@ -71,18 +71,26 @@ fun GameRow(game: GameSummary, accountId: String, modifier: Modifier,
         horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Avatar(game.opponent(accountId))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(game.gameName, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            WaitingName(game.gameName, dot, fontWeight = FontWeight.SemiBold)
             lines()
         }
         chip()
     } else Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Avatar(game.opponent(accountId))
-            Text(game.gameName, Modifier.weight(1f), fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            WaitingName(game.gameName, dot, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
             chip()
         }
         lines()
+    }
+}
+
+/** LOB-269: a row's name, its waiting dot ([dot], LOB-267) right after it; only the name shortens. */
+@Composable
+fun WaitingName(name: String, dot: WaitingDot?, modifier: Modifier = Modifier, fontWeight: FontWeight? = null) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(name, Modifier.weight(1f, fill = false), fontWeight = fontWeight, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        dot?.let { WaitingDotMark(it) }
     }
 }
 
@@ -98,8 +106,8 @@ fun MenuPodRow(entry: QuickContinuePod, accountId: String?, stackWidth: Dp, resp
         if (pod != null) AvatarStack(podNavigationAvatars(pod.members, accountId), ring = Color.White, width = stackWidth)
         else Box(Modifier.width(stackWidth)) { Avatar(requireNotNull(invite).creator) }
         Column(Modifier.weight(1f)) {
-            Text(pod?.name ?: requireNotNull(invite).name, fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // LOB-269: a pod's waiting dot (none for an invitation)
+            WaitingName(pod?.name ?: requireNotNull(invite).name, pod?.let(::podWaitingDot), fontWeight = FontWeight.SemiBold)
             Text(pod?.let(::podStatus) ?: "Invitation", style = MaterialTheme.typography.bodySmall)
         }
         if (invite != null) MenuInvitationActions(responseEnabled, respond = respond)

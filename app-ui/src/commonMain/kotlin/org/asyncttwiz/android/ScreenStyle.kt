@@ -163,7 +163,7 @@ fun DeckThumbnail(reference: org.asyncttwiz.storage.ArtworkReference?, name: Str
 /** The one title row of every regular screen: optional hamburger, title, trailing actions. */
 @Composable
 fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, titleModifier: Modifier = Modifier,
-    actions: @Composable RowScope.() -> Unit = {}) {
+    navigationDot: WaitingDot? = null, actions: @Composable RowScope.() -> Unit = {}) {
     // Fixed height: the title keeps its place whatever actions (or none) a screen shows.
     Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -171,7 +171,10 @@ fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, titleModifier:
         LocalScreenBack.current?.let { back ->
             HoldTip("Back") { IconButton(onClick = back, Modifier.testTag("screen-back")) { EntryIcon("Back", "back") } }
         }
-        if (navigation != null) HoldTip("Open navigation") { IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") } }
+        // LOB-268: the Menu screen's hamburger carries the dot of what waits for you ([navigationDot])
+        if (navigation != null) WithNavigationDot(navigationDot) {
+            HoldTip("Open navigation") { IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") } }
+        }
         Text(title, Modifier.weight(1f).then(titleModifier), style = MaterialTheme.typography.titleLarge,
             maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         actions()

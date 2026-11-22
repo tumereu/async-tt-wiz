@@ -130,6 +130,7 @@ still draft, and the pod's members challenge each other to games with their pod 
 ## The pod screen
 
 - **DRF-073** A started pod is a play screen: a 48 dp header with a hamburger opening the side menu as a modal (never a permanent side area), a tiny pod title and 28 dp member avatars under it. (r20)
+- **DRF-306** The started pod's hamburger carries the "Waiting for you" dot (LOB-268) of everything waiting for you except this pod. (owner, 2026-11-22)
 - **DRF-074** While drafting each avatar has a badge: a green ✓ when that member can't pick, otherwise how many picks they can make in a row (next-round packs they would open included), "9+" above 9. (r32)
 - **DRF-075** A cogwheel at the header's end opens a floating panel with every view setting, applied live: "Draft · cards per row" (not in Grid), "History · cards per row" (Booster and Glimpse, DRF-165), "Build · columns", "Build · cards side by side". (r60)
 - **DRF-076** Tabs are Draft · Build · Stats while your own draft runs, Draft · Build · Stats · Games once it is done while others still draft (DRF-119), and Build · Stats · Games after the draft, with the pod ⋮ menu as a narrow last tab; Back leaves the pod. (r18; owner, 2026-11-21)

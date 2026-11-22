@@ -577,6 +577,26 @@ class PodControllerTest {
         assertTrue(f.mainTimers.isEmpty(), "stopped")
     }
 
+    // LOB-270: outside the pod screens the list is read again as often, for the waiting dots, never the pod still selected;
+    // a refresh asked for meanwhile reads it as before
+    @Test fun aListOnlyWatchReadsTheListButNotTheSelectedPod() = Fixture().use { f ->
+        f.open()
+        val reads = f.api.reads
+        val stop = f.controller.watch("waiting dots", listOnly = true)
+        f.deliver()
+        assertEquals(listOf(10_000L), f.mainTimers.map { it.first })
+        f.api.listed = PodList(listOf(summary(f.api.saved).copy(attention = PodAttention.BUILD)), emptyList())
+        f.tickMain(); f.deliver()
+        assertEquals(reads, f.api.reads, "the selected pod's detail isn't read")
+        assertEquals(PodAttention.BUILD, f.controller.state.pods.single().attention, "the list is")
+        assertEquals(id, f.controller.state.selected, "the pod stays selected")
+        assertNull(f.controller.state.notice)
+        f.controller.refresh(); f.deliver()
+        assertEquals(reads + 1, f.api.reads, "another refresh reads it")
+        stop()
+        assertTrue(f.mainTimers.isEmpty(), "stopped")
+    }
+
     // DRF-068 (PodReopenTest's intermittent, backlog 2026-11-10): a pick made while a re-read is on its way, when the
     // connection has gone, goes out as soon as that re-read fails and shows unconfirmed with Retry; it doesn't wait for
     // the next re-read (10 s away; it never came in the e2e harness while re-reads ran on the frame clock)

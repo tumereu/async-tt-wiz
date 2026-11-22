@@ -1,0 +1,1 @@
+Bob opened the Game log of the same game: the same indented lines from his side, "You lost" under each "Combat damage" line, his own name and cards in green and Alice's in red.

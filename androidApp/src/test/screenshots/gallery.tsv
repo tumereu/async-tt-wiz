@@ -364,3 +364,5 @@ number	item	screenshot	catalog	decisions	sequence
 502	Clip: the same combat on the defender's phone, his blocks declared on the band	clips/combat-bob.webp	CMB-050 CMB-090 HIS-113 CMB-034 CMB-031
 503	Clip: the other player's plot (a special action) shown, then flying toward its card instead of the Stack	clips/special-plot.webp	HIS-112 HIS-237 HIS-238
 504	Clip: the other player turns a face-down creature face up: shown, flying into the card, then the card flips	clips/special-face-up.webp	HIS-112 HIS-237 HIS-238 HIS-031
+540	Game log: under each line, smaller and indented, what it caused; a log-only "Combat damage" line with the life lost and the total after	history/game-log-consequences.png	HIS-246 HIS-247 HIS-240		Game log consequences
+541	Game log: the same indented lines from the other player's side	history/game-log-consequences-bob.png	HIS-246 HIS-247 HIS-249		Game log consequences

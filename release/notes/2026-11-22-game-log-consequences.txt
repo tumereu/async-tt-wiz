@@ -1,0 +1,1 @@
+add: The game log shows under each line what it caused, in smaller lines: creatures dying or leaving and where they went, life lost or gained with the new total, cards drawn, discarded and milled, tokens, counters and triggers; combat damage gets a line of its own.

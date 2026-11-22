@@ -1,0 +1,1 @@
+Alice opened the Game log after turns of Storm Sparks and her attacks: under each line, smaller and indented, what it caused ("Ember Cub died" under a Spark, and under the log's own "Combat damage" line the life Bob lost with his total after).

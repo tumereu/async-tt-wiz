@@ -458,10 +458,17 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithTag("pod-history-seats").assertContentDescriptionEquals(
             "Seating: Alice, Bot 1, Bot 2, Bob, Bot 3, Bot 4; round 1 passes clockwise")
         compose.onNodeWithTag("pod-history-seat-round").assertTextEquals("Round 1 · passed to Bot 1 · clockwise")
-        for (bot in 1..4) compose.onNodeWithContentDescription("Bot $bot's avatar", useUnmergedTree = true).assertExists()
+        // The bots' avatars are robots, never an initial; Bob keeps his "B"
+        for (bot in 1..4) {
+            compose.onNodeWithContentDescription("Bot $bot's avatar", useUnmergedTree = true).assertExists()
+            compose.onAllNodes(hasText("B") and hasAnyAncestor(hasContentDescription("Bot $bot's avatar")), useUnmergedTree = true)
+                .assertCountEquals(0)
+        }
+        compose.onAllNodes(hasText("B") and hasAnyAncestor(hasContentDescription("Bob's avatar")), useUnmergedTree = true)
+            .assertCountEquals(1)
         captureShot(File(SCREENSHOTS, "draft/history-bots.png").path, "Draft history of a Booster draft of Alice and Bob with " +
-            "four bot seats: the seat ring shows Alice at the bottom, then clockwise Bot 1, Bot 2, Bob, Bot 3 and Bot 4, two bots " +
-            "between the two people each way, beside Round 1 · passed to Bot 1 · clockwise, over Alice's first pick.")
+            "four bot seats: the seat ring shows Alice at the bottom, then clockwise Bot 1, Bot 2, Bob, Bot 3 and Bot 4 (the bots " +
+            "as robot icons), two bots between the two people each way, beside Round 1 · passed to Bot 1 · clockwise, over Alice's first pick.")
     }
 
     // DRF-239: "While you were away" in a Rotisserie draft: the queue line, the count, then each pick since Alice last looked

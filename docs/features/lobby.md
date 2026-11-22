@@ -64,6 +64,7 @@ and pods.
 - **LOB-029** Contacts tab rows have a remove button (Contacts screen) or an invite button (Choose opponent); Search rows have icon-only Add contact and, when choosing an opponent, Invite. Inviting someone also adds them as a contact. (r15)
 - **LOB-032** Adding a contact is one-sided: no friend request, and it never accepts anything for the other player. (r1)
 - **LOB-030** Removing a contact asks "Remove <name>?" with "Existing games and invitations will not change." (r15)
+- **LOB-266** The contacts list is read again with the lobby's background refreshes while no game is open, so a contact added on another device shows up (in Contacts, Choose opponent and the pod invite picker) without restarting the app; a failed refresh keeps the shown list quietly (SYS-020). (owner, 2026-11-22)
 - **LOB-031** "New game" opens Choose opponent; picking a player opens the "New game" dialog ("Invite <name>") with an editable random fantasy game name (like "Azure Spark"), a reroll button, Cancel and Create; every game is played with Automatum (SYS-055). (r45)
 
 ## The game lobby

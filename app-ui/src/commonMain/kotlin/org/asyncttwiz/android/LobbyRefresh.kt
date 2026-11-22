@@ -56,7 +56,8 @@ class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, priv
         val token = credential() ?: return
         val generation = epoch; val selected = state.selected
         // Switch-review #11: once the lists are loaded, only what changed since the last read (summaries: no play or
-        // engine state); with a game open nothing else is read (no contacts, no head: the game's own stream has it)
+        // engine state), and the contacts (LOB-266); with a game open nothing else is read (no contacts, no head: the game's
+        // own stream has it)
         val changes = state.loaded && gamesSince != null && invitationsSince != null
         val sinceGames = gamesSince; val sinceInvitations = invitationsSince
         val needsHead = selected != null && (!changes || state.detail?.id != selected)
@@ -86,7 +87,10 @@ class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, priv
                     (if (since != null) api.gamesSince(token, invitations, since, cursor) else null)
                         ?: api.games(token, invitations, cursor)
                 var delta = changes
-                if (!changes && !pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@run null
+                // LOB-266 (owner, 2026-11-22): the contacts are read with every list read while no game is open, so one added on
+                // another device shows (in the pod invite picker too) without a restart
+                val readContacts = !changes || selected == null
+                if (readContacts && !pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@run null
                 if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { list(false, sinceGames.takeIf { changes }, cursor) }.let {
                         if (cursor == null) { gamesToken = it.token; if (changes && it.token == null) delta = false }
                         games.addAll(it.games); removedGames.addAll(it.removed); it.next } }) return@run null
@@ -94,7 +98,7 @@ class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, priv
                         if (cursor == null) invitesToken = it.token
                         invites.addAll(it.games); removedInvites.addAll(it.removed); it.next } }) return@run null
                 // A server that can't answer changes answered whole lists: then they are read as such (contacts too)
-                if (changes && !delta) {
+                if (changes && !delta && !readContacts) {
                     if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@run null
                 }
                 val detail = selected?.takeIf { needsHead }?.let {
@@ -103,13 +107,15 @@ class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, priv
                     }
                 }
                 ListRead(LobbyState(contacts = contacts, games = games, invitations = invites, detail = detail), delta,
-                    removedGames, removedInvites, gamesToken, invitesToken)
+                    removedGames, removedInvites, gamesToken, invitesToken, contactsRead = readContacts || (changes && !delta))
             } }
             post { if (!closed && generation == epoch && version == refreshVersion) {
                 val read = result.getOrNull()
                 val failure = result.exceptionOrNull()
                 // A changes read is applied to the lists shown, so what follows sees whole lists either way
-                val data = read?.let { r -> if (!r.delta) r.state else r.state.copy(contacts = state.contacts,
+                read?.takeIf { it.contactsRead && it.state.contacts.map { c -> c.accountId }.toSet() != state.contacts.map { c -> c.accountId }.toSet() }
+                    ?.let { AppLog.info("lobby", "Contacts read: ${it.state.contacts.size} (were ${state.contacts.size})") }
+                val data = read?.let { r -> if (!r.delta) r.state else r.state.copy(contacts = if (r.contactsRead) r.state.contacts else state.contacts,
                     games = applyChanges(state.games, r.state.games, r.removedGames),
                     invitations = applyChanges(state.invitations, r.state.invitations, r.removedInvites),
                     detail = r.state.detail ?: state.detail?.takeIf { it.id == selected }?.let { shown ->
@@ -169,7 +175,7 @@ class LobbyRefresh(private val scope: LobbyScope, private val api: Lobbies, priv
     }
     /** One list read: whole lists, or ([delta]) the games changed since the tokens and the ids that left each list. */
     private class ListRead(val state: LobbyState, val delta: Boolean, val removedGames: List<String>, val removedInvites: List<String>,
-        val gamesToken: String?, val invitesToken: String?)
+        val gamesToken: String?, val invitesToken: String?, val contactsRead: Boolean)
 
     /** [rows] with [changed] put in (replacing a row of the same game, else added) and [removed] taken out. */
     private fun applyChanges(rows: List<GameSummary>, changed: List<GameSummary>, removed: List<String>): List<GameSummary> {

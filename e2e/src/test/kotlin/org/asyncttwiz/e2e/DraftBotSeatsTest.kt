@@ -23,8 +23,6 @@ class DraftBotSeatsTest : E2e() {
     // which stays open marking him "invited"; he joins and the draft starts; the bots are in the header's avatars and pick at once on the server, so Alice (on her phone) and Bob (over the API) draft
     // to the end without ever waiting for a bot; the history's seat ring alternates people and bots; the Games tab then lists only Bob
     @Test fun twoPeopleAndTwoBotsDraftAPodToItsEnd() {
-        // Bob is Alice's contact before her app reads its lists
-        ServerSetup.accounts().let { (a, b) -> ServerSetup.contact(a, b) }
         launchPlayers()
         val name = "E2E bots ${UUID.randomUUID().toString().take(6)}"
         val pod = ServerSetup.setupPod(alice.account, name, settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 3))
@@ -44,7 +42,12 @@ class DraftBotSeatsTest : E2e() {
 
         // DRF-030 (owner, 2026-11-22): Alice invites Bob from the pod's invite picker; it stays open with Bob marked "invited",
         // and Back closes it
-        waitUntil("Bob among Alice's contacts") { alice.lobby.state.contacts.any { it.accountId == bob.id } }
+        // LOB-266: Bob made Alice's contact elsewhere (over the API, as on another device) shows with the lobby's next background
+        // refresh, without a restart
+        ServerSetup.contact(alice.account, bob.account)
+        waitUntil("Bob among Alice's contacts") {
+            alice.lobby.state.contacts.any { it.accountId == bob.id }.also { if (!it) alice.lobby.refresh(background = true) }
+        }
         alice.described("Invite player").performScrollTo().performClick()
         waitUntil("the invite picker with Bob") { alice.pods.state.choosingMember && alice.shows(hasTestTag("pod-invite-${bob.id}")) }
         alice.tagged("pod-invite-${bob.id}").performClick()

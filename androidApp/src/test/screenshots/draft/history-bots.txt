@@ -1,1 +1,1 @@
-Draft history of a Booster draft of Alice and Bob with four bot seats: the seat ring shows Alice at the bottom, then clockwise Bot 1, Bot 2, Bob, Bot 3 and Bot 4, two bots between the two people each way, beside Round 1 · passed to Bot 1 · clockwise, over Alice's first pick.
+Draft history of a Booster draft of Alice and Bob with four bot seats: the seat ring shows Alice at the bottom, then clockwise Bot 1, Bot 2, Bob, Bot 3 and Bot 4 (the bots as robot icons), two bots between the two people each way, beside Round 1 · passed to Bot 1 · clockwise, over Alice's first pick.

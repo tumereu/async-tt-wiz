@@ -1,0 +1,1 @@
+Alice's hand holds a creature, an artifact creature, an instant, a sorcery, a planeswalker and a battle: each card shows its type icons at the left of its bottom row (the instant a lightning bolt, the sorcery a swirl) and in its right corner the creatures' P/T, the planeswalker's loyalty 3 and the battle's defense 5.

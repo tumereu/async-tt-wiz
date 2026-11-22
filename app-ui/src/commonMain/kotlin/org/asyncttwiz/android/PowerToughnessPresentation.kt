@@ -26,6 +26,17 @@ fun computedCornerColor(trend: Int?): Int? = when (trend) {
     else -> ChangedPowerToughnessColor
 }
 
+/** TBL-239: a hand card's corner as its label reads it: ", 2/3" for its P/T, ", loyalty 4" or ", defense 5" for its other
+ * number; empty without one. */
+fun cornerWords(card: org.asyncttwiz.automatum.ComputedCard): String {
+    val primary = card.primary
+    return when {
+        card.power != null && card.toughness != null -> ", ${card.power}/${card.toughness}"
+        primary != null -> ", ${primary.name} ${primary.count}"
+        else -> ""
+    }
+}
+
 fun damageIsLethal(damage: String, corner: String): Boolean {
     val toughness = corner.split('/').takeIf { it.size == 2 }?.get(1) ?: return false
     if (!TableActions.numeric(damage) || !TableActions.numeric(toughness)) return false

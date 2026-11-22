@@ -60,7 +60,7 @@ and pods.
 - **LOB-023** The Games screen shows one "GAMES" card with a count and all games and invitations in one list; "No games yet." when empty. A "New game" button sits at the top right. (r30)
 - **LOB-024** A game row: opponent avatar, bold game name, a move chip ("Your move" filled, "<name>'s move" plain, or "Invitation"/"Setup"; the move of TRN-058), the pod name line for pod games, then "vs <opponent> · <status> · <last activity>", the time if today, else the date, from your local head and next stop (HIS-032). (r50)
 - **LOB-025** Row status texts: "In play", "Invitation pending", "Invitation declined", "Preparing"; a held pod challenge reads "Challenged you · submit your deck to accept" (Accept greyed) for you and "Waiting for <name>'s deck" for the challenger. (r30)
-- **LOB-026** Holding an unstarted game's row offers "Cancel game"; holding a game in play offers its chat ("Chat", LOB-148) and "Delete game", confirmed by a dialog warning that it removes the game for both players with no restore ("Keep game" / "Delete game"); its match in play is kept as an Unfinished record (LOB-127). (r74)
+- **LOB-026** Holding an unstarted game's row offers "Cancel game" (with its chat once the invitation was accepted, LOB-148); holding a game in play offers its chat ("Chat", LOB-148) and "Delete game", confirmed by a dialog warning that it removes the game for both players with no restore ("Keep game" / "Delete game"); its match in play is kept as an Unfinished record (LOB-127). (r74)
 
 ## Contacts and new games
 
@@ -104,6 +104,7 @@ and pods.
 ## Game chat
 
 - **LOB-066** A chat button on the table's top bar opens "Game chat" as a side panel (in a pod game with Game and Pod tabs, LOB-145). (r74)
+- **LOB-271** Before a game starts, once both players are in it (the invitation accepted), its lobby's header has a chat button with the unread dot (LOB-163) that opens the game's chat as a side panel over the lobby, on the desktop too (Game and Pod tabs in a pod game, LOB-145). Its messages stay the game's chat once it starts. (owner, 2026-11-22)
 - **LOB-162** On the desktop table the chat button unfolds the chat dock, ready to type, on the tab with unread messages, and folds it away again while it is open: the desktop table has no chat panel (WEB-017). (r74)
 - **LOB-163** A small dot on the chat button shows unread messages: it clears once every message of the other player's is read, seen in the chat or tapped as its bubble (LOB-136), and in a pod game also every message of the pod's chat (DRF-170). (r74)
 - **LOB-067** Messages show author and text, your own tinted, and a small time at the row's bottom right ("14:05", the device's time zone; none while a message is on its way); a message's text can be selected and copied. The newest stays at the bottom and the list scrolls by itself; the keyboard shrinks the list instead of pushing it up. (r79)
@@ -116,7 +117,7 @@ and pods.
 - **LOB-169** A chat tab with a message you haven't seen shows a dot after its name while you are on the other tab; tapping a game message's bubble counts as seeing it. (r70)
 - **LOB-170** Pod messages show no bubbles on the table. There is no Pod tab once you have left the pod or it is gone. (r70)
 - **LOB-171** While the table is open the pod's chat is read again as often as on the pod screen (DRF-170). (r70)
-- **LOB-148** A game's chat opens from the games list (Games screen, menu panel; on the desktop by right-click): holding a game in play opens its menu, whose "Chat" button reads "Chat · 2 unread" while the other player has messages you haven't read (counted as the menu opens). (r74)
+- **LOB-148** A game's chat opens from the games list (Games screen, menu panel; on the desktop by right-click): holding a game in play, or one in setup or preparing whose invitation was accepted, opens its menu, whose "Chat" button reads "Chat · 2 unread" while the other player has messages you haven't read (counted as the menu opens). (r74, owner 2026-11-22)
 - **LOB-173** The games list's "Chat" button opens the game's chat (the Game chat alone, also in a pod game) as a side panel over the list without opening the game: its messages are read as they show (LOB-069, LOB-138) and you can write and send as in the table's chat; its ✕ or Back closes it. (r74)
 
 ## Chat bubbles and quick messages

@@ -11,13 +11,21 @@ class LobbyGameRemoval(private val scope: LobbyScope, private val accountId: () 
         set(value) { scope.state = value }
     private val closed get() = scope.closed
     private val latest get() = scope.latest
+    /** LOB-026, LOB-148: the game menu of a game in play (Chat and Delete game), or of a game whose chat is all it offers (a game
+     * whose setup can be cancelled has the setup's menu instead, [showGameContext], its chat in it). */
     fun gameContext(game: GameSummary) {
-        if (offersGameDeletion(game)) {
+        if (offersGameDeletion(game) || offersListChat(game) && !offersSetupCancellation(game)) {
             setupCancellation.clear()
             state = state.copy(gameContext = game)
             // LOB-148: the menu's Chat counts the game's unread messages: its read state is asked for now
             session?.askChatRead(game.id)
         }
+    }
+    /** LOB-148 (owner, 2026-11-22): the row menu offers the game's chat in play and before it starts (setup, preparing). */
+    fun offersListChat(game: GameSummary): Boolean {
+        val current = session?.summary(game) ?: latest[game.id] ?: game
+        return !closed && session != null && sessionAvailable(game.id) && gameChatOpen(game) && gameChatOpen(current) &&
+            current.lifecycle == game.lifecycle
     }
     fun dismissGameContext() { state = state.copy(gameContext = null) }
     fun offersGameDeletion(game: GameSummary): Boolean {
@@ -52,6 +60,8 @@ class LobbyGameRemoval(private val scope: LobbyScope, private val accountId: () 
         if (offersSetupCancellation(game)) {
             state = state.copy(gameContext = null, deletion = null)
             setupCancellation.context(game)
+            // LOB-148: its Chat counts the game's unread messages
+            if (offersListChat(game)) session?.askChatRead(game.id)
         }
     }
     fun requestCancelSetup(game: GameSummary) {

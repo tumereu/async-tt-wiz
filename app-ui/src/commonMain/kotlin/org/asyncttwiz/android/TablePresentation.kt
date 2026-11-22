@@ -727,6 +727,11 @@ object TablePresentation {
                 if (a.basePower != null && a.baseToughness != null) "${a.basePower}/${a.baseToughness}" else null }
             // STK-046: an ability on the Stack names itself as an ability, with its text
             val ability = if (zone == PlayZone.STACK && projection && !hidden) StackAbilities.of(play, viewId, viewer) else null
+            // TBL-239 (owner, 2026-11-22): a card of the viewer's hand (and hand row) shows the battlefield's bottom row, its types and
+            // the P/T (loyalty, defense) Automatum works out; a card on the Stack its types
+            val framed = if (values && !frozen && ability == null && (zone == PlayZone.HAND || zone == PlayZone.STACK))
+                computed.offBattlefield[card.id] else null
+            val handFramed = framed?.takeIf { zone == PlayZone.HAND }
             // TBL-139 (owner 2026-11-16): hand and battlefield cards as their whole printed picture, as the layout's Settings say
             val artwork = art(card, hidden)
             val fullPicture = artwork != null && artwork.customUrl == null &&
@@ -740,7 +745,9 @@ object TablePresentation {
                     // TBL-136: its effects marker read aloud too
                     (if (auto != null && card.id in computed.withEffects) ", changed by effects" else "") +
                     // TBL-236, TBL-235: its card types and subtype tags read aloud too, before its counters
-                    (auto?.cardTypes?.takeIf { it.isNotEmpty() }?.let { ", ${it.joinToString(" ")}" } ?: "") +
+                    ((auto?.cardTypes ?: framed?.cardTypes)?.takeIf { it.isNotEmpty() }?.let { ", ${it.joinToString(" ")}" } ?: "") +
+                    // TBL-239: a hand card's P/T (loyalty, defense) read aloud after its types
+                    (handFramed?.let(::cornerWords) ?: "") +
                     auto?.tags.orEmpty().joinToString("") { ", $it tag" } +
                     // TBL-021, TBL-135: its counters read aloud in words, the corner's primary one too
                     auto?.counters.orEmpty().joinToString("") { ", ${it.words}" }
@@ -748,20 +755,21 @@ object TablePresentation {
                     else if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,
-                cardId = viewId, covered = hidden, tapped = tapped, corner = if (!values) "" else autoCorner ?: card.corner,
+                cardId = viewId, covered = hidden, tapped = tapped, corner = if (!values) "" else autoCorner ?: if (handFramed != null) handFramed.corner.orEmpty() else card.corner,
                 damage = if (!values) "" else card.damage,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 token = card.token,
                    typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()),
                     artwork = if (fullPicture) artwork?.fullPicture() else artwork, fullPicture = fullPicture,
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
-                    changedPowerToughness = if (autoCorner != null) false
+                    changedPowerToughness = if (autoCorner != null || handFramed != null) false
                         else if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
-                    cornerColor = if (autoCorner != null) auto?.let { computedCornerColor(it.trend) } else null,
+                    cornerColor = if (autoCorner != null) auto?.let { computedCornerColor(it.trend) }
+                        else handFramed?.takeIf { it.corner != null }?.let { computedCornerColor(it.trend) },
                     cornerHourglass = autoCorner != null && auto?.untilEndOfTurn == true,
                     crew = auto?.crew?.let { "Crew $it" }, automatumMarks = auto?.marks.orEmpty(), automatumState = auto?.states?.isNotEmpty() == true,
                     counterBubbles = auto?.bubbles.orEmpty(), effectsMarker = auto != null && card.id in computed.withEffects,
-                    cardTypes = auto?.cardTypes.orEmpty(), subtypeTags = auto?.tags.orEmpty(),
+                    cardTypes = (auto?.cardTypes ?: framed?.cardTypes).orEmpty(), subtypeTags = auto?.tags.orEmpty(),
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
                     enteredThisTurn = entered, coveredTitle = coveredTitle, stackAbility = ability,
                     stackCopy = zone == PlayZone.STACK && projection && !hidden && CombatStackRules.copyEntry(play.board, viewId)).also { if (draw) items += it }

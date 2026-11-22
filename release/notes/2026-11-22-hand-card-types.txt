@@ -1,0 +1,1 @@
+add: Your hand's cards show their card type icons and their power and toughness (or loyalty or defense) like cards on the battlefield, and cards on the Stack show their type icons; instants have a lightning bolt icon and sorceries a swirl. A card in your hand row from another zone has its zone badge in its top-right corner.

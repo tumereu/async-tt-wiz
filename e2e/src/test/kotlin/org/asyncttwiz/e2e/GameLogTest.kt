@@ -92,6 +92,40 @@ class GameLogTest : E2e() {
         assertTrue(name !in boon.removePrefix("${alice.name} cast Ember Boon"), "the face-down card isn't named to Bob: $boon")
     }
 
+    // HIS-246, HIS-249, HIS-062 (owner 2026-11-22, F6): Alice casts Drowsy Pup, then Idle Glimmer and Ember Quake: under the
+    // Quake's line both logs say the Pup died and both players lost 1 life, with the totals after; under the Glimmer's, Alice's
+    // log names the card she drew and Bob's only counts it; nothing hidden was shown
+    @Test fun whatAResolutionCausedInBothLogs() {
+        startGame(TestDeck("Quake", listOf(TestCards.mountain to 25, TestCards.drowsy to 5, TestCards.quake to 5, TestCards.glimmer to 5)),
+            deal = { a, _ -> listOf("Drowsy Pup", "Ember Quake", "Idle Glimmer").all { it in hand(a) } })
+        bothOpen()
+        bothKeep(bobAway = false)
+        val me = arcanum.engine.state.PlayerId(alice.account.id)
+        alice.playFromHand("Drowsy Pup", this)
+        aliceResolves("the Pup on Alice's battlefield") { alice.field("Drowsy Pup").isNotEmpty() }
+        val before = alice.state.player(me).hand.toSet()
+        alice.playFromHand("Idle Glimmer", this)
+        aliceResolves("the Glimmer's card drawn") { alice.state.player(me).hand.any { it !in before } }
+        val drawn = alice.state.player(me).hand.first { it !in before }.let { cardName(alice.state, it)!! }
+        alice.playFromHand("Ember Quake", this)
+        aliceResolves("the Quake resolved") { alice.field("Drowsy Pup").isEmpty() && alice.state.player(me).life == 19 }
+        waitUntil("Bob's table settled after the Quake", along = listOf(alice)) { bob.state.player(me).life == 19 && bob.settled(this) }
+        fun under(rows: List<String>, line: String): Set<String> =
+            rows.dropWhile { it != line }.drop(1).takeWhile { it.startsWith("  ") }.map { it.trim() }.toSet()
+        alice.openGameLog(this)
+        waitUntil("the Quake's lines in Alice's log: ${alice.gameLogRows()}") {
+            under(alice.gameLogRows(), "Ember Quake resolved") == setOf("Drowsy Pup died", "You lost 1 life (19)", "${bob.name} lost 1 life (19)")
+        }
+        assertEquals(setOf("You drew $drawn"), under(alice.gameLogRows(), "Idle Glimmer resolved"), "${alice.gameLogRows()}")
+        bob.openGameLog(this)
+        waitUntil("the Quake's lines in Bob's log: ${bob.gameLogRows()}") {
+            under(bob.gameLogRows(), "Ember Quake resolved") == setOf("Drowsy Pup died", "You lost 1 life (19)", "${alice.name} lost 1 life (19)")
+        }
+        val glimmer = under(bob.gameLogRows(), "Idle Glimmer resolved")
+        assertEquals(setOf("${alice.name} drew a card"), glimmer, "Bob reads only a count of Alice's draw: ${bob.gameLogRows()}")
+        assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty(), "${alice.leaks.leaks} ${bob.leaks.leaks}")
+    }
+
     /** Alice plays on to her Main 1 with an empty Stack, tapping Resolve where her phone stops. */
     private fun aliceResolves(what: String, done: () -> Boolean) = waitUntil(what, along = listOf(bob)) {
         if (alice.stepArrow() == "Resolve") alice.once { alice.tap("Resolve") }

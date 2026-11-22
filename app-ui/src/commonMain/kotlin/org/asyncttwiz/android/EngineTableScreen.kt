@@ -600,10 +600,12 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
             onPick = { id ->
                 // HIS-241: a line opens timeline mode at its event
                 val line = lines.firstOrNull { it.event.id == id }
+                // HIS-247: a log-only combat damage line opens it at the nearest event on the timeline
                 AppLog.info("game", "Game log: line ${lines.indexOfFirst { it.event.id == id } + 1} of ${lines.size} tapped " +
-                    "(${id.take(8)}, \"${line?.event?.description}\"): timeline mode opens there")
+                    "(${id.take(8)}, \"${line?.event?.description}\"): timeline mode opens " +
+                    if (line == null || line.opens == id) "there" else "at the nearest timeline event ${line.opens.take(8)}")
                 logOpen = false
-                if (line != null) routes.enterReview(id)
+                if (line != null) routes.enterReview(line.opens)
             },
             loadingOlder = olderComing && engine.historyLoading,
             onTop = {

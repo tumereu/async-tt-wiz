@@ -85,6 +85,8 @@ private fun GameLogRow(line: GameLogLine, viewer: String, onPick: (String) -> Un
                 Box(Modifier.weight(1f).height(if (s.newTurn) 1.5.dp else 1.dp).background(SeparatorInk.copy(alpha = if (s.newTurn) .5f else .25f)))
             }
         }
+        // HIS-248: the triggers of the events between the lines, under the label
+        line.labelConsequences.forEach { ConsequenceRow(it, viewer, event.id, onPick) }
         val text = remember(line.pieces) { line.pieces.plain() }
         // HIS-239 (owner 2026-11-21, E11): tight rows, about 24 dp each, so a screen holds more of the game
         Row(Modifier.fillMaxWidth().heightIn(min = 24.dp).clickable { onPick(event.id) }.padding(horizontal = 4.dp, vertical = 2.dp)
@@ -95,5 +97,20 @@ private fun GameLogRow(line: GameLogLine, viewer: String, onPick: (String) -> Un
             val tinted = remember(line.pieces, viewer) { line.pieces.tinted(viewer) }
             CardText(tinted, style = MaterialTheme.typography.bodyMedium, color = MenuInk)
         }
+        // HIS-246 (owner 2026-11-22, F6): what it caused, in smaller indented lines under it
+        line.consequences.forEach { ConsequenceRow(it, viewer, event.id, onPick) }
+    }
+}
+
+/** HIS-246: one smaller, indented line under a game log line (or its label, HIS-248), the names in their players' colours;
+ * a tap acts as its line's (HIS-241). */
+@Composable
+private fun ConsequenceRow(pieces: List<StackTextPiece>, viewer: String, id: String, onPick: (String) -> Unit) {
+    val text = remember(pieces) { pieces.plain() }
+    Row(Modifier.fillMaxWidth().heightIn(min = 18.dp).clickable { onPick(id) }.padding(start = 32.dp, end = 4.dp, top = 1.dp, bottom = 1.dp)
+        .testTag("game-log-consequence").clearAndSetSemantics { contentDescription = text },
+        verticalAlignment = Alignment.CenterVertically) {
+        val tinted = remember(pieces, viewer) { pieces.tinted(viewer) }
+        CardText(tinted, style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp), color = MenuInk.copy(alpha = .78f))
     }
 }

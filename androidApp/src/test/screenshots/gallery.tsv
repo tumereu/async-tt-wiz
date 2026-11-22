@@ -366,3 +366,5 @@ number	item	screenshot	catalog	decisions	sequence
 504	Clip: the other player turns a face-down creature face up: shown, flying into the card, then the card flips	clips/special-face-up.webp	HIS-112 HIS-237 HIS-238 HIS-031
 530	Draft bots: the draft history's seat ring with two people and four bots, two bots between the people each way	draft/history-bots.png	DRF-297 DRF-210 DRF-043		
 531	Pod invite picker staying open after an invite: Bob "invited", Dave "member", Carol still with Invite	draft/invite-picker.png	DRF-030		
+540	Game log: under each line, smaller and indented, what it caused; a log-only "Combat damage" line with the life lost and the total after	history/game-log-consequences.png	HIS-246 HIS-247 HIS-240		Game log consequences
+541	Game log: the same indented lines from the other player's side	history/game-log-consequences-bob.png	HIS-246 HIS-247 HIS-249		Game log consequences

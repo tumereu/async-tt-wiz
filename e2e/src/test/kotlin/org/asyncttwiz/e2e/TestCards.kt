@@ -103,6 +103,8 @@ object TestCards {
     val quench = card("Quench Spark", "Instant", "{0}", "Counter target spell.")
     /** Report KX8GYS: a spell that costs far less on a tapped creature, payable only with that target. */
     val banishing = card("Ember Banishing", "Sorcery", "{3}{R}", "This spell costs {3} less to cast if it targets a tapped creature.\nExile target creature.")
+    /** A free sweeper that also hurts both players (HIS-246: a resolution that kills and changes life). */
+    val quake = card("Ember Quake", "Sorcery", "{0}", "Ember Quake deals 1 damage to each creature and each player.")
     /** A free creature that enters tapped. */
     val drowsy = card("Drowsy Pup", "Creature — Dog", "{0}", "This creature enters tapped.", "1", "1")
     /** A loop of mandatory actions on its own (CR 104.4b): it enters and is sacrificed, dies and comes back, again and again. */

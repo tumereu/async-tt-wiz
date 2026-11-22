@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import org.junit.After
@@ -89,7 +91,7 @@ class GameLogTest {
      * there is none) or else an Ember Cub; Alice attacks Bob with her ready Cubs. Until Alice's log holds a Spark of each at
      * a Cub and her attack.
      */
-    private fun playWithTargets(): Pair<EngineCombatScenario, List<GameLogLine>> {
+    private fun playWithTargets(more: (List<GameLogLine>) -> Boolean = { true }): Pair<EngineCombatScenario, List<GameLogLine>> {
         val scenario = EngineCombatScenario()
         val alice = scenario.alice
         fun done(texts: List<String>) = texts.any { it == "You cast Storm Spark targeting Bob's Ember Cub" } &&
@@ -98,7 +100,7 @@ class GameLogTest {
         repeat(600) {
             scenario.settle()
             val lines = alice.timeline.log(alice, names)
-            if (done(lines.map { it.pieces.plain() })) return scenario to lines
+            if (done(lines.map { it.pieces.plain() }) && more(lines)) return scenario to lines
             for (game in listOf(alice, scenario.bob)) {
                 if (game.device.status != org.asyncttwiz.protocol.game.GameDevice.Status.YourMove &&
                     game.device.status !is org.asyncttwiz.protocol.game.GameDevice.Status.Stopped) continue
@@ -160,6 +162,46 @@ class GameLogTest {
         compose.onAllNodesWithTag("game-log-line").onLast().assertIsDisplayed()
         captureShot("$SCREENSHOTS/history/game-log-targets.png",
             "Alice opened the Game log after turns of Storm Sparks at each other's Ember Cubs and her attacks: each Spark's line names its target (\"targeting Bob's Ember Cub\" in his red, \"targeting your Ember Cub\" in her green) and her attack names Bob.")
+    }
+
+    /** HIS-246, HIS-247: whether [lines] hold a Storm Spark's resolution that killed a Cub and a combat damage line under
+     * which Bob lost life. */
+    private fun withConsequences(lines: List<GameLogLine>) =
+        lines.any { it.consequences.any { c -> c.plain() == "Ember Cub died" } } &&
+            lines.any { it.pieces.plain() == "Combat damage" && it.consequences.any { c -> c.plain().startsWith("Bob lost ") } }
+
+    // HIS-246, HIS-247, HIS-240 (owner 2026-11-22, F6): under each line what it caused, smaller and indented: the Cub a Storm
+    // Spark killed, and under the log-only "Combat damage" line (swords, not on the timeline) the life Bob lost with his total
+    // after; Bob's log of the same game reads them from his side
+    @Test fun theLogShowsWhatEachLineCaused() {
+        val (scenario, lines) = playWithTargets(::withConsequences)
+        val alice = scenario.alice
+        val killed = lines.last { it.consequences.any { c -> c.plain() == "Ember Cub died" } }
+        val died = killed.consequences.first { it.plain() == "Ember Cub died" }
+        assertTrue(died.first().text == "Ember Cub" && died.first().controller in setOf(scenario.f.a, scenario.f.b), "$died")
+        val combat = lines.last { it.pieces.plain() == "Combat damage" }
+        assertEquals(org.asyncttwiz.protocol.HistoryIcon.SWORDS, combat.event.icon)
+        val lost = combat.consequences.first { it.plain().startsWith("Bob lost ") }.plain()
+        assertTrue(Regex("Bob lost \\d+ life \\(\\d+\\)").matches(lost), lost)
+        // HIS-247: only in the log; a tap opens timeline mode at an event the timeline has
+        val timeline = alice.timeline.events(alice, names)
+        assertTrue(timeline.none { it.description == "Combat damage" } && timeline.any { it.id == combat.opens }, "${combat.opens}")
+        val bob = scenario.bob
+        val his = bob.timeline.log(bob, names)
+        assertTrue(his.any { it.pieces.plain() == "Combat damage" && it.consequences.any { c -> c.plain().startsWith("You lost ") } },
+            "${his.map { it.pieces.plain() to it.consequences.map { c -> c.plain() } }}")
+        var alicesLog by androidx.compose.runtime.mutableStateOf(true)
+        compose.setContent { MaterialTheme { NoRipples {
+            if (alicesLog) GameLogPanel(lines, scenario.f.a, {}, {}) else GameLogPanel(his, scenario.f.b, {}, {})
+        } } }
+        compose.waitForIdle()
+        compose.onAllNodesWithTag("game-log-consequence").onLast().assertIsDisplayed()
+        captureShot("$SCREENSHOTS/history/game-log-consequences.png",
+            "Alice opened the Game log after turns of Storm Sparks and her attacks: under each line, smaller and indented, what it caused (\"Ember Cub died\" under a Spark, and under the log's own \"Combat damage\" line the life Bob lost with his total after).")
+        compose.runOnIdle { alicesLog = false }
+        compose.waitForIdle()
+        captureShot("$SCREENSHOTS/history/game-log-consequences-bob.png",
+            "Bob opened the Game log of the same game: the same indented lines from his side, \"You lost\" under each \"Combat damage\" line, his own name and cards in green and Alice's in red.")
     }
 
     // HIS-243, HIS-245, WEB-015: the desktop table's Game log, the same targeted lines

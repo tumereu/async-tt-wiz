@@ -76,18 +76,19 @@ class TableWorldTest {
         }
     }
 
-    // TBL-005
+    // TBL-005, TBL-238
     @Test fun backgroundBandsCoverViewportWidthEvenWhenAllocatedWorldIsOffscreen() {
         val scene = TableFixture.scene(ui = TableLayoutState(TableCamera(800f, 0f, .65f)))
         val world = scene.world!!
-        // The battlefield feels infinite: even overscrolled past the pan bounds, the fields fill the viewport width.
-        assertTrue(scene.fields.all { it.bounds.x == world.viewport.x && it.bounds.width == world.viewport.width })
+        val shown = world.visibleViewport
+        // The battlefield feels infinite: even overscrolled past the pan bounds, the fields fill the width they are seen in.
+        assertTrue(scene.fields.all { it.bounds.x == shown.x && it.bounds.width == shown.width })
         val bands = scene.fields.map { it.gridBounds } + TableBounds(0f, scene.fields.first().gridBounds.bottom,
             0f, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom)
         for (band in bands) {
             val background = world.horizontalBand(band)
-            assertEquals(world.viewport.x, background.x)
-            assertEquals(world.viewport.width, background.width)
+            assertEquals(shown.x, background.x)
+            assertEquals(shown.width, background.width)
             assertTrue(background.height > 0f)
         }
         assertEquals(.65f, scene.camera.zoom)
@@ -227,6 +228,46 @@ class TableWorldTest {
             gesture.update(scene, true)
             gesture.down(start, 0); gesture.move(region.center, 80); gesture.up(region.center, 100)
             assertEquals(TableDestination.Container("stack", PlayZone.STACK), events.filterIsInstance<TableIntent.Move>().single().destination)
+        }
+    }
+
+    // TBL-238 (owner playtest 2026-11-22): on the phone the battlefields are seen through the table's whole width and, in
+    // landscape, up to both bars: fields, the combat band and touches reach the screen's sides, while where the cards lie,
+    // the opening view and the pan limits stay those of the room they are laid out in
+    @Test fun thePhoneBattlefieldsAreSeenWithoutTheirMargins() {
+        val f = TableStatesFixture
+        for (landscape in listOf(false, true)) {
+            val width = if (landscape) 892f else 412f
+            val height = if (landscape) 412f else 892f
+            val scene = TablePresentation.scene(f.game, tableBoard(f.combat()), f.a, width, height, landscape,
+                TableLayoutState(TableCamera()), landscapeHome = false)
+            val world = scene.world!!
+            val laid = world.viewport
+            val shown = world.visibleViewport
+            assertEquals(0f, shown.x, "seen from the screen's left edge")
+            assertEquals(width, shown.right, "seen up to the screen's right edge")
+            if (landscape) {
+                // From the top bar (the header row) to the bottom bar, 4 dp past the room they are laid out in
+                assertEquals(TablePresentation.HEADER, shown.y, .001f)
+                assertEquals(laid.y - 4f, shown.y, .001f); assertEquals(laid.bottom + 4f, shown.bottom, .001f)
+            } else {
+                assertEquals(laid.y, shown.y); assertEquals(laid.bottom, shown.bottom)
+            }
+            // Where the cards lie is unchanged: column 0 is still 6 dp in from the left edge at the untouched camera
+            assertEquals(6f, laid.x); assertEquals(width - 12f, laid.width)
+            for (field in scene.fields) {
+                assertEquals(laid.x, field.originX, .001f)
+                assertEquals(0f, field.bounds.x); assertEquals(width, field.bounds.right)
+                assertTrue(scene.worldInput(TablePoint(2f, field.bounds.center.y)), "the margin on the left pans the battlefield")
+                // (clear of the Stack pinned at the right edge, STK-007)
+                val edge = if (field === scene.fields.first()) field.bounds.y + 2f else field.bounds.bottom - 2f
+                assertTrue(scene.worldInput(TablePoint(width - 2f, edge)), "and the one on the right")
+            }
+            val band = assertNotNull(scene.combatBand)
+            assertEquals(0f, band.x); assertEquals(width, band.right)
+            // The pan limits are the laid-out room's (TBL-013, TBL-015)
+            val left = world.clamp(TableCamera(-10000f))
+            assertEquals(laid.x, world.screen(world.panBounds, left).x, .001f)
         }
     }
 }

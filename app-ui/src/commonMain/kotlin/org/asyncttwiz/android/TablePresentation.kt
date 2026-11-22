@@ -39,7 +39,9 @@ data class TableCamera(val x: Float = 0f, val y: Float = 0f, val zoom: Float = 1
  * dp): how far past the usual bounds the world may be panned up, so its bottom can sit above an open Automatum panel
  * (D2: the panel's height). [leftInset] (screen dp, WEB-016): how much of the viewport's left the desktop table's seat boxes
  * cover: the opening view ([landscapeHome]) puts column 0 right of it and [fit] fits the table into the rest, while the
- * world still pans under it freely (only how far right it may be panned grows by as much, so those views are in bounds). */
+ * world still pans under it freely (only how far right it may be panned grows by as much, so those views are in bounds).
+ * [clipViewport] (TBL-238, WEB-015): where the world is seen, drawn and touched, around [viewport] (which places, opens, fits
+ * and limits it): the table's whole width and the margins next to it. */
 data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val panBounds: TableBounds = bounds,
     val clipViewport: TableBounds? = null, val bottomInset: Float = 0f, val leftInset: Float = 0f) {
     val visibleViewport get() = clipViewport ?: viewport
@@ -101,8 +103,9 @@ data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val pa
         }
         return c.copy(x = raw(c.x, edge.x), y = raw(c.y, edge.y))
     }
-    fun horizontalBand(band: TableBounds) = TableBounds(viewport.x, band.y, viewport.width, band.height)
-        .intersection(visibleViewport) ?: TableBounds(viewport.x, viewport.y, viewport.width, 0f)
+    /** [band]'s rows across the whole width the battlefields are seen in ([visibleViewport], TBL-238), cut to it. */
+    fun horizontalBand(band: TableBounds) = visibleViewport.let { v ->
+        TableBounds(v.x, band.y, v.width, band.height).intersection(v) ?: TableBounds(v.x, v.y, v.width, 0f) }
     /** TBL-121: the opening view in landscape: zoomed out (to at most 1x, at least the smallest zoom) until the
      * battlefields' rows fit the height, centred on them, with column 0 still at the left edge as at 1x (WEB-016: on the
      * desktop table [leftInset] from it, right of the seat boxes). */
@@ -403,6 +406,9 @@ object TablePresentation {
     const val MIN_ZOOM = .65f
     const val MAX_ZOOM = 2f
     const val HEADER = 48f
+    /** TBL-238: the margin the battlefields are laid out inside below the header and above the bottom bar (landscape); they
+     * are still seen in it. */
+    private const val BOARD_MARGIN = 4f
     // Reserve the maximum chrome width so the opponent's fixed Hand does not move in review: three 48 dp buttons (step,
     // Return to current or Table actions, chat) with their gaps and the bar's end padding, and a gap before them.
     const val TOOLBAR = 168f
@@ -588,13 +594,13 @@ object TablePresentation {
         // WEB-016, TBL-121, TBL-012: the battlefields' column 0 lies just right of both boxes in the opening view and when the
         // table is fitted; the boxes take no height from the rows (their battlefields reach the top row and the bottom floats)
         val boxesRight = plates.values.maxOfOrNull { it.right } ?: 0f
-        val boardTop = if (desktop != null) 4f else HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
+        val boardTop = if (desktop != null) 4f else HEADER + BOARD_MARGIN + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
         // TBL-009 (owner, 2026-11-08): in landscape your hand sits in the bottom bar (taller cards reach above it)
         val ownHandHeight = maxOf(HEADER, railHeight)
         // WEB-015, TBL-012, TBL-121: on the desktop table the battlefields are laid out (fitted, opened on) above what floats over
         // their bottom, and drawn down to the window's bottom under it
         val boardBottom = if (desktop != null) height - desktopBand - 4f
-            else if (landscape) minOf(height - controlsHeight, height - 4f - ownHandHeight) - 4f else height - controlsHeight - 4f
+            else if (landscape) minOf(height - controlsHeight, height - 4f - ownHandHeight) - BOARD_MARGIN else height - controlsHeight - 4f
         val ownDockY = height - controlsHeight - ownDockRow
         // ZON-001: the other player's hand has no row of its own in portrait: their battlefield starts under their row
         val worldTop = if (landscape) boardTop else HEADER + dockRow
@@ -602,10 +608,15 @@ object TablePresentation {
         // TBL-009: the battlefields take the table's whole width in both orientations
         val worldViewport = TableBounds(6f, worldTop, (tableRight - 12f).coerceAtLeast(1f),
             (worldBottom - worldTop).coerceAtLeast(1f))
-        // WEB-015: where the battlefields are drawn: on the desktop table from the top row down to the window's bottom (the
-        // timeline strip)
-        val shownViewport = if (desktop != null) worldViewport.copy(y = 0f, height = floorY.coerceAtLeast(worldViewport.bottom))
-            else worldViewport
+        // TBL-238 (owner playtest 2026-11-22): where the battlefields are seen (drawn, panned into, touched): the table's whole
+        // width, with no margin at its sides, and in landscape up to both bars; the battlefields are still laid out, opened on,
+        // fitted and pan-limited in [worldViewport], so nothing lies anywhere else. WEB-015: on the desktop table from the top
+        // row down to the window's bottom (the timeline strip)
+        val shownViewport = when {
+            desktop != null -> TableBounds(0f, 0f, tableRight, floorY.coerceAtLeast(worldViewport.bottom))
+            landscape -> TableBounds(0f, worldTop - BOARD_MARGIN, tableRight, worldViewport.height + 2 * BOARD_MARGIN)
+            else -> worldViewport.copy(x = 0f, width = tableRight)
+        }
         // WEB-016: how much of the battlefields' left the seat boxes take, and the battlefields' width right of them (at 1×)
         val boxInset = (boxesRight - worldViewport.x).coerceIn(0f, (worldViewport.width - 1f).coerceAtLeast(0f))
         val boardWidth = worldViewport.width - boxInset
@@ -662,7 +673,7 @@ object TablePresentation {
         // Empty columns are navigable without making Fit table zoom out to include unused space.
         val world = TableWorld(worldViewport, contentBounds,
             contentBounds.copy(x = worldLeft - 3 * columnPitch, width = contentBounds.width + 6 * columnPitch),
-            clipViewport = shownViewport.takeIf { desktop != null }, leftInset = boxInset)
+            clipViewport = shownViewport, leftInset = boxInset)
         // Gestures own resistance/settling. Do not hard-clamp away their overscroll animation here.
         // TBL-121: [landscapeHome] (the table screen): an untouched camera in landscape opens on the whole height
         val camera = if (opening) world.landscapeHome() else world.normalize(ui.camera)
@@ -673,8 +684,9 @@ object TablePresentation {
         // spans the whole pan area (and the viewport, covering overscroll and zoomed-out views) on both sides,
         // so no field edge, drop gap or tint edge is ever visible. Column 0 stays the world origin.
         val pan = world.screen(world.panBounds, camera)
-        val fieldLeft = minOf(pan.x, worldViewport.x)
-        val fieldRight = maxOf(pan.right, worldViewport.right)
+        // TBL-238: and the whole width they are seen in
+        val fieldLeft = minOf(pan.x, shownViewport.x)
+        val fieldRight = maxOf(pan.right, shownViewport.right)
         val fields = players.mapIndexed { index, player ->
             val logical = world.screen(logicalFields[index], camera)
             val grid = TableBounds(fieldLeft, logical.y, fieldRight - fieldLeft, logical.height)
@@ -1097,7 +1109,9 @@ object TablePresentation {
         }
         val combatY = bandY + (bandHeight - combat.height) / 2
         // CMB-007: the band on the screen (the table's whole width), and the lanes it holds in its middle
+        // TBL-238: as wide as the fields, so it reaches the sides of the width they are seen in
         val band = world.screen(TableBounds(world.panBounds.x, bandY, world.panBounds.width, bandHeight), camera)
+            .let { TableBounds(fieldLeft, it.y, fieldRight - fieldLeft, it.height) }
         val lanesBounds = if (combat.lanes.isEmpty()) null else world.screen(TableBounds(combatX, combatY, combat.width, combat.height), camera)
         val combatPanel = lanesBounds?.takeIf { open }
         val combatBounds = lanesBounds ?: world.screen(TableBounds(combatX, combatY, 0f, 0f), camera)

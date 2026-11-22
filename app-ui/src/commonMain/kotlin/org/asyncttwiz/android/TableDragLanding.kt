@@ -80,7 +80,7 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
                 x += b.width + margin
                 b
             }
-            val port = scene.world?.viewport
+            val port = scene.world?.visibleViewport
             TableDragLanding(slots.mapNotNull { if (port == null) it else it.intersection(port) })
         }
     }

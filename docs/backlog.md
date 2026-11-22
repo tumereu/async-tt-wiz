@@ -16,6 +16,12 @@ Catalog review notes (owner, 2026-11-22):
 - Solo draft: one person with bots (today bots leave room for two people, DRF-296), with a warning that there is no one in the pod to play against (bots play no games, DRF-301).
 - A pod challenge declined on one device can keep its notification on your other devices until you submit your deck (DRF-135, DRF-138, LOB-243).
 
+Playtest notes (owner, 2026-11-22):
+
+- "Waiting for you" dots: red for your move in a game, a game invitation to you or a pod challenge you can accept now; blue for your pick in a pod; green for building your deck in a pod (several at once: move over pick over build). They show on the hamburger in the game and pod headers (DRF-073) and on the Menu screen's in portrait, in the highest colour of everything but the game or pod open, and on those rows in the side menu and the menu panel (LOB-018, LOB-019, LOB-017; the desktop's permanent side area: rows only); never for the game or pod you are looking at. The Games screen's rows keep their "Your move" chip (LOB-024), no dot. The chat's unread dot's shape (LOB-163).
+- Autotap keeps your options open: within each tier of STK-154 (sources with no downsides always first), it pays the way that leaves the most of your spells and abilities still payable with the untapped sources left (your hand, your cards from other zones, your permanents' abilities, whatever their timing; mana only, no trial casts, fast enough for the raised card's outline, ZON-101); ties keep today's order (STK-154, ZON-101).
+- Phone battlefield: the battlefield's view has padding around it on the phone; make that area part of the view (cards pan and show into it), with no change to where anything is placed (TBL-005, SYS-041).
+
 ### Earlier
 
 Desktop playtest notes (owner, 2026-11-14): high priority.

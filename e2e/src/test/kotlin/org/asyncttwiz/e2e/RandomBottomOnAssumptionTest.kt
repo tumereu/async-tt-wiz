@@ -24,7 +24,10 @@ class RandomBottomOnAssumptionTest : E2e() {
 
     // TRN-067, TRN-159, STK-030: on her tentative line OK takes her pick: the Plains goes to her hand, nothing refused, Bob still away
     @Test fun okTakesThePickWhileTheRestGoToTheBottomInARandomOrder() {
-        startGame(TestDeck("Seekers", listOf(TestCards.plains to 20, TestCards.seeker to 20)), deal = { a, _ -> "Trailhead Seeker" in hand(a) })
+        // A Plains among the top five she looks at (she starts: no draw before), or there is nothing to pick and nothing is asked
+        // (CR 609.3: the choice from none isn't made); about one deal in fifty has none
+        startGame(TestDeck("Seekers", listOf(TestCards.plains to 20, TestCards.seeker to 20)),
+            deal = { a, _ -> "Trailhead Seeker" in hand(a) && "Plains" in library(a).take(5) })
         bothOpen()
         bothKeep(bobAway = true)
         waitUntil("Alice's Main 1") { alice.inOwnMain() && alice.settled(this) }

@@ -39,8 +39,14 @@ github-selftest) (( $# == 1 )) || usage ;; # Developer check of the GitHub mirro
 esac
 mkdir -p "$STATE"
 STATE=$(cd "$STATE" && pwd -P)
-exec 9>"$STATE/release.lock"
-flock -n 9 || die "Another production release/install is running."
+# The lock is held by flock itself, not by a descriptor of this script: processes the release leaves running (an adb
+# server it starts, a Gradle or Kotlin daemon) would inherit one and hold the lock after it ends (0.3.1's first try).
+if [[ -z ${ATW_RELEASE_LOCK_HELD:-} ]]; then
+    rc=0
+    ATW_RELEASE_LOCK_HELD=1 flock -n -o -E 75 "$STATE/release.lock" "$ROOT/scripts/prod-release.sh" "$@" || rc=$?
+    (( rc != 75 )) || die "Another production release/install is running."
+    exit "$rc"
+fi
 source "$ROOT/scripts/lib/device-adb.sh"
 
 install_phone() {

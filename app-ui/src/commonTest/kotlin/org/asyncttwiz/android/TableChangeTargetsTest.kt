@@ -65,5 +65,17 @@ class TableChangeTargetsTest {
         for (kind in listOf(TableChangeKind.NOTE, TableChangeKind.CORNER, TableChangeKind.COUNTER, TableChangeKind.TEXT_MARK))
             assertNull(tableChangeTarget(TableChangeKey(id, kind), items::get), "$kind must not disclose covered values")
     }
+
+    // HIS-031, HIS-237: a card's flashes that overlap (its P/T flash and the pulse of a special action landed in it) are drawn in the
+    // order they began, the later on top, whatever order the table's map of changes keeps them in (its keys' hashes)
+    @Test fun overlappingFlashesAreDrawnInTheOrderTheyBegan() {
+        fun active(kind: TableChangeKind, serial: Long) = ActiveTableChange(TableChange(TableChangeKey("card", kind)), 0L, serial)
+        val corner = active(TableChangeKind.CORNER, 1)
+        val face = active(TableChangeKind.FACE, 2)
+        val special = active(TableChangeKind.SPECIAL, 3)
+        val step = active(TableChangeKind.STEP, 4)
+        for (stored in listOf(listOf(special, step, corner, face), listOf(face, corner, special), listOf(corner, face, special, step)))
+            assertEquals(listOf(corner, face, special), tableChangeDrawOrder(stored), "stored as $stored")
+    }
 }
 

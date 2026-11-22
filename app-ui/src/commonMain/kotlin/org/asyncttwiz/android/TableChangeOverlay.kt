@@ -83,12 +83,18 @@ fun tableChangeLinkAnchors(change: TableChange, item: (String) -> TableItem?): P
     return first to second
 }
 
+/** The order the overlay draws [active] changes in, the later one over the earlier where they overlap (a card's P/T flash and
+ * its pulse): the order they began ([ActiveTableChange.serial]). Never the map's own order, which follows its keys' hashes and
+ * so the run (an enum's hash is its identity). The step button's flash is drawn by the button itself. */
+fun tableChangeDrawOrder(active: Collection<ActiveTableChange>): List<ActiveTableChange> =
+    active.filter { it.change.key.kind != TableChangeKind.STEP }.sortedBy { it.serial }
+
 /** Independent clocks per changed value. No input modifiers and no board/frame diff. */
 @Composable
 fun TableChangeOverlay(changes: TableChanges?, viewer: String, appearance: CardAppearance,
     item: (String) -> TableItem?) {
     if (changes == null) return
-    val effects = changes.active.values.filter { it.change.key.kind != TableChangeKind.STEP }.map { active ->
+    val effects = tableChangeDrawOrder(changes.active.values).map { active ->
         key(active.change.key) { active to changeProgress(changes, active) }
     }
     // All pills must be above ALL value flashes, not just their own. In particular a small

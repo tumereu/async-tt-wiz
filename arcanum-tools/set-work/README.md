@@ -29,12 +29,14 @@ set's starting point, so a regression is caught where it is made.
 Each set has its own worktree and orchestrator; the plan and merge steps take turns through machine-wide locks
 (`bin/set-plan.sh`, `bin/plan-lock.sh`, `bin/merge-to-master.sh`). About 6 sets at a time is the machine's limit: more
 saturates the build slots and memory.
-- **Integrate continuously,** so a general fix reaches the other sets within the hour: each chunk starts with
-  `bin/sync-master.sh <CODE>` (brings master in, retakes the base snapshot) and each accepted green chunk is merged with
-  `bin/merge-to-master.sh <code> --chunk`. The set isn't in `supported-sets.txt` until its close, so a mid-set merge
-  changes no supported set; supported cards changed outside the set must still be named with a reason.
+- **Bring master in continuously, merge once:** each chunk starts with `bin/sync-master.sh <CODE>` (brings master in,
+  retakes the base snapshot), so the set works on current master; the set itself goes to master only once, at its close
+  (owner, 2026-11-23: the merge gate's app checks after every chunk aren't needed). So another running set gets a
+  general fix only when the set that made it closes: check the other sets' branches (`git log set/<other> --oneline -15
+  -- <file>`) as well as master before a general fix. Supported cards changed outside the set must be named with a
+  reason.
 - **Before a general engine or parser fix,** check whether another set just fixed the same gap:
-  `git log master --oneline -15 -- <file>`.
+  `git log master --oneline -15 -- <file>`, and the other running sets' branches the same way.
 - **Rulings register** `~/projects/atw-cache/set-plans/rulings.tsv` (`CR<TAB>wording<TAB>reading<TAB>set<TAB>test<TAB>date`),
   shared by all sets: check it before deciding an unclear reading, and append each judgment call. An entry that conflicts
   with what you'd decide isn't decided in a chunk: it goes to `fixes.md`, and the fix step settles it from the CR text,
@@ -101,11 +103,7 @@ the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
    - `git -C <wt> status --short` must be empty and the reply must name a commit; otherwise send the worker back to finish.
    - If the reply says it skipped or didn't repeat the final `bin/set-tests.sh <code> --full`, run it yourself in `<wt>`.
      Supported cards changed outside the set, cube changes and cards no longer read must be 0 or named with a reason.
-   - Merge the accepted chunk: `bin/merge-to-master.sh <code> --chunk` in `<wt>`. Exit 4 (conflict with master): the next
-     worker's `sync-master.sh` meets it, resolves it and reruns `set-tests.sh <code> --full`; retry the merge after its
-     chunk. Exit 5 (checks failed on the merge with master, the app's included: the script goes through the merge gate,
-     `scripts/merge-gate.sh`): give the failures to the next worker ("First fix:" in its prompt).
-     Exit 3: retry in a few minutes. With no worker left to run, send a fix worker with just that.
+   - The accepted chunk stays on `set/<code>` (pushed); it isn't merged to master until the close.
    - Stop the worker (TaskStop), even if it says it is waiting for background work: a finished worker woken later by a
      leftover background command rereads its whole context each time.
    - Note the chunk's result in `<plan>/coordinator-log.md`: cards done/left, commit, and from the reply: engine or parser
@@ -153,7 +151,7 @@ the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
 - **Running times, roughly:** `coveredShapes` 6-8 minutes, `setPlan` under a minute, `base-snapshot.sh` 1-2 minutes,
   `set-tests.sh` 1-3 minutes, with `--full` about 4-8 (it compiles automatum and Wasm too, and leaves out the engine's
   long random-game and fuzz classes); `--full --long` (about 2 minutes more) runs them too and is what the fix, sweep and
-  close steps use. `merge-to-master.sh --chunk` takes about 20 minutes (the merge gate's app checks), the full merge about 45.
+  close steps use. The close's `merge-to-master.sh` takes about 45 minutes (the merge gate's app checks).
 - Gradle (through `gradle-slot.sh`) waits silently for a free build slot: no output for a while isn't a hang.
 - **Context.** Workers stop at about 250k context and report what's left. If one goes far past it, tell it to commit at
   the next green point and report the rest; the rest becomes a new chunk.

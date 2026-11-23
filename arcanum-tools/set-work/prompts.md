@@ -27,7 +27,7 @@ SET-WORK <code> chunk <NN>
 Worktree: <wt> (branch set/<code>; work there by absolute path, never in another checkout).
 Plan: <plan>, your chunk: chunks/<NN>.md.
 Start with `arcanum-tools/set-work/bin/sync-master.sh <CODE>` in <wt>; if it reports a conflict with master, resolve it as it says (then it runs again) and check the result with `arcanum-tools/set-work/bin/set-tests.sh <code> --full`.
-[If the last merge to master failed its checks: First fix: <the failures merge-to-master.sh printed>.]
+[If the close's merge to master failed its checks: First fix: <the failures merge-to-master.sh printed>.]
 
 Follow <wt>/arcanum-tools/set-work/worker-brief.md.
 

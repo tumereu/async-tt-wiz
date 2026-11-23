@@ -3722,6 +3722,7 @@ internal class Sentences(
                 ?: tryWhole(::tlaWhole) // tla
                 ?: tryWhole(::sosWhole) // sos
                 ?: tryWhole(::tmtWhole) // tmt
+                ?: tryWhole(::sncWhole) // snc
                 ?: tryWhole(::mshWhole)
                 ?: tryWhole(::trkWhole) // trk
                 ?: tryWhole(::woeWhole) // woe
@@ -16668,7 +16669,11 @@ internal class Sentences(
             val except = m.groupValues[if (plural) 6 else 3].takeIf { it.isNotEmpty() }?.let { copyExceptions(it) ?: return null }.orEmpty()
             context.targets += tmtSlot(name, if (another) Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter) else filter)
             return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Target(name), except), Value.Fixed(count), Players.You, bind = "token")),
-                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste))), Affected.Objects(Objects.Bound("token")),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste) + listOfNotNull(
+                    // snc chunk 01: 'It gains haste and "When this token dies, draw a card."'
+                    "When this token dies, draw a card.".takeIf { text.contains(" and \"$it\"") }?.let { quoted ->
+                        Sentences(setOf("this token")).line(quoted).takeUnless { it == null || it is Ability.Unparsed } ?: return null }))),
+                    Affected.Objects(Objects.Bound("token")),
                     // trk chunk 09: "It gains haste until end of turn."
                     if (text.contains(" haste until end of turn.")) arcanum.api.Duration.EndOfTurn else arcanum.api.Duration.Indefinitely)),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
@@ -22949,6 +22954,21 @@ internal class Sentences(
                 Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[4].toInt()), Value.Fixed(m.groupValues[5].toInt())),
                 Mechanic.GainAbilities(keywords + granted),
             ), affects = Affected.Objects(Objects.Self), condition = condition)
+        }
+        return null
+    }
+
+    /** snc: whole multi-sentence effects. */
+    private fun sncWhole(text: String, context: Context): List<Step>? {
+        // snc chunk 01: look at the top card; you may play it if it is a land or cast it if it is a spell of mana value up to the damage dealt,
+        // without paying its mana cost; if you don't, it goes into your hand (CR 305.1, 601.2, 608.2c; the damage is the trigger's amount)
+        Snc.LOOK_PLAY_OR_CAST_UP_TO_DAMAGE_ELSE_HAND.matchEntire(text)?.let {
+            val top = Objects.Bound("top")
+            return listOf(
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true), Players.You, bind = "top")),
+                Step.Pay(steps = listOf(Step.Do(Effect.Cast(top, PlayKind.Play, withoutPaying = true, caster = Players.You,
+                    resultingSpell = ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.EventAmount)))), payer = Players.You, bind = "played"),
+                Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("played")), then = listOf(Step.Do(Effect.Move(top, Destination(Zone.Hand))))))
         }
         return null
     }

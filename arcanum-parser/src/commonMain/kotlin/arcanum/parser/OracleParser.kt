@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 126
+    const val VERSION: Int = 127
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -777,6 +777,8 @@ object OracleParser {
                 "Ward", "ward" -> Keyword.Ward(cost)
                 // eoe chunk 09: "Warp—{B}, Pay 2 life." (CR 702.185a)
                 "Warp" -> Keyword.Warp(cost)
+                // snc chunk 01: "Blitz—{2}{B}{B}, Pay 2 life." (CR 702.152a)
+                "Blitz" -> Keyword.Blitz(cost)
                 // dmr chunk 01: "Cycling—Pay 2 life." (CR 702.29a): a cost that isn't only mana
                 "Cycling" -> Keyword.Cycling(cost)
                 // dmr chunk 04: "Cumulative upkeep—Discard a card." (CR 702.24a): a cost that isn't mana
@@ -889,7 +891,7 @@ object OracleParser {
     // trk chunk 06: also two words ("Affinity for artifact creatures")
     private val AFFINITY = Regex("""Affinity for (\w+(?: \w+)?)""")
     private val CAST_THIS_TURN = Regex("""(permanents|creatures) that were cast this turn""")
-    private val DASH_COST = Regex("""(Evoke|Escape|Equip|Ward|ward|Warp|Cycling|Cumulative upkeep|Madness)—(.+?)\.?""")
+    private val DASH_COST = Regex("""(Evoke|Escape|Equip|Ward|ward|Warp|Blitz|Cycling|Cumulative upkeep|Madness)—(.+?)\.?""")
     // dsk chunk 06
     private val TYPECYCLING = Regex("""([A-Z][a-z]+(?: land)?)cycling (\{.+\})""")
     // hob chunk 06

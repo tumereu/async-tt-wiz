@@ -6891,8 +6891,14 @@ internal class Sentences(
             (either?.let { listOf(CostPart.OneOf(it)) } ?: costPart(m.groupValues[1].replaceFirstChar { it.uppercase() })
                 ?: oneCostOnIt(m.groupValues[1].replaceFirstChar { it.uppercase() }, context)
                 ?: costPartsJoined(m.groupValues[1].replaceFirstChar { it.uppercase() }, context))?.let { parts ->
-                val reflexive = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return null
-                return listOf(Step.Pay(Cost(parts), bind = "paid", payer = Players.You),
+                // snc chunk 03: "you may sacrifice another creature. When you do, … equal to that creature's power …": the sacrifice names
+                // the object the reflexive trigger reads, as it last existed (CR 603.12, 608.2h)
+                val sacrificePart = (parts.singleOrNull() as? CostPart.Sacrifice)?.takeIf { it.what is CostObjects.Choose && it.preBind == null &&
+                    mh3NamesCreatures((it.what as CostObjects.Choose).filter) && m.groupValues[2].contains("that creature") }
+                val reflexive = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() },
+                    that = sacrificePart?.let { Objects.Bound(SACRIFICED) }) ?: return null
+                val payParts = if (sacrificePart == null) parts else listOf(sacrificePart.copy(preBind = SACRIFICED))
+                return listOf(Step.Pay(Cost(payParts), bind = "paid", payer = Players.You),
                     Step.If(arcanum.api.Condition.Did("paid"), then = listOf(reflexiveTrigger(reflexive, m.groupValues[2]))))
             }
         }
@@ -14201,6 +14207,13 @@ internal class Sentences(
             val per = Value.Count(Objects.Where(them, ObjectFilter.InZone(Zone.Exile)))
             val n = Numbers.count(m.groupValues[2]) ?: return@let
             return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = players), times(per, n), source = Objects.Self)))
+        }
+        // snc chunk 03: "this creature deals 2 damage to you for each Treasure you control." (CR 120.3: one amount, the number counted times N)
+        Snc.DEALS_DAMAGE_TO_FOR_EACH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val players = Filters.players(m.groupValues[3]) ?: return@let
+            val filter = Filters.noun(m.groupValues[4]) ?: return@let
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = players), times(Value.Count(Objects.Each(filter)), m.groupValues[2].toInt()),
+                source = Objects.Self)))
         }
         // "Choose target creature." (only a target; "that creature" and "it" afterwards)
         BlbGaps.CHOOSE_TARGET.matchEntire(sentence)?.takeIf { !it.groupValues[1].contains(" card") }?.let { m ->

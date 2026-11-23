@@ -206,6 +206,33 @@ class GameResultLifecycleTest {
         }
     }
 
+    // TRN-142 (owner, 2026-11-22): while an OK on the result is owed, the open game's head carries the ended play and its
+    // engine state for its table, besides the lobby's preparation, and that play's history pages back; a list's summary head
+    // carries neither; once both OKs stand, nothing of the ended play comes any more
+    @Test fun `a lobby whose result waits for an OK opens with its ended play for its table`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            Fixture(db).use { f ->
+                assertEquals("accepted", f.other.execute(f.concession()).outcome)
+                val head = f.games.subscriptionHead(f.a, f.game.id, engine = true)
+                assertEquals(GameLifecycle.LOBBY, head.summary.lifecycle)
+                assertEquals(listOf(f.a.account.accountId), head.summary.resultNotice!!.unseen)
+                assertEquals(f.initial.id, head.play?.id, "the ended play")
+                assertNotNull(head.engine, "its engine state")
+                val snapshot = head.engine!!
+                assertNotNull(head.preparation, "the lobby's preparation besides")
+                assertEquals(snapshot.headId, f.games.history(f.a, f.game.id, snapshot.headId).through, "its history pages back")
+                val listed = f.games.subscriptionHead(f.a, f.game.id, engine = false)
+                assertNull(listed.engine); assertNull(listed.play)
+                assertNull(f.games.head(f.a, f.game.id).engine, "the plain head neither")
+                assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.AcknowledgeResult, GameScope(f.game.id))).outcome)
+                val after = f.games.subscriptionHead(f.a, f.game.id, engine = true)
+                assertNull(after.summary.resultNotice)
+                assertNull(after.engine); assertNull(after.play)
+            }
+        }
+    }
+
     @Test fun `failed return rolls back atomically and an admitted concession recovers after restart without duplicate effect`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -183,6 +183,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     private fun clearContext(gameId: String) {
         ownPodDeckNames.remove(gameId); presences.remove(gameId); endHeld.remove(gameId)
+        endTableUnavailable.remove(gameId); endTableAsked.remove(gameId)
         preparations.remove(gameId); engineGames.remove(gameId)?.close(); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
         engineHeads.remove(gameId); headAsked.remove(gameId); unopenable.remove(gameId)
         order.forget(gameId); released.removeAll { it.gameId == gameId }
@@ -214,9 +215,21 @@ class GameSession(private val connection: GameConnection, private val credential
     private val endHeld = mutableSetOf<String>()
     /** TRN-065: whether [gameId]'s table stays on after its play ended ([endHeld]). */
     fun tableHeldAtEnd(gameId: String): Boolean = gameId in endHeld
+    /**
+     * TRN-142 (owner, 2026-11-22): the games opened here while an OK on their last result is still owed whose ended play's
+     * table can't show on this device (it failed to load or to show its end): their result shows over the
+     * lobby instead. Forgotten when the game closes.
+     */
+    private val endTableUnavailable = mutableSetOf<String>()
+    /** TRN-142: whether [gameId], opened while an OK on its last result is owed, shows its ended play's table (loading until its
+     * head comes) rather than the lobby. */
+    fun endTableShown(gameId: String): Boolean = gameId !in endTableUnavailable
+    /** TRN-142: the summary revision of each game whose ended play's head was asked for at it (asked once per revision). */
+    private val endTableAsked = mutableMapOf<String, String>()
     /** TRN-065: both OKs stand on [gameId]'s result (the player's own last, here or on another device, or the other player's):
      * the held table goes, and the lobby shows. */
     fun releaseEnd(gameId: String, why: String) {
+        endTableAsked.remove(gameId)
         if (!endHeld.remove(gameId)) return
         AppLog.info("game", "End of game: table let go, to the lobby: $why")
         engineGames.remove(gameId)?.close(); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
@@ -232,6 +245,11 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun holdEnd(game: EngineGame, message: GameRevision): Boolean {
         val notice = message.summary.resultNotice?.takeIf { message.summary.lifecycle == GameLifecycle.LOBBY }
         val owed = notice?.unseen.orEmpty()
+        // TRN-142: a table already held at the end (one opened while the ended play still loads too) stays
+        if (notice != null && message.gameId in endHeld && engineLoad(message.gameId) && !game.loadFailed) {
+            install(message.summary, message.resultRevision, message.preparation, "a revision while the table is held at the end")
+            return true
+        }
         if (notice == null || !engineLoad(message.gameId) || game.shown == null || game.loadFailed) {
             val why = if (notice == null) "both OKs stand (revision ${message.resultRevision}, " +
                 "${if (message.author == (account ?: accountId())) "own request" else "the other player's request"})"
@@ -337,6 +355,39 @@ class GameSession(private val connection: GameConnection, private val credential
         drainHeld()
         pumpEngine(head.gameId)
     }
+    /**
+     * TRN-142 (owner, 2026-11-22): [head] is the open game's lobby head while an OK on its last result is still owed: the
+     * ended play it carries (with its engine state) loads and its table holds the end until both OKs stand, as when the play
+     * ended at the table ([holdEnd]): its result's dialog over its last board. One that can't load or show it leaves the
+     * result over the lobby.
+     */
+    private fun endTable(head: GameHead) {
+        val notice = head.summary.resultNotice
+        if (head.summary.lifecycle != GameLifecycle.LOBBY || notice == null || !engineLoad(head.gameId) || head.gameId in endHeld) return
+        val play = head.play
+        val snapshot = head.engine
+        // A summary head (the list's subscription, a heartbeat) carries neither: the one asked for comes ([loadOpened])
+        if (play == null || snapshot == null) return
+        val me = account ?: accountId() ?: return
+        engineGames.remove(head.gameId)?.close(); engineBacklog.remove(head.gameId); reloadAsked.remove(head.gameId)
+        val game = EngineGame(head.gameId, me, play, snapshot, worker = engineWorker, onShown = { engineShown(head.gameId) },
+            pages = { through, done -> connection.historyPage(head.gameId, through, done) }, namedCards = namedCards,
+            device = EngineBoundary.devices)
+        engineGames[head.gameId] = game
+        endHeld += head.gameId
+        game.assumeReveals(head.summary.assumeReveals)
+        AppLog.info("game", "End of game: ${notice.ending}, opened at its ended play's table (play ${play.id.take(8)}, head " +
+            "${snapshot.headId.take(8)}, revision ${head.revision}), staying until both OKs; owed by " +
+            notice.unseen.joinToString { if (it == me) "this player" else "the other player" })
+        // What the player hadn't watched shows at once, as when the play ended at the table
+        game.holdEnd(GameRevision(head.gameId, head.revision, head.revision, "", "", GameScope(head.gameId), head.summary)) {
+            endTableUnavailable += head.gameId
+            releaseEnd(head.gameId, "the device can't show the ended play's end: the result over the lobby")
+        }
+        changed(summary(head.summary))
+        statusChanged()
+    }
+
     /** [head] is past the revisions [game] received, and its last event isn't among those the device shows. */
     private fun behind(game: EngineGame, head: GameHead): Boolean {
         val received = game.revision ?: return true
@@ -375,6 +426,20 @@ class GameSession(private val connection: GameConnection, private val credential
         for ((gameId, stream) in streams) {
             if (stream.generation == null || !engineLoad(gameId) || gameId in unopenable) continue
             val current = summaries[gameId] ?: continue
+            // TRN-142 (owner, 2026-11-22): a game whose result still waits for an OK opens at its ended play's table
+            if (current.lifecycle == GameLifecycle.LOBBY && current.resultNotice != null) {
+                // (a head already asked for, say the stream's own summary one, comes first: it may not carry the play)
+                if (engineGames[gameId] == null && gameId !in endTableUnavailable && gameId !in headAsked &&
+                    endTableAsked[gameId] != current.revision) {
+                    askHead(gameId)
+                    if (gameId in headAsked) {
+                        endTableAsked[gameId] = current.revision
+                        AppLog.info("game", "End of game: ${gameId.take(8)} opened while an OK on its result is owed: its ended play's " +
+                            "head asked for, for its table (revision ${current.revision})")
+                    }
+                }
+                continue
+            }
             if (current.lifecycle != GameLifecycle.ACTIVE || current.playId == null) continue
             if (engineGames[gameId]?.base?.id == current.playId) continue
             val kept = engineHeads[gameId]
@@ -385,6 +450,8 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Switch-review #11: only the open game has an engine state on the device; one that is no longer open is let go (what
      * it still has to send goes first) and its subscription becomes a summary one. */
     private fun letGoClosed() {
+        // TRN-142: a game opened again tries its ended play's table again
+        endTableUnavailable.removeAll { !engineLoad(it) }; endTableAsked.keys.removeAll { !engineLoad(it) }
         for (gameId in engineGames.keys.filter { !engineLoad(it) }) {
             if (endHeld.remove(gameId)) AppLog.info("game", "End of game: table let go, the game closed (an OK still owed)")
             val game = engineGames.getValue(gameId)
@@ -426,6 +493,12 @@ class GameSession(private val connection: GameConnection, private val credential
      * device that can't follow asks to load the game again (once per revision). */
     private fun engineShown(gameId: String) {
         val game = engineGames[gameId] ?: return
+        // TRN-142: an ended play's table that fails to load leaves the result over the lobby
+        if (game.loadFailed && gameId in endHeld) {
+            endTableUnavailable += gameId
+            releaseEnd(gameId, "the ended play's table failed to load: the result over the lobby")
+            return
+        }
         if (game.loadFailed) { engineGames.remove(gameId)?.close(); cannotOpen(gameId, "engineLoadFailed"); return }
         if (game.needsReload && gameId in streams && reloadAsked[gameId] != order.received(gameId)) {
             reloadAsked[gameId] = order.received(gameId)
@@ -780,6 +853,7 @@ class GameSession(private val connection: GameConnection, private val credential
                     // A play without engine state can't be played on this device (no history is downloaded any more)
                     if (message.play != null && message.summary.lifecycle == GameLifecycle.ACTIVE)
                         cannotOpen(message.gameId, "headWithoutEngine")
+                    else endTable(message)
                 }
                 flush()
             }

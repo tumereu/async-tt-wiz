@@ -7,6 +7,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
+import org.asyncttwiz.server.generated.tables.GameInbox.GAME_INBOX
 import org.jooq.DSLContext
 
 /** Persistence/entropy adapter. Initialization semantics are pure shared Kotlin. */
@@ -19,6 +20,13 @@ internal object PlayStore {
     fun read(sql: DSLContext, game: UUID): PlayState? = decode(game, sql.select(GAME_PLAY.PAYLOAD).from(GAME)
         .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
         .where(GAME.ID.eq(game)).fetchOne()?.value1())
+
+    /** TRN-142 (owner, 2026-11-22): [game]'s last ended play (the one whose end request came last), its id and its play as it
+     * started; null when none ended. */
+    fun lastEnded(sql: DSLContext, game: UUID): Pair<UUID, PlayState>? = sql.select(GAME_PLAY.ID, GAME_PLAY.PAYLOAD).from(GAME_PLAY)
+        .join(GAME_INBOX).on(GAME_INBOX.REQUEST_ID.eq(GAME_PLAY.ENDED_REQUEST_ID))
+        .where(GAME_PLAY.GAME_ID.eq(game)).orderBy(GAME_INBOX.INGRESS_ORDINAL.desc()).limit(1).fetchOne()
+        ?.let { row -> decode(game, row.value2())?.let { row.value1()!! to it } }
 
     /** [read]'s stored payload as a column of a caller's own statement (read with other rows). */
     fun payloadField(game: UUID): org.jooq.Field<String?> = org.jooq.impl.DSL.field(org.jooq.impl.DSL.select(GAME_PLAY.PAYLOAD).from(GAME)

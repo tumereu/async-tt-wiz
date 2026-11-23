@@ -310,8 +310,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             state.detail?.takeIf { it.id == game.id }?.let { current -> session?.acknowledgeResult(current) }; connectionState()
         }
     }
-    /** TRN-065 (owner, 2026-11-09): whether [game]'s table stays on after its play ended, until both OKs stand. */
-    fun tableHeldAtEnd(game: GameSummary?): Boolean = game != null && session?.tableHeldAtEnd(game.id) == true && resultOpen(game)
+    /** TRN-065 (owner, 2026-11-09): whether [game]'s table stays on after its play ended, until both OKs stand; TRN-142 (owner,
+     * 2026-11-22): also when the game is opened while an OK is owed (its ended play's table, loading until it comes), unless
+     * this device can't show it. */
+    fun tableHeldAtEnd(game: GameSummary?): Boolean = game != null && resultOpen(game) &&
+        session?.let { it.tableHeldAtEnd(game.id) || it.endTableShown(game.id) } == true
     /** TRN-065: whether the viewer still has to tap OK on [game]'s last result (the server's word, unless OK'd here). */
     fun resultUnseen(game: GameSummary): Boolean =
         game.resultNotice?.unseen?.contains(accountId()) == true && resultKey(game) !in state.resultsOk

@@ -150,11 +150,11 @@ class GameEndDialogTest : E2e() {
     /** Whether [player] is Ready in the open game's lobby. */
     private fun ready(player: E2ePlayer) = player.lobby.state.preparation?.players?.any { it.accountId == player.id && it.ready } == true
 
-    // TRN-064, TRN-065, TRN-140, TRN-141, TRN-142, LOB-046 (owner, 2026-11-09: nobody goes to the lobby until both have pressed OK): Alice concedes: the
-    // game is over and recorded at once, but she stays at the table with "Waiting for Bob to acknowledge" and no button (her
-    // concession was her OK); Bob sees "You won" with "Alice conceded". Alice leaves for the Games list; opening the game
-    // again shows the same dialog over the lobby, which takes no touch (her Ready tap does nothing). Bob's OK takes them both
-    // to the lobby, where the next game waits for both Readies
+    // TRN-064, TRN-065, TRN-140, TRN-141, TRN-142, TRN-143, LOB-046 (owner, 2026-11-09: nobody goes to the lobby until both have pressed OK): Alice
+    // concedes: the game is over and recorded at once, but she stays at the table with "Waiting for Bob to acknowledge" and no
+    // button (her concession was her OK); Bob sees "You won" with "Alice conceded". Alice leaves for the Games list; opening
+    // the game again (owner, 2026-11-22) opens its table with the same dialog over its final board, not the lobby, and her
+    // Ready is refused. Bob's OK takes them both to the lobby, where the next game waits for both Readies
     @Test fun aConcederWaitsAtTheTableForTheOtherPlayersOk() {
         startGame()
         bothOpen()
@@ -168,19 +168,25 @@ class GameEndDialogTest : E2e() {
         assertTrue(alice.atTable() && bob.atTable(), "both stay at the table: ${alice.where()}; ${bob.where()}")
         assertFalse(alice.shows(hasTestTag(GAME_END_OK_TAG)) || alice.showsText("Take back OK"), "nothing for the conceder to press")
         assertTrue(bob.shows(hasTestTag(GAME_END_OK_TAG)), "Bob's OK")
-        // Alice leaves for the Games list and comes back: the dialog over the lobby, which takes nothing
+        // Alice leaves for the Games list and comes back: TRN-142 (owner, 2026-11-22): the game's table again, the dialog over
+        // the ended play's final board, as when it ended live
         alice.lobby.back()
         waitUntil("Alice off the table") { !alice.shows(dialog) }
         waitUntil("Alice's Games list or menu") { alice.showsText(game.gameName) || alice.shows(hasTestTag("menu-GAMES")) }
         if (!alice.showsText(game.gameName)) alice.tagged("menu-GAMES").performClick()
         waitUntil("the game in Alice's Games list") { alice.showsText(game.gameName) }
         alice.nodes(hasText(game.gameName))[0].performScrollTo().performClick()
-        waitUntil("Alice's dialog over the lobby") { alice.inLobby() && alice.showsDialog("You lost", waitingForBob) }
-        assertTrue(alice.shows(hasTestTag("lobby-blocked")), "the lobby takes no touch")
+        waitUntil("Alice's table with the dialog: ${alice.where()}") { alice.atTable() && alice.showsDialog("You lost", "You conceded", waitingForBob) }
+        assertFalse(alice.shows(hasTestTag(GAME_END_OK_TAG)) || alice.showsText("Take back OK"), "still nothing for the conceder to press")
+        assertTrue(arcanum.engine.Engine.result(alice.state) != null, "the ended play's final board behind the dialog")
         assertFalse(alice.showsControl("Cancel game"), "no Cancel game while an OK is owed")
-        alice.nodes(hasText("Ready"))[0].performClick()
-        run(skip = java.time.Duration.ofMillis(500))
-        assertFalse(ready(alice), "her Ready tap did nothing")
+        // TRN-143: her Ready, asked for as from a lobby that didn't know, is refused until both OKs stand
+        alice.lobby.ready()
+        repeat(3) { run(skip = java.time.Duration.ofSeconds(1)) }
+        assertFalse(ServerSetup.head(aliceAccount, game.id).preparation!!.players.single { it.accountId == alice.id }.ready,
+            "no Ready before both OKs")
+        waitUntil("her Ready shown as the server has it") { !ready(alice) }
+        assertTrue(alice.atTable(), "Alice still at the table: ${alice.where()}")
         assertTrue(bob.atTable(), "Bob still at the table")
         bob.pressOk(alice)
         waitUntil("both in the lobby once both OKs stand", along = listOf(bob)) { alice.inFreeLobby() && bob.inFreeLobby() }
@@ -214,8 +220,8 @@ class GameEndDialogTest : E2e() {
 
     // TRN-065, TRN-142, LOB-046 (the race behind aConcederWaitsAtTheTableForTheOtherPlayersOk's failures, 2026-11-10): the lobby's
     // background sync read the lists while Alice was at the table, and its answer came only after she had left the game and
-    // opened it again: the game is still there, and she sees the dialog over its lobby (it said "no longer available" and
-    // left her on the Games list)
+    // opened it again: the game is still there, and she sees its table with the dialog again (TRN-142; it said "no longer
+    // available" and left her on the Games list)
     @Test fun aListReadFromTheTableDoesNotCloseTheGameOpenedAgain() {
         startGame()
         bothOpen()
@@ -242,7 +248,7 @@ class GameEndDialogTest : E2e() {
         alice.link.releaseAnswers(*lists)
         waitUntil("Alice's lists read") { !alice.lobby.state.busy }
         alice.link.releaseAnswers()
-        waitUntil("Alice's dialog over the lobby") { alice.inLobby() && alice.showsDialog("You lost", waitingForBob) }
+        waitUntil("Alice's table with the dialog: ${alice.where()}") { alice.atTable() && alice.showsDialog("You lost", waitingForBob) }
         assertEquals(game.id, alice.lobby.state.selected)
         bob.pressOk(alice)
         waitUntil("both in the lobby once both OKs stand", along = listOf(bob)) { alice.inFreeLobby() && bob.inFreeLobby() }
@@ -305,7 +311,8 @@ class GameEndDialogTest : E2e() {
 
     // TRN-047, TRN-134, TRN-065, TRN-135, TRN-136, TRN-141, TRN-142, LOB-046: Alice suggests her win ("Infinite combo"); Bob's Accept, greyed at first, ends the game: he
     // stays at the table with "Waiting for Alice to acknowledge", and Alice sees "You won" with "Agreed: Infinite combo"; on
-    // another device (her app started again) the same dialog shows over the lobby, with OK: it takes them both to the lobby
+    // another device (her app started again) the game opens at its table with the same dialog (TRN-142, owner 2026-11-22),
+    // with OK: it takes them both to the lobby
     @Test fun theAcceptorWaitsAtTheTableForTheSuggestersOk() {
         startGame()
         bothOpen()
@@ -331,7 +338,7 @@ class GameEndDialogTest : E2e() {
         assertFalse(bob.shows(hasTestTag(GAME_END_OK_TAG)), "the player who accepted has given his OK")
         alice = restart(alice)
         alice.openLobby()
-        waitUntil("Alice's dialog on reopening, over the lobby") { alice.showsDialog("You won", "Agreed: Infinite combo") }
+        waitUntil("Alice's table with the dialog on reopening: ${alice.where()}") { alice.atTable() && alice.showsDialog("You won", "Agreed: Infinite combo") }
         assertTrue(bob.atTable(), "Bob still waits")
         alice.pressOk(bob)
         waitUntil("both in the lobby", along = listOf(bob)) { alice.inFreeLobby() && bob.inFreeLobby() }
@@ -362,9 +369,9 @@ class GameEndDialogTest : E2e() {
     }
 
     // TRN-065, TRN-142, TRN-143, LOB-046 (owner, 2026-11-09): every way into the next game waits for both OKs: after Bob's concession neither
-    // can get Ready (Alice's dialog stands over her lobby on her second device, her Ready request refused if it is sent), and
-    // Bob's second device (his app started again) shows the same waiting dialog over the lobby. Alice's OK clears it on every
-    // device; then both Readies start the next game
+    // can get Ready (his Ready request refused if it is sent), and Bob's second device (his app started again) opens the game
+    // at its table with the same waiting dialog (TRN-142, owner 2026-11-22). Alice's OK clears it on every device; then both
+    // Readies start the next game
     @Test fun theNextGameWaitsForBothOksOnEveryDevice() {
         startGame()
         bothOpen()
@@ -373,7 +380,7 @@ class GameEndDialogTest : E2e() {
         waitUntil("Alice's result") { alice.showsDialog("You won", "${bob.name} conceded") }
         bob = restart(bob)
         bob.openLobby()
-        waitUntil("Bob's waiting dialog over the lobby on his other device") { bob.inLobby() && bob.showsDialog("You lost", waitingForAlice) }
+        waitUntil("Bob's table with the waiting dialog on his other device: ${bob.where()}") { bob.atTable() && bob.showsDialog("You lost", waitingForAlice) }
         // Bob's Ready, asked for as from a lobby that didn't know (the server refuses it, ResultNoticeTest): he stays not Ready
         bob.lobby.ready()
         run(skip = java.time.Duration.ofSeconds(2)); run(skip = java.time.Duration.ofSeconds(2))

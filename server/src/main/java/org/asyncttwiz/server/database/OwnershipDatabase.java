@@ -67,7 +67,15 @@ final class OwnershipDatabase implements AutoCloseable {
 
     @Override public void close() { work.close(); }
 
-    void validateSchema() {
+    /**
+     * Refuses unless the stored history is exactly this build's (no migrate/baseline/repair here).
+     * Flyway reports the history it reads as a validation result or its own exception; a JDBC failure
+     * underneath means the database could not be read (connection reset or refused, timeout, lock wait,
+     * cancel, shutdown, bad credentials) and is thrown as that SQLException, so the caller reports
+     * unavailability with its cause instead of a verdict on the schema. Only an error about the statement
+     * or its data (SQLSTATE class 22 or 42, what a damaged history table answers) means an unsupported schema.
+     */
+    void validateSchema() throws SQLException, SchemaRejected {
         try {
             var flyway = org.flywaydb.core.Flyway.configure()
                     .configuration(FoundationMigrations.flyway(settings).getConfiguration())
@@ -82,9 +90,30 @@ final class OwnershipDatabase implements AutoCloseable {
         } catch (OwnershipFailure failure) {
             throw failure;
         } catch (RuntimeException failure) {
-            // Flyway's exception text/causes can contain JDBC URLs and credentials.
-            throw new OwnershipFailure(OwnershipFailure.Reason.UNSUPPORTED_SCHEMA);
+            var sql = sqlCause(failure);
+            if (sql != null && !schemaAnswer(sql)) throw sql;
+            // Flyway's exception text/causes can contain JDBC URLs and credentials: the caller renders
+            // only the secret-free diagnostic of this cause, never the exception itself.
+            throw new SchemaRejected(failure);
         }
+    }
+
+    private static SQLException sqlCause(Throwable failure) {
+        for (int depth = 0; failure != null && depth < 8; depth++, failure = failure.getCause()) {
+            if (failure instanceof SQLException sql) return sql;
+        }
+        return null;
+    }
+
+    private static boolean schemaAnswer(SQLException failure) {
+        String state = failure.getSQLState();
+        return state != null && (state.startsWith("22") || state.startsWith("42"));
+    }
+
+    /** An unsupported schema refused with a library failure, kept only for the caller's secret-free
+     * diagnostic; never thrown past WriterOwnership. */
+    static final class SchemaRejected extends Exception {
+        SchemaRejected(Throwable cause) { super("Unsupported schema", cause, false, false); }
     }
 
     @Override public String toString() { return "OwnershipDatabase[redacted]"; }

@@ -81,6 +81,11 @@ public final class WriterOwnership implements AutoCloseable {
             release();
             diagnostic("refresh", failure, -1);
             throw failure;
+        } catch (OwnershipDatabase.SchemaRejected rejected) {
+            release();
+            var failure = new OwnershipFailure(OwnershipFailure.Reason.UNSUPPORTED_SCHEMA);
+            diagnostic("refresh", failure, rejected.getCause(), -1);
+            throw failure;
         } catch (SQLException failure) {
             release();
             diagnostic("refresh", failure, -1);
@@ -245,11 +250,14 @@ public final class WriterOwnership implements AutoCloseable {
         return "OTHER";
     }
 
-    private void diagnostic(String phase, Throwable failure, long epoch) {
+    private void diagnostic(String phase, Throwable failure, long epoch) { diagnostic(phase, failure, failure, epoch); }
+
+    /** Category of [failure], then [evidence]'s causes as secret-free classes, SQL states and known transport messages. */
+    private void diagnostic(String phase, Throwable failure, Throwable evidence, long epoch) {
         // Dedicated secret-free stderr event: service root/library logging deliberately stays off.
         System.err.println(java.time.Instant.now() + " Writer availability: owner=" + diagnosticId + " thread=" + Thread.currentThread().threadId()
                 + " epoch=" + epoch + " phase=" + phase + " category=" + failureCategory(failure)
-                + AvailabilityDiagnostic.detail(failure));
+                + AvailabilityDiagnostic.detail(evidence));
     }
 
     private void release() {

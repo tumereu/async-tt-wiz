@@ -171,7 +171,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             RecordShown(record)
             // TRN-063, STK-029, TRN-004, TRN-163: each change of what the main button says reaches the app log, with what decided it
             LaunchedEffect(record) {
-                val shown = engine?.engine?.shown
+                val shown = engine?.engine?.observedShown
                 val drawn = play.engine?.state
                 val at = board.engine?.state
                 AppLog.info("game", "Main button (seat ${context.viewer?.take(8)}): ${record.removePrefix(BOTTOM_BAR)} (panel ${panelMain?.label ?: "none"}, " +

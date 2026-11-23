@@ -67,7 +67,7 @@ class EngineTimeline {
     fun log(game: EngineGame, names: Map<String, String>): List<GameLogLine> {
         val events = events(game, names)
         lastLog?.let { (from, lines) -> if (from === events) return lines }
-        val published = game.shown ?: return emptyList()
+        val published = game.observedShown ?: return emptyList()
         val all = ArrayList<GameEvent>(published.older.size + published.line.size)
         all += published.older; all += published.line
         val sight = EngineEventText.Sight(published.engine, game.me)
@@ -99,10 +99,10 @@ class EngineTimeline {
     }
 
     /** The events shown to the viewer, oldest first, with the turn each was made in. */
-    fun shown(game: EngineGame): List<GameEvent> = game.shown?.line.orEmpty()
+    fun shown(game: EngineGame): List<GameEvent> = game.observedShown?.line.orEmpty()
 
     fun events(game: EngineGame, names: Map<String, String>): List<HistoryTimelineEvent> {
-        val published = game.shown ?: return emptyList()
+        val published = game.observedShown ?: return emptyList()
         val line = published.line
         val older = published.older
         last?.let { (key, events) -> if (key.first === line && key.second === older && key.third == names) return events }
@@ -146,11 +146,11 @@ class EngineTimeline {
 
     /** The text of [event] (cached). */
     fun text(game: EngineGame, event: GameEvent, names: Map<String, String>): String =
-        texts.getOrPut(event.id) { EngineEventText.of(event, requireNotNull(game.shown).engine, game.me, names) }
+        texts.getOrPut(event.id) { EngineEventText.of(event, requireNotNull(game.observedShown).engine, game.me, names) }
 
     /** The timeline's text of [event] (HIS-076 in timeline mode): as [events] names it. */
     fun reviewText(game: EngineGame, event: GameEvent, names: Map<String, String>): String {
-        return if (EngineEventText.ownPress(event, game.me) != null) EngineEventText.timelineText(event, requireNotNull(game.shown).engine, game.me, names)
+        return if (EngineEventText.ownPress(event, game.me) != null) EngineEventText.timelineText(event, requireNotNull(game.observedShown).engine, game.me, names)
             else text(game, event, names)
     }
     companion object {

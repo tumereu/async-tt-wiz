@@ -236,7 +236,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * other player) and the board there ([board], projected from that point's state). */
     class Rest(val status: GameDevice.Status, val board: TableBoard)
 
-    /** The last published snapshot (main thread); null until the game first loaded. */
+    /** The last published snapshot (main thread); null until the game first loaded. A plain field no Compose snapshot
+     * observes ([UnobservedEngineState]): composable code reads app-ui's observedShown instead. */
+    @UnobservedEngineState
     @Volatile var shown: Shown? = null
         private set
     /** What the UI observes of this game (main thread): told each board's [Shown.version] as it is published, and
@@ -254,8 +256,10 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         /** Whether a page of older history is on its way changed. */
         fun historyLoading(loading: Boolean)
     }
-    /** Bumped whenever anything shown changes (the table and the async panels recompose on it). */
-    val version: Long get() = shown?.version ?: 0L
+    /** [Shown.version] of the last board published, for the engine side itself. Internal: the UI follows boards by app-ui's
+     * shownVersion (snapshot state), never by this plain value, which no composition observes (0.3.1's stalled games). */
+    internal val version: Long get() = shown?.version ?: 0L
+    @UnobservedEngineState
     val needsReload: Boolean get() = shown?.needsReload == true
     /** The server's snapshot couldn't be loaded (main thread): the game can't be opened on this device. */
     @Volatile var loadFailed = false
@@ -270,6 +274,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     private var lastTurnChange: TurnChange? = null
 
     /** The last [Transition] published (the screen applies each once, by its serial). */
+    @UnobservedEngineState
     val transition: Transition? get() = shown?.transition
 
     /** (Re)loads the game from the server's [snapshot] (a new head, or the device asked to load again). [live]: the open
@@ -958,7 +963,9 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /** The pages of older history asked for and not answered yet, by the event each ends at (main thread). */
     private val asked = mutableSetOf<String>()
 
-    /** Whether a page of older history is on its way (main thread; the strip's edge shows it, through [observer]). */
+    /** Whether a page of older history is on its way (main thread; the strip's edge shows it, through [observer]: app-ui's
+     * historyLoading, snapshot state). */
+    @UnobservedEngineState
     var historyLoadingNow = false
         private set(value) { if (field != value) { field = value; observer?.historyLoading(value) } }
 

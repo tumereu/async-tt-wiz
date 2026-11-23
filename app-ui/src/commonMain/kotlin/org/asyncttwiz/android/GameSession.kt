@@ -205,7 +205,7 @@ class GameSession(private val connection: GameConnection, private val credential
     /** The game [game] played on engine state on this device, while it is its current active play (once it first loaded
      * on the engine thread). */
     fun engineGame(game: GameSummary): EngineGame? = engineGames[game.id]?.takeIf { summary(game).let { current ->
-        game.id in endHeld || current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.base.id } && it.shown != null }
+        game.id in endHeld || current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.base.id } && it.observedLoaded }
     /**
      * TRN-065 (owner, 2026-11-09): the games whose play a concession or an accepted suggestion ended while this player
      * stood at the table: the result is final, but nobody goes to the lobby until both players have pressed OK (the one
@@ -242,6 +242,7 @@ class GameSession(private val connection: GameConnection, private val credential
      * game is open here with its board on the table and an OK is still owed (this player's or the other's); else, the lobby
      * at once, with the dialog over it while an OK is owed (a device that wasn't at the table, a device that can't follow
      * the line). */
+    @OptIn(UnobservedEngineState::class) // the server stream's handling, outside composition
     private fun holdEnd(game: EngineGame, message: GameRevision): Boolean {
         val notice = message.summary.resultNotice?.takeIf { message.summary.lifecycle == GameLifecycle.LOBBY }
         val owed = notice?.unseen.orEmpty()
@@ -306,6 +307,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private val unopenable = mutableSetOf<String>()
 
     /** Loads or reloads the engine game of [head] (a head of an active play whose state is the engine's). */
+    @OptIn(UnobservedEngineState::class) // the server stream's handling, outside composition
     private fun engineHead(head: GameHead) {
         val snapshot = head.engine ?: return
         val play = head.play ?: return
@@ -389,6 +391,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
 
     /** [head] is past the revisions [game] received, and its last event isn't among those the device shows. */
+    @OptIn(UnobservedEngineState::class) // the server stream's handling, outside composition
     private fun behind(game: EngineGame, head: GameHead): Boolean {
         val received = game.revision ?: return true
         if (GameWire.ordinal(head.revision) <= GameWire.ordinal(received)) return false
@@ -449,6 +452,7 @@ class GameSession(private val connection: GameConnection, private val credential
 
     /** Switch-review #11: only the open game has an engine state on the device; one that is no longer open is let go (what
      * it still has to send goes first) and its subscription becomes a summary one. */
+    @OptIn(UnobservedEngineState::class) // the server stream's handling, outside composition
     private fun letGoClosed() {
         // TRN-142: a game opened again tries its ended play's table again
         endTableUnavailable.removeAll { !engineLoad(it) }; endTableAsked.keys.removeAll { !engineLoad(it) }
@@ -491,6 +495,7 @@ class GameSession(private val connection: GameConnection, private val credential
 
     /** [gameId]'s engine game published a new board (main thread): the table shows it, what it sends goes out, and a
      * device that can't follow asks to load the game again (once per revision). */
+    @OptIn(UnobservedEngineState::class) // the server stream's handling, outside composition
     private fun engineShown(gameId: String) {
         val game = engineGames[gameId] ?: return
         // TRN-142: an ended play's table that fails to load leaves the result over the lobby

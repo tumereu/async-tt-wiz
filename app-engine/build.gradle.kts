@@ -11,6 +11,8 @@ plugins {
 
 kotlin {
     jvmToolchain(21)
+    // The engine side has no composition: its own reads of what it publishes are plain by design (UnobservedEngineState)
+    compilerOptions { optIn.add("org.asyncttwiz.android.UnobservedEngineState") }
     android {
         namespace = "org.asyncttwiz.appengine"
         compileSdk = 37

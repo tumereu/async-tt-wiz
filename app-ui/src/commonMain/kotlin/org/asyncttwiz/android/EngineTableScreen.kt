@@ -49,11 +49,10 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     val game = if (detail.playId == live.playId) detail else detail.copy(playId = live.playId)
     val engine = controller.engineGame() ?: return
     // What the engine thread published last (I-D56 step D2): the table reads nothing else of the device
-    // Every board published composes the table again, read as snapshot state (owner, 2026-11-22: a board that only ended a
+    // Every board published composes the table again, read as snapshot state (observedShown; owner, 2026-11-22: a board that only ended a
     // play shown or a combat hold, the same board otherwise, changed nothing the lobby holds, and the table waited for an
     // unrelated message to begin what came next)
-    engine.shownVersion
-    val shown = engine.shown ?: return
+    val shown = engine.observedShown ?: return
     val interactive = game.id !in state.reconnectingGames
     val routes = remember(controller, game.id, accountId) {
         EngineTableRoutes(accountId, { controller.engineGame() }, { controller.engineSent() },
@@ -109,7 +108,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     // Timeline mode (HIS-004, HIS-012): the board at the review cursor, view-only
     val reviewId = routes.review
     // The board arrives through a callback (on Android at once, in the same composition)
-    val reviewAnswer = remember(reviewId, engine.version) {
+    val reviewAnswer = remember(reviewId, engine.shownVersion) {
         AnsweredValue<TableBoard?>().also { answer -> if (reviewId == null) answer.set(null) else engine.reviewPlay(reviewId, answer::set) }
     }
     val reviewNow = reviewAnswer.value
@@ -194,7 +193,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     LaunchedEffect(reviewId != null) { if (reviewId != null) stackAnimation.end("timeline mode") }
     val moveMultiplier by rememberCardMovePreferences(accountId).multiplierState()
     // What the game waits for once an entry's arrows are drawn (the step 4 to step 5 log)
-    val gameWaits = { stackWaitText(engine.shown, routes.viewPause) }
+    val gameWaits = { stackWaitText(engine.observedShown, routes.viewPause) }
     // A step 4 whose board never settles (nothing moved on it) still plays
     stackAnimation.pending?.let { entry -> LaunchedEffect(entry) {
         delay((2 * MAX_CARD_MOVE_DURATION_MILLIS / cardMoveMultiplier(moveMultiplier)).toLong() + 100)
@@ -659,7 +658,7 @@ fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEve
     val strip: @Composable () -> Unit = {
         Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
             HistoryTimeline(events, cursor, viewer, { routes.reviewPlaying = false }, { routes.review = it }, Modifier.fillMaxWidth(),
-                loadingStart = engine != null && engine.historyLoading && engine.shown?.olderComplete == false)
+                loadingStart = engine != null && engine.historyLoading && engine.observedShown?.olderComplete == false)
             IconButton(onClick = { routes.reviewPlaying = false; onSettings() }, modifier = Modifier.align(Alignment.CenterEnd)
                 .background(TimelineBarColor).size(if (landscape) 36.dp else 40.dp)) {
                 Icon(Icons.Outlined.Settings, contentDescription = "Playback settings")
@@ -742,7 +741,7 @@ object EngineTableProbe {
 private fun engineEnding(routes: EngineTableRoutes, intent: TableActionIntent.Ending): Boolean {
     val game = routes.engine ?: return false
     val me = PlayerId(routes.viewer)
-    val loss = game.shown?.opponent?.let { GameResult.Won(it) }
+    val loss = game.observedShown?.opponent?.let { GameResult.Won(it) }
     if (intent.tool == EndingTool.SUGGEST_LOSS && loss == null) return false
     // The callback forms (the device may be in the browser's worker; Android answers at once)
     return routes.ending(intent.tool.name) { done ->

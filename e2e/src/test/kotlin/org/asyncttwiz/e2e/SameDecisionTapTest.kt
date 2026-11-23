@@ -268,7 +268,7 @@ class SameDecisionTapTest : E2e() {
         waitUntil("Alice's phone in Bob's turn") { alice.engine { device.model.engine.turn.active } != alice.me }
         assertEquals(alice.me, alice.state.turn.active, "the table still shows her turn")
         val seen = mutableListOf<Pair<Long, Boolean>>()
-        held.observe = { watchNotes(); seen += alice.game!!.version to alice.game!!.notes.any { it == GameDevice.Note.Refused("stale") } }
+        held.observe = { watchNotes(); seen += (alice.game!!.shown?.version ?: 0L) to alice.game!!.notes.any { it == GameDevice.Note.Refused("stale") } }
         alice.game!!.endTurn()
         held.release()
         waitUntil("Alice told") { seen.any { it.second } }

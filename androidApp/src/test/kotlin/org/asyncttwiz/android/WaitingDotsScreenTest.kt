@@ -22,8 +22,8 @@ import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.TimeUnit
 
 /**
- * The "Waiting for you" dots (owner, 2026-11-22) where they show: the Menu screen's hamburger and menu panels, a game's
- * table, a started pod's header and the side menu; never on the Games screen's rows. Shown from seeded state; nothing is sent.
+ * The "Waiting for you" dots (owner, 2026-11-22) where they show: every hamburger (the Menu and Games screens', a game's
+ * table, a pod's header in setup or started), the menu panels and the side menu; never on the Games screen's rows. Shown from seeded state; nothing is sent.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -170,7 +170,23 @@ class WaitingDotsScreenTest {
         dotIn("navigation-game-g-move", null)
     }
 
-    // LOB-269, LOB-024: the Games screen's rows keep their move chip and get no dot
+    // LOB-268: a pod still in setup leaves itself out too: its hamburger blue for the pick in Cube night
+    @Test fun aPodInSetupsHamburgerShowsWhatWaitsElsewhere() {
+        val setup = pod("p-setup", "Friday cube", PodPhase.SETUP, PodAttention.NONE, 4)
+        val detail = PodDetail(setup.id, setup.name, PodPhase.SETUP, alex, DraftSettings(mode = DraftMode.SEALED), PodSource("Runes", 540),
+            DraftSupply(135, 540), listOf(PodMember(alex), PodMember(riley)), emptyList(), updatedAt = "2026-11-22T04:00:00Z")
+        fixtures.lobby.seed(LobbyState(loaded = true, games = listOf(theirMove), connectedGames = setOf("g-wait")))
+        pods.seed(PodState(loaded = true, pods = listOf(setup, pick), selected = setup.id, detail = detail))
+        val dot = navigationDot(fixtures.lobby.state.games, pods.state.pods, alex.accountId, openPod = setup.id)?.dot
+        compose.setContent { ScreenTheme { NoRipples { Surface(Modifier.fillMaxSize(), color = ScreenBackground) {
+            CompositionLocalProvider(LocalNavigationDot provides dot) { PodsDestination(pods, alex.accountId, {}, fixtures.lobby, {}, mainMenu = {}) }
+        } } } }
+        settle()
+        compose.onNodeWithTag("navigation-dot-pick", useUnmergedTree = true).assertExists()
+        shot("pod-setup", "Alex setting up Friday cube: the header's hamburger dot is blue, for his pick in Cube night.")
+    }
+
+    // LOB-269, LOB-024, LOB-268: the Games screen's rows keep their move chip and get no dot; its hamburger is red for the move
     @Test fun theGamesScreenRowsGetNoDots() {
         fixtures.lobby.seed(LobbyState(loaded = true, games = listOf(yourMove, theirMove), invitations = listOf(invitation),
             connectedGames = setOf("g-move", "g-wait", "g-invite")))
@@ -178,6 +194,6 @@ class WaitingDotsScreenTest {
         compose.onNodeWithText("Your move").assertExists()
         for (dot in listOf(WaitingDot.Move, WaitingDot.Pick, WaitingDot.Build))
             compose.onAllNodes(hasTestTag("waiting-dot-${dot.tag}"), useUnmergedTree = true).assertCountEquals(0)
-        compose.onAllNodes(hasTestTag("navigation-dot-move"), useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodes(hasTestTag("navigation-dot-move"), useUnmergedTree = true).assertCountEquals(1)
     }
 }

@@ -763,7 +763,8 @@ object KeywordExpansions {
     }
 
     private fun firebending(amount: Value) = Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), steps(Effect.AddMana(
-        ManaProduction(ManaKind.Fixed(ManaCost.parse("{R}")!!, times = amount), keptUntil = Duration.EndOfCombat), Players.You)))
+        ManaProduction(ManaKind.Fixed(ManaCost.parse("{R}")!!, times = amount), keptUntil = Duration.EndOfCombat,
+        words = listOf("Until end of combat, you don't lose this mana as steps and phases end.")), Players.You)))
 
     /** CR 701.48a: reveal a Lesson card you own from outside the game and put it into your hand, choosing at least [least] of at most
      * one: choosing none reveals nothing. */

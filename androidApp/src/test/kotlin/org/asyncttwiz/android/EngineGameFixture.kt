@@ -164,6 +164,11 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val MOSS = "Moss Shard"
         /** STK-228: a {2} "Draw a card." sorcery: any two mana of the pool pay it. */
         const val PENNY = "Hedge Penny"
+        /** STK-228 (owner 2026-11-22): a free green mana rock whose mana carries a restriction, "{T}: Add {G}. Spend this mana only to cast
+         * creature spells." */
+        const val GILDLEAF = "Gildleaf Shard"
+        /** STK-228: a {2} 2/2 creature: a creature spell the Gildleaf Shard's mana may pay for. */
+        const val HEDGE_CUB = "Hedge Cub"
         // Trigger timing clips (owner, 2026-11-22): attack, enter, dies and targeted triggers at the app's real pace
         /** A free 2/2 with haste and "Whenever this creature attacks, it gets +1/+0 until end of turn." */
         const val RAIDER = "Ember Raider"
@@ -215,6 +220,9 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("kit", Choices.KIT, "Creature — Elemental Fox", KIT_TEXT, "1", "1"),
         free("shard", Choices.SHARD, "Artifact", "{T}: Add {R}."),
         free("moss", Choices.MOSS, "Artifact", "{T}: Add {G}."),
+        free("gildleaf", Choices.GILDLEAF, "Artifact", "{T}: Add {G}. Spend this mana only to cast creature spells."),
+        Invented(DefinitionFace("hedgecub", Choices.HEDGE_CUB, typeLine = "Creature — Bear", manaCost = "{2}", power = "2", toughness = "2"),
+            OracleCard(Choices.HEDGE_CUB, "{2}", "Creature — Bear", "", "2", "2")),
         Invented(DefinitionFace("penny", Choices.PENNY, typeLine = "Sorcery", manaCost = "{2}", rulesText = "Draw a card."),
             OracleCard(Choices.PENNY, "{2}", "Sorcery", "Draw a card.")),
         free("altar", Choices.ALTAR, "Artifact", "{T}, Sacrifice another creature: Each opponent loses 2 life and you gain 2 life."),

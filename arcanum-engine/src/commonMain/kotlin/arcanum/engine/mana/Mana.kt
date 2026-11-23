@@ -238,9 +238,16 @@ internal object Mana {
         val instead = tappedForManaInstead(snap, player, id, ability, produced.sumOf { it.amount })
         val made = if (instead == null) produced
             else yieldsOf(snap, eval, (adds.firstOrNull()?.mana ?: arcanum.api.ManaProduction(ManaKind.Fixed(instead))).let {
-                arcanum.api.ManaProduction(ManaKind.Fixed(instead), restriction = it.restriction) }, snow, depth = 0)
+                arcanum.api.ManaProduction(ManaKind.Fixed(instead), restriction = it.restriction, words = restrictionWords(it)) }, snow, depth = 0)
         return made.map { if (factor == 1) it else it.copy(amount = it.amount * factor) }
     }
+
+    /** The words of [production]'s restriction alone, for mana that keeps only that (CR 106.12: produced instead): all its words when
+     * the restriction is its only rider, else its sentences that limit spending ("Spend this mana only …", "This mana can't be spent …"). */
+    private fun restrictionWords(production: arcanum.api.ManaProduction): List<String> =
+        if (production.restriction == null) emptyList()
+        else if (production.copy(restriction = null, words = emptyList()).hasRiders) production.words.filter { it.startsWith("Spend") || it.contains("can't be spent") }
+        else production.words
 
     /** dmr fixes: the mana a replacement makes [id] produce instead of any other type and amount when tapped for [amount] mana with
      * [ability] ({T} in its cost, CR 106.12), its condition read with the amount as the event's (Damping Sphere: "for two or more mana"). */
@@ -318,7 +325,8 @@ internal object Mana {
         return List(yield.amount) {
             ManaUnit(c, source = source, snow = yield.snow, restriction = yield.production.restriction,
                 spellGets = yield.production.spellGets, keptUntil = yield.production.keptUntil, whenSpent = yield.production.whenSpent,
-                spellGetsIf = yield.production.spellGetsIf, spellGetsUntil = yield.production.spellGetsUntil, onlyCostsWithX = yield.production.onlyCostsWithX)
+                spellGetsIf = yield.production.spellGetsIf, spellGetsUntil = yield.production.spellGetsUntil, onlyCostsWithX = yield.production.onlyCostsWithX,
+                words = yield.production.words)
         }
     }
 

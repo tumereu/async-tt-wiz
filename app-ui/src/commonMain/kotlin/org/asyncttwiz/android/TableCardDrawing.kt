@@ -131,13 +131,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         val r = 3.2f * z
         val inset = if (i.token) 5.2f * z else 3.4f * z
         val cx = (x + inset) * density; val cy = (y + inset) * density
-        val outer = r * density; val inner = outer * .32f
-        val star = androidx.compose.ui.graphics.Path().apply {
-            moveTo(cx, cy - outer)
-            lineTo(cx + inner, cy - inner); lineTo(cx + outer, cy); lineTo(cx + inner, cy + inner)
-            lineTo(cx, cy + outer); lineTo(cx - inner, cy + inner); lineTo(cx - outer, cy); lineTo(cx - inner, cy - inner)
-            close()
-        }
+        val star = sparklePath(cx, cy, r * density)
         drawPath(star, Color.White, style = Stroke(1.1f * z * density))
         drawPath(star, AutomatumViolet)
     }
@@ -471,6 +465,18 @@ const val FULL_PICTURE_EDGE = 1.5f
  * says what the printed card doesn't: a changed P/T, or a count (loyalty and other counters) rather than a P/T. */
 fun fullPictureCorner(i: TableItem): Boolean = i.corner.isNotEmpty() &&
     (i.cornerColor != null || i.cornerHourglass || i.changedPowerToughness || '/' !in i.corner)
+
+/** TBL-136, STK-228: the effects sparkle's four-pointed star centred on ([cx], [cy]) reaching [outer] from it (pixels): a battlefield
+ * card's marker and pool mana's. */
+fun sparklePath(cx: Float, cy: Float, outer: Float): androidx.compose.ui.graphics.Path {
+    val inner = outer * .32f
+    return androidx.compose.ui.graphics.Path().apply {
+        moveTo(cx, cy - outer)
+        lineTo(cx + inner, cy - inner); lineTo(cx + outer, cy); lineTo(cx + inner, cy + inner)
+        lineTo(cx, cy + outer); lineTo(cx - inner, cy + inner); lineTo(cx - outer, cy); lineTo(cx - inner, cy - inner)
+        close()
+    }
+}
 
 /** How far a state's word on a card's chip may shrink to fit (TBL-133). */
 private const val MIN_STATE_TEXT = .72f

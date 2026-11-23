@@ -206,6 +206,9 @@ object TestCards {
     val brood = card("Ember Brood", "Creature — Elemental", "{0}", "Offspring {2}", "1", "1")
     /** A free mana rock: identical ones lie in one stack (TBL-053). */
     val shard = card("Ember Shard", "Artifact", "{0}", "{T}: Add {R}.")
+    /** STK-228: a land whose mana carries a restriction (CR 106.6), and a creature spell it may pay for. */
+    val gildleaf = card("Gildleaf Grove", "Land", rulesText = "{T}: Add {G}. Spend this mana only to cast creature spells.")
+    val hedgeCub = card("Hedge Cub", "Creature — Bear", "{1}", "", "1", "1")
     /** Problem report JN5UQN: a free creature that connives as it enters (CR 701.50a: draw a card, then discard a card). */
     val conniver = card("Ember Schemer", "Creature — Human Rogue", "{0}",
         "When this creature enters, it connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)",

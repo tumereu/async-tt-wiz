@@ -31,6 +31,20 @@ import org.asyncttwiz.protocol.TypedCounter
  * How engine values are shown in ATW's board fields (integration spec §4.5): typed counter kinds as names, mana as
  * [PoolMana], steps as [TurnPosition], and the JSON of records and Stack items ([EngineProjection]).
  */
+/**
+ * STK-228, TBL-120: whether pool mana [mana] (a board's, [PoolMana.data] the engine's rest of it) carries a rider (a restriction on what it
+ * may be spent on, something it gives, CR 106.6; mana kept as steps end, CR 106.4) or is snow (CR 106.3): mana the table marks with the
+ * effects sparkle. False when its data can't be read, which is reported.
+ */
+fun poolManaMarked(mana: PoolMana): Boolean {
+    if (mana.data.isEmpty()) return false
+    val unit = runCatching { EngineCodec.decode(ManaUnit.serializer(), mana.data) }.getOrElse {
+        Faults.report("EngineCodec", "pool mana data unreadable", mapOf("color" to mana.color, "error" to "$it"))
+        return false
+    }
+    return unit.hasRiders || unit.snow
+}
+
 internal object EngineCodec {
     val json = Json { encodeDefaults = false }
 

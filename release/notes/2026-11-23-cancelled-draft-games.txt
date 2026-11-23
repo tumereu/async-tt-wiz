@@ -1,0 +1,1 @@
+mod: Games already being played when a pod's draft is cancelled carry on, but no longer count in the pod's standings and matches.

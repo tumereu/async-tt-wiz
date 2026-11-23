@@ -153,6 +153,58 @@ class PodEarlySubmitTest : E2e() {
         }
     }
 
+    // DRF-039, DRF-042, DRF-235, DRF-236 (owner, 2026-11-22): a three-member Arena pod; Alice and Bob make their picks, submit
+    // and start a game while Carol still drafts, and the game shows in play in the pod's matches on Alice's Games tab. Alice
+    // cancels the draft on her phone; in the next draft her Games tab has no matches (the game carries on orphaned from the
+    // pod), and the game is still in her Games list
+    @Test fun aGameInPlayWhenTheDraftIsCancelledLeavesThePodsMatches() {
+        launchPlayers()
+        val carol = ServerSetup.third()
+        val name = "E2E cancelled ${UUID.randomUUID().toString().take(6)}"
+        val pod = ServerSetup.setupPod(alice.account, name, cards = listOf(TestCards.spark, TestCards.cub, TestCards.herald,
+            TestCards.hound, TestCards.stride, TestCards.glimmer, TestCards.glint, TestCards.drowsy),
+            settings = DraftSettings.arena().copy(packsPerPlayer = 3, cardsPerPack = 2, keep = 1, ignoreRarity = true, reuseCards = true))
+        ServerSetup.invitePod(alice.account, carol, pod)
+        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin).use { it.accept(carol.token, pod, PodRequest(id())) } }
+        ServerSetup.joinAndStart(alice.account, bob.account, pod)
+        repeat(3) { pick(alice, pod); pick(bob, pod) }
+        for (player in listOf(alice, bob)) { basics(player, pod); ServerSetup.submitPodDeck(player.account, pod) }
+        assertEquals(PodPhase.DRAFTING, ServerSetup.pod(alice.account, pod).phase, "Carol still drafts")
+        val game = ServerSetup.challenge(alice.account, bob.account, pod, "$name game")
+        ServerSetup.attempt(bob.account, game, GameAction.AcceptInvitation)
+        ServerSetup.readyBoth(alice.account, bob.account, game)
+
+        alice.auth.navigate(ShellDestination.PODS)
+        alice.pods.open(pod, PodTab.GAMES)
+        waitUntil("the game in play in the pod's matches") {
+            alice.pods.state.tab == PodTab.GAMES && alice.shows(hasTestTag("pod-match-playing-${game.id}"))
+        }
+        // Alice cancels the draft on her phone
+        alice.node(hasContentDescription("Pod actions")).performClick()
+        waitUntil("the pod's actions") { alice.showsText("Cancel draft") }
+        alice.text("Cancel draft").performClick()
+        val confirm = hasClickAction() and hasAnyDescendant(hasText("Cancel draft")) and hasAnyAncestor(isDialog())
+        waitUntil("the Cancel draft dialog") { alice.shows(confirm) }
+        alice.node(confirm).performClick()
+        waitUntil("the pod back in setup") { ServerSetup.pod(alice.account, pod).phase == PodPhase.SETUP }
+        assertEquals(GameLifecycle.ACTIVE, ServerSetup.head(alice.account, game.id).summary.lifecycle, "the game carries on")
+
+        // The next draft: Alice's own picks and deck; her Games tab has no matches
+        ServerSetup.startPod(alice.account, pod)
+        repeat(3) { pick(alice, pod) }
+        basics(alice, pod); ServerSetup.submitPodDeck(alice.account, pod)
+        alice.pods.refresh()
+        alice.pods.open(pod, PodTab.GAMES)
+        waitUntil("the next draft's Games tab without the cancelled draft's match") {
+            alice.pods.state.tab == PodTab.GAMES && alice.pods.state.detail?.submitted == true && alice.showsText("No matches yet.")
+        }
+        assertTrue(!alice.shows(hasTestTag("pod-match-playing-${game.id}")), alice.screen())
+        // The game is still in her Games list
+        alice.lobby.refresh()
+        alice.auth.navigate(ShellDestination.GAMES)
+        waitUntil("the game in Alice's Games list") { alice.showsText("$name game") }
+    }
+
     // DRF-119, DRF-302: a Booster pod whose last card of a pack is thrown away (discard at 1): Alice's two picks end her draft
     // while Bob still has one, and she submits on her phone at once
     @Test fun aBoosterMemberWhoseDraftIsDoneSubmitsWhileTheOtherStillPicks() {

@@ -20,6 +20,7 @@ import org.asyncttwiz.server.generated.tables.Definition.DEFINITION
 import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.GameRevision.GAME_REVISION
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
+import org.asyncttwiz.server.generated.tables.MatchRecord.MATCH_RECORD
 import org.asyncttwiz.server.generated.tables.Pod.POD
 import org.asyncttwiz.server.generated.tables.PlayerPreparation.PLAYER_PREPARATION
 import org.asyncttwiz.server.generated.tables.PodInvitation.POD_INVITATION as INVITE
@@ -760,7 +761,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
      * revision of it. Games in play or ended keep theirs. The pod lock is held; games are locked in identity order.
      */
     private fun followInLobbies(sql: DSLContext, pod: UUID, owner: UUID, name: String? = null, cover: String? = null) {
-        val games = sql.selectFrom(GAME).where(GAME.POD_ID.eq(pod)).and(GAME.LIFECYCLE.eq("LOBBY"))
+        // A game orphaned by a cancelled draft (DRF-039) holds that draft's deck, not this one's
+        val games = sql.selectFrom(GAME).where(GAME.POD_ID.eq(pod)).and(GAME.LIFECYCLE.eq("LOBBY")).and(GAME.POD_ORPHANED.isFalse)
             .and(GAME.INVITER_ID.eq(owner).or(GAME.RECIPIENT_ID.eq(owner))).orderBy(GAME.ID).forUpdate().fetch()
         for (game in games) {
             val preparation = sql.selectFrom(PLAYER_PREPARATION).where(PLAYER_PREPARATION.GAME_ID.eq(game.id))
@@ -923,7 +925,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     private fun queuedChallengers(sql: DSLContext, pod: UUID): Set<UUID> {
         val plays = org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
         return sql.select(GAME.INVITER_ID, GAME.RECIPIENT_ID).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
-            .where(GAME.POD_ID.eq(pod)).and(GAME.LIFECYCLE.eq("LOBBY")).and(INVITATION.STATE.`in`("PENDING", "ACCEPTED"))
+            .where(GAME.POD_ID.eq(pod)).and(GAME.POD_ORPHANED.isFalse).and(GAME.LIFECYCLE.eq("LOBBY"))
+            .and(INVITATION.STATE.`in`("PENDING", "ACCEPTED"))
             .andNotExists(DSL.selectOne().from(plays).where(plays.GAME_ID.eq(GAME.ID))).fetch()
             .flatMap { listOfNotNull(it.value1(), it.value2()) }.toSet()
     }
@@ -1046,6 +1049,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         val submitted = members(sql, row.id!!).count { it.submittedDeck != null }
         if (submitted > 0) log("pod ${row.id} draft reset by $author with $submitted deck(s) submitted: their open challenges are withdrawn")
         withdrawChallenges(sql, row.id!!)
+        orphanGames(sql, row.id!!)
         clearDraftHints(sql, row.id!!)
         clearMarks(sql, row.id!!)
         sql.deleteFrom(NOTES).where(NOTES.POD_ID.eq(row.id)).execute()
@@ -1055,6 +1059,19 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             .set(MEMBER.DECK_NAME, null as String?).set(MEMBER.DECK_COVER, null as String?)
             .where(MEMBER.POD_ID.eq(row.id)).execute()
         save(sql, row)
+    }
+
+    /**
+     * DRF-039, DRF-235, DRF-236 (owner, 2026-11-22): the games that carry on past a cancelled draft (accepted or in play, and
+     * the matches they finished) are orphaned from the pod: they keep their pod deck, name and number, but no longer count in
+     * its Standings and Matches, nor follow the next draft's deck. They stay ordinary games in the Games list (DRF-042).
+     */
+    private fun orphanGames(sql: DSLContext, pod: UUID) {
+        val games = sql.update(GAME).set(GAME.POD_ORPHANED, true).where(GAME.POD_ID.eq(pod)).and(GAME.POD_ORPHANED.isFalse)
+            .and(GAME.LIFECYCLE.ne("CANCELLED")).returning(GAME.ID, GAME.LIFECYCLE).fetch()
+        val records = sql.update(MATCH_RECORD).setNull(MATCH_RECORD.POD_ID).where(MATCH_RECORD.POD_ID.eq(pod)).execute()
+        if (games.isNotEmpty() || records > 0) log("pod $pod draft cancelled: ${games.size} game(s) carry on orphaned from the pod " +
+            "(${games.joinToString { "${it.id} ${it.lifecycle?.lowercase()}" }}); $records match record(s) leave its standings")
     }
 
     /** Arena (DRF-285): each card's rarity in a cube, by its printing's in the card catalog (special and bonus count as

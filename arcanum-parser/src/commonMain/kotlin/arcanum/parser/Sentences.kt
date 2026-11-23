@@ -2152,7 +2152,8 @@ internal class Sentences(
             val pronoun = LazyRegexes.PRONOUN_IS_AT_START.find(rest)
             // isd chunk 04: "As long as equipped creature is a Human, it gets an additional +1/+0.": "it" is the equipped creature;
             // "an additional" bonus is one more modification on top of the others (CR 613.4c)
-            val attached = Isd.ATTACHED_IS.matchEntire(text)?.groupValues?.get(1)
+            // snc chunk 04: "As long as enchanted creature is attacking alone, it can't be blocked.": likewise the enchanted creature
+            val attached = (Isd.ATTACHED_IS.matchEntire(text) ?: Snc.ATTACHED_IS_ATTACKING.matchEntire(text))?.groupValues?.get(1)
             val inner = condition?.let { static(when {
                 attached != null && rest.startsWith("It ") ->
                     attached.replaceFirstChar { c -> c.uppercase() } + " creature " + rest.removePrefix("It ").replace(Regex("""^gets an additional """), "gets ")
@@ -2218,7 +2219,10 @@ internal class Sentences(
         PT_EACH_EQUAL_TO_NUMBER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             // lci chunk 02: "… the number of colors among the exiled cards used to craft it" (CR 702.167c)
             // isd chunk 07: "the number of cards in your hand"
-            val count = Filters.objects(m.groupValues[2])?.let { Value.Count(it) } ?: Values.value("the number of " + m.groupValues[2])
+            // snc chunk 04: "the number of cards exiled with it" (the cards its exile keeps, CR 607.2a)
+            val exiledWith = Snc.CARDS_EXILED_WITH.matchEntire(m.groupValues[2])?.takeIf { it.groupValues[1] == "it" || isSelf(it.groupValues[1]) }
+                ?.let { Value.Count(Objects.Remembered(EXILED_WITH)) }
+            val count = exiledWith ?: Filters.objects(m.groupValues[2])?.let { Value.Count(it) } ?: Values.value("the number of " + m.groupValues[2])
                 // isd fixes: "the number of slime counters on Gutter Grime" (this object, or in a token's ability the object that created it, CR 201.5a)
                 ?: Isd.COUNTERS_ON.matchEntire(m.groupValues[2])?.let { c ->
                     val on = if (isSelf(c.groupValues[2])) Objects.Self else if (c.groupValues[2] in creatorNames) Objects.Creator else return null
@@ -5086,7 +5090,9 @@ internal class Sentences(
             return listOf(Step.If(arcanum.api.Condition.ObjectMatches(that, ObjectFilter.ControlledBy(PlayerFilter.Opponent)), then = then))
         }
         // dsk chunk 09: "Put each card exiled with it into its owner's hand." (CR 607.2a)
-        if (sentence == "Put each card exiled with it into its owner's hand.") return listOf(Step.Do(Effect.Move(Objects.Remembered(EXILED_WITH), Destination(Zone.Hand))))
+        // snc chunk 04: "Put the cards exiled with it into their owner's hand."
+        if (sentence == "Put each card exiled with it into its owner's hand." || sentence == "Put the cards exiled with it into their owner's hand.")
+            return listOf(Step.Do(Effect.Move(Objects.Remembered(EXILED_WITH), Destination(Zone.Hand))))
         // dsk chunk 09: "Tap any number of untapped creatures you control." ("tapped this way" afterwards)
         TAP_ANY_NUMBER.matchEntire(sentence)?.let { m ->
             return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.noun(m.groupValues[1]) ?: return null, min = Value.Fixed(0), max = null),
@@ -9572,6 +9578,7 @@ internal class Sentences(
                     // otj chunk 03: "That card gains flashback {0} until end of turn instead if …" replaces the flashback before it
                     (sentence.startsWith("That card gains flashback ") && acc.lastOrNull()?.contains("The flashback cost is") == true) ||
                     sentence.startsWith("When you do,") || // chunk 31
+                    sentence.startsWith("When it connives this way,") || // snc chunk 04
                     (sentence.startsWith("If you don't,") && acc.lastOrNull()?.startsWith("You may sacrifice ") == true) || // woe chunk 03
                     // mkm chunk 16, sweep: "If you do, create a … token. It gains haste until end of turn." / "Put a +1/+1 counter on it.": "it"
                     // is what the "If you do" made, so the sentence is part of it (CR 608.2c)
@@ -10257,8 +10264,10 @@ internal class Sentences(
         Blb.DO_THEN_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
             if (m.groupValues[1].startsWith("You may")) return@let
             val first = effect(m.groupValues[1] + ".", context) ?: return@let
+            // snc chunk 04: "When it connives this way" follows only that creature's connive
+            if (m.groupValues[2].isNotEmpty() && first.none { ((it as? Step.Do)?.effect as? Effect.Action)?.action is arcanum.api.KeywordAction.Connive }) return@let
             announcedX = true
-            val reflexive = try { instructions(m.groupValues[2]) } finally { announcedX = false } ?: return@let
+            val reflexive = try { instructions(m.groupValues[3]) } finally { announcedX = false } ?: return@let
             // CR 603.12, 107.1c: after "any number" (a choice that may be empty) the trigger needs the action to have happened to
             // something: zero chosen ("Tap any number of untapped creatures you control" tapping none) is no event, no trigger
             val anyNumber = first.filterIsInstance<Step.Choose>().lastOrNull { (it.choice as? arcanum.api.Choice.Objects)?.min == Value.Fixed(0) }
@@ -10272,7 +10281,7 @@ internal class Sentences(
                     counted = damage?.let { reflexive.copy(steps = listOf(Step.Do(it.copy(amount = Value.Count(Objects.Bound(anyNumber.bind)))))) } ?: reflexive
                     if (counted.steps.toString().contains("EventAmount")) return@let
                 }
-                return first + Step.If(arcanum.api.Condition.NonEmpty(anyNumber.bind), then = listOf(reflexiveTrigger(counted, m.groupValues[2])))
+                return first + Step.If(arcanum.api.Condition.NonEmpty(anyNumber.bind), then = listOf(reflexiveTrigger(counted, m.groupValues[3])))
             }
             // mom sweep: likewise after moving "up to N" targets ("Return up to one target creature card … When you do"): none chosen, none
             // moved, no trigger (CR 603.12)
@@ -10281,9 +10290,9 @@ internal class Sentences(
             if (move != null && upTo != null) {
                 val moved = move.postBind ?: "moved"
                 return first.dropLast(1) + Step.Do(move.copy(postBind = moved)) +
-                    Step.If(arcanum.api.Condition.NonEmpty(moved), then = listOf(reflexiveTrigger(reflexive, m.groupValues[2])))
+                    Step.If(arcanum.api.Condition.NonEmpty(moved), then = listOf(reflexiveTrigger(reflexive, m.groupValues[3])))
             }
-            return first + reflexiveTrigger(reflexive, m.groupValues[2])
+            return first + reflexiveTrigger(reflexive, m.groupValues[3])
         }
         // blb chunk 09: "you may cast target instant or sorcery card with mana value equal to the number of coin counters on this
         // artifact from your graveyard without paying its mana cost" (CR 608.2g)
@@ -10337,9 +10346,13 @@ internal class Sentences(
         // dies trigger: lesser than the dead creature's, and not that card (CR 603.10a)
         Blb.RETURN_ANOTHER_WITH_LESSER_MANA_VALUE.matchEntire(sentence)?.let { m ->
             if (context.event !is EventPattern.ZoneChange) return null
+            // snc chunk 04: "with equal or lesser power" than the dead creature's power as it last existed
+            val comparison = if (m.groupValues[2] == "lesser") arcanum.api.Comparison.Less else arcanum.api.Comparison.AtMost
+            val compared = if (m.groupValues[3] == "power") {
+                ObjectFilter.Power(comparison, Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single))
+            } else ObjectFilter.ManaValue(comparison, Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single))
             val filter = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.EventObject(EventRole.After))), Filters.noun(m.groupValues[1]) ?: return null,
-                ObjectFilter.ManaValue(arcanum.api.Comparison.Less, Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.EventObject(EventRole.Before),
-                    arcanum.api.Combine.Single)), ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+                compared, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
             return listOf(Step.Do(Effect.Move(context.target("card", filter), Destination(Zone.Battlefield))))
         }
         // blb chunk 08: "Exile target creature you control, then return it to the battlefield under its owner's control." ("that
@@ -13291,7 +13304,8 @@ internal class Sentences(
         val AS_LONG_AS_IT_GETS_AND_HAS = Regex("""As long as (.+?), (it|this creature) gets ([+-]\d+)/([+-]\d+) and has ([a-z ,]+)\.""")
         val YOU_MAY_CAST_FROM_GRAVEYARD_BY = Regex("""You may cast (.+?) from your graveyard by (foraging|paying \d+ life) in addition to (?:paying )?their other costs\.""")
         val RETURN_UP_TO_ONE_TO_HAND = Regex("""[Rr]eturn up to one target (.+) to its owner's hand\.""")
-        val DO_THEN_WHEN_YOU_DO = Regex("""(.+?)\. When you do, (.+)""")
+        // snc chunk 04: also "It connives. When it connives this way, …" (it connives even if it left the battlefield, CR 701.50c)
+        val DO_THEN_WHEN_YOU_DO = Regex("""(.+?)\. When (?:you do|(?:it|that creature) (connives) this way), (.+)""")
         val MAY_CAST_TARGET_WITH_COUNTERS_MANA_VALUE = Regex("""You may cast target (.+?) with mana value equal to the number of (\S+) counters on (.+?) from your graveyard without paying its mana cost\.""")
         val RETURN_SELF_TAPPED_AND_ATTACKING = Regex("""Return (.+) from your graveyard to the battlefield tapped and attacking(?: with (a|an|one|two) (\S+) counters? on it)?\.""")
         val TARGET_PLAYER_DISCARDS = Regex("""Target (opponent|player) discards (a|one|two|three) cards?\.""")
@@ -13303,7 +13317,8 @@ internal class Sentences(
         val YOU_MAY_CAST_AS_THOUGH_FLASH = Regex("""You may cast (.+) as though they had flash\.""")
         val DAMAGE_TO_ANY_PLUS = Regex("""If (.+?) would deal damage to a permanent or player, it deals that much damage plus (\d+) instead\.""")
         val TRAILING_IF = Regex("""((?:Draw|Create|You gain|It gets) .+?) if (.+)\.""")
-        val RETURN_ANOTHER_WITH_LESSER_MANA_VALUE = Regex("""Return another target (.+?) with lesser mana value from your graveyard to the battlefield\.""")
+        // snc chunk 04: also "with equal or lesser power"
+        val RETURN_ANOTHER_WITH_LESSER_MANA_VALUE = Regex("""[Rr]eturn another target (.+?) with (lesser|equal or lesser) (mana value|power) from your graveyard to the battlefield\.""")
         val EXILE_THEN_RETURN = Regex("""Exile target (.+?), then return it to the battlefield under its owner's control\.""")
         val GAINS_X_LIFE = Regex("""(.+) gains? X life\.""")
         val DEALS_SACRIFICED_POWER_TO_EACH_OPPONENT = Regex("""(.+) deals damage equal to the sacrificed creature's power to each opponent\.""")
@@ -14214,6 +14229,37 @@ internal class Sentences(
             val filter = Filters.noun(m.groupValues[4]) ?: return@let
             return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = players), times(Value.Count(Objects.Each(filter)), m.groupValues[2].toInt()),
                 source = Objects.Self)))
+        }
+        // snc chunk 04: "that creature attacks during its controller's next combat phase if able." (CR 508.1d: a requirement, lasting through
+        // the declare attackers step of that player's next turn's combat)
+        Snc.ATTACKS_DURING_NEXT_COMBAT.matchEntire(sentence)?.let { m ->
+            val objects = gtcSubject(m.groupValues[1], context) ?: return@let
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MustAttack()), arcanum.api.Affected.Objects(objects),
+                arcanum.api.Duration.ThroughNextStep(arcanum.api.TurnStep.DeclareAttackers, Players.ControllerOf(objects)))))
+        }
+        // snc chunk 04: "create a Treasure token for each artifact they control." in a trigger on damage to a player: "they" is that player (CR 608.2c)
+        if (sentence.contains(" they control") && !sentence.contains("that player") && (context.event as? EventPattern.Damage)?.to?.players != null) {
+            effect(sentence.replace(" they control", " that player controls"), context)?.let { return it }
+        }
+        // snc chunk 04: "Whenever you discard one or more cards, exile them from your graveyard." (the batch's cards, if still there: CR 400.7);
+        // kept as "exiled with" this object when another ability names them (CR 607.2a)
+        Snc.EXILE_THEM_FROM_GRAVEYARD.matchEntire(sentence)?.let {
+            if (context.event !is EventPattern.Discard && (context.event as? EventPattern.ZoneChange)?.to != Zone.Graveyard) return@let
+            // only those still in the graveyard (a card discarded with madness is in exile, CR 702.35a)
+            return listOf(Step.Do(Effect.Move(Objects.Where(Objects.EventObject(EventRole.After), ObjectFilter.InZone(Zone.Graveyard)), Destination(Zone.Exile),
+                postBind = "exiled"))) +
+                (if (remembersExile) listOf(Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled")))) else emptyList())
+        }
+        // snc chunk 04: "If a creature is put into exile this way, return each other card exiled with this Vehicle to the battlefield under its
+        // owner's control." (after an exile of a target that binds what it moved, [exileUntilLeaves]; the others are the cards this object exiled
+        // before, CR 607.2a)
+        Snc.IF_EXILED_THIS_WAY_RETURN_OTHERS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) && remembersExile }?.let { m ->
+            // the exile moved only a target of that kind: something moved is "a creature put into exile this way"
+            if (context.targets.lastOrNull()?.let { (it.what as? TargetKind.Objects)?.filter }?.let { f -> Filters.noun(m.groupValues[1]).let { k -> f == k ||
+                    (f as? ObjectFilter.And)?.all?.contains(k) == true } } != true) return@let
+            return listOf(Step.If(arcanum.api.Condition.NonEmpty("exiled"),
+                then = listOf(Objects.Except(Objects.Remembered(EXILED_WITH), Objects.Bound("exiled")).let { others ->
+                    Step.Do(Effect.Move(others, Destination(Zone.Battlefield, controller = Players.OwnerOf(others)))) })))
         }
         // "Choose target creature." (only a target; "that creature" and "it" afterwards)
         BlbGaps.CHOOSE_TARGET.matchEntire(sentence)?.takeIf { !it.groupValues[1].contains(" card") }?.let { m ->
@@ -28188,6 +28234,9 @@ internal class Sentences(
                 return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Battlefield, controller = Players.You), postBind = "returned")))
             }
             if (m.groupValues[4].isNotEmpty()) return null
+            // snc chunk 04: kept as "exiled with" this object when another ability counts them (CR 607.2a)
+            if (remembersExile) return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled"))))
             return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Exile))))
         }
         // fin chunk 02: 'Until end of turn, target creature you control gains "[ability]" and has base power and toughness 3/2.' (layers 6, 7b)
@@ -30852,6 +30901,9 @@ internal class Sentences(
         Tdm.FROM_A_SINGLE_GRAVEYARD.matchEntire(sentence)?.let { m ->
             context.targets += TargetSlot("card", TargetKind.Objects(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.InZone(Zone.Graveyard))),
                 min = Value.Fixed(0), max = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), sameOwner = true)
+            // snc chunk 04: kept as "exiled with" this object when another ability counts them (CR 607.2a)
+            if (remembersExile) return listOf(Step.Do(Effect.Move(Objects.Target("card"), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled"))))
             return listOf(Step.Do(Effect.Move(Objects.Target("card"), Destination(Zone.Exile))))
         }
         // tdm chunk 06: "up to one target player mills cards equal to this creature's power"

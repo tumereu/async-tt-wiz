@@ -1676,6 +1676,11 @@ internal object Conditions {
         SELF_IS_ATTACKING.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
         }
+        // snc chunk 04: "enchanted creature is attacking alone" (the only creature declared as an attacker, CR 506.5), "equipped creature is attacking"
+        Snc.ATTACHED_IS_ATTACKING.matchEntire(text)?.let { m ->
+            return Condition.ObjectMatches(Objects.AttachedTo(Objects.Self),
+                if (m.groupValues[2].isEmpty()) ObjectFilter.HasStatus(arcanum.api.Status.Attacking) else ObjectFilter.AttackingAlone)
+        }
         // dmu chunk 02: "there are five basic land types among lands you control" (domain, CR 305.6); exactly that many, or "or more"
         BASIC_LAND_TYPES_AMONG.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null

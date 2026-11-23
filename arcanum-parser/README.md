@@ -29,6 +29,10 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   of "Sacrifice a Swamp and a Forest" after the "and"), a part of the source itself or another part its whole phrase. A
   cost whose parts' phrases aren't all found in order gets none. Every parse test checks that each activated ability's
   cost has them.
+- Mana words (`ManaWords.kt`): the mana a parsed ability adds gets its riders' printed words (`ManaProduction.words`: "Spend this
+  mana only to cast creature spells.", "Until end of turn, you don't lose this mana as steps and phases end."), read from the text after
+  parsing like the spans: a rider is a sentence speaking of "this mana" or "that mana", belonging to the "Add …" sentence before it. Every
+  parse test checks that each mana with a rider has words the card prints.
 - `OracleParser.parseCard(layout, faces)`: a card with several faces (split, adventurer,
   double-faced; CR 709, 712, 716) → `CardDefinition`, each face parsed on its own. A face's
   colour indicator is read from `OracleCard.colorIndicator` ("U").

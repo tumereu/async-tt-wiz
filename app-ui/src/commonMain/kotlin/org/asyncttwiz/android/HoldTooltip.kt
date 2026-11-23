@@ -26,6 +26,15 @@ class HoldTooltipPosition(private val gap: Int) : PopupPositionProvider {
     }
 }
 
+/** Where every hold tip (a [androidx.compose.material3.TooltipBox]'s plain tooltip) opens: centred over what is held, or under it
+ * without room above, and always whole inside the window: shifted in from an edge it would cross (the tooltip wraps its words to
+ * more lines rather than growing past its greatest width). */
+@Composable
+fun rememberHoldTipPosition(): PopupPositionProvider {
+    val gap = with(LocalDensity.current) { 4.dp.roundToPx() }
+    return remember(gap) { HoldTooltipPosition(gap) }
+}
+
 @Composable
 fun HoldTooltip(name: String) {
     val gap = with(LocalDensity.current) { 8.dp.roundToPx() }

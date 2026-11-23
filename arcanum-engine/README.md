@@ -100,7 +100,8 @@ seeded random games of cube cards, failing on any open player decision without a
 
 - `state/` — `GameState` (serializable; read-only outside the engine: internal constructor and setters, fields read as
   `List` and `Map`, changed only by `apply` and `revert`; inside, mutable collections copied once per `perform`): players in turn order with their zones,
-  life, counters, mana pool; every card/token object by `ObjectId` (`Card(card, zoneChanges)`
+  life, counters, mana pool (each `ManaUnit` with its source, snow, riders and `words`, the printed words of its riders from the ability that
+  made it, CR 106.6, for hosts to show; `hasRiders`); every card/token object by `ObjectId` (`Card(card, zoneChanges)`
   or `StackItem(id)`, D21/D35) with owner, controller, zone, face, status, counters, damage,
   attachment, timestamp (D34), control start (CR 302.6), marks, linked-ability memory (`linked`, CR 607), how it was cast
   (`cast: CastFacts?`, D22) and its statuses; every object has its definition (full information); Stack items with targets, modes, X,

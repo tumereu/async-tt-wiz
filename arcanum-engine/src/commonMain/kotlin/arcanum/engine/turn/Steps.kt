@@ -157,7 +157,9 @@ internal object Steps {
             val becomes = mechanics.filterIsInstance<arcanum.api.Mechanic.UnspentManaBecomes>().lastOrNull()?.color
             fun keeps(u: arcanum.engine.state.ManaUnit) = (u.keptUntil != null && !(step == TurnStep.Cleanup && u.keptUntil == Duration.EndOfTurn) &&
                 !(step == TurnStep.EndOfCombat && u.keptUntil == Duration.EndOfCombat)) || (u.color != null && u.color in keptColors)
-            val kept = p.manaPool.mapNotNull { u -> if (keeps(u)) u else becomes?.let { u.copy(color = it, keptUntil = null) } }
+            val kept = p.manaPool.mapNotNull { u -> if (keeps(u)) u else becomes?.let {
+                u.copy(color = it, keptUntil = null, words = if (u.keptUntil == null) u.words else u.words.filterNot { w -> "lose this mana" in w })
+            } }
             if (kept != p.manaPool) recorder.record(Changes.manaPool(s, p.id, kept, listOf(Meaning.ManaEmptied)))
         }
         // the step's player read with the effect's own names (exert: "its controller's next untap step", CR 701.43a)

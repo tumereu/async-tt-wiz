@@ -181,21 +181,32 @@ fun ManaPoolRows(play: TableBoard, scene: TableScene) {
         val pool = play.board.players.firstOrNull { it.accountId == field.owner }?.manaPool.orEmpty()
         if (pool.isEmpty()) continue
         val line = manaPoolLine(scene.fields, field) ?: continue
-        val kinds = pool.map { it.color }.sortedBy { POOL_ORDER.indexOf(it).let { i -> if (i < 0) POOL_ORDER.size else i } }
+        // STK-228, TBL-120 (owner 2026-11-22): mana carrying a rider or snow keeps the effects sparkle (TBL-136), and counts apart
+        val kinds = pool.map { it.color to org.asyncttwiz.automatum.poolManaMarked(it) }
+            .sortedWith(compareBy({ POOL_ORDER.indexOf(it.first).let { i -> if (i < 0) POOL_ORDER.size else i } }, { it.second }))
         val counted = kinds.groupingBy { it }.eachCount()
-        val description = "Mana pool: " + counted.entries.joinToString { (kind, n) -> "$n {$kind}" }
+        val description = "Mana pool: " + counted.entries.joinToString { (kind, n) -> "$n {${kind.first}}" }
         val shape = RoundedCornerShape(10.dp)
         Row(Modifier.offset((field.bounds.x + 6f).dp, (line - 10f).dp).height(20.dp)
             .background(Color.White.copy(alpha = .9f), shape).border(1.dp, Color(0xffb7bcbf), shape)
             .padding(horizontal = 3.dp, vertical = 2.dp).semantics(mergeDescendants = true) { contentDescription = description },
             horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (kinds.size <= POOL_SYMBOLS) for (kind in kinds) Box(Modifier.size(16.dp)) { CardSymbol(kind) }
+            if (kinds.size <= POOL_SYMBOLS) for (kind in kinds) PoolSymbol(kind.first, kind.second)
             else for ((kind, n) in counted) {
-                Box(Modifier.size(16.dp)) { CardSymbol(kind) }
+                PoolSymbol(kind.first, kind.second)
                 Text("×$n", Modifier.padding(start = 1.dp, end = 3.dp), color = MenuInk, fontSize = 11.sp, lineHeight = 12.sp,
                     fontWeight = FontWeight.Medium)
             }
         }
+    }
+}
+
+/** One mana of a pool row ([ManaPoolRows]): its symbol, with the effects sparkle at its top left when [marked] (TBL-120, STK-228). */
+@Composable
+private fun PoolSymbol(symbol: String, marked: Boolean) {
+    Box(Modifier.size(16.dp)) {
+        CardSymbol(symbol)
+        if (marked) EffectsSparkle(Modifier.align(Alignment.TopStart).offset((-2).dp, (-2).dp).size(8.dp))
     }
 }
 

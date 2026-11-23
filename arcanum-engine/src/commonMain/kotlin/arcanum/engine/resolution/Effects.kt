@@ -1401,7 +1401,7 @@ internal object Effects {
         if (colors.isEmpty()) return
         val units = colors.map { ManaUnit(it, scope.self, restriction = production.restriction, spellGets = production.spellGets,
             keptUntil = production.keptUntil, whenSpent = production.whenSpent, spellGetsIf = production.spellGetsIf, spellGetsUntil = production.spellGetsUntil,
-            onlyCostsWithX = production.onlyCostsWithX) }
+            onlyCostsWithX = production.onlyCostsWithX, words = production.words) }
         act.record(Changes.manaPool(act.state, player, act.state.player(player).manaPool + units, listOf(Meaning.ManaAdded)))
     }
 

@@ -43,6 +43,9 @@ The definition model (overview in `Definitions.kt`):
 - Building blocks: `Cost`/`CostPart`, `Trigger`/`EventPattern`, `Objects`/
   `ObjectFilter`, `Players`/`PlayerFilter`, `Value`, `Condition`, `Duration`,
   `ManaProduction`, `TokenSpec`, `KeywordAction`.
+- `ManaProduction.words`: the printed words of the mana's riders ("Spend this mana only to cast creature spells.", CR 106.6), filled by the
+  parser, by firebending's expansion and by the predefined Powerstone token, carried by an engine with each mana for hosts to show;
+  `ManaProduction.hasRiders`.
 - `Ability.isManaAbility()`: whether an ability is a mana ability (CR 605.1a/b), derived from its shape.
 - `SubtypeReferences.of(ability | face | definition)`: the subtypes its abilities pick objects by (`ObjectFilter.Sub`: "Lizards
   you control", "each saddled Mount", "enchant Forest", "the chosen type" as `SubtypeRef.Remembered`), keyword expansions

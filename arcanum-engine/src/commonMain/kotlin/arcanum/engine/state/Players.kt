@@ -62,7 +62,14 @@ data class ManaUnit(
     val spellGetsUntil: Duration? = null,
     /** mh3 fixes: spent only on a cost that contains {X} ([arcanum.api.ManaProduction.onlyCostsWithX], CR 106.6). */
     val onlyCostsWithX: Boolean = false,
-)
+    /** The printed words of its riders, from the ability that made it ([arcanum.api.ManaProduction.words]): what hosts show players
+     * ("Spend this mana only to cast creature spells."); empty when it has none or the definition doesn't say them. */
+    val words: List<String> = emptyList(),
+) {
+    /** It carries a rider ([restriction], [onlyCostsWithX], [spellGets], [keptUntil], [whenSpent]; CR 106.4, 106.6), which [words]
+     * should say. Snow isn't one: it is where the mana came from ([snow], CR 106.3). */
+    val hasRiders: Boolean get() = restriction != null || onlyCostsWithX || spellGets.isNotEmpty() || keptUntil != null || whenSpent != null
+}
 
 /**
  * Whose turn it is and where (CR 500). [turnStarted] holds, for each player, the number of the latest turn they

@@ -182,7 +182,15 @@ data class ManaProduction(
      * (CR 107.3, 601.2f), a spell's or an ability's, also one paid as a spell or ability resolves; not on a spell with {X} in its mana
      * cost cast for an alternative cost without {X} (CR 118.9). With [restriction], both must hold. */
     val onlyCostsWithX: Boolean = false,
-)
+    /** Words for players: the printed sentence of each of its riders ([restriction], [onlyCostsWithX], [spellGets], [keptUntil],
+     * [whenSpent]) as the text that made it says them ("Spend this mana only to cast creature spells.", "Until end of turn, you don't
+     * lose this mana as steps and phases end."), in printed order; empty when it has none or they aren't known. An engine carries
+     * them with each mana it adds, for hosts to show. */
+    val words: List<String> = emptyList(),
+) {
+    /** It has a rider: something limiting what its mana may be spent on or given to the mana beyond its type (CR 106.4, 106.6). */
+    val hasRiders: Boolean get() = restriction != null || onlyCostsWithX || spellGets.isNotEmpty() || keptUntil != null || whenSpent != null
+}
 
 /** [property] of the chosen objects added up, at least [atLeast]; with [exactly], exactly [atLeast] ("Exile one or more other artifacts
  * you control with total mana value X", a cost paid as stated, CR 601.2h). */

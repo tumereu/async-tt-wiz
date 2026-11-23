@@ -16,11 +16,6 @@ Catalog review notes (owner, 2026-11-22):
 - Solo draft: one person with bots (today bots leave room for two people, DRF-296), with a warning that there is no one in the pod to play against (bots play no games, DRF-301).
 - A pod challenge declined on one device can keep its notification on your other devices until you submit your deck (DRF-135, DRF-138, LOB-243).
 
-Playtest notes (owner, 2026-11-22):
-
-- Mana with restrictions or properties (owner, 2026-11-22; after STK-228 is built): pool mana that carries a spending restriction or a property ("Spend this mana only to cast creature spells", "If this mana is spent on a creature spell, it can't be countered", snow) shows the violet sparkle of TBL-136 wherever pool mana shows, and holding it shows the restriction in its own words with the source that made it ("From <card>: Spend this mana only to cast creature spells."), never generic text; the engine carries each mana's restriction/property text from the ability that made it (STK-228).
-
-
 ### Earlier
 
 Desktop playtest notes (owner, 2026-11-14): high priority.

@@ -435,7 +435,7 @@ const val CAST_UNPAID = "The cost isn't paid yet: produce the mana on the board.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HoldTip(description: String, content: @Composable () -> Unit) {
-    TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+    TooltipBox(positionProvider = rememberHoldTipPosition(),
         tooltip = { PlainTooltip { CardText(description) } }, state = rememberTooltipState()) { content() }
 }
 

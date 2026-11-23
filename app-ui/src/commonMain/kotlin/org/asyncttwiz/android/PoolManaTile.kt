@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
@@ -25,6 +26,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -38,15 +40,21 @@ import org.asyncttwiz.protocol.Faults
 /**
  * STK-228, STK-049 (owner problem report 2026-11-22, prod 0.3.1): one mana of the payer's pool as a payment shows it: its
  * symbol in its colour ([symbol]: "R", "G", "C"), its name for the payment line and screen readers ([words]: "Red mana from your
- * pool") and what else it carries ([notes]: the source that made it, a restriction on what it may be spent on), said on hold.
+ * pool") and what else it carries ([notes]: snow, the source that made it, its riders in their own words with that source: "From
+ * Gildleaf Grove: Spend this mana only to cast creature spells."), said on hold. [marked]: it carries a rider or is snow, so it shows
+ * the effects sparkle (TBL-136; owner 2026-11-22).
  */
-class PoolManaLook(val symbol: String, val words: String, val notes: List<String>) {
-    /** What holding it says: its name and its notes. */
-    val hold: String get() = (listOf(words) + notes).joinToString(". ")
+class PoolManaLook(val symbol: String, val words: String, val notes: List<String>, val marked: Boolean = false,
+    /** What screen readers hear: [words] and, for mana carrying something, what it carries ("Green mana from your pool, spend this mana
+     * only to cast creature spells"; owner 2026-11-23). */
+    val spoken: String = words) {
+    /** What holding it says: its name and its notes, each a sentence. */
+    val hold: String get() = (listOf(words) + notes).joinToString(" ") { if (it.endsWith('.')) it else "$it." }
 
     companion object {
         /** Mana [use] of [payer]'s pool in [state] (the payment's), [viewer] looking; [name]: a source's name. Owner rule
-         * (2026-11-11): a pool mana whose colour can't be known is a fault, never a plain "Pool mana". */
+         * (2026-11-11): a pool mana whose colour can't be known is a fault, never a plain "Pool mana"; so is a rider whose words
+         * aren't known (owner 2026-11-22: never generic text). */
         fun of(state: GameState?, payer: PlayerId?, viewer: String, use: ManaUse.Pool, name: (arcanum.engine.state.ObjectId) -> String): PoolManaLook {
             val unit: ManaUnit? = payer?.let { p -> state?.players?.firstOrNull { it.id == p }?.manaPool?.getOrNull(use.index) }
             val whose = if (payer == null || payer.value == viewer) "your pool" else "their pool"
@@ -56,14 +64,26 @@ class PoolManaLook(val symbol: String, val words: String, val notes: List<String
                 return PoolManaLook("?", words, emptyList())
             }
             val symbol = unit.color?.symbol?.toString() ?: "C"
+            val source = unit.source?.let(name)
+            val riders = if (unit.hasRiders) riderWords(unit, source) else emptyList()
             val notes = buildList {
                 if (unit.snow) add("Snow mana")
-                unit.source?.let { add("Made by ${name(it)}") }
-                if (unit.restriction != null) add("It can be spent only on some spells or abilities")
-                if (unit.onlyCostsWithX) add("It can be spent only on a cost with {X}")
-                if (unit.spellGets.isNotEmpty()) add("The spell it pays for gets more")
+                if (unit.hasRiders) add((source?.let { "From $it: " } ?: "") + riders.joinToString(" "))
+                else source?.let { add("Made by $it") }
             }
-            return PoolManaLook(symbol, "${colorWords(symbol)} mana from $whose", notes)
+            val words = "${colorWords(symbol)} mana from $whose"
+            val spoken = (listOf(words) + listOfNotNull("snow mana".takeIf { unit.snow }) +
+                riders.map { it.removeSuffix(".").replaceFirstChar(Char::lowercase) }).joinToString(", ")
+            return PoolManaLook(symbol, words, notes, marked = unit.hasRiders || unit.snow, spoken = spoken)
+        }
+
+        /** The printed words of [unit]'s riders ([ManaUnit.words]); when the engine has none for them, a fault and what it can say. */
+        private fun riderWords(unit: ManaUnit, source: String?): List<String> = unit.words.ifEmpty {
+            val riders = listOfNotNull("restriction".takeIf { unit.restriction != null }, "costs with {X}".takeIf { unit.onlyCostsWithX },
+                "spell gets".takeIf { unit.spellGets.isNotEmpty() }, "kept until ${unit.keptUntil}".takeIf { unit.keptUntil != null },
+                "when spent".takeIf { unit.whenSpent != null })
+            listOf(Faults.placeholder("PoolMana", "pool mana with riders the engine has no words for",
+                "It carries something its source's text says.", mapOf("source" to "$source", "riders" to riders.joinToString())))
         }
 
         private fun colorWords(symbol: String) = when (symbol) {
@@ -95,9 +115,10 @@ fun PoolManaTile(look: PoolManaLook, chosen: Boolean, toggle: () -> Unit, modifi
             toggle()
         }
             .clearAndSetSemantics {
-                contentDescription = look.words + if (chosen) ", chosen" else ""
+                contentDescription = look.spoken + if (chosen) ", chosen" else ""
                 selected = chosen
                 role = Role.Checkbox
+                if (look.marked) testTag = POOL_MANA_SPARKLE
             }, contentAlignment = Alignment.Center) {
             Box(Modifier.requiredSize(width, height).cardFrame(false, if (chosen) OwnTableColor else Color(0xffb7bcbf))) {
                 Column(Modifier.fillMaxSize().padding(horizontal = width * .07f, vertical = height * .04f),
@@ -110,6 +131,8 @@ fun PoolManaTile(look: PoolManaLook, chosen: Boolean, toggle: () -> Unit, modifi
                     }
                 }
             }
+            // TBL-136, STK-228 (owner 2026-11-22): a rider or snow, the effects sparkle in its top-left corner
+            if (look.marked) EffectsSparkle(Modifier.align(Alignment.TopStart).offset((-3).dp, (-3).dp).size(10.dp))
             if (chosen) {
                 Box(Modifier.fillMaxSize().border(3.dp, AutomatumViolet, RoundedCornerShape(4.dp)))
                 Surface(Modifier.align(Alignment.BottomStart).padding(1.dp), shape = CircleShape, color = AutomatumViolet, contentColor = Color.White) {
@@ -117,5 +140,20 @@ fun PoolManaTile(look: PoolManaLook, chosen: Boolean, toggle: () -> Unit, modifi
                 }
             }
         }
+    }
+}
+
+/** The test tag of a pool mana tile showing the effects sparkle ([PoolManaLook.marked]). */
+const val POOL_MANA_SPARKLE = "pool-mana-sparkle"
+
+/** TBL-136, STK-228, TBL-120: the effects sparkle (the violet four-pointed star ringed in white a changed battlefield card shows) filling
+ * [modifier]'s size. */
+@Composable
+fun EffectsSparkle(modifier: Modifier) {
+    androidx.compose.foundation.Canvas(modifier) {
+        val outer = size.minDimension / 2 * .9f
+        val star = sparklePath(center.x, center.y, outer)
+        drawPath(star, Color.White, style = androidx.compose.ui.graphics.drawscope.Stroke(outer * .34f))
+        drawPath(star, AutomatumViolet)
     }
 }

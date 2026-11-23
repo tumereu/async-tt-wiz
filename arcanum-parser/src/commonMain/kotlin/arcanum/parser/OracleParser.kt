@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 134
+    const val VERSION: Int = 135
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -533,17 +533,17 @@ object OracleParser {
     /** The ability with its printed [raw] lines as its text, reminder text left out (shown to players: "you may"
      * prompts, which of two triggers is which; an emblem's quoted ability, CR 114.2). Keywords have their own; unparsed
      * text stays as printed. Each target slot gets the place of its phrase in that text ([TargetSpans]), and each cost
-     * part its phrase's, a keyword's cost in its line ([CostSpans]). */
+     * part its phrase's, a keyword's cost in its line ([CostSpans]); the mana it adds gets its riders' printed words ([ManaWords]). */
     internal fun Ability.withText(raw: String): Ability {
         val text = raw.lines().map { REMINDER.replace(it, "").trim() }.filter { it.isNotEmpty() }.joinToString("\n")
-        return CostSpans.placed(TargetSpans.placed(when (this) {
+        return ManaWords.placed(CostSpans.placed(TargetSpans.placed(when (this) {
             is Ability.Spell -> copy(text = text)
             is Ability.Activated -> copy(text = text)
             is Ability.Triggered -> copy(text = text)
             is Ability.Static -> copy(text = text)
             is Ability.SpecialAction -> copy(text = text)
             else -> this
-        }), text)
+        }), text), text)
     }
 
     /**

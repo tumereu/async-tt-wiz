@@ -39,7 +39,8 @@ object PredefinedTokens {
         // bro: CR 111.10h: a colorless Powerstone artifact token with "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."
         "Powerstone" -> artifact("Powerstone", Ability.Activated(Cost(listOf(CostPart.TapSelf)),
             steps(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}")!!), restriction = ObjectFilter.Not(ObjectFilter.And(listOf(
-                ObjectFilter.Category(ObjectCategory.Spell), ObjectFilter.Not(ObjectFilter.Type(CardType.Artifact)))))), players = Players.You)),
+                ObjectFilter.Category(ObjectCategory.Spell), ObjectFilter.Not(ObjectFilter.Type(CardType.Artifact))))),
+                words = listOf("This mana can't be spent to cast a nonartifact spell.")), players = Players.You)),
             rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You), text = "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."))
         // fra: CR 111.10x: a red and green Heartwood artifact token with "{T}: Add {R} or {G}."
         "Heartwood" -> FaceDefinition("Heartwood Token", colorIndicator = listOf(Color.Red, Color.Green), types = listOf(CardType.Artifact),

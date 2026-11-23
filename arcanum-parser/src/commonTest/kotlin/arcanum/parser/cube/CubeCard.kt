@@ -75,8 +75,48 @@ private fun checkFace(printed: OracleCard, face: FaceDefinition, expected: List<
     assertEquals(pt + printed.loyalty, listOf(face.power, face.toughness, face.loyalty).map(PrintedNumbers::render), "P/T, loyalty")
     assertEquals(expected, face.abilities.mapIndexed { i, ability -> withoutTextUnstated(ability, expected.getOrNull(i)) }, printed.name)
     checkTexts(printed, face.abilities)
+    checkManaWords(printed, face.abilities)
     checkSpans(printed.name, face.abilities)
     checkCostSpans(printed.name, face.abilities)
+}
+
+/**
+ * The mana a parsed ability adds says its riders in the card's words ([arcanum.api.ManaProduction.words], CR 106.4, 106.6): each
+ * production with a rider has words, each a sentence the card prints. Expectations state them only where a test is about them.
+ */
+fun checkManaWords(printed: OracleCard, abilities: List<Ability>) {
+    for (production in abilities.flatMap(::manaWords)) {
+        val riders = listOf("restriction", "onlyCostsWithX", "spellGets", "keptUntil", "whenSpent").filter { it in production }
+        val words = (production["words"] as? kotlinx.serialization.json.JsonArray)?.map { (it as kotlinx.serialization.json.JsonPrimitive).content }.orEmpty()
+        if (riders.isEmpty()) {
+            assertEquals(emptyList(), words, "${printed.name}: mana without riders has words")
+            continue
+        }
+        assertEquals(true, words.isNotEmpty(), "${printed.name}: mana with $riders has no words")
+        for (w in words) assertEquals(true, w in printed.text, "${printed.name}: mana words \"$w\" aren't printed on the card")
+    }
+}
+
+/** Whether [e] is a mana production ([arcanum.api.ManaProduction]): its kind one of the mana kinds. */
+private fun manaProduction(e: kotlinx.serialization.json.JsonObject) =
+    ((e["kind"] as? kotlinx.serialization.json.JsonObject)?.get("type") as? kotlinx.serialization.json.JsonPrimitive)?.content in
+        setOf("same-as-produced", "fixed", "choose", "as-could", "each-color-among")
+
+/** The mana productions inside [ability] with riders or words, through its JSON form. */
+private fun manaWords(ability: Ability): List<kotlinx.serialization.json.JsonObject> {
+    val found = mutableListOf<kotlinx.serialization.json.JsonObject>()
+    fun walk(e: kotlinx.serialization.json.JsonElement) {
+        when (e) {
+            is kotlinx.serialization.json.JsonObject -> {
+                if (manaProduction(e) && listOf("words", "restriction", "onlyCostsWithX", "spellGets", "keptUntil", "whenSpent").any { it in e }) found += e
+                e.values.forEach(::walk)
+            }
+            is kotlinx.serialization.json.JsonArray -> e.forEach(::walk)
+            else -> {}
+        }
+    }
+    walk(definitionJson.encodeToJsonElement(Ability.serializer(), ability))
+    return found
 }
 
 /**
@@ -163,13 +203,14 @@ fun checkSpans(name: String, abilities: List<Ability>) {
  */
 private fun withoutTextUnstated(ability: Ability, expected: Ability?): Ability {
     val own = withoutOwnText(ability)
-    if (expected == null || quoted(own).isEmpty()) return own
+    if (expected == null || (quoted(own).isEmpty() && manaWords(own).isEmpty())) return own
     fun strip(actual: kotlinx.serialization.json.JsonElement, stated: kotlinx.serialization.json.JsonElement?): kotlinx.serialization.json.JsonElement =
         when (actual) {
             is kotlinx.serialization.json.JsonObject -> {
                 val e = stated as? kotlinx.serialization.json.JsonObject
                 kotlinx.serialization.json.JsonObject(actual.filterKeys { k ->
-                    val droppable = k == "span" || (k == "text" && texted(actual)) || (k == "spans" && "parts" in actual)
+                    val droppable = k == "span" || (k == "text" && texted(actual)) || (k == "spans" && "parts" in actual) ||
+                        (k == "words" && manaProduction(actual))
                     !(droppable && e != null && k !in e)
                 }.mapValues { (k, v) -> strip(v, e?.get(k)) })
             }

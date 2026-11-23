@@ -15,6 +15,10 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.performClick
 import org.asyncttwiz.android.EngineGameFixture.Choices
 import org.asyncttwiz.protocol.PlayZone
@@ -188,5 +192,61 @@ class BoardManaTest {
         refresh()
         assertTrue(k.toolkit.cast.paid, "the pool pays: ${k.toolkit.cast.mana}")
         compose.onNodeWithContentDescription("Payment: Paid with Red mana from your pool, Green mana from your pool").assertExists()
+    }
+
+    // STK-228, TBL-120, TBL-136 (owner 2026-11-22): with Autotap off and green mana in her pool from her Gildleaf Shard ("Spend this mana
+    // only to cast creature spells.") and her Moss Shard, Alice's Hedge Cub ({2}) panel shows the Gildleaf's mana with the effects sparkle and
+    // the Moss Shard's without; holding the marked one says its restriction in its own words with its source, the plain one only its source;
+    // the pool on the table marks the same mana
+    @Test fun poolManaWithARestrictionShowsTheSparkleAndItsWords() {
+        val k = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.GILDLEAF, Choices.MOSS, Choices.HEDGE_CUB))))
+        kitOverride = k
+        k.opening()
+        val sources = listOf(Choices.GILDLEAF, Choices.MOSS).map { name ->
+            val card = k.atw(k.hand(name).first())
+            assertTrue(k.toolkit.cast.start(card), "cast $name: ${k.toolkit.error}")
+            k.playOn("$name on the battlefield") { card in k.field(name).map(k::atw) && k.aliceMain() }
+            card
+        }
+        render()
+        for ((n, source) in sources.withIndex()) {
+            k.tap(k.item(source))
+            k.playOn("its mana in the pool") { k.state().player(k.me).manaPool.size == n + 1 && k.aliceMain() }
+        }
+        assertEquals(listOf(listOf("Spend this mana only to cast creature spells."), emptyList()), k.state().player(k.me).manaPool.map { it.words })
+        // TBL-120: the table's pool marks the Gildleaf's mana only
+        assertEquals(listOf(true, false), k.alice.play().board.players.single { it.accountId == k.f.a }.manaPool
+            .map { org.asyncttwiz.automatum.poolManaMarked(it) })
+        val cub = k.atw(k.hand(Choices.HEDGE_CUB).first())
+        k.toolkit.cast.autotap = false
+        refresh()
+        k.tap(k.item(cub, PlayZone.HAND))
+        k.tap(k.item(cub, PlayZone.HAND))
+        assertTrue(k.toolkit.cast.open, "the cast panel: ${k.toolkit.error}")
+        k.playOn("the panel worked out") { !k.toolkit.cast.busy }
+        refresh()
+        compose.onNodeWithContentDescription("Green mana from your pool").assertExists()
+        // Screen readers hear what the marked one carries (owner 2026-11-23)
+        compose.onNodeWithContentDescription("Green mana from your pool, spend this mana only to cast creature spells").assertExists()
+        assertEquals(1, compose.onAllNodesWithTag(POOL_MANA_SPARKLE, useUnmergedTree = true).fetchSemanticsNodes().size, "one marked tile")
+        val restricted = "Green mana from your pool. From ${Choices.GILDLEAF}: Spend this mana only to cast creature spells."
+        compose.onNodeWithTag(POOL_MANA_SPARKLE, useUnmergedTree = true).performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(1000)
+        compose.waitForIdle()
+        compose.onNodeWithText(restricted).assertExists()
+        // The tip stays whole inside the window, wrapped, though the held mana sits at the screen's left edge (rememberHoldTipPosition)
+        val tip = compose.onNodeWithText(restricted).fetchSemanticsNode()
+        val screen = compose.onAllNodes(androidx.compose.ui.test.isRoot()).fetchSemanticsNodes().maxOf { it.size.width }
+        assertTrue(tip.positionOnScreen.x >= 0f && tip.positionOnScreen.x + tip.size.width <= screen,
+            "the tip at ${tip.positionOnScreen.x}, ${tip.size.width} wide, inside a window $screen wide")
+        compose.onNodeWithText("It can be spent only on some spells or abilities", substring = true).assertDoesNotExist()
+        captureShot("$SCREENSHOTS/cast-panel/pool-mana-restricted.png",
+            "Alice tapped her Gildleaf Shard (\"Spend this mana only to cast creature spells.\") and Moss Shard on the table, opened Hedge " +
+                "Cub's ({2}) cast panel with Autotap off and is holding the Gildleaf's pool mana: it has the violet effects sparkle in its " +
+                "top-left corner (the Moss Shard's has none, and the pool on the table marks it too) and the tip says \"$restricted\"")
+        compose.onNodeWithTag(POOL_MANA_SPARKLE, useUnmergedTree = true).performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.waitForIdle()
+        compose.onNodeWithText(restricted).assertDoesNotExist()
     }
 }

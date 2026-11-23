@@ -178,6 +178,8 @@ internal object Filters {
         }
         // dsk chunk 07: "any card" (CR 701.23a: a search for any card)
         if (phrase == "any card") return ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
+        // snc chunk 08: "spell you control that wasn't cast" (a copy, or a card put on the Stack, CR 707.10, 601.2a)
+        if (phrase.endsWith(" that wasn't cast")) return all(noun(phrase.removeSuffix(" that wasn't cast")) ?: return null, ObjectFilter.Not(ObjectFilter.WasCast()))
         // mh3 chunk 05: "noncreature spells you cast from exile": cast from that zone (CR 601.2a)
         SPELLS_YOU_CAST_FROM.matchEntire(phrase)?.let { m ->
             val zone = when (m.groupValues[2]) { "exile" -> Zone.Exile; "your hand" -> Zone.Hand; else -> Zone.Graveyard }
@@ -1588,7 +1590,11 @@ internal object Conditions {
         CARD_TYPES_IN_GRAVEYARD.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             return Condition.Compare(Value.CountDistinct(Objects.Each(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Graveyard),
-                ObjectFilter.OwnedBy(PlayerFilter.You)))), if (m.groupValues[2] == "card") SharedQuality.CardType else SharedQuality.PermanentType),
+                ObjectFilter.OwnedBy(PlayerFilter.You)))), when (m.groupValues[2]) {
+                    "card types" -> SharedQuality.CardType
+                    "permanent types" -> SharedQuality.PermanentType
+                    else -> SharedQuality.Number(arcanum.api.NumericProperty.ManaValue)
+                }),
                 Comparison.AtLeast, Value.Fixed(n))
         }
         // trk chunk 11: "a permanent was returned to your hand from the battlefield this turn" (a hand is its owner's, CR 400.3; looked back
@@ -1853,7 +1859,8 @@ internal object Conditions {
     private val WAS_KICKED = Regex("""(.+) was kicked( twice)?""")
     private val ESCAPED = Regex("""(.+) escaped""")
     // lci chunk 07: "permanent types" too (CR 110.4a)
-    private val CARD_TYPES_IN_GRAVEYARD = Regex("""there are (\w+) or more (card|permanent) types among cards in your graveyard""")
+    // snc chunk 06: "mana values" too (CR 202.3)
+    private val CARD_TYPES_IN_GRAVEYARD = Regex("""there are (\w+) or more (card types|permanent types|mana values) among cards in your graveyard""")
     private val SELF_IS_TAPPED = Regex("""(.+) is tapped""")
 
     /** The object of "[this] is tapped" / "is untapped": this object, or the creature it is attached to (rvr chunk 01). */

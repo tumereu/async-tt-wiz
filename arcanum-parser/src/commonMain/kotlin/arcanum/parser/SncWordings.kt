@@ -29,4 +29,37 @@ internal object Snc {
     val ALL_ATTACK_ATTACHED_CONTROLLER = Regex("""All (creatures) attack (?:enchanted|equipped) creature's controller each combat if able\.""")
     // snc chunk 05: "Equipped permanent isn't a planeswalker and is a creature in addition to its other types."
     val ATTACHED_ISNT_AND_IS_ADDITION = Regex("""(?:Enchanted|Equipped) permanent isn't an? (\w+) and is an? (\w+) in addition to its other types\.""")
+    // snc chunk 06: "any opponent may tap an untapped creature they control."
+    val ANY_OPPONENT_MAY_TAP = Regex("""[Aa]ny opponent may (tap an untapped .+?) they control\.""")
+    // snc chunk 06: "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste or that
+    // many 3/1 green Dog creature tokens with vigilance."
+    val CREATE_TOKENS_MAY_INSTEAD_ONE_OF = Regex("""If you would create one or more tokens, you may instead create that many (.+? tokens(?: with [^,]+?)?) or that many (.+? tokens(?: with .+?)?)\.""")
+    // snc chunk 07: "If your life total is less than your starting life total, this spell costs {X} less to cast, where X is the difference."
+    val IF_LESS_THAN_COSTS_X_LESS_DIFFERENCE = Regex("""If (.+?) is less than (.+?), (.+?) costs \{X\} less to cast, where X is the difference\.""")
+    // snc chunk 07: "[Each opponent] sacrifices a creature of their choice, discards a card, and loses 4 life." (the subject's verb phrases)
+    val VERB_LIST_OF_ONE_SUBJECT = Regex("""(.+?), ((?:loses|gains|draws|discards|mills|sacrifices|exiles|gets) [^,]+), and ((?:loses|gains|draws|discards|mills|sacrifices|exiles|gets) [^,]+)\.""")
+    // snc chunk 07: "Exile up to one target creature card from a graveyard. If a card is put into exile this way, look at the top three cards ..."
+    val EXILE_IF_A_CARD_EXILED_THIS_WAY = Regex("""((?:[Ee]xile) [^.]+)\. If a card is put into exile this way, (.+)""")
+    // snc chunk 07: "You may cast spells from the top of your library by removing a counter from a creature you control in addition to paying their other costs."
+    val CAST_FROM_TOP_BY_ADDITIONAL = Regex("""You may cast spells from the top of your library by (removing|sacrificing|discarding|exiling|tapping|paying) (.+?) in addition to paying their other costs\.""")
+    // snc chunk 07: "Remove a counter from a creature you control" (a cost)
+    val REMOVE_A_COUNTER_FROM_A = Regex("""Remove a counter from an? (.+)""")
+    // snc chunk 07: "Spend this mana only to cast spells with exactly three colors."
+    val CAST_SPELLS_EXACTLY_COLORS = Regex("""cast spells with exactly (\w+) colors""")
+    // snc chunk 08: "For each color, return up to one target creature card of that color from your graveyard to your hand."
+    val FOR_EACH_COLOR_RETURN_UP_TO_ONE = Regex("""For each color, return up to one target (.+?) of that color from your graveyard to your (hand)\.""")
+    // snc chunk 08: "Each opponent chooses a permanent they control that shares a card type with the sacrificed permanent and sacrifices it."
+    val EACH_CHOOSES_SHARING_AND_SACRIFICES = Regex("""Each (opponent|player) chooses an? (.+?) they control that shares a (card type|color|creature type) with (the sacrificed \w+|it) and sacrifices it\.""")
+    // snc chunk 08: "For each of those permanents, its controller creates a 3/3 white Angel creature token with flying."
+    val FOR_EACH_OF_THOSE_ITS_CONTROLLER_CREATES = Regex("""For each of those (\w+), its controller creates (.+)\.""")
+    // snc chunk 08: "Count the colors of the sacrificed creature, then search your library for a creature card that's exactly that many colors plus one."
+    val COUNT_COLORS_SEARCH_EXACTLY_PLUS = Regex("""Count the colors of (the sacrificed \w+), then search your library for an? (.+?) that's exactly that many colors plus (\w+)\.""")
+    // snc chunk 08: "if its mana value is equal to 1 plus the number of soul counters on this enchantment" (in a cast trigger)
+    val ITS_MANA_VALUE_IS_EQUAL_TO = Regex("""its mana value is equal to (?:(\d+) plus )?(.+)""")
+    val NUMBER_OF_COUNTERS_ON = Regex("""the number of (\S+) counters on (.+)""")
+    // snc chunk 08: Exotic Pets
+    val CREATE_THEN_FOR_EACH_KIND_AMONG = Regex("""(Create .+? tokens .+?)\s+Then for each kind of counter among (.+?), put a counter of that kind on either of those tokens\.""")
+    // snc chunk 08: Urabrask, "the next time they would draw a card this turn, instead they exile the top card of their library. They may play it
+    // this turn."
+    val NEXT_DRAW_INSTEAD_EXILE_TOP_MAY_PLAY = Regex("""The next time they would draw a card this turn, instead they exile the top card of their library\. They may play (?:it|that card) this turn\.""")
 }

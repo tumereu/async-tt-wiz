@@ -394,6 +394,16 @@ internal object Effects {
                 val kinds = scope.event?.counterKinds.orEmpty()
                 onBattlefield(scope, effect.objects).forEach { id -> kinds.forEach { k -> Actions.putCounters(act, cause, TargetRef.Object(id), k, 1) } }
             }
+            // snc chunk 08: each kind among those objects as it resolves, then one counter of it on one of the others, the controller's choice
+            is Effect.PutCounterKindsAmong -> {
+                val kinds = onBattlefield(scope, effect.among).flatMap { id -> act.state.obj(id)?.counters.orEmpty().filter { it.count > 0 }.map { it.kind } }.distinct()
+                val chooser = cause?.controller ?: act.state.turn.active
+                kinds.forEach { k ->
+                    val chosen = act.chooseObjects(chooser, scope.self, onBattlefield(scope, effect.onto), 1, 1, "Put a ${counterLabel(k)} counter on").firstOrNull()
+                        ?: return@forEach
+                    Actions.putCounters(act, cause, TargetRef.Object(chosen), k, 1)
+                }
+            }
             is Effect.ChangeTargets -> changeTargets(scope, effect)
             is Effect.SeparatePiles -> separatePiles(scope, effect)
             is Effect.Remember -> remember(scope, effect.key, scope.objects(effect.objects), effect.replace)
@@ -1313,7 +1323,7 @@ internal object Effects {
             } else original.kind
             val snapshots = original.snapshots + listOfNotNull(act.snapshot(id))
             val copy = original.copy(id = copyId, kind = kind, controller = controller, targets = targets, snapshots = snapshots, timestamp = ts,
-                cast = if (kind is StackItemKind.SpellCopy) copiedFacts(original.cast ?: act.state.obj(id)?.cast) else original.cast, copyOf = id)
+                cast = if (kind is StackItemKind.SpellCopy) copiedFacts(original.cast ?: act.state.obj(id)?.cast) else null, copyOf = id)
             act.record(Change.StackItemAdded(copy, act.state.stack.size, listOf(arcanum.engine.change.Meaning.Copied)))
             act.record(Change.Happened(GameEvent.Copied(controller, copyId, scope.self)))
         }

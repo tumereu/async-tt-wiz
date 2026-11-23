@@ -25,7 +25,8 @@ internal object Trk {
     // trk chunk 06: "target opponent exiles cards from the top of their library until they exile a nonland card."
     val TARGET_PLAYER_EXILES_UNTIL = Regex("""[Tt]arget (opponent|player) exiles cards from the top of their library until they exile (an? .+)\.""")
     // trk chunk 06: "target opponent may have you draw a card." (then "If they don't, …")
-    val TARGET_OPPONENT_MAY_HAVE_YOU = Regex("""[Tt]arget opponent may have you (.+)\.""")
+    // snc chunk 08: also "defending player may have you draw a card." (in an attack trigger)
+    val TARGET_OPPONENT_MAY_HAVE_YOU = Regex("""([Tt]arget opponent|[Dd]efending player) may have you (.+)\.""")
     // trk chunk 06: "If her power is 4 or greater, instead draw a card." (the sentence before happens only if the condition is false)
     val IF_INSTEAD = Regex("""If (.+?), instead (.+)\.""")
     // trk chunk 07: "draw a card for every five creature types among non-Borg creatures you control."

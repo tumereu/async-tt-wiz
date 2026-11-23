@@ -42,6 +42,7 @@ import arcanum.engine.state.Bindings
 import arcanum.engine.state.EffectId
 import arcanum.engine.state.EffectObject
 import arcanum.engine.state.ManaSpent
+import arcanum.engine.state.CastFacts
 import arcanum.engine.state.ManaUnit
 import arcanum.engine.state.NamedValue
 import arcanum.engine.state.ObjectId
@@ -115,7 +116,7 @@ internal object Payment {
             plan.isManaAbility -> finishManaAbility(act, plan, names, nested, triggered)
             plan.isSpecialAction -> finishSpecialAction(act, plan, names)
             plan.isSpell -> finishSpell(recorder, plan, names, snapshots, spent, paidWith)
-            else -> finishAbility(recorder, plan, names, snapshots)
+            else -> finishAbility(recorder, plan, names, snapshots, spent)
         }
     }
 
@@ -592,6 +593,10 @@ internal object Payment {
         return of(instructions.steps) + instructions.modes?.options.orEmpty().flatMap { asCastConditions(it.instructions) }
     }
 
+    private fun spentByKind(spent: List<ManaUnit>): List<ManaSpent> = (Color.all + listOf<Color?>(null)).mapNotNull { c ->
+        spent.count { it.color == c }.takeIf { it > 0 }?.let { ManaSpent(c, it) }
+    }
+
     private fun finishSpell(
         recorder: Recorder, plan: Plan, names: Bindings, snapshots: List<ObjectSnapshot>, spent: List<ManaUnit>,
         paidWith: Map<ManaPaymentWay, List<ObjectId>>,
@@ -612,9 +617,7 @@ internal object Payment {
             castFrom = plan.castFrom,
             heldAsCast = asCast,
             x = plan.choices.announced["X"],
-            manaSpent = (Color.all + listOf<Color?>(null)).mapNotNull { c ->
-                spent.count { it.color == c }.takeIf { it > 0 }?.let { ManaSpent(c, it) }
-            },
+            manaSpent = spentByKind(spent),
             manaSources = spent.mapNotNull { it.source },
             paid = paidCosts(plan),
             alternative = alternativePaid(plan),
@@ -759,15 +762,17 @@ internal object Payment {
         recorder.record(arcanum.engine.change.Changes.uses(recorder.state, source, o.uses.copy(activations = Legality.counted(o.uses.activations, key, recorder.state.turn.number))))
     }
 
-    private fun finishAbility(recorder: Recorder, plan: Plan, names: Bindings, snapshots: List<ObjectSnapshot>): Progress {
+    private fun finishAbility(recorder: Recorder, plan: Plan, names: Bindings, snapshots: List<ObjectSnapshot>, spent: List<ManaUnit>): Progress {
         val s = recorder.state
         val origin = plan.origin!!
         // fra: a loyalty ability's cost, for "if you removed two or more loyalty counters to activate it"
         val loyaltyCost = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().filterIsInstance<CostPart.Loyalty>().firstOrNull()?.let { part ->
             plan.snap.evaluator(plan.player, self = plan.sourceId, names = plan.names.with(names), stackItem = plan.item).value(part.amount)
         }
+        // snc: the mana spent to activate it, for "If mana from a Treasure was spent to activate this ability" (CR 602.2b, 106.3)
+        val manaFacts = if (spent.isEmpty()) null else CastFacts(manaSpent = spentByKind(spent), manaSources = spent.mapNotNull { it.source })
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
-            divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
+            divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp(), cast = manaFacts)
         recorder.record(Change.StackItemAdded(item, s.stack.size, listOf(Meaning.Activated)))
         // woe chunk 08: "{2}, {T}: Choose one that hasn't been chosen —": the modes this object has chosen (CR 700.2)
         if ((plan.ability as? Ability.Activated)?.instructions?.modes?.onlyUnchosen == true && plan.choices.modes.isNotEmpty())

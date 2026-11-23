@@ -69,6 +69,10 @@ internal object Casting {
         // dmu: a "once during each of your turns" permission is used up by a land played with it, and what it gives the land applies as it
         // enters (Serra Paragon, CR 305.1, 611.2e)
         if (permitted != null && mayPlay?.perTurn != null) Payment.countPermissionUse(recorder, permitted.first)
+        // snc: "you may play one of those cards": a land played with it uses the permission up as a spell cast with it would (CR 305.1, 611.2a)
+        if (permitted != null && mayPlay?.total != null) permitted.first.effect?.let { recorder.state.effects[it] }?.let { e ->
+            recorder.record(Change.EffectUpdated(e, e.copy(usesLeft = (e.usesLeft ?: mayPlay.total!!) - 1)))
+        }
         if (permitted != null && mayPlay != null && mayPlay.spellGets.isNotEmpty()) {
             val next = (input.card as ObjectId.Card).next()
             recorder.record(Changes.effect(recorder.state) { t ->

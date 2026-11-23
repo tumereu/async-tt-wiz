@@ -77,7 +77,8 @@ internal object Sos {
     val DISCARDS_PUT_LAND_ONTO_BATTLEFIELD = Regex("""Target player discards (\w+) cards\. Put up to one land card discarded this way onto the battlefield tapped under your control\.""")
     val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_DISCARD = Regex("""[Aa]ny number of target (players|opponents) each discard a card\.""") // otj chunk 11: opponents
     val EACH_PLAYER_LOSES_HALF = Regex("""Each player loses half their life, then discards half the cards in their hand, then sacrifices half the permanents they control of their choice\. Round down each time\.""")
-    val TARGET_OPPONENT_EXILES_GREATEST = Regex("""Target opponent exiles an? (.+?) they control with the greatest mana value among (.+?) they control\.""")
+    // snc chunk 08: also "sacrifices"
+    val TARGET_OPPONENT_EXILES_GREATEST = Regex("""Target opponent (exiles|sacrifices) an? (.+?) they control with the greatest mana value among (.+?) they control\.""")
 
     // sos chunk 08: graveyards, flashback and casting from exile
     val EXILE_TARGET_MAY_CAST_UNTIL_NEXT_TURN = Regex("""[Ee]xile target (.+?) from your graveyard\. Until the end of your next turn, you may cast that card\.""")

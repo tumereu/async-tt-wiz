@@ -322,7 +322,8 @@ sealed interface Mechanic {
         val colorlessAsAnyColor: Boolean = false,
         // mom chunk 11
         /** At most this many spells cast with this permission in all, over the whole duration of the effect that grants it
-         * ("Until the end of your next turn, you may cast an instant or sorcery spell from among those exiled cards": one, CR 611.2a). */
+         * ("Until the end of your next turn, you may cast an instant or sorcery spell from among those exiled cards": one, CR 611.2a);
+         * snc: lands played with it count too ("you may play one of those cards", CR 305.1). */
         val total: Int? = null,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
@@ -770,6 +771,10 @@ sealed interface Modification {
         /** Only if the permanent as it will enter matches ("if it's a creature"): its characteristics after the copy effect it enters with, if
          * any (CR 614.12). */
         val ifEntersAs: ObjectFilter? = null,
+        // snc chunk 08
+        /** In [EntersAsCopy.withCounters] only: only if the object it enters as a copy of matches ("except it enters with a shield counter on
+         * it if you control that creature"), as that object is when the replacement applies (CR 614.1c, 707.9b). */
+        val ifCopied: ObjectFilter? = null,
     ) : Modification
     @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(
         val of: ObjectFilter, val except: List<CopyException> = emptyList(), val optional: Boolean,
@@ -849,6 +854,11 @@ sealed interface Modification {
     /** The tokens of a token-creating event that match the replacement's event are created as [token] instead, as many ("that
      * many 5/5 red Dragon creature tokens with flying are created instead", CR 614.1a); other tokens of the event stay. */
     @Serializable @SerialName("create-instead") data class CreateInstead(val token: TokenSpec) : Modification
+    // snc
+    /** As [CreateInstead], with the token one of [tokens] that the replacement's controller chooses as it applies ("you may instead create
+     * that many 2/2 green Cat creature tokens with haste or that many 3/1 green Dog creature tokens with vigilance"): one replacement effect,
+     * applied once to the event (CR 614.1a, 614.5). */
+    @Serializable @SerialName("create-instead-chosen") data class CreateInsteadChosen(val tokens: List<TokenSpec>) : Modification
     // msh
     /** The damage is dealt, but all other damage already marked on the permanent it is dealt to is healed first ("instead that
      * damage is dealt, but all other damage already dealt to him is healed", CR 701.69a). */

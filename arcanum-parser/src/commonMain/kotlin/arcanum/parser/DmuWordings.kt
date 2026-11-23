@@ -71,7 +71,7 @@ internal object Dmu {
     val MANA_ABILITIES_COST_ADDITIONAL_LIFE = Regex("""Mana abilities of (.+?) cost an additional (\d+) life to activate\.""")
     val SACRIFICE_THE_CHOSEN = Regex("""[Ss]acrifice the chosen (?:creature|permanent|artifact)\.""")
     val SPELLS_THEY_CAST_THIS_TURN_COST = Regex("""Spells they cast this turn cost (\{\d+\}) (more|less) to cast\.""")
-    private val OPPONENT_CAST_N_OR_MORE = Regex("""an opponent cast (\w+) or more spells this turn""")
+    private val OPPONENT_CAST_N_OR_MORE = Regex("""an opponent (cast|has drawn) (\w+) or more (spells|cards) this turn""")
     private val OPPONENT_CONTROLLED_DEALT_EXCESS = Regex("""an? (.+?) an opponent controlled was dealt excess damage this turn""")
     private val ACTIVATED_N_OR_MORE_TIMES = Regex("""this ability has been activated (\w+) or more times this turn""")
     private val CONTROL_POWER_ABOVE_BASE = Regex("""you control an? (.+?) with power greater than its base power""")
@@ -80,10 +80,12 @@ internal object Dmu {
     /** dmu chunk 05: conditions. */
     fun condition(text: String): Condition? {
         // "an opponent cast two or more spells this turn": one opponent cast them all, not the total of all opponents
-        OPPONENT_CAST_N_OR_MORE.matchEntire(text)?.let { m ->
-            val n = Numbers.count(m.groupValues[1]) ?: return null
+        // snc chunk 07: "an opponent has drawn four or more cards this turn" (one draw is one card, CR 121.2)
+        OPPONENT_CAST_N_OR_MORE.matchEntire(text)?.takeIf { (it.groupValues[1] == "cast") == (it.groupValues[3] == "spells") }?.let { m ->
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            val event = if (m.groupValues[1] == "cast") EventPattern.Cast(ObjectFilter.Any, PlayerFilter.Is(Players.Tested)) else EventPattern.Draw(PlayerFilter.Is(Players.Tested))
             return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Where(Condition.HappenedThisTurn(
-                EventPattern.Cast(ObjectFilter.Any, PlayerFilter.Is(Players.Tested)), atLeast = n, measure = Measure.Events)))), atLeast = 1)
+                event, atLeast = n, measure = Measure.Events)))), atLeast = 1)
         }
         // "a creature or planeswalker an opponent controlled was dealt excess damage this turn" (CR 120.4a; controlled as it was dealt it)
         OPPONENT_CONTROLLED_DEALT_EXCESS.matchEntire(text)?.let { m ->

@@ -65,7 +65,7 @@ internal object Bro {
 
 /** Conditions of The Brothers' War (BRO) wordings. */
 internal object BroPhrases {
-    private val COLORS_SPENT = Regex("""(\w+) or more colors of mana were spent to cast (this spell|this creature|this permanent)""")
+    private val COLORS_SPENT = Regex("""(exactly )?(\w+)( or more)? colors of mana were spent to (cast this spell|cast this creature|cast this permanent|activate this ability)""")
     private val YOU_CONTROL_NAMED_AND = Regex("""you control (creatures|artifacts|permanents) named (.+?) and (.+)""")
     private val AN_OPPONENT_CONTROLS_N_OR_MORE = Regex("""an opponent controls (\w+) or more (.+)""")
     private val SELF_HAS_KEYWORD = Regex("""(.+?) (has|doesn't have) ([a-z]+)""")
@@ -109,9 +109,12 @@ internal object BroPhrases {
                 arcanum.api.Comparison.Greater, arcanum.api.Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Self, arcanum.api.Combine.Single))
         }
         // bro chunk 06: Steel Exemplar, "two or more colors of mana were spent to cast this creature" (CR 601.2h; a permanent keeps it, CR 400.7d)
-        COLORS_SPENT.matchEntire(text)?.let { m ->
-            return arcanum.api.Condition.Compare(arcanum.api.Value.ManaSpent(distinctColors = true, of = arcanum.api.Objects.Self),
-                arcanum.api.Comparison.AtLeast, arcanum.api.Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+        // snc chunk 07: "exactly three colors of mana were spent to activate this ability" (the ability's own mana, CR 602.2b)
+        COLORS_SPENT.matchEntire(text)?.takeIf { (it.groupValues[1].isEmpty()) != (it.groupValues[3].isEmpty()) }?.let { m ->
+            val of = if (m.groupValues[4] == "activate this ability") arcanum.api.Objects.ThisAbility else arcanum.api.Objects.Self
+            return arcanum.api.Condition.Compare(arcanum.api.Value.ManaSpent(distinctColors = true, of = of),
+                if (m.groupValues[1].isEmpty()) arcanum.api.Comparison.AtLeast else arcanum.api.Comparison.Equal,
+                arcanum.api.Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))
         }
         // bro chunk 06: Mine Worker, "you control creatures named Power Plant Worker and Tower Worker" (one of each, CR 201.2)
         YOU_CONTROL_NAMED_AND.matchEntire(text)?.let { m ->

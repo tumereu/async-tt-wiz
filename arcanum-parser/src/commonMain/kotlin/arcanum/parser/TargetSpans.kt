@@ -69,6 +69,8 @@ internal object TargetSpans {
 
     /** How many targets a phrase's count words allow at most: "two target creatures" 2, "any number of targets" any. */
     private fun most(phrase: String): Int {
+        // snc chunk 08: "For each color, return up to one target creature card of that color …": one per colour (CR 105.1)
+        if (phrase.lowercase().contains(" of that color")) return 5
         val count = COUNT_WORDS.find(phrase.lowercase())?.groupValues?.get(1) ?: return 1
         return when {
             count == "any number of" || count == "one or more" || count.endsWith("x") || count.endsWith("that many") -> Int.MAX_VALUE

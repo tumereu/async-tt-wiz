@@ -11,7 +11,7 @@ import kotlin.test.Test
 /** "The nth … during each of your [step]s" (`Trigger.On.during`): only events in that step count, and only there it triggers. */
 class NthDuringStepTest {
     /** "Whenever you draw your second card during each of your draw steps, you gain 2 life." (written by hand from the parsed
-     * "each turn" wording: the parser doesn't read "during each of your draw steps" yet) */
+     * "each turn" wording) */
     private val ledger = run {
         val base = Cards.definition(Cards.invent("Draw Step Ledger Base", "{1}{W}", "Enchantment",
             "Whenever you draw your second card each turn, you gain 2 life."))

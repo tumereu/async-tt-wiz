@@ -495,7 +495,9 @@ internal object Actions {
         // bro chunk 03: "its power and toughness are equal to this creature's" fixed as it enters (CR 707.9b, 719.3b)
         val except = arcanum.engine.view.Copiable.ownPowerToughness(mod.except, e.characteristics(m.id))
         val copy = m.copy(copyOf = of to except, copyDuration = mod.duration, tapped = m.tapped || mod.tapped)
-        val counters = mod.withCounters.filter { copy.to == Zone.Battlefield && entersAs(act, copy, it.ifEntersAs, controller) }.map { it.kind to e.value(it.amount) } +
+        val counters = mod.withCounters.filter { copy.to == Zone.Battlefield && entersAs(act, copy, it.ifEntersAs, controller) &&
+                // snc chunk 08: "if you control that creature": the object copied (CR 614.1c)
+                it.ifCopied.let { f -> f == null || e.matches(f, of) } }.map { it.kind to e.value(it.amount) } +
             // trk chunk 10: the counters the copied permanent has, each kind (CR 614.1c)
             (if (mod.copiedCounters && copy.to == Zone.Battlefield) act.state.obj(of)?.counters.orEmpty().filter { it.count > 0 }.map { it.kind to it.count } else emptyList())
         return if (counters.isEmpty()) copy else copy.copy(counters = copy.counters + counters)

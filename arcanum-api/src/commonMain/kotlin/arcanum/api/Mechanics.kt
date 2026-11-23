@@ -771,6 +771,10 @@ sealed interface Modification {
         /** Only if the permanent as it will enter matches ("if it's a creature"): its characteristics after the copy effect it enters with, if
          * any (CR 614.12). */
         val ifEntersAs: ObjectFilter? = null,
+        // snc chunk 08
+        /** In [EntersAsCopy.withCounters] only: only if the object it enters as a copy of matches ("except it enters with a shield counter on
+         * it if you control that creature"), as that object is when the replacement applies (CR 614.1c, 707.9b). */
+        val ifCopied: ObjectFilter? = null,
     ) : Modification
     @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(
         val of: ObjectFilter, val except: List<CopyException> = emptyList(), val optional: Boolean,

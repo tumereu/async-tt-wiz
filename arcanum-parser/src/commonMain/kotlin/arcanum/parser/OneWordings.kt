@@ -205,8 +205,15 @@ internal object OnePhrases {
     /** "each opponent who has three or more poison counters": the players who match. */
     fun eachWho(phrase: String): Players? {
         val m = EACH_WHO.matchEntire(phrase) ?: return null
-        val who = PlayerFilter.Where(playerHas(m.groupValues[2], Players.Tested) ?: return null)
+        val who = PlayerFilter.Where(playerHas(m.groupValues[2], Players.Tested) ?: controlsA(m.groupValues[2]) ?: return null)
         return Players.Each(if (m.groupValues[1] == "opponent") PlayerFilter.And(listOf(PlayerFilter.Opponent, who)) else who)
+    }
+
+    // snc chunk 08: "Each player who controls a multicolored creature draws a card." (checked as it resolves)
+    private val CONTROLS_A = Regex("""controls an? (.+)""")
+    private fun controlsA(text: String): Condition? {
+        val m = CONTROLS_A.matchEntire(text) ?: return null
+        return Condition.Exists(Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Tested))), atLeast = 1)
     }
 
     /** "its controller has three or more poison counters" in a spell's later paragraph: "its" is the spell's one object target. */

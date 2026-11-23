@@ -394,6 +394,16 @@ internal object Effects {
                 val kinds = scope.event?.counterKinds.orEmpty()
                 onBattlefield(scope, effect.objects).forEach { id -> kinds.forEach { k -> Actions.putCounters(act, cause, TargetRef.Object(id), k, 1) } }
             }
+            // snc chunk 08: each kind among those objects as it resolves, then one counter of it on one of the others, the controller's choice
+            is Effect.PutCounterKindsAmong -> {
+                val kinds = onBattlefield(scope, effect.among).flatMap { id -> act.state.obj(id)?.counters.orEmpty().filter { it.count > 0 }.map { it.kind } }.distinct()
+                val chooser = cause?.controller ?: act.state.turn.active
+                kinds.forEach { k ->
+                    val chosen = act.chooseObjects(chooser, scope.self, onBattlefield(scope, effect.onto), 1, 1, "Put a ${counterLabel(k)} counter on").firstOrNull()
+                        ?: return@forEach
+                    Actions.putCounters(act, cause, TargetRef.Object(chosen), k, 1)
+                }
+            }
             is Effect.ChangeTargets -> changeTargets(scope, effect)
             is Effect.SeparatePiles -> separatePiles(scope, effect)
             is Effect.Remember -> remember(scope, effect.key, scope.objects(effect.objects), effect.replace)

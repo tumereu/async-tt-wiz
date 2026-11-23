@@ -46,4 +46,20 @@ internal object Snc {
     val REMOVE_A_COUNTER_FROM_A = Regex("""Remove a counter from an? (.+)""")
     // snc chunk 07: "Spend this mana only to cast spells with exactly three colors."
     val CAST_SPELLS_EXACTLY_COLORS = Regex("""cast spells with exactly (\w+) colors""")
+    // snc chunk 08: "For each color, return up to one target creature card of that color from your graveyard to your hand."
+    val FOR_EACH_COLOR_RETURN_UP_TO_ONE = Regex("""For each color, return up to one target (.+?) of that color from your graveyard to your (hand)\.""")
+    // snc chunk 08: "Each opponent chooses a permanent they control that shares a card type with the sacrificed permanent and sacrifices it."
+    val EACH_CHOOSES_SHARING_AND_SACRIFICES = Regex("""Each (opponent|player) chooses an? (.+?) they control that shares a (card type|color|creature type) with (the sacrificed \w+|it) and sacrifices it\.""")
+    // snc chunk 08: "For each of those permanents, its controller creates a 3/3 white Angel creature token with flying."
+    val FOR_EACH_OF_THOSE_ITS_CONTROLLER_CREATES = Regex("""For each of those (\w+), its controller creates (.+)\.""")
+    // snc chunk 08: "Count the colors of the sacrificed creature, then search your library for a creature card that's exactly that many colors plus one."
+    val COUNT_COLORS_SEARCH_EXACTLY_PLUS = Regex("""Count the colors of (the sacrificed \w+), then search your library for an? (.+?) that's exactly that many colors plus (\w+)\.""")
+    // snc chunk 08: "if its mana value is equal to 1 plus the number of soul counters on this enchantment" (in a cast trigger)
+    val ITS_MANA_VALUE_IS_EQUAL_TO = Regex("""its mana value is equal to (?:(\d+) plus )?(.+)""")
+    val NUMBER_OF_COUNTERS_ON = Regex("""the number of (\S+) counters on (.+)""")
+    // snc chunk 08: Exotic Pets
+    val CREATE_THEN_FOR_EACH_KIND_AMONG = Regex("""(Create .+? tokens .+?)\s+Then for each kind of counter among (.+?), put a counter of that kind on either of those tokens\.""")
+    // snc chunk 08: Urabrask, "the next time they would draw a card this turn, instead they exile the top card of their library. They may play it
+    // this turn."
+    val NEXT_DRAW_INSTEAD_EXILE_TOP_MAY_PLAY = Regex("""The next time they would draw a card this turn, instead they exile the top card of their library\. They may play (?:it|that card) this turn\.""")
 }

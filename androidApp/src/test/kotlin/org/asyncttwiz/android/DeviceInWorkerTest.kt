@@ -85,7 +85,7 @@ class DeviceInWorkerTest {
         assertIs<GameDevice.Acted.Sent>(local.keep())
         var result: GameDevice.Acted? = null
         var versionAtResult = -1L
-        remote.keep { result = it; versionAtResult = remote.version }
+        remote.keep { result = it; versionAtResult = (remote.shown?.version ?: 0L) }
         assertNull(result, "the page doesn't wait for the worker")
         pump()
         assertNotNull(result)
@@ -256,13 +256,13 @@ class DeviceInWorkerTest {
         val (_, remote) = pair()
         remote.tick(1_000)
         pump()
-        val shownBefore = remote.version
+        val shownBefore = (remote.shown?.version ?: 0L)
         // The keep goes first (its board not delivered yet), then a pass the player tapped on the board before it
         var kept: GameDevice.Acted? = null
         remote.keep { kept = it }
         var passed: GameDevice.Acted? = null
         remote.pass { passed = it }
-        assertEquals(shownBefore, remote.version, "nothing delivered yet")
+        assertEquals(shownBefore, (remote.shown?.version ?: 0L), "nothing delivered yet")
         pump()
         assertIs<GameDevice.Acted.Sent>(kept)
         val refused = assertIs<GameDevice.Acted.Refused>(passed)

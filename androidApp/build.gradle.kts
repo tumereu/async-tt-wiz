@@ -281,6 +281,11 @@ android {
 kotlin {
     compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
 }
+// The tests (and e2e's, compiled with them) read what an engine game published directly, to check it: the plain fields are
+// theirs to read (UnobservedEngineState). The app's own code doesn't opt in as a whole.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    if (name.contains("UnitTest") || name.contains("AndroidTest")) compilerOptions.optIn.add("org.asyncttwiz.android.UnobservedEngineState")
+}
 
 // Only the side-by-side test identity may use a locally allocated update sequence.
 providers.gradleProperty("atwTestVersionCode").orNull?.let { value ->

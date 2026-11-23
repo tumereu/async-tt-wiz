@@ -333,6 +333,7 @@ private class DeviceBench(devices: DeviceChannel, bench: BenchGame, base: PlaySt
      * is) and declared, the other player's blockers assumed (none: they have no device here), the combat damage, End turn,
      * then Undo. The other player's passes are assumed (HIS-096).
      */
+    @OptIn(UnobservedEngineState::class) // a benchmark, outside composition
     private fun flows(then: () -> Unit) {
         val shown = game.shown
         if (shown == null || ++flowSteps > 80) { line("Flows: stopped after $flowSteps steps at ${shown?.engine?.turn}"); summary(then); return }

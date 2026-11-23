@@ -25,10 +25,12 @@ class AnsweredValue<T> {
  * app-engine's, without Compose): the last published board's version, whether older history is on its way, and the
  * timeline's events and texts. Made on first use and kept with the game ([EngineGame.ui]).
  */
+// Made before it observes the game: it starts from the plain values, and the observer keeps it current from then on
+@OptIn(UnobservedEngineState::class)
 class EngineGameState(game: EngineGame) : EngineGame.Observer {
     /** [EngineGame.Shown.version] of the last board published: a dialog reading it follows every board published
      * (HIS-111: older history coming in) without its parent recomposing. */
-    var shownVersion by mutableLongStateOf(game.version)
+    var shownVersion by mutableLongStateOf(game.shown?.version ?: 0L)
         private set
     /** Whether a page of older history is on its way (the strip's edge shows it). */
     var historyLoading by mutableStateOf(game.historyLoadingNow)
@@ -46,6 +48,27 @@ val EngineGame.tableState: EngineGameState
 
 /** [EngineGameState.shownVersion]. */
 val EngineGame.shownVersion: Long get() = tableState.shownVersion
+
+/**
+ * [EngineGame.shown], the last board published, read as snapshot state: it reads [shownVersion] first, so a composition (or a
+ * `derivedStateOf`/`snapshotFlow` block, an effect keyed on what it gives) that reads the shown board also follows every
+ * board published. The plain field is no snapshot's ([UnobservedEngineState]): read on its own, a composition the table
+ * skips never sees the next board (0.3.1's stalled games). The UI's reads of the shown board go through this (main thread);
+ * only code outside composition opts in to the plain field, and `UnobservedEngineReadsTest` keeps that to its list.
+ */
+val EngineGame.observedShown: EngineGame.Shown?
+    @OptIn(UnobservedEngineState::class) get() {
+        tableState.shownVersion
+        return shown
+    }
+
+/**
+ * Whether the game has published its first board, followed as snapshot state while it hasn't: a board published stays (the
+ * field never goes back to null), so once one is in nothing more needs following, and a composition that only asks this
+ * (the lobby's engineGame, TableScreen's choice of table) isn't composed again for every board published.
+ */
+val EngineGame.observedLoaded: Boolean
+    @OptIn(UnobservedEngineState::class) get() = shown != null || run { tableState.shownVersion; shown != null }
 
 /** [EngineGameState.historyLoading]. */
 val EngineGame.historyLoading: Boolean get() = tableState.historyLoading

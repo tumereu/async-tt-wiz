@@ -215,7 +215,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     private var assumed: AssumedBlocks? = null
 
     override fun assuming(): AssumedBlocks? {
-        val shown = game()?.shown ?: return null
+        val shown = game()?.observedShown ?: return null
         val status = shown.status as? GameDevice.Status.Waiting ?: return null
         if (status.offer != GameDevice.Offer.AssumeBlockers || review != null) return null
         return assumed?.takeIf { it.tip == shown.tip } ?: AssumedBlocks(shown.tip).also { assumed = it }
@@ -223,7 +223,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
 
     /** CMB-040: assumes the blocks placed (none: no blocks); a refusal is told with the engine's reason. */
     private fun assumeBlocks(g: EngineGame, placed: AssumedBlocks) {
-        val s = g.shown?.engine ?: return
+        val s = g.observedShown?.engine ?: return
         val board = shown()?.board ?: return
         fun objectOf(card: String) = s.battlefield.firstOrNull { (it as? ObjectId.Card)?.card?.value == card }
         val chosen = placed.inputs(board).mapNotNull { (b, a) -> Block(objectOf(b) ?: return@mapNotNull null, objectOf(a) ?: return@mapNotNull null) }
@@ -247,7 +247,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     /** Enters timeline mode at [at] (HIS-004); playback running meanwhile waits paused for the centre text (HIS-006). */
     fun enterReview(at: String) {
         engine?.historyRetry()
-        game()?.takeIf { it.shown?.status is GameDevice.Status.Playing }?.holdPlayback()
+        game()?.takeIf { it.observedShown?.status is GameDevice.Status.Playing }?.holdPlayback()
         reviewPlaying = false; review = at
     }
     fun leaveReview() { reviewPlaying = false; review = null }
@@ -311,9 +311,9 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
         return own(true, "onShown", { g.stageOwn(play, actions, requestId, it) }) { done -> sent(); done }
     }
 
-    fun status(): GameDevice.Status? = game()?.shown?.status
+    fun status(): GameDevice.Status? = game()?.observedShown?.status
 
-    override fun control(): Boolean = game()?.shown?.settings?.mode == ResponseMode.FullControl
+    override fun control(): Boolean = game()?.observedShown?.settings?.mode == ResponseMode.FullControl
 
     override fun revealing(): Boolean = openReveal() != null
 
@@ -330,7 +330,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     private val dismissedReveals = mutableStateListOf<String>()
 
     /** HIS-110: the reveal whose panel is open on this table: the shown one, unless its OK was tapped already. */
-    fun openReveal(): GameDevice.Reveal? = game()?.shown?.reveal?.takeIf { it.event !in dismissedReveals }
+    fun openReveal(): GameDevice.Reveal? = game()?.observedShown?.reveal?.takeIf { it.event !in dismissedReveals }
 
     /** HIS-110: the player tapped the reveal panel's OK on [reveal]: it closes now; the engine thread dismisses it after. */
     fun dismissReveal(reveal: GameDevice.Reveal) {
@@ -341,14 +341,14 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
         sent()
     }
 
-    override fun showing(): Boolean = game()?.shown?.show != null
+    override fun showing(): Boolean = game()?.observedShown?.show != null
 
     override val viewPause = ViewPause()
 
     override val stackAnimation = StackAnimation(viewer)
 
     /** Live and in catch-up playback, not in timeline mode (its own Auto, HIS-017) or a branch's take-back (HIS-106). */
-    override fun viewPaused(): Boolean = viewPause.paused && review == null && game()?.shown?.let { s ->
+    override fun viewPaused(): Boolean = viewPause.paused && review == null && game()?.observedShown?.let { s ->
         !s.takingBack && (s.show != null || s.combatHold != null || s.status is GameDevice.Status.Playing ||
             stackAnimation.targeting?.done == false) } == true
 
@@ -372,7 +372,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     private var awaiting by mutableStateOf<Long?>(null)
 
     /** The player's own action is made now ([send], the main button): its result is the next board published. */
-    fun ownAction() { awaiting = game()?.shown?.version }
+    fun ownAction() { awaiting = game()?.observedShown?.version }
 
     /** The own action made last wasn't taken (nothing will be published for it). */
     fun ownActionDropped() { awaiting = null }
@@ -386,7 +386,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     fun ownActionPending(board: TableBoard?): Boolean {
         if (working()) return true
         val made = awaiting ?: return false
-        return (game()?.shown?.version ?: return false) <= made
+        return (game()?.observedShown?.version ?: return false) <= made
     }
 
     /** Drops the player's open cast or activation (STK-025: nothing of it sent yet); true when there was one. Set by the
@@ -429,8 +429,8 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     /** Holding Undo opens the rewind dialog to pick any earlier point (§10). */
     fun holdUndo() {
         engine?.historyRetry()
-        rewind = RewindChoice(game()?.shown?.undoTarget)
-        AppLog.info("undo", "Undo dialog opened by a hold at ${rewind?.target}, tip ${game()?.shown?.tip}")
+        rewind = RewindChoice(game()?.observedShown?.undoTarget)
+        AppLog.info("undo", "Undo dialog opened by a hold at ${rewind?.target}, tip ${game()?.observedShown?.tip}")
     }
 
     /** The other player's name, for the wait's words and the unconfirmed mark's tooltip (set by the table). */
@@ -448,13 +448,13 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     /** The control the main button shows while the other player must act, or null for none: "Assume resolves" with
      * something on the Stack (STK-028), else "Assume pass" (TRN-070, owner playtest 2026-11-05 evening; owner notes 2026-11-14: nothing to resolve); while their
      * blocks are awaited "Assume no blockers", or "Assume blockers" once blockers are placed on the lanes (CMB-040). */
-    fun waitAction(): WaitAction? = waitAction(game()?.shown?.status, game()?.shown?.engine)
+    fun waitAction(): WaitAction? = waitAction(game()?.observedShown?.status, game()?.observedShown?.engine)
 
     /** [waitAction] at [status] (TRN-163: where the view comes to rest, [EngineGame.Shown.rest], or the shown status) with the
      * engine state there, [engine]. */
     fun waitAction(status: GameDevice.Status?, engine: arcanum.engine.state.GameState?): WaitAction? {
         val g = game() ?: return null
-        val shown = g.shown ?: return null
+        val shown = g.observedShown ?: return null
         val state = engine ?: return null
         if (status !is GameDevice.Status.Waiting) return null
         val name = opponentName
@@ -496,7 +496,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
 
     /** TRN-063, STK-029 (owner playtest 2026-11-12): only a play shown or a combat's hold keeps the device from a step of
      * the player's own it makes by itself: the main button holds nothing meanwhile. */
-    fun ownStepHeld(): Boolean = game()?.shown?.ownStepHeld == true
+    fun ownStepHeld(): Boolean = game()?.observedShown?.ownStepHeld == true
 
     /**
      * TRN-163, TRN-164 (owner 2026-11-19): where the game really is for the player, for what the main button holds: the point the
@@ -508,7 +508,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
 
     /** [Real] now; [live]: the board the table draws (taken when no live board of its play is published). */
     fun real(live: TableBoard): Real {
-        val published = game()?.shown ?: return Real(status(), live, false)
+        val published = game()?.observedShown ?: return Real(status(), live, false)
         val rest = published.rest
         if (rest != null) return Real(rest.status, rest.board, true)
         // The table's live board (the one published: the screen's state, whatever step of it the table still draws)
@@ -521,7 +521,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
      * hold) or playback behind its rest point (the catch-up's pause included). */
     fun skipNeeded(): Boolean = viewBusy() || deviceSkip()
 
-    private fun deviceSkip(): Boolean = game()?.shown?.let { it.rest != null || it.moments.isNotEmpty() } == true
+    private fun deviceSkip(): Boolean = game()?.observedShown?.let { it.rest != null || it.moments.isNotEmpty() } == true
 
     /** TRN-165: the table's own animations still playing (set by the table). */
     var viewBusy: () -> Boolean = { false }
@@ -546,7 +546,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     fun skipFirst(label: String, hold: Boolean): Boolean {
         if (!skipNeeded()) return false
         val g = game() ?: return false
-        val shown = g.shown
+        val shown = g.observedShown
         val device = deviceSkip()
         AppLog.info("game", "Main button ${if (hold) "hold" else "tap"} \"$label\" while the view still plays: skipped first " +
             "(the table's animations ${viewBusy()}, view holds ${shown?.moments?.size ?: 0}, rest ahead ${shown?.rest != null}, " +
@@ -574,7 +574,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
 
     /** The wait band's words while the other player must act (TRN-066), or null. */
     fun waitingLine(play: TableBoard): String? {
-        val shown = game()?.shown ?: return null
+        val shown = game()?.observedShown ?: return null
         val status = shown.status as? GameDevice.Status.Waiting ?: return null
         // TRN-066 (owner, 2026-11-09): "Waiting for Bob" says where Bob is when he is behind (the player went ahead on assumptions)
         if (status.reason == GameDevice.Wait.TheirTurn) shown.opponentAt?.let { return behindText(it, viewer, opponentName) }
@@ -784,12 +784,11 @@ fun AssumeResolves.meaning(): String = when (this) {
 fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
     val game = routes.engine ?: return
     // Read on every board published: the settings shown are the newest
-    game.shownVersion
-    val shown = game.shown ?: return
+    val shown = game.observedShown ?: return
     val settings = shown.settings
     // Each change is made on the settings as they are at the tap (a second tap before the row is drawn again goes on from
     // the first's)
-    fun set(change: (PlaySettings) -> PlaySettings) { game.settings(change(game.shown?.settings ?: settings)); routes.pump() }
+    fun set(change: (PlaySettings) -> PlaySettings) { game.settings(change(game.observedShown?.settings ?: settings)); routes.pump() }
     val autotap = Triple("Autotap mana", "Autotap\nmana", Icons.Outlined.WaterDrop) to
         ({ set { it.copy(autotap = !it.autotap) } } to settings.autotap)
     // TRN-059, HIS-095 (owner 2026-11-07, report WDKHSB): catch-up playback's response mode cell is live play's (name,
@@ -849,7 +848,7 @@ fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
  * a game shown. */
 fun EngineTableRoutes.nextResponseMode(): Boolean {
     val game = engine ?: return false
-    val settings = game.shown?.settings ?: return false
+    val settings = game.observedShown?.settings ?: return false
     val next = MODES[(MODES.indexOf(settings.mode) + 1) % MODES.size]
     AppLog.info("game", "Response mode by its hotkey: ${settings.mode.label()} -> ${next.label()}")
     game.settings(settings.copy(mode = next)); pump()
@@ -863,7 +862,7 @@ fun EngineTableRoutes.nextResponseMode(): Boolean {
  */
 fun EngineTableRoutes.holdControl(key: String): ResponseMode? {
     val game = engine ?: return null
-    val settings = game.shown?.settings ?: return null
+    val settings = game.observedShown?.settings ?: return null
     if (settings.mode == ResponseMode.FullControl) {
         AppLog.info("game", "Response mode held in Control by $key: already Control")
         return null
@@ -876,7 +875,7 @@ fun EngineTableRoutes.holdControl(key: String): ResponseMode? {
 /** WEB-031: the hold key let go ([why]): the response mode goes back to [previous], unless it was changed meanwhile. */
 fun EngineTableRoutes.releaseControl(previous: ResponseMode, why: String) {
     val game = engine ?: return
-    val settings = game.shown?.settings ?: return
+    val settings = game.observedShown?.settings ?: return
     if (settings.mode != ResponseMode.FullControl) {
         AppLog.info("game", "Response mode hold ended ($why): changed meanwhile to ${settings.mode.label()}, kept")
         return
@@ -901,8 +900,7 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     val game = routes.engine ?: return
     // HIS-112, HIS-113: every board published composes this again (a play shown or reveal it brings begins at once, even when
     // the table's board stayed the same one)
-    game.shownVersion
-    val shown = game.shown ?: return
+    val shown = game.observedShown ?: return
     val status = shown.status
     val opponent = org.asyncttwiz.automatum.PlayerNames.of(names, shown.opponent.value, "The other player", "EngineTable")
     // Timeline mode (HIS-004) shows an earlier board, view-only: no async panels over it, only an incoming request
@@ -1005,13 +1003,13 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     routes.rewind?.let { EngineRewindDialog(routes, it, names, opponent, summary) }
     // Notes (§8, §10): told once
     val recordShown = LocalShownTexts.current
-    LaunchedEffect(game.version) {
+    LaunchedEffect(game.shownVersion) {
         while (game.notes.isNotEmpty()) {
             when (val note = game.notes.removeAt(0)) {
                 // HIS-185, SYS-078 (owner, 2026-11-22): a branch shows no note (the centre text says it, HIS-190); what it
                 // took back is only logged, naming the first real action of yours taken back (problem report DY6VCM)
                 is GameDevice.Note.Branched -> AppLog.info("game", "Branch, shown without a note: " + EngineEventText.branched(
-                    names[note.by.value] ?: opponent, note.discarded, note.actions, game.shown?.engine, routes.viewer) +
+                    names[note.by.value] ?: opponent, note.discarded, note.actions, game.observedShown?.engine, routes.viewer) +
                     " (${note.takenBack.size} events taken back, ${note.actions.size} of them actions of yours)")
                 // HIS-099, HIS-168 (owner, 2026-11-22): the other player's undo of events you had seen: your board goes back
                 // the way it came, with no text at the top (logged by the transition, EngineTableScreen)
@@ -1136,7 +1134,7 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
     val version = game.shownVersion
     val woken = remember(game) { longArrayOf(-1L) }
     LaunchedEffect(game, version) {
-        val shown = game.shown ?: return@LaunchedEffect
+        val shown = game.observedShown ?: return@LaunchedEffect
         val from = woken[0].also { woken[0] = shown.version }
         // HIS-021 (owner, 2026-11-08): a finger held on the table pauses playback between events; a branch's take-back goes
         // on (HIS-106)
@@ -1166,7 +1164,7 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
             "${last?.id?.take(8) ?: "no event held"} in $wait ms" + if (pause?.paused == true) ", paused by a finger or Inspect" else "")
         if (pause != null) pause.wait(wait) else if (wait > 0) delay(wait)
         // The callback form (the device may be in the browser's worker; Android answers at once)
-        if (game.shown?.status is GameDevice.Status.Playing) game.step { event ->
+        if (game.observedShown?.status is GameDevice.Status.Playing) game.step { event ->
             AppLog.info("game", "Playback step on board v${shown.version}: " +
                 (event?.let { "showed ${it.id.take(8)}" } ?: "nothing to show (the device holds; its record says why)"))
             routes.pump()
@@ -1241,17 +1239,16 @@ object EnginePlaybackPace {
 @Composable
 private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, summary: GameSummary, names: Map<String, String>) {
     val game = routes.engine ?: return
-    game.shownVersion
-    val shownGame = game.shown ?: return
+    val shownGame = game.observedShown ?: return
     // HIS-111: a point before what the device holds shows once its older history is in (the board is published again).
     // The request's view arrives through a callback (on Android at once, in the same composition)
-    val answer = remember(game.version) {
+    val answer = remember(game.shownVersion) {
         AnsweredValue<EngineGame.RequestView?>().also { a ->
             game.requestView(routes.viewer, shownGame.localHead, shownGame.request?.target ?: "", a::set)
         }
     }
     val preview = answer.value
-    LaunchedEffect(game.version, answer.arrived && preview == null) { if (answer.arrived && preview == null) game.loadForRequest() }
+    LaunchedEffect(game.shownVersion, answer.arrived && preview == null) { if (answer.arrived && preview == null) game.loadForRequest() }
     ScreenDialog({}, title = "$opponent asks to undo", actions = {
         DialogCancelButton("Deny", { game.answerRequest(false); routes.pump() }, Modifier.testTag("request-deny"))
         DialogMainButton("Accept", { game.answerRequest(true); routes.pump() }, Modifier.testTag("request-accept"), icon = "ready")
@@ -1305,8 +1302,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
     val game = routes.engine ?: return
     // HIS-111: read as snapshot state, so the points follow every board published (older history coming in), not only the
     // dialog's own content
-    game.shownVersion
-    val published = game.shown ?: return
+    val published = game.observedShown ?: return
     val timeline = game.timeline.events(game, names)
     val points = remember(published.version, timeline) { undoPoints(published, timeline) }
     // The point opened at: the one just after the default target (HIS-084), else the newest. Until the player chooses
@@ -1323,7 +1319,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
     // HIS-099: the board there and whether the other player must approve, worked out once the choice rests (at once when
     // the dialog opens); the last one stays meanwhile, dimmed
     var preview by remember(choice) { mutableStateOf<Pair<String, EngineGame.UndoPreview>?>(null) }
-    LaunchedEffect(target, game.version) {
+    LaunchedEffect(target, game.shownVersion) {
         val t = target ?: return@LaunchedEffect
         if (preview != null) delay(UNDO_PREVIEW_DELAY_MS)
         // HIS-005: a point whose board needs older history keeps the last board, dimmed, until its page is in (the

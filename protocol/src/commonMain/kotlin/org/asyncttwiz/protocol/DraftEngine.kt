@@ -115,6 +115,9 @@ data class DraftPickResult(val state: DraftState? = null, val reason: DraftPickR
     val round: Int = 1,
     /** The pack came to the viewer before (a second or later time in its round, DRF-165's "Returning packs only"). */
     val returning: Boolean = false,
+    /** Cards of [cards] thrown away after this pick, near the pack's end or by the discard setting (DRF-045, DRF-046); the
+     * history shows them as burns (DRF-207). */
+    val discarded: List<String> = emptyList(),
 )
 @Serializable data class DraftPublicStatus(val round: Int, val rounds: Int, val finished: Boolean, val members: List<DraftMemberStatus>)
 
@@ -287,7 +290,7 @@ object DraftEngine {
                     val pack = packs.getValue(entry.packId)
                     add(DraftHistoryPick(pack.number, pick,
                         (seen + entry.librarians).map(copies::getValue), entry.kept, entry.burned, entry.librarians,
-                        gone.map(copies::getValue), entry.automatic, pack.round + 1, entry.packId in lastPassed))
+                        gone.map(copies::getValue), entry.automatic, pack.round + 1, entry.packId in lastPassed, entry.discarded))
                     lastPassed[entry.packId] = after[index]
                 }
                 if (!entry.automatic) manual[entry.packId] = pick

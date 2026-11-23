@@ -11,7 +11,8 @@ import org.asyncttwiz.protocol.*
 import org.junit.Test
 import java.util.UUID
 
-/** Booster draft history (DRF-165, DRF-207, DRF-208): each player's own picks with the packs as they came and a wheel's cards taken since. */
+/** Booster draft history (DRF-165, DRF-207, DRF-208): each player's own picks with the packs as they came, cards thrown away shown as
+ * burns, and a wheel's cards taken since. */
 class DraftHistoryTest : E2e() {
     // DRF-165, DRF-205, DRF-207, DRF-208, DRF-160: two players draft a few picks; each phone's History shows that player's picks in order, keeps
     // marked, and the pack that came round again with the card the other player took from it
@@ -108,6 +109,31 @@ class DraftHistoryTest : E2e() {
             val card = head.cards.first().id
             api.pick(player.account.token, pod, PickPod(UUID.randomUUID().toString(), detail.draftAttemptId!!, head.id, listOf(card)))
             card
+        }
+    }
+
+    // DRF-207, DRF-046, DRF-045 (owner, 2026-11-22): in a Booster draft with a discard setting the cards thrown away after your
+    // pick show in your history as burns, red with 🔥, though you burned none
+    @Test fun cardsThrownAwayShowAsBurnsInTheHistory() {
+        launchPlayers()
+        val name = "E2E History discard ${UUID.randomUUID().toString().take(6)}"
+        // Three cards a pack and a discard at two: each first pick keeps one and the other two are thrown away
+        val pod = ServerSetup.draftingPod(alice.account, bob.account, name,
+            settings = DraftSettings(packsPerPlayer = 2, cardsPerPack = 3, discardRemainingAt = 2))
+        val kept = pickOver(pod, alice)
+        waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }
+        alice.tagged("menu-PODS").performClick()
+        waitUntil("the pod in Alice's list") { alice.showsText(name) }
+        alice.text(name).performScrollTo().performClick()
+        waitUntil("Alice's History button") { alice.shows(hasTestTag("pod-history")) }
+        alice.tagged("pod-history").performClick()
+        waitUntil("her pick with the two cards thrown away") { alice.pods.history?.picks?.firstOrNull()?.discarded?.size == 2 }
+        val pick = alice.pods.history!!.picks.first()
+        kotlin.test.assertEquals(listOf(kept), pick.kept)
+        kotlin.test.assertEquals(emptyList(), pick.burned, "she burned none herself")
+        waitUntil("her keep marked") { alice.shows(hasTestTag("pod-history-0-$kept") and hasContentDescription("kept", substring = true)) }
+        for (card in pick.discarded) waitUntil("the thrown-away $card shown as a burn") {
+            alice.shows(hasTestTag("pod-history-0-$card") and hasContentDescription("burned", substring = true))
         }
     }
 

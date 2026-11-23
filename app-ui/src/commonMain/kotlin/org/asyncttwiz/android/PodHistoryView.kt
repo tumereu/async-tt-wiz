@@ -229,7 +229,12 @@ private fun PodHistoryPicks(rounds: List<Pair<Int, List<IndexedValue<DraftHistor
                     }
                 }
                 items(podHistoryOrder(pick.cards, definitions), key = { "card-$index-${it.id}" }) { copy ->
-                    val mark = when (copy.id) { in pick.kept -> PodPickMark.KEEP; in pick.burned -> PodPickMark.BURN; else -> null }
+                    // DRF-207 (owner, 2026-11-22): the cards thrown away after the pick (DRF-045, DRF-046) show as burns
+                    val mark = when (copy.id) {
+                        in pick.kept -> PodPickMark.KEEP
+                        in pick.burned, in pick.discarded -> PodPickMark.BURN
+                        else -> null
+                    }
                     PodHistoryCard(copy, definitions[copy.definition], mark, copy.id in pick.librarians, false,
                         "pod-history-$index-${copy.id}", preview)
                 }

@@ -982,6 +982,10 @@ sealed interface Keyword : Ability {
         // tmt
         /** "Activate only once each turn" written after the equip cost: its activations each turn (CR 602.5b). */
         val perTurn: Int? = null,
+        // snc
+        /** "Equip planeswalker {1}": attaches to target planeswalker you control as though it were a creature, not to a
+         * creature (CR 702.6e); the Equipment may then be attached to a planeswalker (CR 301.5c). */
+        val planeswalker: Boolean = false,
     ) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "equip"; override val text: String get() = "Equip"; override val rule: String get() = "702.6" }

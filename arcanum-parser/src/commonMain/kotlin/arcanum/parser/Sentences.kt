@@ -1967,8 +1967,11 @@ internal class Sentences(
         }
         // chunk 20: "Equipped creature gets +1/+0 for each artifact you control." (CR 301.5)
         // dsk chunk 09: falls through when "for each …" isn't all ("… and has first strike")
-        ATTACHED_GETS.matchEntire(line)?.takeIf { it.groupValues[3].isEmpty() || perEach(it.groupValues[3]) != null }?.let { m ->
-            val per = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { perEach(it) ?: return null }
+        // snc chunk 05: "+1/+1 for each counter on it": counters of every kind on the attached creature (CR 122.1)
+        fun attachedPerEach(phrase: String): Value? =
+            if (phrase == "counter on it") Value.Of(arcanum.api.NumericProperty.Counters(null), Objects.AttachedTo(of = Objects.Self), arcanum.api.Combine.Single) else perEach(phrase)
+        ATTACHED_GETS.matchEntire(line)?.takeIf { it.groupValues[3].isEmpty() || attachedPerEach(it.groupValues[3]) != null }?.let { m ->
+            val per = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { attachedPerEach(it) ?: return null }
             fun amount(n: Int): Value = when {
                 per == null || n == 0 -> Value.Fixed(n)
                 n == 1 -> per
@@ -2146,7 +2149,12 @@ internal class Sentences(
         // card is in your graveyard" states the zone it works in (CR 113.6b)
         (AS_LONG_AS_FIRST.matchEntire(line)?.let { it.groupValues[1] to it.groupValues[2].replaceFirstChar { c -> c.uppercase() } }
             ?: AS_LONG_AS_LAST.matchEntire(line)?.let { it.groupValues[2] to it.groupValues[1] + "." })?.let { (text, rest) ->
-            val condition = conditionWithAnd(text)
+            // snc chunk 05: "Equipped creature has double strike as long as two or more Equipment are attached to it." ("it" is the
+            // equipped creature, so the count is of what is attached to it, CR 301.5)
+            val condition = conditionWithAnd(text) ?: Snc.ATTACHMENTS_ATTACHED_TO_IT.matchEntire(text)?.takeIf { rest.startsWith("Equipped ") || rest.startsWith("Enchanted ") }?.let { m ->
+                arcanum.api.Condition.Compare(Value.Count(Objects.AttachmentsOf(Objects.AttachedTo(Objects.Self), Filters.noun(m.groupValues[2]) ?: return@let null)),
+                    arcanum.api.Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return@let null))
+            }
             // dsk chunk 04: "As long as …, it gets +3/+3 and has hexproof.": "it" is this object
             // dsk chunk 13: "he's a 3/4 Ninja creature": this object
             val pronoun = LazyRegexes.PRONOUN_IS_AT_START.find(rest)
@@ -7367,8 +7375,29 @@ internal class Sentences(
                 modify = listOf(Modification.EntersTapped))), affects = self)
         }
         // gtc chunk 06: 'Enchanted land has "{T}: Tap target creature."' (CR 113.10: the land's controller activates it)
+        // snc chunk 05: "Equipped permanent isn't a planeswalker and is a creature in addition to its other types." (CR 205.1b, 613.1d: it loses the
+        // type and gains the other, keeping its other types)
+        Snc.ATTACHED_ISNT_AND_IS_ADDITION.matchEntire(line)?.let { m ->
+            val removed = Filters.CARD_TYPES[m.groupValues[1]] ?: return null
+            val added = Filters.CARD_TYPES[m.groupValues[2]] ?: return null
+            return Ability.Static(listOf(Mechanic.SetTypes(add = listOf(added), remove = listOf(removed))), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
+        }
+        // snc chunk 05: "All creatures attack enchanted creature's controller each combat if able." (CR 508.1d: each must attack that player)
+        Snc.ALL_ATTACK_ATTACHED_CONTROLLER.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            return Ability.Static(listOf(Mechanic.MustAttack(arcanum.api.Recipients(players = Players.ControllerOf(Objects.AttachedTo(Objects.Self))))),
+                affects = Affected.Objects(Objects.Each(filter)))
+        }
+        // snc chunk 05: 'Enchanted creature can't attack or block and has "[ability]"' (the ability may name the Aura, [Objects.Granter])
+        Snc.ATTACHED_CANT_AND_HAS_QUOTED.matchEntire(line)?.let { m ->
+            val granted = Sentences(setOf("this creature", "this permanent")).also { it.granterName = this.self.firstOrNull { n -> n.first().isUpperCase() } }
+                .line(m.groupValues[2]) ?: return null
+            return Ability.Static((gtcStaticPredicates(m.groupValues[1]) ?: return null) + Mechanic.GainAbilities(listOf(granted)),
+                affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
+        }
         Gtc.ENCHANTED_HAS_QUOTED.matchEntire(line)?.let { m ->
-            val granted = Sentences(setOf("this ${m.groupValues[1]}", "this permanent")).line(m.groupValues[2]) ?: return null
+            val granted = Sentences(setOf("this ${m.groupValues[1]}", "this permanent")).also { it.granterName = this.self.firstOrNull { n -> n.first().isUpperCase() } }
+                .line(m.groupValues[2]) ?: return null
             return Ability.Static(listOf(Mechanic.GainAbilities(listOf(granted))), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
         }
         // gtc chunk 06: "This creature can block any number of creatures." (CR 509.1a)
@@ -8242,8 +8271,9 @@ internal class Sentences(
             Step.Do(Effect.Move(Objects.Except(Objects.Bound("found"), Objects.Bound("picked")), Destination(Zone.Library))),
             Step.Do(Effect.Shuffle(Players.You)))
         // gtc chunk 11: "This Aura's controller sacrifices it, then draws two cards." (the activating opponent isn't "you")
-        Gtc.AURAS_CONTROLLER_SACRIFICES_DRAWS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val controller = Players.ControllerOf(Objects.Self)
+        // snc chunk 05: in an ability the Aura grants, "it" is the enchanted creature and its controller is the Aura's (CR 113.10, 701.21a)
+        Gtc.AURAS_CONTROLLER_SACRIFICES_DRAWS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || (granterName != null && it.groupValues[1] == granterName) }?.let { m ->
+            val controller = Players.ControllerOf(if (isSelf(m.groupValues[1])) Objects.Self else Objects.Granter)
             return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = controller)), Step.Do(Effect.Draw(controller, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
         }
         // gtc chunk 14: "Shuffle your library, then reveal the top card. If it's a nonland card, you may cast it without paying its
@@ -14229,6 +14259,10 @@ internal class Sentences(
             val filter = Filters.noun(m.groupValues[4]) ?: return@let
             return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = players), times(Value.Count(Objects.Each(filter)), m.groupValues[2].toInt()),
                 source = Objects.Self)))
+        }
+        // snc chunk 05: "This creature deals 1 damage to target creature that's blocking it." (CR 509.1h: "it" is the damage source, this creature)
+        Snc.DEALS_DAMAGE_TO_TARGET_BLOCKING_IT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            effect("${m.groupValues[1]} deals ${m.groupValues[2]} damage to target ${m.groupValues[3]} that's blocking this creature.", context)?.let { return it }
         }
         // snc chunk 04: "that creature attacks during its controller's next combat phase if able." (CR 508.1d: a requirement, lasting through
         // the declare attackers step of that player's next turn's combat)

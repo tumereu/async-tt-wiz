@@ -138,7 +138,8 @@ class PassesAndUndoTest : E2e() {
     // HIS-030, HIS-108, HIS-087, HIS-202, TBL-040 (§29.4, owner 2026-11-04 and 2026-11-05): Alice undoes her cast that Bob had seen
     // (free: after it only his passes, owner problem report VXSGKH): on both phones the board goes back in one animation
     // (the Herald from the battlefield straight back to her hand, no board in between, no jump) with "Undid: cast Ember
-    // Herald" for her and "Alice undid: cast Ember Herald" for Bob
+    // Herald" for her; Bob's table shows no text for it (HIS-168, owner 2026-11-22), his device logs "Alice undid: cast
+    // Ember Herald"
     @Test fun undoAnimatesBackwardsOnBothDevicesWithItsText() {
         val cast = aliceCastsAHeraldWhileBobIsAway(endTurn = false)
         val herald = cast.herald
@@ -155,13 +156,14 @@ class PassesAndUndoTest : E2e() {
             val undone = assertNotNull(t.undone, "${player.name}: the transition is the undo")
             assertFalse(t.jump, "${player.name}: an undo animates, never jumps")
             assertEquals(text, EngineEventText.undid(undone.event, undone.state, player.id, undone.by, names()))
-            waitUntil("\"$text\" shown on ${player.name}'s table") { player.told(text) }
+            if (player == alice) waitUntil("\"$text\" shown on ${player.name}'s table") { player.told(text) }
             assertTrue(t.forward.isEmpty() && t.backward.isNotEmpty())
             // One animation: the Herald flies from the battlefield straight back to the hand, no board in between
             assertTrue(t.steps.isEmpty(), "${player.name}: no boards in between: ${t.steps.map { where(it, herald) }}")
             val now = where(player.shown.board, herald)
             assertTrue(now != "STACK" && now != "BATTLEFIELD", "${player.name}: the Herald back in Alice's hand: $now")
         }
+        assertFalse(bob.toldATakeBack(alice), "no text for her undo on Bob's table: ${bob.shownTexts}")
         assertEquals("HAND", where(alice.shown.board, herald))
     }
 

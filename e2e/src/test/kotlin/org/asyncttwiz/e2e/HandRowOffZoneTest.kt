@@ -3,6 +3,7 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
 import arcanum.engine.state.ObjectId
 import org.asyncttwiz.android.AutomatumBoards
@@ -47,6 +48,9 @@ class HandRowOffZoneTest : E2e() {
         assertFalse(alice.shows(hasContentDescription("may play", substring = true)), "none on Alice's own table")
         bob.node(chip).performClick()
         waitUntil("the chip's list names the Flare: ${bob.screen()}") { bob.shows(hasContentDescription("Ember Flare, Graveyard")) }
+        // Owner 2026-11-22: the list is titled "Playable from other zones", the Flare's graveyard badge in its corner
+        assertTrue(bob.showsText("Playable from other zones"), "the list's title: ${bob.screen()}")
+        assertTrue(bob.shows(hasTestTag("${org.asyncttwiz.android.ZONE_BADGE_TAG}/graveyard")), "the graveyard badge: ${bob.screen()}")
         // Owner 2026-11-21 (E9, cards as cards): it is a small card, and holding it inspects it
         holding(bob.node(hasContentDescription("Ember Flare, Graveyard"))) {
             assertTrue(bob.shows(hasContentDescription("Card inspection content")), "the Flare inspected: ${bob.screen()}")

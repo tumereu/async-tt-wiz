@@ -6,6 +6,7 @@ import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -65,8 +66,8 @@ class CatchUpLiveTest : E2e() {
     }
 
     // HIS-105, HIS-097, STK-213: at his playback's stop at Alice's spell Bob casts his Idle Glimmer from his hand instead of letting
-    // it resolve: the game branches (her later actions are taken back, with the note on her table) and goes on from his
-    // answer
+    // it resolve: the game branches (her later actions are taken back, with no note on her table, HIS-185) and goes on
+    // from his answer
     @Test fun anotherAnswerAtAStopBranches() {
         val cast = aliceCastsAHeraldWhileBobIsAway()
         bob.back()
@@ -78,10 +79,11 @@ class CatchUpLiveTest : E2e() {
             serverGame() != null && alice.engine { device.session.events }.any { e -> e.author == bob.id &&
                 e.engine?.steps.orEmpty().any { (it.input as? Input.Cast)?.card?.let(::atw) == glimmer } }
         }
-        // The branch note (HIS-097, HIS-185) on Alice's table (shown for a few seconds)
-        waitUntil("Alice told") { alice.told("${bob.name} responded — your End turn was taken back") }
+        // The branch on Alice's device (HIS-097), with no note on her table (HIS-185, owner 2026-11-22)
+        waitUntil("the branch on Alice's device") { alice.branchLogged() }
         // HIS-106, HIS-190: her table stops at the branch point; her tap plays Bob's answer back
         alice.continuesPastBranchStop(this)
+        assertFalse(alice.toldATakeBack(bob), "no branch note: ${alice.shownTexts}")
         assertTrue(alice.engine { device.session.events }.none { it.id == cast.next.id }, "the assumed line is discarded")
         // STK-213 (owner 2026-11-19): Alice cast her Herald in this step, so with Bob's Glimmer on top her pass is her own press,
         // never her phone's: she resolves it as a player would

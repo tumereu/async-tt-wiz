@@ -219,6 +219,21 @@ internal fun E2ePlayer.watchText(): String? = nodes(hasTestTag("centre-action"))
 internal fun E2ePlayer.showsWatch(): Boolean = shows(hasTestTag("centre-action"))
 internal fun E2ePlayer.tapToWatch() { tapDecided { node(hasTestTag("centre-action")).performClick() } }
 
+/** HIS-185 (owner, 2026-11-22): a branch shows no note; this phone's device logged it ("note Branched"). */
+internal fun E2ePlayer.branchLogged(): Boolean = engine { device.repro(codec).log }.any { it.startsWith("note Branched") }
+
+/** How many take-backs this phone's device logged so far: branches and the other player's undos ("note TakenBack"). */
+internal fun E2ePlayer.takeBacksLogged(): Int =
+    engine { device.repro(codec).log }.count { it.startsWith("note Branched") || it.startsWith("note TakenBack") }
+
+/** HIS-185, HIS-168, HIS-236 (owner, 2026-11-22): whether the table showed a note that no longer shows: a branch's
+ * ("<name> responded — your … was taken back", "<name> blocked differently", "<name> took a mulligan — …"), or the other
+ * player's ([by]'s) undo's "<name> undid: <action>" or its "library reshuffled" line. */
+internal fun E2ePlayer.toldATakeBack(by: E2ePlayer): Boolean = shownTexts.any { text ->
+    listOf("${by.name} responded", "${by.name} blocked differently", "${by.name} took a mulligan —", "${by.name} undid",
+        "taken back", "library reshuffled", "libraries reshuffled").any { it in text }
+}
+
 /**
  * HIS-106, HIS-190 (owner 2026-11-08): a branch's rewind stops at the branch point as playback stops: this player's table waits
  * there, live, without timeline mode's look, with "<[by]> responded differently from here · Tap to continue", and their

@@ -10,13 +10,14 @@ import kotlin.test.assertTrue
 
 /**
  * Owner decisions 2026-11-19 (playtest N4 and the "can't do" explainer): an undo that takes back library cards drawn says
- * the libraries reshuffle, in the request's dialogs on both phones or, after a free undo, in its fading text on both; and a
- * shake says why in a short bubble.
+ * the libraries reshuffle, in the request's dialogs on both phones or, after a free undo, in its fading text (owner,
+ * 2026-11-22: only on the phone of the player who undid; the other player's table shows no text for it); and a shake says
+ * why in a short bubble.
  */
 class UndoReshuffleAndRefusalTest : E2e() {
     // HIS-236, HIS-202, HIS-168: Bob ends his first turn and Alice's phone passes on into her turn, drawing her card; Bob's
-    // Undo takes his End turn back, free (Alice only passed), with her draw: both phones' fading text says her library
-    // reshuffled
+    // Undo takes his End turn back, free (Alice only passed), with her draw: his fading text says her library reshuffled;
+    // her table shows no text for his undo (owner, 2026-11-22)
     @Test fun aFreeUndoOfTheOtherPlayersDrawSaysTheLibraryReshuffled() {
         startGame(bobStarts = true)
         bothOpen()
@@ -31,11 +32,10 @@ class UndoReshuffleAndRefusalTest : E2e() {
             bob.state.turn.active == bob.me && alice.state.turn.active == bob.me
         }
         assertFalse(bob.shows(hasTestTag("rewind-confirm")), "free: no dialog")
-        waitUntil("both told the library reshuffled") {
-            bob.told("${alice.name}'s library reshuffled: the next draws may change.") &&
-                alice.told("Your library reshuffled: the next draws may change.")
-        }
-        assertTrue(bob.told("Undid") && alice.told("${bob.name} undid"), "${bob.shownTexts} / ${alice.shownTexts}")
+        waitUntil("Bob told her library reshuffled") { bob.told("${alice.name}'s library reshuffled: the next draws may change.") }
+        assertTrue(bob.told("Undid"), "${bob.shownTexts}")
+        repeat(3) { run() }
+        assertFalse(alice.toldATakeBack(bob), "nothing told on Alice's table: ${alice.shownTexts}")
     }
 
     // HIS-235, HIS-209, HIS-100: Alice plays a Mountain and ends her turn; Bob draws and plays his Mountain. Alice's Undo back to

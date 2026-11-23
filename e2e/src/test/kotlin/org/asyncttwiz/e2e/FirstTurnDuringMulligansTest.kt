@@ -172,8 +172,8 @@ class FirstTurnDuringMulligansTest : E2e() {
 
     // HIS-115, HIS-193, HIS-194, HIS-116 (spec §8 scenario 9): Alice plays a Mountain and casts Ember Echo at Bob (seven cards in his hand: seven
     // damage). His free mulligan keeps seven cards: her turn stands ("your turn stands"), his life still 13 on her table. His
-    // mulligan to six: the Echo is taken back from its cast ("Bob took a mulligan — your Ember Echo was taken back"), the
-    // Mountain stays, his life is 20 again; Bob, still deciding, sees none of it
+    // mulligan to six: the Echo is taken back from its cast (with no note, HIS-185), the Mountain stays, his life is 20
+    // again; Bob, still deciding, sees none of it
     @Test fun aCountOfTheOpponentsHandStandsOnlyWhileItIsTheSame() {
         aliceAssumesBobsKeep(TestDeck("Echoes", listOf(TestCards.mountain to 20, TestCards.echo to 20))) { a, _ ->
             "Mountain" in hand(a) && "Ember Echo" in hand(a) }
@@ -187,10 +187,11 @@ class FirstTurnDuringMulligansTest : E2e() {
         assertEquals(13, alice.state.player(bob.me).life, "seven cards either way")
         waitUntil("Bob in his opening with his second hand") { mulligans(bob).size == 1 && bob.engine { device.session.pending.isEmpty() } && bob.showsControl("Mulligan") }
         bob.tap("Mulligan")
-        waitUntil("Alice told her Echo was taken back") { alice.told("${bob.name} took a mulligan — your Ember Echo was taken back") }
+        waitUntil("her Echo taken back on Alice's device") { alice.branchLogged() }
         waitUntil("Alice back before the Echo") {
             alice.state.player(bob.me).life == 20 && alice.state.player(alice.me).graveyard.none { cardName(alice.state, it) == "Ember Echo" }
         }
+        assertTrue(!alice.toldATakeBack(bob), "HIS-185: no note: ${alice.shownTexts}")
         assertTrue(alice.field("Mountain").isNotEmpty(), "the Mountain stands")
         assertEquals(0, bob.state.turn.number, "Bob still in his opening")
         assertNothingLeaked()
@@ -198,8 +199,7 @@ class FirstTurnDuringMulligansTest : E2e() {
 
     // HIS-115, HIS-194, CR 103.6a (spec §8 scenario 10): Bob's first hand has no Ember Vanguard; Alice assumes his keep and plays a
     // Mountain. Bob's mulligan brings him one: after the keep the game asks him whether it begins on the battlefield (a real
-    // wait), so nothing of her turn comes out the same and all of it goes back ("Bob took a mulligan — your Mountain was
-    // taken back"). Bob keeps and puts the Vanguard onto the battlefield; her turn 1 begins again with it there
+    // wait), so nothing of her turn comes out the same and all of it goes back (with no note, HIS-185). Bob keeps and puts the Vanguard onto the battlefield; her turn 1 begins again with it there
     @Test fun anOpeningThatChangesTheBoardTakesTheWholeTurnBack() {
         val vanguards = TestDeck("Vanguards", listOf(TestCards.mountain to 34, TestCards.vanguard to 6))
         aliceAssumesBobsKeep(TestDeck.thirds(), vanguards) { a, b ->
@@ -209,8 +209,9 @@ class FirstTurnDuringMulligansTest : E2e() {
         waitUntil("all of Alice's on the server") { alice.engine { device.session.pending.isEmpty() } }
         bobOpens()
         bob.tap("Mulligan")
-        waitUntil("Alice told her Mountain was taken back") { alice.told("${bob.name} took a mulligan — your Mountain was taken back") }
+        waitUntil("her Mountain taken back on Alice's device") { alice.branchLogged() }
         waitUntil("Alice's whole turn back") { alice.field("Mountain").isEmpty() && alice.state.turn.number == 0 }
+        assertTrue(!alice.toldATakeBack(bob), "HIS-185: no note: ${alice.shownTexts}")
         waitUntil("Bob's new hand, with the Vanguard") { "Ember Vanguard" in handNames(bob) && bob.showsControl("Keep") }
         bobKept = true
         bob.tap("Keep")
@@ -259,7 +260,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         bottomOne()
         waitUntil("her turn made again on his bottom choice") { alice.engine { device.session.events.any { it.carriedFrom != null } && device.session.pending.isEmpty() } }
         val made = alice.engine { device.session.events.count { it.carriedFrom != null } }
-        val told = alice.shownTexts.size
+        val told = alice.takeBacksLogged()
         bob.tap("Undo")
         waitUntil("Bob at his bottom choice again") { bob.state.player(bob.me).hand.size == 7 && bob.shows(panels) }
         waitUntil("her turn made again on the undo's point") {
@@ -267,7 +268,8 @@ class FirstTurnDuringMulligansTest : E2e() {
                 serverGame()?.headId == alice.engine { device.session.head } && serverGame()?.lines == 1
         }
         assertTrue(alice.field("Mountain").isNotEmpty() && alice.field("Ember Cub").isNotEmpty(), "her turn stands on her table")
-        assertTrue(alice.shownTexts.drop(told).none { "taken back" in it || "undid" in it }, "nothing taken back: ${alice.shownTexts}")
+        assertEquals(told, alice.takeBacksLogged(), "nothing taken back")
+        assertTrue(!alice.toldATakeBack(bob), "nothing told taken back: ${alice.shownTexts}")
         assertTrue(!alice.refusalSeen && !bob.refusalSeen, "nothing refused")
         assertTrue(made > 0)
         assertEquals(0, bob.state.turn.number, "Bob sees nothing of her turn")
@@ -325,8 +327,7 @@ class FirstTurnDuringMulligansTest : E2e() {
     }
 
     // HIS-115, HIS-194, HIS-116, HIS-097, HIS-117: Alice plays a Mountain, then Ember Augury at Bob (she sees his top two cards). Bob
-    // mulligans: her table goes back only to the Augury ("Bob took a mulligan — your Ember Augury was taken back"), the
-    // Mountain stays, the Augury is back in her hand; Bob never sees it
+    // mulligans: her table goes back only to the Augury (with no note, HIS-185), the Mountain stays, the Augury is back in her hand; Bob never sees it
     @Test fun aRevealThatComesOutDifferentlyIsTakenBack() {
         aliceAssumesBobsKeep(TestDeck("Auguries", listOf(TestCards.mountain to 20, TestCards.augury to 20))) { a, _ ->
             "Mountain" in hand(a) && "Ember Augury" in hand(a) }
@@ -343,10 +344,11 @@ class FirstTurnDuringMulligansTest : E2e() {
         waitUntil("all of Alice's on the server") { alice.engine { device.session.pending.isEmpty() } }
         bobOpens()
         bob.tap("Mulligan")
-        waitUntil("Alice told her Augury was taken back") { alice.told("${bob.name} took a mulligan — your Ember Augury was taken back") }
+        waitUntil("her Augury taken back on Alice's device") { alice.branchLogged() }
         waitUntil("Alice back before the Augury") {
             alice.state.player(alice.me).graveyard.none { cardName(alice.state, it) == "Ember Augury" } && alice.hand("Ember Augury").size == auguries
         }
+        assertTrue(!alice.toldATakeBack(bob), "HIS-185: no note: ${alice.shownTexts}")
         assertTrue(alice.field("Mountain").isNotEmpty(), "the Mountain stands")
         bobKept = true
         bob.tap("Keep")

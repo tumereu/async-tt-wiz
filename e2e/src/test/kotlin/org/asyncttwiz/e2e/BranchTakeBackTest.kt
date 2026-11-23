@@ -19,7 +19,7 @@ class BranchTakeBackTest : E2e() {
     // HIS-097, HIS-186, HIS-022, HIS-106, HIS-190: Alice casts an Ember Herald while Bob is away and plays on ("Always assume resolves");
     // Bob comes back and, at his playback's stop at her spell (he could respond), casts an Idle Glimmer instead of
     // letting it resolve: Alice's table, open and live, rewinds to the branch point with timeline mode's look (a backward
-    // transition with its steps, the note), meanwhile a tap on the table doesn't pause it and Back does nothing; it stops
+    // transition with its steps, no note, HIS-185), meanwhile a tap on the table doesn't pause it and Back does nothing; it stops
     // there with "Bob responded differently from here · Tap to continue", Bob's Glimmer not played; her tap plays it back
     // as playback that looks like live play; then her table is live at the new head
     @Test fun aBranchRewindsStopsAtTheBranchPointThenPlaysTheNewEventsBack() {
@@ -54,7 +54,8 @@ class BranchTakeBackTest : E2e() {
         waitUntil("Alice's table going back to the branch point") { takeBack() >= 0 }
         val back = boards[takeBack()]
         assertTrue(back.transition!!.steps.isNotEmpty(), "the rewind animates back step by step")
-        assertTrue(alice.told("${bob.name} responded") && !alice.told("taken back"), "HIS-097's note: only her phone's passes were taken back")
+        // HIS-185 (owner, 2026-11-22): the branch shows no note
+        assertTrue(alice.branchLogged() && !alice.toldATakeBack(bob), "the branch, with no note: ${alice.shownTexts}")
         // While it goes back: no pause, no leaving
         assertTrue(alice.shown.behind, "Bob's new events still to play back")
         assertTrue(alice.showsTimelineLook() && !alice.showsWatch(), "still going back")

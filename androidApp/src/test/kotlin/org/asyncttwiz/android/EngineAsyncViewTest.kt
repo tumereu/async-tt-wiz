@@ -125,10 +125,10 @@ class EngineAsyncViewTest {
         assertEquals(330L, playbackWait(pass, 330, ResponseMode.FullControl))
     }
 
-    // HIS-097, HIS-185, HIS-186 (problem report DY6VCM): a branch that took back none of Alice's own actions (only her phone's passes and
-    // assumptions) says just "Bob responded"; one that took back actions of hers names the first ("your attack was
-    // taken back"; an End turn's first pass: "your End turn")
-    @Test fun theBranchNoteNamesTheFirstOwnActionTakenBack() {
+    // HIS-185 (problem report DY6VCM; owner 2026-11-22: shown nowhere, only logged): a branch's log line, when it took back none of
+    // Alice's own actions (only her phone's passes and assumptions), says just "Bob responded"; when it took back actions of
+    // hers it names the first ("your attack was taken back"; an End turn's first pass: "your End turn")
+    @Test fun theBranchLogLineNamesTheFirstOwnActionTakenBack() {
         fun event(id: String, input: Input, assumedBy: PlayerId? = null) = GameEvent(id, "r", f.a,
             org.asyncttwiz.protocol.game.EnginePart(0, listOf(org.asyncttwiz.protocol.game.EngineStep(input, emptyList(), assumedBy))))
         fun card(id: String) = arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId(id), 0)

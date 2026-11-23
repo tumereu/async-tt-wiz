@@ -20,8 +20,8 @@ import kotlin.test.assertTrue
  * events the player had seen were taken back while they were away, by a branch (HIS-097, HIS-106, HIS-191) or by the other
  * player's undo (HIS-108, HIS-205), opens the game exactly as they left it, and nothing moves until they tap: the centre text says
  * what waits ("Bob responded differently · Tap to watch", "Alice undid moves · Tap to watch"), and the tap plays the
- * take-back (a branch step by step with timeline mode's look and the note, then the other player's new events played
- * back; an undo in one backward animation with "<name> undid: <action>"). The same whether the phone heard it in the
+ * take-back (a branch step by step with timeline mode's look, then the other player's new events played back; an undo in
+ * one backward animation; owner 2026-11-22: neither shows a note, HIS-185, HIS-168). The same whether the phone heard it in the
  * background, slept, or the notification (or the Games list) starts the app anew. Live, with the game open and in sight,
  * a take-back plays at once.
  */
@@ -144,14 +144,14 @@ class RewindOnReturnTest : E2e() {
     }
 
     /** HIS-097, HIS-106, HIS-190, HIS-191: back, Alice's table waited as she left it (her assumed pass shown) with "Bob responded
-     * differently · Tap to watch"; her tap took it back to the branch point step by step with timeline mode's look and
-     * the note and stopped there (owner 2026-11-08: "Bob responded differently from here · Tap to continue"); her next
+     * differently · Tap to watch"; her tap took it back to the branch point step by step with timeline mode's look (no
+     * note, HIS-185) and stopped there (owner 2026-11-08: "Bob responded differently from here · Tap to continue"); her next
      * tap played Bob's new events ([theirs]) back, and she is live at the new head. */
     private fun assertBranchShown(seen: Seen, discarded: GameEvent, theirs: (GameEvent) -> Boolean) {
         waitsForTheTap(seen, alice, "${bob.name} responded differently · Tap to watch") { s -> s.held.any { it.id == discarded.id } }
         fun takeBack(): Int = seen.boards.indexOfFirst { s -> s.transition?.let { it.undone?.branch == true && it.backward.isNotEmpty() } == true }
         waitUntil("Alice's table going back to the branch point") { takeBack() >= 0 }
-        waitUntil("Alice told") { alice.told("${bob.name} responded") }
+        waitUntil("the branch on Alice's device") { alice.branchLogged() }
         // HIS-106, HIS-190 (owner 2026-11-08): the take-back stops at the branch point until her next tap
         alice.waitsAtBranchStop(this, bob) { seen.boards.any { s -> s.held.any(theirs) } }
         val stopped = seen.boards.size
@@ -173,6 +173,7 @@ class RewindOnReturnTest : E2e() {
             "after the tap paused only at the branch point: ${seen.boards.map { "${it.status}/${it.takingBack}" }}")
         assertTrue(seen.boards.drop(stopped).none { it.status == GameDevice.Status.CatchUp },
             "after the tap at the branch point never paused for a centre text again: ${seen.boards.map { "${it.status}/${it.branchStop}" }}")
+        assertFalse(alice.toldATakeBack(bob), "HIS-185: no branch note: ${alice.shownTexts}")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
@@ -238,14 +239,15 @@ class RewindOnReturnTest : E2e() {
     }
 
     /** HIS-108, HIS-076, HIS-168: Bob's table went back from the cast he had seen to before it in one backward animation (never
-     * a jump to the board after), with "Alice undid: cast Ember Herald", and is live there. */
+     * a jump to the board after), with no text for it (HIS-168, owner 2026-11-22; logged as "Alice undid: cast Ember Herald"),
+     * and is live there. */
     private fun assertUndoShown(seen: Seen, cast: HeraldCast) {
         fun undo(): Int = seen.boards.indexOfFirst { s -> s.transition?.let { it.undone?.branch == false && it.backward.isNotEmpty() } == true }
         waitUntil("Bob's table going back from the cast") { undo() >= 0 }
         waitUntil("Bob's table live before the cast") {
             where(bob.shown.board, cast.herald) == "HAND" && !bob.shown.behind && bob.status !is GameDevice.Status.Playing
         }
-        waitUntil("Bob told") { bob.told("${alice.name} undid: cast Ember Herald") }
+        assertFalse(bob.toldATakeBack(alice), "no text for her undo: ${bob.shownTexts}")
         assertTrue(seen.boards.take(undo()).any { where(it.board, cast.herald) == "STACK" }, "the table first showed the cast Bob had seen: " +
             seen.boards.map { where(it.board, cast.herald) })
         val t = assertNotNull(seen.boards[undo()].transition)
@@ -346,18 +348,18 @@ class RewindOnReturnTest : E2e() {
         assertFalse(seen.reopened, "the open game's table stays")
     }
 
-    /** HIS-108, HIS-205: after Bob's tap his table went back from the cast he had seen in one backward animation, with "Alice undid:
-     * cast Ember Herald" (her moves after it then play back). */
+    /** HIS-108, HIS-205, HIS-168: after Bob's tap his table went back from the cast he had seen in one backward animation, with no
+     * text for it (owner 2026-11-22; her moves after it then play back). */
     private fun assertUndoPlayedAfterTheTap(seen: Seen, cast: HeraldCast) {
         fun undo(): Int = seen.boards.indexOfFirst { s -> s.transition?.let { it.undone?.branch == false && it.backward.isNotEmpty() } == true }
         waitUntil("Bob's table going back from the cast") { undo() >= 0 }
-        waitUntil("Bob told") { bob.told("${alice.name} undid: cast Ember Herald") }
         assertTrue(undo() >= seen.tapped, "the undo only after his tap")
         val t = assertNotNull(seen.boards[undo()].transition)
         assertFalse(t.jump, "an undo animates, never jumps")
         assertTrue(t.backward.any { it.id == cast.cast.id }, "the cast goes back")
         assertTrue(seen.applied.any { (applied, opened) -> applied.serial == t.serial && !opened },
             "his table went back from the board he had seen: ${seen.applied.map { (a, o) -> "${a.serial}/${a.undone}/$o" }}")
+        assertFalse(bob.toldATakeBack(alice), "no text for her undo: ${bob.shownTexts}")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 

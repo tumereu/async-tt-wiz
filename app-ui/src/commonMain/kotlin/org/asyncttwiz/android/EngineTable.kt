@@ -165,7 +165,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
 
     /** The rewind dialog (hold Undo, or an undo that needs the other player's approval): its chosen target. */
     var rewind by mutableStateOf<RewindChoice?>(null)
-    /** The note shown now (§8's branch note, SYS-012's refusal note, …), each told once. */
+    /** The note shown now (SYS-012's refusal note, HIS-115's "<name> took a mulligan · your turn stands", …), each told once. */
     var note by mutableStateOf<String?>(null)
         private set
     /** SYS-078 (owner, 2026-11-05): the notes told while another one shows, in order: each shows when the one before is
@@ -1008,11 +1008,13 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     LaunchedEffect(game.version) {
         while (game.notes.isNotEmpty()) {
             when (val note = game.notes.removeAt(0)) {
-                // HIS-097 (problem report DY6VCM): names the first real action of yours taken back, if any
-                is GameDevice.Note.Branched -> routes.tell(EngineEventText.branched(names[note.by.value] ?: opponent, note.discarded,
-                    note.actions, game.shown?.engine, routes.viewer))
-                // HIS-099, §29.4: the other player's undo of events you had seen: your board goes back the way it came,
-                // with "<name> undid: <action>" fading at the top (the transition's, EngineTableScreen)
+                // HIS-185, SYS-078 (owner, 2026-11-22): a branch shows no note (the centre text says it, HIS-190); what it
+                // took back is only logged, naming the first real action of yours taken back (problem report DY6VCM)
+                is GameDevice.Note.Branched -> AppLog.info("game", "Branch, shown without a note: " + EngineEventText.branched(
+                    names[note.by.value] ?: opponent, note.discarded, note.actions, game.shown?.engine, routes.viewer) +
+                    " (${note.takenBack.size} events taken back, ${note.actions.size} of them actions of yours)")
+                // HIS-099, HIS-168 (owner, 2026-11-22): the other player's undo of events you had seen: your board goes back
+                // the way it came, with no text at the top (logged by the transition, EngineTableScreen)
                 is GameDevice.Note.TakenBack -> {}
                 // HIS-115 (owner, 2026-11-15): the other player's mulligan re-applied your turn, and it all stands
                 is GameDevice.Note.Stands -> if (note.mulligan) routes.tell("${names[note.by.value] ?: opponent} took a mulligan · your turn stands")

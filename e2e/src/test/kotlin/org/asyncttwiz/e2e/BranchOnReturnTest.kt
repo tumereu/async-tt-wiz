@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
  * her phone she was told "Bob has made moves · Tap to watch", which didn't say her line was taken back. Owner
  * 2026-11-07 (catch-up rules): coming back to a game whose line the other player's real answer branched while she was
  * away opens it as she left it with "Bob responded differently · Tap to watch"; her tap shows the branch (HIS-097,
- * HIS-106, HIS-190, HIS-191): the take-back to the branch point with its note; owner 2026-11-08: it stops there ("Bob responded differently
+ * HIS-106, HIS-190, HIS-191): the take-back to the branch point (owner 2026-11-22: with no note, HIS-185); owner 2026-11-08: it stops there ("Bob responded differently
  * from here · Tap to continue"), and her next tap plays Bob's new events back.
  */
 class BranchOnReturnTest : E2e() {
@@ -56,9 +56,9 @@ class BranchOnReturnTest : E2e() {
 
     /** HIS-097, HIS-106, HIS-190, HIS-191, HIS-094, HIS-158 (owner 2026-11-07): back, Alice's table waited as she left it ([discarded] shown) with
      * "Bob responded differently · Tap to watch", nothing moving; her tap took it back to the branch point (the take-back,
-     * with timeline mode's look) with [note] and stopped there (owner 2026-11-08), her next tap played Bob's new events
+     * with timeline mode's look; no note, HIS-185) and stopped there (owner 2026-11-08), her next tap played Bob's new events
      * back ([theirs]), and she is live at the new head; [discarded] is gone. */
-    private fun assertBranchShown(seen: Seen, note: String, discarded: GameEvent, theirs: (GameEvent) -> Boolean) {
+    private fun assertBranchShown(seen: Seen, discarded: GameEvent, theirs: (GameEvent) -> Boolean) {
         waitUntil("Alice's centre text") { alice.showsWatch() && alice.current() }
         assertEquals("${bob.name} responded differently · Tap to watch", alice.watchText())
         repeat(5) { run(skip = java.time.Duration.ofMillis(600)) }
@@ -70,7 +70,7 @@ class BranchOnReturnTest : E2e() {
         alice.tapToWatch()
         fun takeBack(): Int = seen.boards.indexOfFirst { it.transition?.undone?.branch == true && it.transition!!.backward.isNotEmpty() }
         waitUntil("Alice's table going back to the branch point") { takeBack() >= 0 }
-        waitUntil("Alice told") { alice.told(note) }
+        waitUntil("the branch on Alice's device") { alice.branchLogged() }
         // HIS-106, HIS-190 (owner 2026-11-08): the take-back stops at the branch point until her next tap
         alice.waitsAtBranchStop(this, bob) { seen.boards.any { s -> s.held.any(theirs) } }
         val stopped = seen.boards.size
@@ -89,29 +89,28 @@ class BranchOnReturnTest : E2e() {
         assertTrue(seen.boards.drop(stopped).none { it.status == GameDevice.Status.CatchUp },
             "after her tap at the branch point never paused for a centre text again: ${seen.boards.map { "${it.status}/${it.branchStop}" }}")
         assertTrue(alice.engine { device.session.events }.none { it.id == discarded.id }, "her assumed line is discarded")
+        assertFalse(alice.toldATakeBack(bob), "HIS-185: no branch note: ${alice.shownTexts}")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
     // HIS-097, HIS-185, HIS-106, HIS-191, CMB-040, CMB-049 (owner playtest 2026-11-06): Alice attacks with her Ember Cub while Bob is away,
     // assumes his Ember Herald blocks it ("Assume blockers") and plays on to his turn; she leaves the app; Bob comes back
     // and, at his playback's stop at the assumed blocks, declares no blocks. Alice comes back: her table as she left it
-    // with "Bob responded differently · Tap to watch"; her tap shows the branch, with "Bob blocked differently — your End
-    // turn was taken back"
+    // with "Bob responded differently · Tap to watch"; her tap shows the branch, with no note
     @Test fun assumedBlocksAnsweredDifferentlyWaitForATapOnReturn() {
         val (assumed, noBlocks) = bobBlocksDifferentlyWhileAliceIsAway()
         val seen = aliceComesBack()
-        assertBranchShown(seen, "${bob.name} blocked differently — your End turn was taken back", assumed, noBlocks)
+        assertBranchShown(seen, assumed, noBlocks)
     }
 
     // HIS-097, HIS-185, HIS-106, HIS-191, HIS-033, HIS-162 (owner 2026-11-07): as above, but Alice's app starts again and she opens the game from the
-    // Games list (loaded anew): her table opens where she left it and waits for her tap, as above (a device loaded anew
-    // doesn't know her End turn: the note names none)
+    // Games list (loaded anew): her table opens where she left it and waits for her tap, as above
     @Test fun assumedBlocksAnsweredDifferentlyWaitForATapWhenTheGameOpensAgain() {
         val (assumed, noBlocks) = bobBlocksDifferentlyWhileAliceIsAway()
         val seen = aliceComesBack(reopen = true)
         waitUntil("Alice's table") { seen.boards.isNotEmpty() }
         assertTrue(seen.boards.first().held.any { it.id == assumed.id }, "opened where she left it, her assumed blocks shown")
-        assertBranchShown(seen, "${bob.name} blocked differently", assumed, noBlocks)
+        assertBranchShown(seen, assumed, noBlocks)
     }
 
     /**
@@ -189,7 +188,7 @@ class BranchOnReturnTest : E2e() {
     // HIS-097, HIS-185, HIS-106, HIS-191, HIS-105: Alice casts an Ember Herald while Bob is away, assumes his pass ("Always assume
     // resolves") and ends her turn; she leaves the app; Bob comes back and, at his playback's stop at her spell, casts an
     // Idle Glimmer instead of letting it resolve. Alice comes back: her table as she left it with "Bob responded
-    // differently · Tap to watch"; her tap shows the branch, with "Bob responded — your End turn was taken back"
+    // differently · Tap to watch"; her tap shows the branch, with no note
     @Test fun anAssumedPassAnsweredWithAResponseWaitsForATapOnReturn() {
         val cast = aliceCastsAHeraldWhileBobIsAway()
         aliceLeaves()
@@ -206,7 +205,7 @@ class BranchOnReturnTest : E2e() {
         }
 
         val seen = aliceComesBack()
-        assertBranchShown(seen, "${bob.name} responded — your End turn was taken back", cast.next, ::bobsCast)
+        assertBranchShown(seen, cast.next, ::bobsCast)
         assertFalse(alice.shown.behind)
     }
 }

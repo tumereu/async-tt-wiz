@@ -149,19 +149,23 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
      * on its main line. */
     fun history(principal: AccountService.Principal, gameId: String, through: String): EngineHistoryPage = transaction { sql ->
         val game = locked(sql, uuid(gameId), actor(principal))
-        val play = game.currentPlay?.takeIf { game.lifecycle == "ACTIVE" } ?: throw GameProtocolFailure("inapplicable")
+        // TRN-142 (owner, 2026-11-22): a game whose result still waits for an OK shows its ended play's table, whose timeline
+        // pages back too
+        val play = game.currentPlay?.takeIf { game.lifecycle == "ACTIVE" } ?: endedPlayShown(sql, game)?.first
+            ?: throw GameProtocolFailure("inapplicable")
         try { engineGames.historyPage(sql, play, through) } catch (_: org.asyncttwiz.protocol.game.Refusal) { null }
             ?: throw GameProtocolFailure("inapplicable")
     }
     /** A socket may learn removal and recover originals, never reopen the removed replica. [engine] (switch-review #11):
-     * the open game's head, with its play and engine state; otherwise an active play's head is its summary only. */
+     * the open game's head, with its play and engine state (TRN-142: a lobby whose result still waits for an OK, its ended
+     * play's); otherwise an active play's head is its summary only. */
     fun subscriptionHead(principal: AccountService.Principal, gameId: String, presence: Boolean = false,
         engine: Boolean = true): GameHead = transaction { sql ->
         val game = locked(sql, uuid(gameId), actor(principal), recovery = true)
         if (game.lifecycle !in listOf("LOBBY", "ACTIVE")) {
             val summary = lobby.summary(sql, game.id!!)
             GameHead(gameId, summary.revision, summary)
-        } else (if (engine || game.lifecycle != "ACTIVE") readHead(sql, principal, gameId, game) else summaryHead(sql, principal, gameId, game)).let { head ->
+        } else (if (engine || game.lifecycle != "ACTIVE") readHead(sql, principal, gameId, game, ended = engine) else summaryHead(sql, principal, gameId, game)).let { head ->
             if (!presence) head else head.copy(opponentPresence = OpponentPresences.read(sql, game.id!!,
                 if (game.inviterId == actor(principal)) game.recipientId!! else game.inviterId!!,
                 java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC)))
@@ -175,8 +179,11 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             ownPodDeckName = PreparationStore.ownPodDeckName(sql, uuid(gameId), actor(principal)))
     }
 
-    /** [game] is the row locked by this transaction: the play is read (and checked) once, for the summary too. */
-    private fun readHead(sql: DSLContext, principal: AccountService.Principal, gameId: String, game: GameRecord): GameHead {
+    /** [game] is the row locked by this transaction: the play is read (and checked) once, for the summary too. [ended]
+     * (TRN-142, the open game): a lobby whose result still waits for an OK carries its ended play and that play's engine
+     * state, for its table, besides the lobby's preparation. */
+    private fun readHead(sql: DSLContext, principal: AccountService.Principal, gameId: String, game: GameRecord,
+        ended: Boolean = false): GameHead {
         val reads = headReads(sql, game.id!!, actor(principal))
         val play = reads.play
         // I-D54: a play whose state is the engine's says whose move it is from the engine, per viewer (I-D56 §7)
@@ -184,10 +191,18 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             ?.let { engineGames.snapshot(sql, it, actor(principal)) }
         val summary = lobby.summary(sql, game, if (game.lifecycle != "ACTIVE") null
             else if (engine != null) engine.second else play?.board?.effectiveAttentionHolder, engine?.let { actor(principal) })
+        val last = if (ended) endedPlayShown(sql, game)?.let { (id, state) ->
+            engineGames.snapshot(sql, id, actor(principal))?.let { state to it.first } } else null
         return GameHead(gameId, summary.revision, summary, preparation =
             if (play == null && canReadPreparation(summary, principal.account.accountId)) PreparationStore.read(sql, summary) else null,
-            play = play, chatSync = reads.chatSync, ownPodDeckName = reads.ownPodDeckName, engine = engine?.first)
+            play = play ?: last?.first, chatSync = reads.chatSync, ownPodDeckName = reads.ownPodDeckName, engine = engine?.first ?: last?.second)
     }
+
+    /** TRN-142 (owner, 2026-11-22): the ended play [game]'s table still shows (its id and its play as it started): its last
+     * ended play, while the game is in its lobby with an OK on that play's result still owed; else null. */
+    private fun endedPlayShown(sql: DSLContext, game: GameRecord): Pair<UUID, PlayState>? =
+        if (game.lifecycle != "LOBBY" || game.resultNotice == null || !engineGames.mayExist(sql)) null
+        else PlayStore.lastEnded(sql, game.id!!)
 
     /** What a head reads of [game]'s other tables besides the engine's. */
     internal class HeadReads(val play: PlayState?, val chatSync: ChatSync, val ownPodDeckName: String?)

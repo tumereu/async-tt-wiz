@@ -323,7 +323,7 @@ class ControlAssumptionsTest : E2e() {
         bob.playFromHand("Idle Glimmer", this)
         waitUntil("both Glimmers on Alice's table") { alice.state.stack.size == 2 && quiet() }
         assertEquals(assumed, assumedPasses(alice, bob).size, "Alice's phone assumed nothing of his")
-        assertFalse(alice.told("responded"), "no branch: ${alice.shownTexts}")
+        assertFalse(alice.branchLogged(), "no branch")
         assertFalse(bob.refusalSeen, "nothing refused: ${bob.shownTexts}")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
@@ -542,7 +542,7 @@ class ControlAssumptionsTest : E2e() {
     // STK-036, SYS-077, SYS-133, HIS-097, HIS-109, HIS-187 (owner 2026-11-07, scenario 11): Bob casts an Idle Glimmer; Alice, live in Quick
     // with a Glimmer of her own, may respond (her phone stops; his, on Never, waits); his phone goes to Always and assumes
     // her pass at the moment she casts her Glimmer, before that assumption reached her: her response is taken as a branch
-    // (his note), never "That wasn't taken"
+    // (on his phone, with no note, HIS-185), never "That wasn't taken"
     @Test fun aResponseAtTheMomentOfTheirAssumptionBranches() {
         startGame(TestDeck.glimmers(), TestDeck.glimmers(), bobStarts = true, bobSettings = PlaySettings().assuming(AssumeResolves.Never),
             deal = { a, b -> "Idle Glimmer" in hand(a) && "Idle Glimmer" in hand(b) })
@@ -565,7 +565,9 @@ class ControlAssumptionsTest : E2e() {
         alice.handCard("Idle Glimmer").performClick()
         waitUntil("Alice's Glimmer sent") { alice.engine { device.session.pending.isNotEmpty() } }
         alice.link.releaseIncoming()
-        waitUntil("Bob's line branched by Alice's answer") { bob.told("${alice.name} responded") && !bob.told("taken back") && quiet() }
+        // HIS-185 (owner, 2026-11-22): with no note on his table
+        waitUntil("Bob's line branched by Alice's answer") { bob.branchLogged() && quiet() }
+        assertFalse(bob.toldATakeBack(alice), "no branch note: ${bob.shownTexts}")
         assertFalse(alice.refusalSeen, "Alice's Glimmer wasn't refused: ${alice.shownTexts}")
         assertEquals(2, alice.state.stack.size, "both Glimmers on the Stack")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
@@ -573,7 +575,7 @@ class ControlAssumptionsTest : E2e() {
 
     // STK-036, STK-174, HIS-097, HIS-109, HIS-187 (owner 2026-11-07, scenario 14): Bob in Control casts an Idle Glimmer and keeps priority;
     // Alice's phone waits (his point) and she presses Assume by hand there; Bob then casts a second Glimmer: his line
-    // branches from her assumption (her note), nothing refused
+    // branches from her assumption (no note, HIS-185), nothing refused
     @Test fun aSecondSpellAfterAnAssumeByHandBranches() {
         startGame(TestDeck.thirds(), TestDeck.glimmers(), bobStarts = true, bobSettings = PlaySettings(mode = ResponseMode.FullControl),
             deal = { _, b -> hand(b).count { it == "Idle Glimmer" } >= 2 })
@@ -587,10 +589,11 @@ class ControlAssumptionsTest : E2e() {
         }
         waitUntil("Bob's phone stopping at it") { bob.status is GameDevice.Status.Stopped }
         bob.playFromHand("Idle Glimmer", this)
-        waitUntil("Alice's line branched by Bob's second Glimmer") { alice.told("${bob.name} responded") && !alice.told("taken back") && quiet() }
+        waitUntil("Alice's line branched by Bob's second Glimmer") { alice.branchLogged() && quiet() }
         // HIS-106, HIS-190: her table stops at the branch point; her tap plays Bob's second Glimmer back
         alice.continuesPastBranchStop(this)
         waitUntil("Bob's second Glimmer shown on Alice's table") { alice.state.stack.size == 2 && quiet() }
+        assertFalse(alice.toldATakeBack(bob), "HIS-185: no branch note: ${alice.shownTexts}")
         assertFalse(bob.refusalSeen, "nothing refused: ${bob.shownTexts}")
         assertEquals(2, alice.state.stack.size, "both Glimmers on the Stack")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())

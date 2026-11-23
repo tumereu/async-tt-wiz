@@ -148,8 +148,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
      */
     fun DrawScope.handZoneBadge(i: TableItem, x: Float, y: Float, cardWidth: Float, cardHeight: Float) {
         val zone = i.handZone ?: return
-        val z = cardWidth / 28f
-        val r = 7.5f * maxOf(1f, z * .8f)
+        val r = zoneBadgeRadius(cardWidth)
         // Inside the room its outline leaves around the card (drawing is clipped there)
         drawZoneBadge(zone, x + cardWidth - r + 2f, y + r - 2f, r, density)
     }
@@ -516,10 +515,13 @@ fun DrawScope.drawZoneGlyph(zone: PlayZone?, cx: Float, cy: Float, z: Float, ink
     }
 }
 
+/** ZON-079, ZON-136: the radius (dp) of the zone badge ([drawZoneBadge]) in the corner of a card [cardWidth] dp wide. */
+fun zoneBadgeRadius(cardWidth: Float): Float = 7.5f * maxOf(1f, cardWidth / 28f * .8f)
+
 /**
  * ZON-079, ZON-136: a pile's zone as a badge, the empty pile's glyph ([drawZoneGlyph]) white in a dark teal disc ringed in white,
- * [r] dp in radius around [cx], [cy] (dp); [density] px per dp. A hand row card from another zone carries it, and the other
- * player's playable list puts it under each card.
+ * [r] dp in radius around [cx], [cy] (dp); [density] px per dp. A hand row card from another zone carries it in its top-right
+ * corner, and so does each card of the other player's playable list.
  */
 fun DrawScope.drawZoneBadge(zone: PlayZone, cx: Float, cy: Float, r: Float, density: Float) {
     drawCircle(HandRowBadgeColor, r * density, Offset(cx * density, cy * density))

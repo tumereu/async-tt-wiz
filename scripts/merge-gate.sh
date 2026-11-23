@@ -2,7 +2,7 @@
 # The merge gate: the only way master moves (.githooks/reference-transaction refuses every other update of it).
 # Merges <branch> into master in a separate verify worktree, runs the checks below on that merge commit there, and only
 # if all pass makes master point at exactly that commit. On a failure master is untouched and the log says what failed.
-#   scripts/merge-gate.sh <branch or commit> [-m <merge message>] [--extra '<gradle tasks and options>']...
+#   scripts/merge-gate.sh <branch or commit> [-m <merge message>] [--extra '<gradle tasks and options>']... [--light]
 # Checks, cheapest first, stopping at the first failure (each a Gradle run through gradle-slot.sh, logged on its own):
 #   jvm      the JVM suites of the modules the merge changes and of every module depending on them (the module graph is
 #            read from verifyModuleBoundaries in build.gradle.kts; a change outside the modules and docs means all), the
@@ -14,6 +14,9 @@
 # A conflict only in gallery.tsv (branches append rows there) is resolved by keeping both sides' rows ordered by number
 # (scripts/lib/gallery-merge.py), unless both sides used one number.
 # A merge that changes only documentation (docs/, release/notes/, *.md) runs only checkFeatureCatalog.
+# --light (set work's chunk merges, owner 2026-11-23: a chunk adds cards, the app's 30 minutes of checks after each one
+# are too slow): only the --extra checks run, no jvm, android, web or e2e stage; the set's close merges with the full
+# gate, which runs them all on everything the chunks brought.
 # One gate at a time: it holds the merge lock ($ATW_LOCKS/master-merge.lock) from merging to moving master. If the
 # checkout that has master checked out has local changes in the merge's way, it retries for 30 minutes.
 # Environment: ATW_GATE_WORKTREE (default ~/projects/atw-wt/merge-gate-<repository folder>), ATW_GATE_LOGS (default
@@ -45,11 +48,12 @@ declare -A SUITE=(
     [:app-engine]=:app-engine:test [:app-ui]=:app-ui:test
 )
 
-tip=; message=; extras=()
+tip=; message=; extras=(); light=
 while [ $# -gt 0 ]; do
     case $1 in
         -m|--message) [ $# -ge 2 ] || usage; message=$2; shift 2 ;;
         --extra) [ $# -ge 2 ] || usage; extras+=("$2"); shift 2 ;;
+        --light) light=1; shift ;;
         -h|--help|-*) usage ;;
         *) [ -z "$tip" ] || usage; tip=$1; shift ;;
     esac
@@ -203,6 +207,13 @@ stage() { # stage <name> <gradle arguments...>
 if [ "$graph" = DOCS ]; then
     say "documentation only: the catalog check"
     stage catalog checkFeatureCatalog
+elif [ -n "$light" ]; then
+    [ ${#extras[@]} -gt 0 ] || { say "--light needs at least one --extra check"; exit 2; }
+    say "light (a set's chunk): only the given checks; the set's close runs the full gate"
+    for x in "${extras[@]}"; do
+        # shellcheck disable=SC2086 # one --extra holds several Gradle words
+        stage extra $x
+    done
 else
     suites=()
     for m in $graph; do [ -n "${SUITE[$m]:-}" ] && suites+=("${SUITE[$m]}"); done

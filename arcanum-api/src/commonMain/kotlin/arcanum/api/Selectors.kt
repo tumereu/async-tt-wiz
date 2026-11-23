@@ -70,6 +70,10 @@ sealed interface Objects {
      * CR 201.5a); a copy of the token refers to the object that created the original. Nothing once that object has left its zone
      * (CR 400.7) or for an object no ability created. */
     @Serializable @SerialName("creator") data object Creator : Objects
+    // snc
+    /** The activated ability itself as it resolves, an object on the Stack (CR 113.1a, 113.7a): only what it was activated with is read
+     * from it ("If mana from a Treasure was spent to activate this ability", [Value.ManaSpent], CR 106.3, 601.2h, 602.2b). */
+    @Serializable @SerialName("this-ability") data object ThisAbility : Objects
 }
 
 /**

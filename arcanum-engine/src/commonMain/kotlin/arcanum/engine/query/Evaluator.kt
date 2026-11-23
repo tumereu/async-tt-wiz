@@ -196,6 +196,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         // The source's new object after a zone change: bound by a flow that knows the move, else found in the log
         Objects.SelfAfter -> ctx.names[SELF_AFTER]?.let { boundObjects(it) } ?: listOfNotNull(ctx.self?.let { board.readingLog(); Lki.newObject(state, it) })
         Objects.Tested -> listOfNotNull(ctx.tested)
+        // snc: the resolving activated ability, for what was spent to activate it (CR 602.2b)
+        Objects.ThisAbility -> listOfNotNull(ctx.stackItem?.id)
         is Objects.AttackedBy -> {
             val attackers = objects(objects.attackers).toSet()
             state.combat?.attackers.orEmpty().filter { it.id in attackers }.mapNotNull { (it.target as? TargetRef.Object)?.id }

@@ -1753,4 +1753,88 @@ class PodHttpTest {
         for (who in listOf(f.a, f.b, f.c)) assertEquals(before.getValue(who), f.activity(who, "0").entries.filter { it.gameId == pod })
         assertEquals(1, f.chat(f.b, pod).read.unread)
     }
+
+    // DRF-307, DRF-140, LOB-242 (owner, 2026-11-22): the creator cancels a pending invitation in setup: it leaves the invitee's
+    // Pods list and stops waiting (its notification clears on all their devices); a retry repeats the answer; only the creator,
+    // only a pending invitation, only in setup; the player can be invited again
+    @Test fun `the creator cancels a pending invitation and can invite the player again`() = fixture { f ->
+        fun code(body: String) = json.decodeFromString<PodError>(body).code
+        val pod = f.create().id
+        f.join(pod)
+        f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), f.c.account.accountId))
+        assertEquals(1, f.list(f.c).invitations.size)
+        assertTrue("pod-invite:$pod" in f.activity(f.c).openNotices.orEmpty())
+        val cancel = PodAccountRequest(id(), f.c.account.accountId)
+        assertEquals("creator_only", code(f.send(f.b, "POST", "/v1/pods/$pod/invitations/cancel", PodAccountRequest(id(), f.c.account.accountId), 403)))
+        assertEquals("invitation_not_found", code(f.send(f.a, "POST", "/v1/pods/$pod/invitations/cancel", PodAccountRequest(id(), f.b.account.accountId), 404)))
+        val cancelled = f.send(f.a, "POST", "/v1/pods/$pod/invitations/cancel", cancel)
+        assertTrue(json.decodeFromString<PodDetail>(cancelled).pendingInvitations.isEmpty())
+        // DRF-140: the retry gets the same answer and changes nothing
+        assertEquals(cancelled, f.send(f.a, "POST", "/v1/pods/$pod/invitations/cancel", cancel))
+        assertTrue(f.list(f.c).invitations.isEmpty())
+        assertFalse("pod-invite:$pod" in f.activity(f.c).openNotices.orEmpty(), "the invitation no longer waits")
+        assertTrue(f.activity(f.c).entries.none { it.kind == ActivityKind.POD_INVITATION && it.gameId == pod })
+        assertEquals("invitation_not_found", code(f.send(f.c, "POST", "/v1/pods/$pod/accept", PodRequest(id()), 404)))
+        // Invited again, Carol joins
+        f.join(pod, f.c)
+        assertEquals(3, f.get(f.a, pod).members.size)
+        // Not once the draft has started
+        f.send(f.a, "POST", "/v1/pods/$pod/members/remove", PodAccountRequest(id(), f.c.account.accountId))
+        f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), f.c.account.accountId))
+        f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 5))
+        f.start(pod)
+        assertEquals("not_setup", code(f.send(f.a, "POST", "/v1/pods/$pod/invitations/cancel", PodAccountRequest(id(), f.c.account.accountId), 409)))
+    }
+
+    // DRF-307, DRF-036: cancelling the last pending invitation of an armed auto-start switches it off (nothing is left to wait
+    // for); with another invitation still pending it stays armed
+    @Test fun `cancelling the last invitation switches an armed auto-start off`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), f.c.account.accountId))
+        assertTrue(json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods/$pod/auto-start", SetPodAutoStart(id(), true))).autoStart)
+        val detail = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods/$pod/invitations/cancel", PodAccountRequest(id(), f.c.account.accountId)))
+        assertFalse(detail.autoStart)
+        assertNull(detail.autoStartOff)
+        assertEquals(PodPhase.SETUP, detail.phase)
+        assertEquals(0, f.count(ActivityKind.POD_AUTO_START_OFF, pod))
+    }
+
+    // DRF-308, DRF-137, DRF-140, LOB-243 (owner, 2026-11-22): the creator removes a joined member in setup: the pod leaves their
+    // lists and reads as gone to them, they get "Removed from <pod>" (which waits until they have shown the Pods list), a retry
+    // repeats the answer; never the creator, only by the creator, only in setup; the player can be invited and join again
+    @Test fun `the creator removes a member in setup who is told and can be invited again`() = fixture { f ->
+        fun code(body: String) = json.decodeFromString<PodError>(body).code
+        val pod = f.create().id
+        f.join(pod); f.join(pod, f.c)
+        assertEquals("creator_only", code(f.send(f.b, "POST", "/v1/pods/$pod/members/remove", PodAccountRequest(id(), f.c.account.accountId), 403)))
+        assertEquals("creator_cannot_be_removed", code(f.send(f.a, "POST", "/v1/pods/$pod/members/remove", PodAccountRequest(id(), f.a.account.accountId), 409)))
+        val remove = PodAccountRequest(id(), f.b.account.accountId)
+        val removed = f.send(f.a, "POST", "/v1/pods/$pod/members/remove", remove)
+        assertEquals(listOf(f.a.account.accountId, f.c.account.accountId).sorted(),
+            json.decodeFromString<PodDetail>(removed).members.map { it.account.accountId }.sorted())
+        // DRF-140: the retry gets the same answer and sends no second notice
+        assertEquals(removed, f.send(f.a, "POST", "/v1/pods/$pod/members/remove", remove))
+        assertEquals(1, f.count(ActivityKind.POD_MEMBER_REMOVED, pod, f.b))
+        assertEquals(0, f.count(ActivityKind.POD_MEMBER_REMOVED, pod, f.c))
+        assertEquals("member_not_found", code(f.send(f.a, "POST", "/v1/pods/$pod/members/remove", PodAccountRequest(id(), f.b.account.accountId), 404)))
+        // Bob: the pod gone from his lists and to read, the notice in his feed under the pod's name
+        assertTrue(f.list(f.b).pods.none { it.id == pod })
+        assertEquals(404, f.request(f.b, "GET", "/v1/pods/$pod").statusCode())
+        val notice = f.activity(f.b).entries.single { it.kind == ActivityKind.POD_MEMBER_REMOVED }
+        assertEquals("Removed from Fixture pod", ActivityTexts.notification(notice).first)
+        assertTrue("pod:$pod" in f.activity(f.b).openNotices.orEmpty())
+        // LOB-243: shown on the Pods list, it no longer waits
+        assertEquals(204, f.request(f.b, "PUT", "/activity/seen", ActivityWire.json.encodeToString(PodSeen())).statusCode())
+        assertFalse("pod:$pod" in f.activity(f.b).openNotices.orEmpty())
+        // Invited again, Bob joins; the removal notice no longer shows
+        f.join(pod)
+        assertEquals(3, f.get(f.b, pod).members.size)
+        assertTrue(f.activity(f.b, "0").entries.none { it.kind == ActivityKind.POD_MEMBER_REMOVED })
+        // Not once the draft has started
+        f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 5))
+        f.start(pod)
+        assertEquals("not_setup", code(f.send(f.a, "POST", "/v1/pods/$pod/members/remove", PodAccountRequest(id(), f.c.account.accountId), 409)))
+        assertEquals(3, f.get(f.a, pod).members.size)
+    }
 }

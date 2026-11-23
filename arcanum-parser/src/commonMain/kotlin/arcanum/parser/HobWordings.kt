@@ -169,13 +169,15 @@ internal object HobPhrases {
         // hob chunk 12: "mana from a Treasure was spent to cast it" (the spell of a cast trigger, CR 106.3)
         // mom chunk 11: "three or more mana from creatures was spent to cast it" (at least that much of it, CR 106.3)
         MANA_FROM_SPENT.matchEntire(text)?.let { m ->
-            val spent = Value.ManaSpent(of = Objects.EventObject(arcanum.api.EventRole.Object), source = Filters.noun(m.groupValues[2]) ?: return null)
+            // snc chunk 07: "mana from a Treasure was spent to activate this ability" (the ability's own mana, CR 602.2b)
+            val of = if (m.groupValues[3] == "activate this ability") Objects.ThisAbility else Objects.EventObject(arcanum.api.EventRole.Object)
+            val spent = Value.ManaSpent(of = of, source = Filters.noun(m.groupValues[2]) ?: return null)
             if (m.groupValues[1].isEmpty()) return Condition.Compare(spent, arcanum.api.Comparison.Greater, Value.Fixed(0))
             return Condition.Compare(spent, arcanum.api.Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
         }
         return null
     }
-    private val MANA_FROM_SPENT = Regex("""(?:(\w+) or more )?mana from (?:an? )?(.+?) was spent to cast it""")
+    private val MANA_FROM_SPENT = Regex("""(?:(\w+) or more )?mana from (?:an? )?(.+?) was spent to (cast it|activate this ability)""")
 
     /** "each graveyard with seven or more cards in it": the players whose graveyards hold that many cards. */
     fun graveyardsWith(count: Int): Players = Players.Each(PlayerFilter.Where(Condition.Exists(

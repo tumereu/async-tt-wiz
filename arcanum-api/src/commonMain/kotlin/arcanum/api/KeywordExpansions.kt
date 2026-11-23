@@ -59,12 +59,15 @@ object KeywordExpansions {
         // CR 702.5a / 303.4: restricts what the Aura targets and enchants
         is Keyword.Enchant -> static(Mechanic.CanEnchant(keyword.what))
         // CR 702.6a: "[Cost]: Attach this permanent to target creature you control. Activate only as a sorcery."
+        // snc: CR 702.6e "Equip planeswalker": the target is a planeswalker, and the Equipment may be attached to one (CR 301.5c)
         is Keyword.Equip -> listOf(Ability.Activated(keyword.cost,
             Instructions(
-                targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.And(listOfNotNull(
-                    ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You), keyword.onto))), min = Value.Fixed(1), max = Value.Fixed(1))),
-                steps = listOf(Step.Do(Effect.Attach(Objects.Self, Recipients(objects = Objects.Target("creature")))))),
-            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You, costChange = keyword.costChange, perTurn = keyword.perTurn)))
+                targets = listOf(TargetSlot(if (keyword.planeswalker) "planeswalker" else "creature", TargetKind.Objects(ObjectFilter.And(listOfNotNull(
+                    ObjectFilter.Type(if (keyword.planeswalker) CardType.Planeswalker else CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You), keyword.onto))),
+                    min = Value.Fixed(1), max = Value.Fixed(1))),
+                steps = listOf(Step.Do(Effect.Attach(Objects.Self, Recipients(objects = Objects.Target(if (keyword.planeswalker) "planeswalker" else "creature")))))),
+            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You, costChange = keyword.costChange, perTurn = keyword.perTurn))) +
+            (if (keyword.planeswalker) listOf(Ability.Static(listOf(Mechanic.CanAttachTo(ObjectFilter.Type(CardType.Planeswalker))), affects = Affected.Objects(Objects.Self))) else emptyList())
         // fra: CR 702.61a: "As long as this spell is on the stack, players can't cast other spells or activate abilities that
         // aren't mana abilities."
         Keyword.SplitSecond -> listOf(Ability.Static(listOf(Mechanic.CantCast(ObjectFilter.Not(ObjectFilter.Is(Objects.Self))),

@@ -132,7 +132,8 @@ internal object Ltr {
     val GAIN_PROTECTION_FROM_EACH_OF_COLORS = Regex("""(.+?) gains? protection from each of that creature's colors until end of turn\.""")
     val SCRY_REVEAL_ATTACKING_UNTIL_NEXT_TURN = Regex("""Scry (\w+), then you may reveal the top card of your library\. If an? (.+?) card is revealed this way, put it onto the battlefield tapped and attacking\. Until your next turn, it gains (\w+) if you control an? (\w+) and (\w+) if you control an? (\w+)\.""")
     val EACH_DEAL_DAMAGE_EQUAL_TO_THEIR_POWER = Regex("""((?:Target|Any number of target) .+?) and (up to one other target .+?) each deal damage equal to their power to (target .+)\.""")
-    val CHOOSE_COUNTER_FROM_AMONG = Regex("""[Pp]ut your choice of a counter from among (.+) on (.+)\.""")
+    // snc chunk 08: also "Put a +1/+1 counter and a counter from among flying, first strike, lifelink, or vigilance on it."
+    val CHOOSE_COUNTER_FROM_AMONG = Regex("""[Pp]ut (?:(an? \S+ counter) and )?(?:your choice of )?a counter from among (.+) on (.+)\.""")
     val PUT_ONE_OF_EACH_OF_THOSE_KINDS = Regex("""[Pp]ut one of each of those kinds of counters on (.+)\.""")
     val YOU_PUT_COUNTERS_ON = Regex("""you put one or more counters on (.+)""")
     val PUT_COUNTER_AND_COUNTER_ON_THAT_AND_SELF = Regex("""Put an? (\S+) counter and an? (\S+) counter on that creature and an? \1 counter and an? \2 counter on (.+)\.""")

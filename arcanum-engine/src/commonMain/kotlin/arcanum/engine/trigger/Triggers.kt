@@ -330,8 +330,9 @@ internal object Triggers {
                     b.objects.filter { it.role == EventRole.Object }.flatMap { it.ids }.distinct().sumOf { e.property(total.property, it) } >= e.value(total.atLeast)
                 }
             }
-            // "during each of your draw steps" ([Trigger.On.during]): only events in that step count, and only there it triggers
-            val inStep = trigger.during == null || state.turn.step == trigger.during
+            // "during each of your draw steps" ([Trigger.On.during]): only events in that step of the controller's own turn count, and only
+            // there it triggers (snc: an opponent's draw step is not one of yours)
+            val inStep = trigger.during == null || (state.turn.step == trigger.during && state.turn.active == e.ctx.you)
             val now = if (inStep) units(change) else emptyList()
             val counted = if (now.isEmpty()) now else trigger.nthThisTurn?.let { n ->
                 // gtc: the events before this one (the last equal one: two combats can make equal changes)

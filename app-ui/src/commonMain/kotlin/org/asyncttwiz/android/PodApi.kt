@@ -20,6 +20,10 @@ interface Pods : Closeable {
     suspend fun create(token: String, input: CreatePod): PodDetail
     suspend fun update(token: String, id: String, input: UpdatePod): PodDetail
     suspend fun invite(token: String, id: String, input: InviteToPod): PodDetail
+    /** DRF-307: the creator cancels a pending invitation in setup. */
+    suspend fun cancelInvitation(token: String, id: String, input: PodAccountRequest): PodDetail = throw PodFailure("not_configured")
+    /** DRF-308: the creator removes a member in setup. */
+    suspend fun removeMember(token: String, id: String, input: PodAccountRequest): PodDetail = throw PodFailure("not_configured")
     suspend fun accept(token: String, id: String, input: PodRequest): PodDetail
     suspend fun decline(token: String, id: String, input: PodRequest): PodAcknowledged
     suspend fun start(token: String, id: String, input: PodRequest): PodDetail
@@ -74,6 +78,10 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
     override suspend fun create(token: String, input: CreatePod): PodDetail = call(token, "/v1/pods", DeckJson.format.encodeToString(input))
     override suspend fun update(token: String, id: String, input: UpdatePod): PodDetail = call(token, path(id), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun invite(token: String, id: String, input: InviteToPod): PodDetail = call(token, path(id, "/invitations"), DeckJson.format.encodeToString(input))
+    override suspend fun cancelInvitation(token: String, id: String, input: PodAccountRequest): PodDetail =
+        call(token, path(id, "/invitations/cancel"), DeckJson.format.encodeToString(input))
+    override suspend fun removeMember(token: String, id: String, input: PodAccountRequest): PodDetail =
+        call(token, path(id, "/members/remove"), DeckJson.format.encodeToString(input))
     override suspend fun accept(token: String, id: String, input: PodRequest): PodDetail = call(token, path(id, "/accept"), DeckJson.format.encodeToString(input))
     override suspend fun decline(token: String, id: String, input: PodRequest): PodAcknowledged = call(token, path(id, "/decline"), DeckJson.format.encodeToString(input))
     override suspend fun start(token: String, id: String, input: PodRequest): PodDetail = call(token, path(id, "/start"), DeckJson.format.encodeToString(input))

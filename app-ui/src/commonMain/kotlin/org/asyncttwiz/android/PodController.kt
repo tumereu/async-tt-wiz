@@ -57,6 +57,8 @@ data class PodState(
     /** DRF-177: the creator's one set / mixed packs toggle in the open form (personal UI); null until toggled, which
      * shows mixed packs while the pack grid mixes sets. */
     val packMixing: Boolean? = null,
+    /** DRF-308: the member whose removal the creator is asked to confirm. */
+    val removing: AccountIdentity? = null,
 )
 
 /** Runs [task] after [delayMillis] off the main thread; the returned function cancels it if it has not started. */
@@ -128,6 +130,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val pickQueue: List<String>? = null,
         /** DRF-030: a player being invited, shown as invited at once until the server's answer comes. */
         val invitee: AccountIdentity? = null,
+        /** DRF-307, DRF-308: the account whose invitation is being cancelled, or who is being removed: gone from the list at
+         * once until the server's answer comes. */
+        val leaving: String? = null,
         val send: suspend (String) -> PodDetail?)
     private val writes = mutableListOf<Write>()
     /** Keep/burn/Librarian marks survive tab switches here, and app restarts through the server copy. */
@@ -237,7 +242,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (buildHistory?.pod != id) buildHistory = null
         away = null
         state = state.copy(selected = id, detail = null, creating = null, setup = null,
-            confirmation = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null, chatOpen = false,
+            confirmation = null, removing = null, choosingMember = false, error = null, notice = notices.remove(id), sourcePreview = null, chatOpen = false,
             packMixing = null)
         refresh()
     }
@@ -261,7 +266,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         // Keep pending writes attached to their pod; navigation does not discard them.
         accepted = null; away = null
         state = state.copy(selected = null, detail = null, creating = null, setup = null,
-            confirmation = null, choosingMember = false, error = null, sourcePreview = null, chatOpen = false)
+            confirmation = null, removing = null, choosingMember = false, error = null, sourcePreview = null, chatOpen = false)
         refresh()
     }
     fun refresh(requested: Boolean = false) {
@@ -308,7 +313,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         accepted = null
         setPicker.dismiss()
         state = state.copy(selected = null, detail = null, creating = NewPodDraft(suggest(), cubeId), setup = null,
-            confirmation = null, choosingMember = false, error = null, notice = null, sourcePreview = null, packMixing = null)
+            confirmation = null, removing = null, choosingMember = false, error = null, notice = null, sourcePreview = null, packMixing = null)
         loadCubes()
     }
     fun newName(name: String) { state = state.copy(creating = state.creating?.copy(name = name)) }
@@ -476,6 +481,53 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         AppLog.info("pods", "Pod ${detail.id}: inviting ${account.username} (${account.accountId}); the picker stays open")
         val input = InviteToPod(requestId(), account.accountId)
         enqueue(Write(detail.id, invitee = account, send = { api.invite(it, detail.id, input) }))
+    }
+    /** DRF-307 (owner, 2026-11-22): the creator's ✕ on a pending invitation cancels it at once, gone from the list until the
+     * server's answer comes. */
+    fun cancelInvitation(account: AccountIdentity) {
+        val detail = state.detail?.takeIf { it.phase == PodPhase.SETUP } ?: return
+        if (state.uncertain) return
+        if (detail.pendingInvitations.none { it.accountId == account.accountId }) {
+            AppLog.info("pods", "Pod ${detail.id}: ${account.username}'s invitation is no longer pending; nothing to cancel"); return
+        }
+        AppLog.info("pods", "Pod ${detail.id}: cancelling ${account.username}'s invitation (${account.accountId})")
+        val input = PodAccountRequest(requestId(), account.accountId)
+        enqueue(Write(detail.id, leaving = account.accountId, send = { api.cancelInvitation(it, detail.id, input) }))
+    }
+    /** DRF-308: the creator's ✕ on a member asks to confirm their removal. */
+    fun requestRemoval(account: AccountIdentity) {
+        if (state.detail?.phase != PodPhase.SETUP || state.uncertain) return
+        AppLog.info("pods", "Pod ${state.selected}: asked to confirm removing ${account.username} (${account.accountId})")
+        state = state.copy(removing = account)
+    }
+    fun dismissRemoval() {
+        state.removing?.let { AppLog.info("pods", "Pod ${state.selected}: removing ${it.username} not confirmed") }
+        state = state.copy(removing = null)
+    }
+    /** DRF-308 (owner, 2026-11-22): removes the member confirmed, gone from the list until the server's answer comes (the
+     * server refuses once the draft has started). */
+    fun confirmRemoval() {
+        val account = state.removing ?: return
+        state = state.copy(removing = null)
+        val detail = state.detail?.takeIf { it.phase == PodPhase.SETUP } ?: return
+        if (state.uncertain) return
+        AppLog.info("pods", "Pod ${detail.id}: removing the member ${account.username} (${account.accountId})")
+        val input = PodAccountRequest(requestId(), account.accountId)
+        enqueue(Write(detail.id, leaving = account.accountId, send = { api.removeMember(it, detail.id, input) }))
+    }
+    /** DRF-296 (owner, 2026-11-22): Add bot, one bot seat more within the mode's most. */
+    fun addBot() {
+        val settings = state.setup?.settings ?: state.detail?.settings ?: return
+        if (settings.bots >= podBotRange(settings).last) return
+        AppLog.info("pod", "Setup: bot seats ${settings.bots} -> ${settings.bots + 1} (Add bot)")
+        editSettings { it.withBots(it.bots + 1) }
+    }
+    /** DRF-296 (owner, 2026-11-22): a bot row's ✕ ([bot] its name), one bot seat fewer; the bots left are numbered 1, 2… */
+    fun removeBot(bot: String) {
+        val settings = state.setup?.settings ?: state.detail?.settings ?: return
+        if (settings.bots <= 0) return
+        AppLog.info("pod", "Setup: bot seats ${settings.bots} -> ${settings.bots - 1} (✕ on $bot)")
+        editSettings { it.withBots(it.bots - 1) }
     }
     fun start() {
         val detail = state.detail ?: return
@@ -863,6 +915,15 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                 base.members.none { it.account.accountId == account.accountId } && base.pendingInvitations.none { it.accountId == account.accountId } }
             if (invited.isNotEmpty() && base.phase == PodPhase.SETUP) detail = base.copy(pendingInvitations = base.pendingInvitations + invited)
         }
+        detail?.takeIf { it.phase == PodPhase.SETUP }?.let { base ->
+            // DRF-307, DRF-308: an invitation being cancelled and a member being removed are gone at once (an account's
+            // latest queued invite, cancel or removal decides)
+            val latest = mutableMapOf<String, Write>()
+            writes.filter { it.pod == base.id }.forEach { write -> (write.invitee?.accountId ?: write.leaving)?.let { latest[it] = write } }
+            val gone = latest.filterValues { it.leaving != null }.keys
+            if (gone.isNotEmpty()) detail = base.copy(members = base.members.filterNot { it.account.accountId in gone },
+                pendingInvitations = base.pendingInvitations.filterNot { it.accountId in gone })
+        }
         detail?.let { base ->
             val pending = writes.filter { it.pod == base.id && it.attempt == base.draftAttemptId }
             detail = base.copy(deckName = pending.lastOrNull { it.deckName != null }?.deckName ?: base.deckName,
@@ -1057,13 +1118,20 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                             writes.removeAll { it.pod == write.pod && it.setupRevision != null }
                             if (state.selected == write.pod) state = state.copy(setup = null)
                         }
+                        if (write.leaving != null) {
+                            // DRF-307, DRF-308: the refused cancel or removal's row comes back with the reason; the next
+                            // re-read shows what changed meanwhile (the draft started, the invitation was answered)
+                            AppLog.info("pods", "Pod ${write.pod}: cancelling or removing ${write.leaving} refused: " +
+                                ((failure as? PodFailure)?.code ?: simpleClassName(failure)))
+                        }
                     }
                     if ((failure as? PodFailure)?.code in listOf("draft_attempt_expired", "not_drafting", "not_found", "deck_submitted")) {
                         writes.clear(); refreshPending = true; listOnlyPending = false
                     }
                     state = state.copy(loading = false, uncertain = uncertain,
                         error = if (write?.draftPick != null && !uncertain) "Pick rejected."
-                            else if (write?.setupRevision != null && !uncertain) "Settings not saved." else podError(failure))
+                            else if (write?.setupRevision != null && !uncertain) "Settings not saved."
+                            else if (write?.leaving != null && !uncertain) podLeavingError(failure) else podError(failure))
                     if (readCubes) cubesPending = true
                     render()
                     // Do not spin on failing reads. Explicit retry or the next visibility tick retries; only a write the
@@ -1152,6 +1220,14 @@ fun podAutoStartOffText(off: PodAutoStartOff, mode: DraftMode = DraftMode.BOOSTE
     "insufficient_supply" -> "Could not start automatically: the source does not have enough cards. Auto-start is off"
     "librarian_definition_unavailable", "invalid_definition" -> "Could not start automatically: Librarian unavailable. Auto-start is off"
     else -> "Could not start automatically (${off.reason}). Auto-start is off"
+}
+/** DRF-307, DRF-308: why the creator's cancel of an invitation or removal of a member was refused. */
+fun podLeavingError(failure: Exception): String = when ((failure as? PodFailure)?.code) {
+    "not_setup" -> "The draft has already started."
+    "invitation_not_found" -> "That invitation is no longer pending."
+    "member_not_found" -> "That player is no longer a member of this pod."
+    "creator_cannot_be_removed" -> "The pod's creator can't be removed."
+    else -> podError(failure)
 }
 private fun podError(failure: Exception): String = when ((failure as? PodFailure)?.code) {
     "invalid_settings" -> "Invalid settings."

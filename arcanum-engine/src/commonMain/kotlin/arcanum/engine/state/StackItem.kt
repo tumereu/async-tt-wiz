@@ -51,7 +51,8 @@ data class StackItem(
     val timestamp: Long,
     /** For a copy of a spell (CR 707.10): its own cast facts, as a spell card's are on its object. It copies X, the modes
      * and the additional and alternative costs paid (and the objects that paid them); it wasn't cast and no mana was
-     * spent to cast it. Null for a spell (its card holds them) and for abilities. */
+     * spent to cast it. Null for a spell (its card holds them). snc: for an activated ability, the mana spent to activate it
+     * (CR 602.2b), null when none was; a copy of an ability keeps none of it (it wasn't activated, CR 707.10). */
     val cast: CastFacts? = null,
     /** For a copy of a spell or ability (CR 707.10): the spell or ability it was copied from (for a copy of a copy, that copy);
      * null for anything that isn't a copy. A copied ability keeps the original's [source] (CR 707.10, 113.7). */

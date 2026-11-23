@@ -386,6 +386,55 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             save(sql, row); detail(sql, row, owner)
         }
 
+    /** Why the creator's [what] of [target] in pod [row] is refused ([refusal]), logged with the pod, both accounts and its phase. */
+    private fun refused(row: PodRecord, owner: UUID, what: String, target: String, refusal: Result): Result {
+        log("pod ${row.id} (${row.phase}): $owner's $what of $target refused: ${code(refusal)}")
+        return refusal
+    }
+
+    /**
+     * DRF-307 (owner, 2026-11-22): the creator cancels [PodAccountRequest.accountId]'s pending invitation in setup. The
+     * invitation lapses, so it leaves the invitee's Pods list and its notification clears on all their devices (LOB-242);
+     * they can be invited again. An armed auto-start with no invitation left to wait for is switched off.
+     */
+    fun cancelInvitation(principal: AccountService.Principal, id: String, input: PodAccountRequest): Result =
+        mutate(principal, id, input.requestId, "cancelPodInvitation", json.encodeToJsonElement(input)) { sql, owner, row ->
+            fun refuse(refusal: Result) = refused(row, owner, "cancelling the invitation", input.accountId, refusal)
+            creator(row, owner)?.let { return@mutate refuse(it) }
+            if (row.phase != "SETUP") return@mutate refuse(error(409, "not_setup"))
+            if (!DeckValidation.uuid(input.accountId)) return@mutate refuse(error(400, "invalid_account"))
+            val target = UUID.fromString(input.accountId)
+            if (pending(sql, row.id!!).none { it.accountId == target }) return@mutate refuse(error(404, "invitation_not_found"))
+            sql.update(INVITE).set(INVITE.STATE, "LAPSED").where(INVITE.POD_ID.eq(row.id)).and(INVITE.ACCOUNT_ID.eq(target)).execute()
+            val left = pending(sql, row.id!!).size
+            val disarmed = row.autoStart == true && left == 0
+            if (disarmed) { row.autoStart = false; row.autoStartOffReason = null; row.autoStartOffAccount = null }
+            log("pod ${row.id}: creator $owner cancelled the invitation of ${identity(sql, target).username} ($target); " +
+                "$left invitation(s) still pending${if (disarmed) "; auto-start off, no invitation left to wait for" else ""}")
+            save(sql, row); detail(sql, row, owner)
+        }
+
+    /**
+     * DRF-308 (owner, 2026-11-22): the creator removes the member [PodAccountRequest.accountId] (never themselves) while the
+     * pod is in setup; refused once the draft has started. The pod leaves the removed player's lists, they get the notice
+     * "Removed from <pod>" (DRF-137), and they can be invited again.
+     */
+    fun removeMember(principal: AccountService.Principal, id: String, input: PodAccountRequest): Result =
+        mutate(principal, id, input.requestId, "removePodMember", json.encodeToJsonElement(input)) { sql, owner, row ->
+            fun refuse(refusal: Result) = refused(row, owner, "removal", input.accountId, refusal)
+            creator(row, owner)?.let { return@mutate refuse(it) }
+            if (!DeckValidation.uuid(input.accountId)) return@mutate refuse(error(400, "invalid_account"))
+            val target = UUID.fromString(input.accountId)
+            if (target == row.creatorId) return@mutate refuse(error(409, "creator_cannot_be_removed"))
+            if (row.phase != "SETUP") return@mutate refuse(error(409, "not_setup"))
+            if (members(sql, row.id!!).none { it.accountId == target }) return@mutate refuse(error(404, "member_not_found"))
+            sql.deleteFrom(MEMBER).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(target)).execute()
+            ActivityService.record(sql, target, ActivityKind.POD_MEMBER_REMOVED, row.id!!, UUID.randomUUID(), owner)
+            log("pod ${row.id} (${row.name}): creator $owner removed the member ${identity(sql, target).username} ($target) in setup; " +
+                "${members(sql, row.id!!).size} member(s) left; they were sent \"Removed from ${row.name}\"")
+            save(sql, row); detail(sql, row, owner)
+        }
+
     fun invitation(principal: AccountService.Principal, id: String, input: PodRequest, accept: Boolean): Result =
         mutate(principal, id, input.requestId, if (accept) "acceptPod" else "declinePod", json.encodeToJsonElement(input)) { sql, owner, row ->
             if (row.phase != "SETUP") return@mutate error(409, "invitation_unavailable")

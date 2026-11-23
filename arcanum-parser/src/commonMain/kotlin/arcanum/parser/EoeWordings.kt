@@ -202,7 +202,7 @@ internal object Eoe {
     val A_PLAYER_CONTROLS_NO = Regex("""a player controls no (.+)""")
     val UNTIL_EOT_GAINS_QUOTED_THEN = Regex("""(Until end of turn, target .+? gains ".+?") (That creature's controller may .+)""")
 
-    val IF_IT_HAS_COUNTER = Regex("""If it has an? (\S+) counter on it, (.+)""")
+    val IF_IT_HAS_COUNTER = Regex("""If it has an? (?:(\S+) )?counter on it, (.+)""")
     val GET_IF_NOT_YOUR_TURN_UNTAP_THOSE = Regex("""(Creatures you control) get \+(\d+)/\+(\d+) until end of turn\. If it's not your turn, untap those creatures\.""")
     val IT_DEALS_THAT_MUCH_TO_EACH_OPPONENT = Regex("""[Ii]t deals that much damage to each opponent\.""")
 

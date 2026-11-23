@@ -131,6 +131,8 @@ internal object DftPhrases {
         when (text) {
             // dft chunk 01: "your life total" (CR 119)
             "your life total" -> return Value.LifeOf(Players.You)
+            // snc chunk 07: "your starting life total" (CR 103.4)
+            "your starting life total" -> return Value.StartingLife(Players.You)
             // dft chunk 06: "your speed" (CR 702.179f: 0 without speed)
             "your speed" -> return Value.Speed(Players.You)
         }

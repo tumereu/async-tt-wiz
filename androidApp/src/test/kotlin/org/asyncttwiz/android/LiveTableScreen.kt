@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Looper
 import android.os.SystemClock
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -17,14 +18,15 @@ import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.android.EngineGameFixture.Choices
 import org.robolectric.Shadows.shadowOf
 import java.time.Duration
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * [kit]'s Alice's app drawn by [compose] ([TableScreen]) and run frame by frame on the test's clock: each frame the main
- * looper's clock keeps up with the frame clock, the network and Bob's phone go on ([LiveTableKit.pump]) and the table's
- * background work (Automatum's combat, casts and shared values, off the main thread) is waited for, so every frame shows the
- * same whatever the machine's speed and every wait is the app's own on the clock. [moments] gathers what happened, each line
- * with its time since [origin] (the app log's lines, what crossed Alice's connection, each play shown's time).
+ * looper's clock keeps up with the frame clock and the network and Bob's phone go on ([LiveTableKit.pump]). Nothing runs off
+ * the main thread: the device's engine game runs inline ([EngineWorker.Direct]) and so does the table's Automatum work (its
+ * casts, shared flows, combat and board values: [LocalAutomatumWork] is [AutomatumWork.Inline]), so every frame depends only on
+ * the test's clocks, never on how fast the machine's threads run, and every wait is the app's own on the clock. [moments]
+ * gathers what happened, each line with its time since [origin] (the app log's lines, what crossed Alice's connection, each
+ * play shown's time).
  */
 internal class LiveTableScreen(private val compose: ComposeContentTestRule, val kit: LiveTableKit) : AutoCloseable {
     val moments = mutableListOf<String>()
@@ -53,13 +55,15 @@ internal class LiveTableScreen(private val compose: ComposeContentTestRule, val 
             inputs.filterIsInstance<TableToolkitController>().firstOrNull()?.takeIf { it !== toolkit }?.let { found ->
                 toolkit = found
                 (found.engine as? EngineTableRoutes)?.stackAnimation?.let(::onFrameClock)
-                // The work the table does for its shown board on the coroutines' threads (the shared panels' values, the
-                // combat worked out) done on the main thread as it is asked, as tests of the table do: no thread to wait for
-                TableToolkitController::class.java.getDeclaredField("automatumWork").apply { isAccessible = true }
-                    .set(found, AutomatumWork.Inline)
             }
         }
-        compose.setContent { MaterialTheme { NoRipples { TableScreen(kit.lobby, kit.f.a, {}, false) } } }
+        // The table's Automatum work done on the main thread as it is asked, as tests of the table do: on a busy machine a
+        // worker thread's result could come in a frame later than on an idle one
+        compose.setContent {
+            CompositionLocalProvider(LocalAutomatumWork provides AutomatumWork.Inline) {
+                MaterialTheme { NoRipples { TableScreen(kit.lobby, kit.f.a, {}, false) } }
+            }
+        }
         world()
         run(settle)
     }
@@ -75,25 +79,24 @@ internal class LiveTableScreen(private val compose: ComposeContentTestRule, val 
     }
 
     /** The world besides the table for the frame now: the main looper's (Robolectric's) clock kept up with the frame clock
-     * (it may run ahead: each wait for the composition and each capture moves it on), the network and Bob's phone, the
-     * background work. */
+     * (it may run ahead: each wait for the composition and each capture moves it on), the network and Bob's phone, and what
+     * they started composed. */
     fun world() {
         val behind = clockBase + compose.mainClock.currentTime - SystemClock.uptimeMillis()
         if (behind > 0) looper.idleFor(Duration.ofMillis(behind)) else looper.idle()
         kit.pump()
-        backgroundIdle()
+        settled()
     }
 
-    /** Moves the frame clock on by [millis] a frame at a time, the table's background work done after each frame, so what a
-     * frame started comes in at the same frame whatever the machine's speed. */
+    /** Moves the frame clock on by [millis] a frame at a time, what is due on the main looper run before and after each
+     * frame. */
     fun advance(millis: Long) {
         var left = millis
         while (left > 0) {
             val step = minOf(FRAME_MILLIS, left)
-            // What the last frame (or a capture's wait for the composition) started is done before the next frame
-            backgroundDone()
+            looper.idle()
             compose.mainClock.advanceTimeBy(step)
-            backgroundDone()
+            looper.idle()
             left -= step
         }
     }
@@ -120,39 +123,14 @@ internal class LiveTableScreen(private val compose: ComposeContentTestRule, val 
         return done()
     }
 
-    /** The table's background work done and its results in, composed, and what that started done too. Each wait for the
-     * composition to be idle moves the main looper's clock on by about a frame, so there is one. */
-    private fun backgroundIdle() {
+    /** What the network and Bob's phone brought composed, and what that started too. Each wait for the composition to be
+     * idle moves the main looper's clock on by about a frame, so there is one. */
+    private fun settled() {
         repeat(3) {
-            backgroundDone()
+            looper.idle()
             compose.waitForIdle()
         }
-        backgroundDone()
-    }
-
-    /** Automatum's workers have done what was given them before now, no background thread has worked for a few
-     * milliseconds (a coroutine just sent to the default threads takes a moment to wake one), and their results posted to
-     * the main thread are in. */
-    private fun backgroundDone() {
-        val done = AtomicBoolean(false)
-        val board = AtomicBoolean(false)
-        AutomatumWork.Background.run({ }) { done.set(true) }
-        AutomatumBoards.boardWorker.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable { board.set(true) })
-        val until = System.nanoTime() + 30_000_000_000L
-        var quiet = 0
-        while (!done.get() || !board.get() || quiet < 5) {
-            looper.idle()
-            Thread.sleep(1)
-            quiet = if (backgroundBusy()) 0 else quiet + 1
-            check(System.nanoTime() < until) { "The table's background work never ended" }
-        }
         looper.idle()
-    }
-
-    /** Whether a thread the table works on in the background (Automatum's, the shared panels' values on the coroutines'
-     * default threads) is working now. */
-    private fun backgroundBusy(): Boolean = Thread.getAllStackTraces().keys.any { t ->
-        t.state == Thread.State.RUNNABLE && (t.name.startsWith("DefaultDispatcher-worker") || t.name.startsWith("automatum"))
     }
 
     private fun name(id: String) = listOf(kit.f.game.inviter, kit.f.game.recipient).single { it.accountId == id }.username

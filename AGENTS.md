@@ -147,7 +147,8 @@ you update the catalog to match; everywhere else the catalog wins.
   changed modules and their dependents, `:androidApp:testDebugUnitTest`, the
   on-device tests' compile, the web build and an e2e smoke set there, and moves
   master to exactly that tested merge only if all pass (documentation-only merges:
-  the catalog check), then pushes master to origin. Workers never merge to master. A git hook refuses every other
+  the catalog check; a set's chunk merges, `--light`: only the set's own suites, the set's close runs the full
+  gate), then pushes master to origin. Workers never merge to master. A git hook refuses every other
   update of master (a plain merge, fast-forward or commit on master); enable it once
   per clone with `git config core.hooksPath "$(git rev-parse --show-toplevel)/.githooks"`
   in the main checkout. Emergency override, coordinator only:

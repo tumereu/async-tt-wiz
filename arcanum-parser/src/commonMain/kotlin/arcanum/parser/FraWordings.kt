@@ -64,7 +64,7 @@ internal object Fra {
     val SPELLS_HAVE_KEYWORD = Regex("""(.+? spells you control) have ([a-z ]+)\.""")
     val SPELLS_OPPONENTS_CAST_COST_MORE = Regex("""(.+? spells) your opponents cast cost (\{\d+\}) more to cast\.""")
     val COSTS_X_LESS_WHERE = Regex("""(.+?) costs \{X\} less to cast, where X is (.+)\.""")
-    val COSTS_LESS_IF = Regex("""(.+?) costs ((?:\{[^}]+\})+) less to cast (if .+?)\.""")
+    val COSTS_LESS_IF = Regex("""(.+?) costs ((?:\{[^}]+\})+) less to cast if (.+?)\.""") // snc chunk 07: the condition without "if"
     val GETS_FOR_EVERY = Regex("""(.+?) gets \+(\d+)/\+(\d+) for every (\w+) (cards in your graveyard)\.""")
     val COUNTERS_PLUS = Regex("""If one or more (\S+) counters would be put on (an? .+?), that many plus (\w+) (\S+) counters are put on (?:it|that permanent|that creature) instead\.""") // mom: "that permanent"
     // trk chunk 09: also any tokens ("If one or more tokens would be created under your control, that many 3/3 … tokens are created instead.")
@@ -225,7 +225,7 @@ internal object FraPhrases {
 
     private val OPPONENT_DEALT_NONCOMBAT = Regex("""an opponent (?:was|has been) dealt noncombat damage (this|last) turn""")
     private val DRAWN_N_THIS_TURN = Regex("""you've drawn (\w+) or more cards this turn|you've drawn more than (\w+) cards? this turn""")
-    private val LOYALTY_AMONG = Regex("""there are (\S+) or more loyalty counters among (.+)""")
+    private val LOYALTY_AMONG = Regex("""there are (\S+) or more (?:(\S+) )?counters among (.+)""")
     private val NUMBER_WORDS = mapOf("twenty-five" to 25)
 
     fun condition(text: String, self: Set<String>): Condition? {
@@ -258,8 +258,10 @@ internal object FraPhrases {
         // fra chunk 09: "there are twenty-five or more loyalty counters among Jaces you control"
         LOYALTY_AMONG.matchEntire(text)?.let { m ->
             val n = NUMBER_WORDS[m.groupValues[1]] ?: Numbers.count(m.groupValues[1]) ?: return null
-            val among = Filters.noun(m.groupValues[2]) ?: return null
-            return Condition.Compare(Value.Of(NumericProperty.Counters(CounterKind.Loyalty), Objects.Each(among), Combine.Total), Comparison.AtLeast, Value.Fixed(n))
+            // snc chunk 06: any kind too ("there are two or more counters among creatures you control", CR 122.1)
+            val kind = if (m.groupValues[2].isEmpty()) null else Counters.kind(m.groupValues[2]) ?: return null
+            val among = Filters.noun(m.groupValues[3]) ?: return null
+            return Condition.Compare(Value.Of(NumericProperty.Counters(kind), Objects.Each(among), Combine.Total), Comparison.AtLeast, Value.Fixed(n))
         }
         return null
     }

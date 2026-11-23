@@ -27,9 +27,11 @@ import kotlin.test.fail
  * engine game, so [TableScreen] draws her table as the phone does, every wait on the clock (the test's frame clock and the
  * main looper's, moved together by [frame]). Before the table opens, both play on directly ([playUntil]) to the board a
  * test looks at; [open] then loads Alice's app there. Both players have a new game's settings (Quick, "No mana",
- * LOB-113). The server answers at once: no network time.
+ * LOB-113). The server answers at once: no network time. The devices' random ids and seeds are seeded.
  */
 internal class LiveTableKit(val f: EngineGameFixture) : AutoCloseable {
+    // The devices' request ids and seeds the same on every run (DeviceRandom.seeded)
+    init { DeviceRandom.seeded(LIVE_TABLE_SEED) }
     val sim = EngineAppSim(f).apply { settings[f.a] = PlaySettings.NEW_GAMES; settings[f.b] = PlaySettings.NEW_GAMES }
     val me = PlayerId(f.a)
     val other = PlayerId(f.b)
@@ -223,5 +225,10 @@ internal class LiveTableKit(val f: EngineGameFixture) : AutoCloseable {
         }
     }
 
-    override fun close() { if (::lobby.isInitialized) { lobby.close(); worker.drain() } }
+    override fun close() {
+        if (::lobby.isInitialized) { lobby.close(); worker.drain() }
+        DeviceRandom.seeded(null)
+    }
 }
+
+private const val LIVE_TABLE_SEED = 20261123L

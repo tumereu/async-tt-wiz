@@ -400,6 +400,10 @@ sealed interface Effect {
     /** Put on each of [objects] one counter of each kind the triggering event put ("put one of each of those kinds of counters on up to
      * one other target creature", CR 122.1). */
     @Serializable @SerialName("put-event-counter-kinds") data class PutEventCounterKinds(val objects: Objects) : Effect
+    // snc chunk 08
+    /** "For each kind of counter among [among], put a counter of that kind on either of [onto]": the kinds on [among] as it resolves, then
+     * one counter of each kind on one of [onto] the controller chooses for that kind (CR 122.1, 608.2d). */
+    @Serializable @SerialName("put-counter-kinds-among") data class PutCounterKindsAmong(val among: Objects, val onto: Objects) : Effect
     // msh
     /** For each kind of counter on each of [recipients], give it another counter of that kind ("For each kind of counter on
      * target permanent or player, give that permanent or player another counter of that kind"; as proliferate does for

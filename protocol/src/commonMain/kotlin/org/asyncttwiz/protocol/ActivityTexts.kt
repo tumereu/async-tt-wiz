@@ -84,6 +84,8 @@ object ActivityTexts {
         ActivityKind.POD_DRAFT_COMPLETE -> "Draft complete: build your deck"
         ActivityKind.POD_DRAFT_CANCELLED -> "Draft cancelled"
         ActivityKind.POD_DESTROYED -> "Pod destroyed"
+        // DRF-308: the creator removed you in setup
+        ActivityKind.POD_MEMBER_REMOVED -> "Removed from ${name ?: "a pod"}"
         ActivityKind.POD_AUTO_START_OFF -> name?.let { "Auto-start off — $it" } ?: "Auto-start off"
         // Game history §4.5: the cleanup's warning 3 days before a stalled pod is deleted
         ActivityKind.POD_REMOVAL -> "${name ?: "Pod"}: Removed in 3 days if nobody picks or plays"

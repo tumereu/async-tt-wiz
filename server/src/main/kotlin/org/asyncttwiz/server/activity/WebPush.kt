@@ -229,7 +229,7 @@ object WebPushNotices {
         val tag = ActivityNotices.key(hint)
         val path = when {
             kind == ActivityKind.INVITATION && hint.held && hint.podId != null -> "/pods/${hint.podId}/games"
-            kind == ActivityKind.POD_DESTROYED -> "/pods"
+            kind == ActivityKind.POD_DESTROYED || kind == ActivityKind.POD_MEMBER_REMOVED -> "/pods"
             ActivityTexts.pod(kind) -> "/pods/${hint.gameId}"
             else -> "/games/${hint.gameId}"
         }

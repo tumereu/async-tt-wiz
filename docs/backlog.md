@@ -16,11 +16,6 @@ Catalog review notes (owner, 2026-11-22):
 - Solo draft: one person with bots (today bots leave room for two people, DRF-296), with a warning that there is no one in the pod to play against (bots play no games, DRF-301).
 - A pod challenge declined on one device can keep its notification on your other devices until you submit your deck (DRF-135, DRF-138, LOB-243).
 
-Playtest notes (owner, 2026-11-22):
-
-- Pod setup's bots and members (DRF-296, DRF-030): an "Add bot" button instead of the Bots stepper, and a ✕ on each bot row to remove it; the same ✕ on pending invitations (cancels the invitation) and on joined members (removes them, in setup only, before the draft starts; the removed player gets a notification "Removed from <pod>" and can be invited again). New server actions with tests; e2e of the flow.
-
-
 ### Earlier
 
 Desktop playtest notes (owner, 2026-11-14): high priority.

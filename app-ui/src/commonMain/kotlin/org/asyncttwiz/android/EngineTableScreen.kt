@@ -61,6 +61,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
     }
     val services = AppServices.current
     val tokenArt = remember(services) { AndroidTokenArt.of(services) }
+    val automatumWork = LocalAutomatumWork.current
     val shortNote = rememberShortNote()
     val playId = live.playId
     val toolkit = remember(controller, game.id, playId, accountId) {
@@ -70,7 +71,7 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
             ending = { intent -> engineEnding(routes, intent) },
             waitingForConnection = { game.id !in controller.table.value.connectedGames },
             playBatch = { actions, requestId -> routes.local(actions, requestId) },
-            automatumWork = AutomatumWork.Background, tokenArt = tokenArt, engine = routes,
+            automatumWork = automatumWork, tokenArt = tokenArt, engine = routes,
             // TRN-064: Concede whenever the player is at the table, their move or not
             atTable = { game.id !in controller.table.value.reconnectingGames && routes.review == null })
     }

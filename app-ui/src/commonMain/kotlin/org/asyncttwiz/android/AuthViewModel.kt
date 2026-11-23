@@ -54,7 +54,9 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
                 pods.showList()
                 return
             }
-            if (route.kind == org.asyncttwiz.protocol.ActivityKind.POD_INVITATION) pods.showList() else pods.open(route.gameId)
+            // DRF-308: a removal opens the Pods list (the pod is no longer the player's)
+            if (route.kind == org.asyncttwiz.protocol.ActivityKind.POD_INVITATION || route.kind == org.asyncttwiz.protocol.ActivityKind.POD_MEMBER_REMOVED)
+                pods.showList() else pods.open(route.gameId)
             return
         }
         controller.navigate(ShellDestination.GAMES)

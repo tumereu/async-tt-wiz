@@ -53,7 +53,7 @@ sealed interface Value {
     @Serializable @SerialName("starting-life") data class StartingLife(val players: Players) : Value
     /** Mana spent to cast [of] (this object, or "that spell" in a cast trigger): all of it, only mana of [color]
      * ("if at least three white mana was spent"), or the number of colours ([distinctColors]). A permanent keeps this
-     * from the spell it was (CR 400.7d). */
+     * from the spell it was (CR 400.7d). snc: [of] = [Objects.ThisAbility] is the mana spent to activate this ability (CR 602.2b). */
     @Serializable @SerialName("mana-spent") data class ManaSpent(
         val color: Color? = null, val distinctColors: Boolean = false, val of: Objects,
         // hob

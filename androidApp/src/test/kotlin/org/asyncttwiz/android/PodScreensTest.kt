@@ -279,20 +279,17 @@ class PodScreensTest {
         compose.onNodeWithText("drafting").assertIsDisplayed()
     }
 
-    // DRF-296 (owner, 2026-11-21): the Bots stepper: + and − change the bot seats one a tap, never past 0 or the mode's most
-    // (Booster 6), − greyed at 0 and + at the most
-    @Test fun botsStepperChangesTheSeatsWithinTheirRange() {
+    // DRF-296 (owner, 2026-11-22): Add bot adds one bot seat a tap up to the mode's most (Booster 6), where it greys with the
+    // reason on hold
+    @Test fun addBotAddsSeatsUpToTheModesMost() {
         var settings by mutableStateOf(DraftSettings.booster().copy(bots = 5))
-        compose.setContent { ScreenTheme { PodBotsStepper(settings, true, { change -> settings = change(settings) }) } }
-        compose.onNodeWithTag("pod-bots-value").assertTextEquals("5")
-        compose.onNodeWithTag("pod-bots-more").assertIsEnabled().performClick()
-        compose.onNodeWithTag("pod-bots-value").assertTextEquals("6")
-        compose.onNodeWithTag("pod-bots-more").assertIsNotEnabled()
-        compose.runOnIdle { settings = settings.copy(bots = 1) }
-        compose.onNodeWithTag("pod-bots-fewer").assertIsEnabled().performClick()
-        compose.onNodeWithTag("pod-bots-value").assertTextEquals("0")
-        compose.onNodeWithTag("pod-bots-fewer").assertIsNotEnabled()
-        compose.runOnIdle { assertEquals(0, settings.bots) }
+        compose.setContent { ScreenTheme { PodAddBotButton(settings, true, { settings = settings.withBots(settings.bots + 1) }) } }
+        compose.onNodeWithTag("pod-add-bot").assertIsEnabled().assertTextEquals("Add bot").performClick()
+        compose.runOnIdle { assertEquals(6, settings.bots) }
+        compose.onNodeWithTag("pod-add-bot").assertIsNotEnabled()
+        assertEquals("Booster takes at most 6 bots", podAddBotBlocked(settings))
+        assertEquals("Grid takes at most 2 bots", podAddBotBlocked(DraftSettings.grid().copy(bots = 2)))
+        assertNull(podAddBotBlocked(DraftSettings.grid().copy(bots = 1)))
     }
 
     // SYS-024

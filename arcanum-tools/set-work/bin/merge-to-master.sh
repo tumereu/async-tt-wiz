@@ -9,7 +9,9 @@
 #                                       merge, the parser and engine suites with the long classes, setSupport, the tools
 #                                       tests and the automatum check again
 #   merge-to-master.sh <code> --chunk   an accepted green chunk mid-set (set-tests.sh --full ran the automatum and Wasm
-#                                       compiles already): in the gate, the parser and engine Wasm compiles
+#                                       compiles already): the gate's light mode (owner, 2026-11-23: no app checks per
+#                                       chunk), only the parser, engine and automatum suites and the parser and engine
+#                                       Wasm compiles on the merge; the close's full gate runs the app's checks
 # After merging, set/<code> is fast-forwarded to the merge (its tree is master's) and the base snapshot is retaken from
 # it, so the next chunk's comparison shows only its changes.
 # Run from the set's worktree root. Exit 0 merged; 2 usage or setup; 3 master or its checkout not ready (retry in a few
@@ -37,7 +39,7 @@ if [ $mode = full ]; then
   extras=(--extra ":arcanum-parser:jvmTest :arcanum-engine:jvmTest :arcanum-tools:setSupport :arcanum-tools:test --continue"
           --extra "$automatum")
 else
-  extras=(--extra ":arcanum-parser:compileKotlinWasmJs :arcanum-engine:compileKotlinWasmJs")
+  extras=(--light --extra "-Parcanum.skipLongTests=true :arcanum-parser:jvmTest :arcanum-engine:jvmTest :automatum:jvmTest :arcanum-parser:compileKotlinWasmJs :arcanum-engine:compileKotlinWasmJs --continue")
 fi
 root=$(git rev-parse --show-toplevel)
 "$root/scripts/merge-gate.sh" "$branch" "${extras[@]}"

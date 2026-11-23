@@ -156,6 +156,7 @@ internal object SpmPhrases {
         }
         // spm chunk 07: "two or more creatures entered the battlefield under your control this turn"
         // woe chunk 06: Celebration (an ability word, CR 207.2c), "two or more nonland permanents entered ..."
+        // snc chunk 07: "you had two or more creatures enter the battlefield under your control this turn"
         ENTERED_UNDER_YOUR_CONTROL_THIS_TURN.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             val noun = Filters.noun(m.groupValues[2].removeSuffix("s")) ?: return null
@@ -195,6 +196,6 @@ internal object SpmPhrases {
     private val WAS_CAST_USING = Regex("""(.+?) (?:was|were) cast using ([a-z-]+)""")
     private val WAS_CAST_FROM = Regex("""(.+?) was cast from your (graveyard|hand)""")
     private val IS_A_TYPE = Regex("""(.+?) is an? (creature|land|artifact)""")
-    private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""(\w+) or more (.+?) entered the battlefield under your control this turn""")
+    private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""(?:you had )?(\w+) or more (.+?) enter(?:ed)? the battlefield under your control this turn""")
     private val CAST_SPELL_THIS_TURN = Regex("""you've cast an? (spell with mana value \d+ or greater) this turn""")
 }

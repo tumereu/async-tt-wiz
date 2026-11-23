@@ -300,7 +300,7 @@ internal object Actions {
                 is Modification.EntersMarked -> if (move.to in arcanum.api.MarkRules.of(mod.mark).zones) move.copy(marks = move.marks + mod.mark) else move
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
-                is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage,
+                is Modification.AlsoCreate, is Modification.CreateInstead, is Modification.CreateInsteadChosen, Modification.HealsOtherDamage,
                 is Modification.RaiseAmountTo, is Modification.ProducesInstead -> move
                 // fin: "Lands you control enter untapped" (CR 614.1d), in the chosen order with "enters tapped" (CR 616.1e)
                 Modification.EntersUntapped -> if (move.to == Zone.Battlefield) move.copy(tapped = false) else move
@@ -495,7 +495,9 @@ internal object Actions {
         // bro chunk 03: "its power and toughness are equal to this creature's" fixed as it enters (CR 707.9b, 719.3b)
         val except = arcanum.engine.view.Copiable.ownPowerToughness(mod.except, e.characteristics(m.id))
         val copy = m.copy(copyOf = of to except, copyDuration = mod.duration, tapped = m.tapped || mod.tapped)
-        val counters = mod.withCounters.filter { copy.to == Zone.Battlefield && entersAs(act, copy, it.ifEntersAs, controller) }.map { it.kind to e.value(it.amount) } +
+        val counters = mod.withCounters.filter { copy.to == Zone.Battlefield && entersAs(act, copy, it.ifEntersAs, controller) &&
+                // snc chunk 08: "if you control that creature": the object copied (CR 614.1c)
+                it.ifCopied.let { f -> f == null || e.matches(f, of) } }.map { it.kind to e.value(it.amount) } +
             // trk chunk 10: the counters the copied permanent has, each kind (CR 614.1c)
             (if (mod.copiedCounters && copy.to == Zone.Battlefield) act.state.obj(of)?.counters.orEmpty().filter { it.count > 0 }.map { it.kind to it.count } else emptyList())
         return if (counters.isEmpty()) copy else copy.copy(counters = copy.counters + counters)
@@ -1128,6 +1130,13 @@ internal object Actions {
                         is Modification.AlsoCreate -> tokenValues(act, e, mod.token)?.let { v -> result?.plus(v to e.value(mod.count)) } ?: result
                         // fra: the matching tokens are created as another token instead, as many (CR 614.1a); as a copy of nothing, none (CR 609.3)
                         is Modification.CreateInstead -> result?.mapNotNull { (f, k) -> if (matches(f)) tokenValues(act, e, mod.token)?.let { it to k } else f to k }
+                        // snc: the replacement's controller chooses which token, once for the event (CR 614.1a)
+                        is Modification.CreateInsteadChosen -> {
+                            val options = mod.tokens.mapNotNull { tokenValues(act, e, it) }
+                            val labels = options.mapIndexed { i, v -> v.faces.first().name.let { n -> if (options.count { o -> o.faces.first().name == n } > 1) "$n ${i + 1}" else n } }
+                            val chosen = if (options.isEmpty()) null else options[labels.indexOf(act.chooseOption(r.controller, r.source, labels, text = "Create which tokens instead?"))]
+                            result?.mapNotNull { (f, k) -> if (matches(f)) chosen?.let { it to k } else f to k }
+                        }
                         is Modification.EntersTapped -> result
                         else -> result
                     }

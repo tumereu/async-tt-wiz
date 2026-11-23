@@ -19,7 +19,6 @@ Catalog review notes (owner, 2026-11-22):
 Playtest notes (owner, 2026-11-22):
 
 - Mana with restrictions or properties (owner, 2026-11-22; after STK-228 is built): pool mana that carries a spending restriction or a property ("Spend this mana only to cast creature spells", "If this mana is spent on a creature spell, it can't be countered", snow) shows the violet sparkle of TBL-136 wherever pool mana shows, and holding it shows the restriction in its own words with the source that made it ("From <card>: Spend this mana only to cast creature spells."), never generic text; the engine carries each mana's restriction/property text from the ability that made it (STK-228).
-- Pod setup's bots and members (DRF-296, DRF-030): an "Add bot" button instead of the Bots stepper, and a ✕ on each bot row to remove it; the same ✕ on pending invitations (cancels the invitation) and on joined members (removes them, in setup only, before the draft starts; the removed player gets a notification "Removed from <pod>" and can be invited again). New server actions with tests; e2e of the flow.
 
 
 ### Earlier

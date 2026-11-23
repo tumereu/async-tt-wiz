@@ -47,7 +47,7 @@ class PodHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 action == "cube" || action == "draft/history" -> "GET"
                 action == "chat" -> "GET, POST"
                 action == "chat/read" -> "GET, PUT"
-                action in listOf("invitations", "accept", "decline", "start", "auto-start", "pick", "grid/select", "turn", "submit", "leave", "cancel", "challenge") -> "POST"
+                action in listOf("invitations", "invitations/cancel", "members/remove", "accept", "decline", "start", "auto-start", "pick", "grid/select", "turn", "submit", "leave", "cancel", "challenge") -> "POST"
                 action in listOf("cube/move", "build/move", "build/basics", "build/name", "build/cover", "build/notes", "draft/marks", "rotisserie/queue", "rotisserie/seen") -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
@@ -76,6 +76,9 @@ class PodHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
                     action == "" -> pods.update(principal, id, json.decodeFromString<UpdatePod>(text))
                     action == "cube/move" -> pods.moveCube(principal, id, json.decodeFromString<MovePodCubeCards>(text))
                     action == "invitations" -> pods.invite(principal, id, json.decodeFromString<InviteToPod>(text))
+                    // DRF-307, DRF-308: the creator cancels an invitation or removes a member in setup
+                    action == "invitations/cancel" -> pods.cancelInvitation(principal, id, json.decodeFromString<PodAccountRequest>(text))
+                    action == "members/remove" -> pods.removeMember(principal, id, json.decodeFromString<PodAccountRequest>(text))
                     action == "accept" || action == "decline" -> pods.invitation(principal, id, json.decodeFromString<PodRequest>(text), action == "accept")
                     action == "start" -> pods.start(principal, id, json.decodeFromString<PodRequest>(text))
                     action == "auto-start" -> pods.autoStart(principal, id, json.decodeFromString<SetPodAutoStart>(text))

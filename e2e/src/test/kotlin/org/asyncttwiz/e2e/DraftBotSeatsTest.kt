@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
 
 /** Draft bot seats (owner, 2026-11-21): a pod's creator adds bots in setup, and two people draft with them to the end. */
 class DraftBotSeatsTest : E2e() {
-    // DRF-296, DRF-297, DRF-298, DRF-301, DRF-030, DRF-043: Alice taps + twice on the Bots stepper beside her Booster pod's invite button
+    // DRF-296, DRF-297, DRF-298, DRF-301, DRF-030, DRF-043: Alice taps Add bot twice beside her Booster pod's invite button
     // in setup (there is no Bots tile) and sees Bot 1 and Bot 2 listed as bots (Members 3/8); she invites Bob from the invite picker,
     // which stays open marking him "invited"; he joins and the draft starts; the bots are in the header's avatars and pick at once on the server, so Alice (on her phone) and Bob (over the API) draft
     // to the end without ever waiting for a bot; the history's seat ring alternates people and bots; the Games tab then lists only Bob
@@ -28,12 +28,12 @@ class DraftBotSeatsTest : E2e() {
         val pod = ServerSetup.setupPod(alice.account, name, settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 3))
         alice.auth.navigate(ShellDestination.PODS)
         alice.pods.open(pod)
-        waitUntil("Alice's pod setup with the Bots stepper") { alice.shows(hasTestTag("pod-bots")) }
+        waitUntil("Alice's pod setup with Add bot") { alice.shows(hasTestTag("pod-add-bot")) }
 
-        // The stepper: + twice
+        // Add bot twice
         for (bots in 1..2) {
-            alice.tagged("pod-bots-more").performScrollTo().performClick()
-            waitUntil("$bots bots shown") { alice.shows(hasTestTag("pod-bots-value") and hasText("$bots")) }
+            alice.tagged("pod-add-bot").performScrollTo().performClick()
+            waitUntil("$bots bots shown") { alice.shows(hasContentDescription("Remove Bot $bots")) }
         }
         waitUntil("the bots saved and listed") {
             alice.pods.state.setup == null && alice.pods.state.pending == 0 && ServerSetup.pod(alice.account, pod).settings.bots == 2 &&

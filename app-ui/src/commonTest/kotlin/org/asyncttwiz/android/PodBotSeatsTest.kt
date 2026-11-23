@@ -11,9 +11,9 @@ class PodBotSeatsTest {
             List(members) { PodMember(account(it)) } + List(bots) { PodMember(PodBots.identity(it + 1), bot = true) },
             List(invited) { account(100 + it) }, updatedAt = "")
 
-    // DRF-296 (owner, 2026-11-21): bot seats have a stepper among the members, not a tile: 0 up to the engine's limit less
+    // DRF-296 (owner, 2026-11-21 and 2026-11-22): bot seats are added among the members (Add bot), not on a tile: 0 up to the engine's limit less
     // two, none in Sealed and Arena
-    @Test fun theBotsStepperFollowsTheMode() {
+    @Test fun theBotSeatsFollowTheMode() {
         val cube = PodSource("Cube", 540)
         for (mode in DraftMode.entries) assertEquals(PodSetting.SIDEBOARD, podSettingFields(DraftSettings.defaults(mode), cube).last(), "$mode: no Bots tile")
         assertEquals(0..6, podBotRange(DraftSettings.booster()))

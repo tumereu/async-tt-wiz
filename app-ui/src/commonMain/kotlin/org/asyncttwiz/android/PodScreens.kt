@@ -162,7 +162,20 @@ fun PodsDestination(controller: PodController, accountId: String, navigation: ((
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }
+    // DRF-308 (owner, 2026-11-22): the creator confirms removing a member, named
+    val removing = state.removing
+    if (removing != null && state.detail != null) {
+        ScreenDialog(controller::dismissRemoval, Modifier.testTag("pod-remove-dialog"), title = "Remove member", actions = {
+            DialogCancelButton("Cancel", controller::dismissRemoval)
+            DialogMainButton("Remove", controller::confirmRemoval, Modifier.testTag("pod-remove-confirm"), danger = true, icon = "logout")
+        }) {
+            Text(podRemovalText(removing, state.detail))
+        }
+    }
 }
+
+/** DRF-308: the removal's confirmation, naming the member and the pod. */
+fun podRemovalText(member: AccountIdentity, detail: PodDetail) = "Remove ${member.username} from ${detail.name}?"
 
 /** Available even when the original pod or opponent can no longer be opened. */
 @Composable
@@ -379,16 +392,35 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
             }
         // DRF-030, DRF-297: the bot seats count and are listed after the members
         Text("Members (${settings.seats(detail.members.size)}/${settings.mode.players.last})", style = MaterialTheme.typography.titleMedium)
-        detail.members.forEach { MemberLine(it.account, "accepted") }
-        podSetupBots(settings).forEach { MemberLine(it, "bot") }
-        detail.pendingInvitations.forEach { MemberLine(it, "invitation pending") }
+        // DRF-030 (owner, 2026-11-22): for the creator every row but their own ends in a ✕: a member's removes them (DRF-308,
+        // confirmed), a bot's removes that bot seat (DRF-296), a pending invitation's cancels it (DRF-307)
+        val removable = !state.uncertain
+        detail.members.forEach { member ->
+            MemberLine(member.account, "accepted") {
+                if (creator && member.account.accountId != detail.creator.accountId)
+                    ScreenIconButton("Remove ${member.account.username}", "close", { controller.requestRemoval(member.account) },
+                        Modifier.testTag("pod-remove-member-${member.account.accountId}"), enabled = removable)
+            }
+        }
+        podSetupBots(settings).forEachIndexed { index, bot ->
+            MemberLine(bot, "bot") {
+                if (creator) ScreenIconButton("Remove ${bot.username}", "close", { controller.removeBot(bot.username) },
+                    Modifier.testTag("pod-remove-bot-${index + 1}"), enabled = enabled)
+            }
+        }
+        detail.pendingInvitations.forEach { invitee ->
+            MemberLine(invitee, "invitation pending") {
+                if (creator) ScreenIconButton("Cancel ${invitee.username}'s invitation", "close", { controller.cancelInvitation(invitee) },
+                    Modifier.testTag("pod-cancel-invitation-${invitee.accountId}"), enabled = removable)
+            }
+        }
         if (creator) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ScreenOutlinedButton({ controller.chooseMember(true); lobby?.contacts(false) },
                     enabled = lobby != null && detail.members.size + detail.pendingInvitations.size < 8) { EntryIcon("Invite player", "person") }
                 Spacer(Modifier.weight(1f))
-                // DRF-296: the bot seats' stepper beside the invite button, in the modes that take bots
-                if (settings.mode.botSeats) PodBotsStepper(settings, enabled, controller::editSettings)
+                // DRF-296: Add bot beside the invite button, in the modes that take bots
+                if (settings.mode.botSeats) PodAddBotButton(settings, enabled, controller::addBot)
             }
             detail.autoStartOff?.let { Text(podAutoStartOffText(it, settings.mode), color = MaterialTheme.colorScheme.error) }
             val idle = state.setup == null && state.sourcePreview == null && state.pending == 0 && !state.uncertain

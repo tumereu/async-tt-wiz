@@ -19,4 +19,14 @@ internal object Snc {
     val ATTACHED_IS_ATTACKING = Regex("""(equipped|enchanted) creature is attacking( alone)?""")
     // snc chunk 04: "cards exiled with it" (in "the number of …")
     val CARDS_EXILED_WITH = Regex("""cards exiled with (.+)""")
+    // snc chunk 05: "This creature deals 1 damage to target creature that's blocking it." (granted to the attacker: "it" is this creature)
+    val DEALS_DAMAGE_TO_TARGET_BLOCKING_IT = Regex("""(.+?) deals (\w+) damage to target (.+?) that's blocking it\.""")
+    // snc chunk 05: 'Enchanted creature can't attack or block and has "{7}: ..."'
+    val ATTACHED_CANT_AND_HAS_QUOTED = Regex("""(?:Enchanted|Equipped) creature (can't .+?) and has "(.+)"""")
+    // snc chunk 05: "two or more Equipment are attached to it"
+    val ATTACHMENTS_ATTACHED_TO_IT = Regex("""(\w+) or more (.+?) are attached to it""")
+    // snc chunk 05: "All creatures attack enchanted creature's controller each combat if able."
+    val ALL_ATTACK_ATTACHED_CONTROLLER = Regex("""All (creatures) attack (?:enchanted|equipped) creature's controller each combat if able\.""")
+    // snc chunk 05: "Equipped permanent isn't a planeswalker and is a creature in addition to its other types."
+    val ATTACHED_ISNT_AND_IS_ADDITION = Regex("""(?:Enchanted|Equipped) permanent isn't an? (\w+) and is an? (\w+) in addition to its other types\.""")
 }

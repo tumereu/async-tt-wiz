@@ -137,6 +137,10 @@ internal object Filters {
         THAT_ARE_EQUIPPED.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype("Equipment"))))
         }
+        // snc chunk 05: "creature that's blocking this creature" (CR 509.1h)
+        SNC_BLOCKING_THIS_CREATURE.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Blocking(Objects.Self))
+        }
         // blb chunk 12: "other creature you control that's a token or a Rabbit"; rvr chunk 02: "card that's an instant or sorcery"
         THATS_A_OR_A.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(listOf(noun(m.groupValues[2]) ?: return null, noun(m.groupValues[3]) ?: return null)))
@@ -494,7 +498,7 @@ internal object Filters {
             .let { Mkm.OWNED_NOT_CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it } // mkm chunk 01
             .let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard").substringBefore(" from your graveyard").substringBefore(" in a graveyard") // chunk 31, otj chunk 04, mkm chunk 09
-            .substringBefore(" that has an Adventure").substringBefore(" you own in exile").substringBefore(" you don't own in exile") // woe chunk 08
+            .substringBefore(" that's blocking ") /* snc chunk 05 */.substringBefore(" that has an Adventure").substringBefore(" you own in exile").substringBefore(" you don't own in exile") // woe chunk 08
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
         // rvr chunk 04, lci chunk 10: "activated or triggered ability" (abilities on the Stack)
@@ -658,6 +662,7 @@ internal object Filters {
     private val OF_THAT_COLOR = Regex("""(.+) of that color""")
     private val THAT_ARE_EQUIPPED = Regex("""(.+) that (?:are|is) equipped""")
     private val WITH_ATTACHED = Regex("""(.+?) with an? ([A-Z]\w+) attached to (?:it|them)""")
+    private val SNC_BLOCKING_THIS_CREATURE = Regex("""(.+?) (?:that's )?blocking this creature""")
     private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or (?:an? )?(\w+)""")
     // blb chunk 11
     private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with (toughness greater than its power|power equal to its toughness)""")

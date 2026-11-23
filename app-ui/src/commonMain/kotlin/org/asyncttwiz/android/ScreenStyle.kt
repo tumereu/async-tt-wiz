@@ -163,7 +163,7 @@ fun DeckThumbnail(reference: org.asyncttwiz.storage.ArtworkReference?, name: Str
 /** The one title row of every regular screen: optional hamburger, title, trailing actions. */
 @Composable
 fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, titleModifier: Modifier = Modifier,
-    navigationDot: WaitingDot? = null, actions: @Composable RowScope.() -> Unit = {}) {
+    navigationDot: WaitingDot? = LocalNavigationDot.current, actions: @Composable RowScope.() -> Unit = {}) {
     // Fixed height: the title keeps its place whatever actions (or none) a screen shows.
     Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -171,7 +171,7 @@ fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, titleModifier:
         LocalScreenBack.current?.let { back ->
             HoldTip("Back") { IconButton(onClick = back, Modifier.testTag("screen-back")) { EntryIcon("Back", "back") } }
         }
-        // LOB-268: the Menu screen's hamburger carries the dot of what waits for you ([navigationDot])
+        // LOB-268: every hamburger carries the dot of what waits for you ([navigationDot]; the shell's, the open game or pod left out)
         if (navigation != null) WithNavigationDot(navigationDot) {
             HoldTip("Open navigation") { IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") } }
         }

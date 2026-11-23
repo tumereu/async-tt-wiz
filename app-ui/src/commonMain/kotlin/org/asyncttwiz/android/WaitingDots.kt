@@ -64,8 +64,8 @@ fun navigationDot(games: List<GameSummary>, pods: List<PodSummary>, accountId: S
     return waiting.maxByOrNull { it.dot.rank }
 }
 
-/** LOB-268: the dot the play screens' hamburgers (a game's table, a started pod's header, DRF-306) show; the shell works it
- * out with the game or pod open left out. */
+/** LOB-268: the dot every hamburger shows (a screen's header, a game's table, a started pod's header, DRF-306, the card list
+ * editors); the shell works it out with the game or pod open left out. */
 val LocalNavigationDot = compositionLocalOf<WaitingDot?> { null }
 
 /** LOB-267: the dot itself, the chat's unread dot's shape and size (LOB-163): a row's ("waiting-dot-…"), or with [hamburger]

@@ -43,26 +43,50 @@ class NetworkLink(target: String) : AutoCloseable {
     /** Every HTTP request this device sent through the link, as "METHOD /path" in the order sent (a test counts the
      * ones it cares about, say the deck service's). */
     val requests: MutableList<String> = Collections.synchronizedList(mutableListOf<String>())
-    private val requestLine = Regex("(?:^|\\n)(GET|POST|PUT|DELETE|PATCH) (/\\S*) HTTP/1\\.[01]\\r\\n")
+    private val requestLine = Regex("(GET|POST|PUT|DELETE|PATCH) (/\\S*) HTTP/1\\.[01]")
+    private val contentLength = Regex("(?im)^content-length:\\s*(\\d+)\\s*$")
+
+    /**
+     * The requests of one connection, read as HTTP frames them: a request's head up to its blank line, then as many bytes
+     * of body as its Content-Length says. A request that follows one with a body on the same kept-alive connection starts
+     * right after that body, not on a line of its own (a deck submit after an activity PUT went unseen, so unheld). Once a
+     * connection is upgraded (the game socket) the rest is its messages, not requests.
+     */
+    private inner class Requests(private val lastPath: java.util.concurrent.atomic.AtomicReference<String>) {
+        private val head = StringBuilder()
+        private var body = 0L
+        private var upgraded = false
+
+        fun read(bytes: ByteArray, count: Int) {
+            var text = String(bytes, 0, count, Charsets.ISO_8859_1)
+            while (text.isNotEmpty() && !upgraded) {
+                if (body > 0) {
+                    val skipped = minOf(body, text.length.toLong()).toInt()
+                    body -= skipped; text = text.substring(skipped); continue
+                }
+                head.append(text); text = ""
+                val end = head.indexOf("\r\n\r\n")
+                if (end < 0) { if (head.length > 64 * 1024) head.setLength(0); break }
+                val lines = head.substring(0, end)
+                text = head.substring(end + 4); head.setLength(0)
+                val match = requestLine.matchEntire(lines.substringBefore("\r\n")) ?: continue
+                requests += "${match.groupValues[1]} ${match.groupValues[2]}"
+                lastPath.set(match.groupValues[2])
+                body = contentLength.find(lines)?.groupValues?.get(1)?.toLong() ?: 0L
+                upgraded = Regex("(?im)^upgrade:").containsMatchIn(lines)
+            }
+        }
+    }
 
     private fun pump(from: Socket, to: Socket, incoming: Boolean, lastPath: java.util.concurrent.atomic.AtomicReference<String>) = Thread({
         try {
             val input = from.getInputStream(); val output = to.getOutputStream()
             val buffer = ByteArray(16 * 1024)
-            var carry = ""
+            val requests = if (incoming) null else Requests(lastPath)
             while (true) {
                 val n = input.read(buffer)
                 if (n < 0) break
-                if (!incoming) {
-                    // A request line may be split between reads: the unmatched tail is looked at again with the next read
-                    val text = carry + String(buffer, 0, n, Charsets.ISO_8859_1)
-                    var end = 0
-                    for (match in requestLine.findAll(text)) {
-                        requests += "${match.groupValues[1]} ${match.groupValues[2]}"; end = match.range.last + 1
-                        lastPath.set(match.groupValues[2])
-                    }
-                    carry = text.substring(maxOf(end, text.length - 512))
-                }
+                requests?.read(buffer, n)
                 synchronized(gate) { while (if (incoming) holding || heldAnswers.any { lastPath.get().startsWith(it) } else holdingOut) gate.wait() }
                 output.write(buffer, 0, n); output.flush()
             }

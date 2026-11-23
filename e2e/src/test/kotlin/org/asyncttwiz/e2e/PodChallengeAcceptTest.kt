@@ -100,14 +100,25 @@ class PodChallengeAcceptTest : E2e() {
         bob.node(hasClickAction() and hasAnyDescendant(hasText("Submit deck (${count()})"))).performClick()
         val confirm = hasClickAction() and hasAnyDescendant(hasText("Submit")) and hasAnyAncestor(isDialog())
         waitUntil("the Submit deck? dialog") { bob.shows(confirm) }
+        // The full run of 2026-11-23 (release 0.3.2): Bob pressed the Challenge as his submit landed and nothing happened, no
+        // lobby and nothing said. The submit's answer is held here, so the press falls in that window every time: it waits
+        // for the answer and accepts then
+        val submit = "/v1/pods/$pod/submit"
+        bob.link.holdAnswers(submit)
         bob.node(confirm).performClick()
         waitUntil("Bob's deck submitted on the server") { ServerSetup.pod(bob.account, pod).submitted }
 
-        // At once, the Challenge beside Alice, whichever it is now
+        // At once, the Challenge beside Alice, whichever it is now, while his phone still waits for the submit's answer. The
+        // button itself, enabled: its icon (which holds the description) counts as enabled also in a greyed button, and the
+        // full run's press was likely one of a greyed plain Challenge
         val accept = hasTestTag("pod-challenge-accept-${alice.id}") and isEnabled()
-        val plain = hasContentDescription("Challenge") and isEnabled()
+        val plain = hasClickAction() and isEnabled() and hasAnyDescendant(hasContentDescription("Challenge"))
         waitUntil("a Challenge beside Alice to press") { bob.pods.state.tab == PodTab.GAMES && (bob.shows(accept) || bob.shows(plain)) }
+        assertTrue(bob.pods.state.pending > 0, "the submit's answer still on its way")
         bob.node(if (bob.shows(accept)) accept else plain).performScrollTo().performClick()
+        run(skip = java.time.Duration.ofMillis(500))
+        assertTrue(bob.pods.state.pending > 0, "the press made before the submit's answer came")
+        bob.link.releaseAnswers(submit)
         waitUntil("a game's lobby open on Bob's phone") { bob.lobby.state.selected != null }
         assertEquals(game.id, bob.lobby.state.selected, "Alice's challenge opened, not a new one")
         waitUntil("Alice's challenge accepted") {

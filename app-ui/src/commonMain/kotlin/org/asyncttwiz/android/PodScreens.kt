@@ -702,7 +702,7 @@ fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
         detail.members.filterNot { it.bot }.forEach { member ->
             MemberLine(member.account, podGamesMemberStatus(member, detail.phase)) {
                 if (podChallengeOffered(detail, member, accountId) && lobby != null)
-                    PodChallengeButtons(detail, member, accountId, lobby, games, submitted = mine?.submitted == true,
+                    PodChallengeButtons(detail, member, accountId, lobby, games, submitted = detail.submitted || mine?.submitted == true,
                         enabled = mine?.submitted == true && !lobby.state.mutating)
             }
         }
@@ -747,8 +747,10 @@ fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
 @Composable
 private fun RowScope.PodChallengeButtons(detail: PodDetail, member: PodMember, accountId: String, lobby: LobbyController,
     games: List<GameSummary>, submitted: Boolean, enabled: Boolean) {
-    // DRF-181 (owner 2026-11-22): once your deck is submitted, their challenge still waiting for it (your submit not confirmed
-    // yet) is theirs to accept too: the button accepts it, greyed until it can be, never making a second game meanwhile
+    // DRF-181 (owner 2026-11-22): once your deck is submitted (also while the submit is on its way), their challenge still
+    // waiting for it is theirs to accept too: the button accepts it, never making a second game meanwhile. A press before it
+    // can be accepted (the submit not confirmed, the game not connected or something of it on its way) waits and is sent
+    // once it can (full run 2026-11-23: a press as the submit landed did nothing)
     val acceptable = podOpenChallengeFrom(games, detail.id, member.account.accountId, accountId)
     val open = acceptable ?: if (submitted) podHeldChallengeFrom(games, detail.id, member.account.accountId, accountId) else null
     LaunchedEffect(open?.id, open?.invitationHeld) {
@@ -772,10 +774,10 @@ private fun RowScope.PodChallengeButtons(detail: PodDetail, member: PodMember, a
         FilledIconButton({
             AppLog.info("lobby", "Pod ${detail.id.take(8)}: Challenge accepts ${member.account.username}'s open challenge " +
                 "${open.id.take(8)} \"${open.gameName}\"")
-            lobby.respond(open, true)
-        // As the challenge's own Accept (MenuInvitationActions): once its game is connected and nothing of it is on its way
-        }, Modifier.testTag("pod-challenge-accept-${member.account.accountId}"),
-            enabled = enabled && !open.invitationHeld && open.id in lobby.state.connectedGames && open.id !in lobby.state.pendingGames) {
+            lobby.acceptPodChallenge(open)
+        // Greyed while something of its game is on its way or waits to go (its accept, once pressed)
+        }, Modifier.testTag("pod-challenge-accept-${member.account.accountId}"), enabled = submitted && !lobby.state.mutating &&
+            open.id !in lobby.state.pendingGames && open.id !in lobby.state.queuedGames) {
             Icon(AppPlatform.current.swordsOutlined(), contentDescription = accept)
         }
     }

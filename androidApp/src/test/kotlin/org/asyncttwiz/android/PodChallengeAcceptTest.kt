@@ -71,6 +71,35 @@ class PodChallengeAcceptTest {
         } finally { lobby.close(); worker.drain() }
     }
 
+    // DRF-181, DRF-122 (full run 2026-11-23: a press as the submit landed did nothing): with your submit on its way, Challenge
+    // beside Riley offers their challenge still waiting for your deck; a press waits, and the accept goes once the server
+    // confirmed the submit
+    @Test fun aPressWhileTheSubmitIsOnItsWayAcceptsOnceItIsConfirmed() {
+        val held = open.copy(invitationHeld = true)
+        val worker = Worker(); val wire = Wire()
+        val lobby = LobbyController(proxy<Lobbies> { name, args -> when (name) {
+            "contacts" -> ContactList(emptyList())
+            "games" -> GameList(if (args[1] == true) listOf(held) else emptyList())
+            "close" -> Unit
+            else -> error("Unexpected lobby call: $name")
+        } }, { "token" }, worker, { it() }, gameConnection = wire, accountId = { self.accountId })
+        try {
+            lobby.refresh(); worker.drain()
+            wire.listener.opened()
+            wire.listener.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+            val stream = wire.frames.filterIsInstance<OpenGameStream>().single().streamId
+            wire.listener.message(GameStreamReady(held.id, stream, "1", emptyList()))
+            wire.listener.message(GameHead(held.id, held.revision, held))
+            // Your submit shown at once, the server's confirmation still to come (your member line still says building)
+            val submitting = detail.copy(submitted = true, members = listOf(PodMember(other, submitted = true), PodMember(self)))
+            compose.setContent { ScreenTheme { NoRipples { PodGamesTab(submitting, self.accountId, lobby) } } }
+            compose.onNodeWithTag("pod-challenge-accept-${other.accountId}").assertIsEnabled().performClick()
+            assertTrue(wire.frames.filterIsInstance<GameCommand>().isEmpty(), "nothing sent before the submit is confirmed")
+            lobby.podDeckSubmitted("pod")
+            assertEquals(GameAction.AcceptInvitation, wire.frames.filterIsInstance<GameCommand>().single().action)
+        } finally { lobby.close(); worker.drain() }
+    }
+
     // DRF-121: with no open challenge from the member, Challenge makes a new one and there are no choices
     @Test fun withoutAnOpenChallengeChallengeMakesANewOne() {
         val fixtures = ScreenFixtures()

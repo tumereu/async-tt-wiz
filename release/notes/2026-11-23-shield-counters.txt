@@ -1,0 +1,1 @@
+fix: Shield counters now protect a creature: the first damage or destruction removes the counter instead.

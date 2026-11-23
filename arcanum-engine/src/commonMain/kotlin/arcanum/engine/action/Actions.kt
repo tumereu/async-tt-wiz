@@ -527,10 +527,20 @@ internal object Actions {
      * 701.19a) unless [noRegeneration] (CR 701.19c). */
     fun destroy(act: Act, cause: Cause?, ids: List<ObjectId>, noRegeneration: Boolean = false, extra: List<Meaning> = emptyList()): Map<ObjectId, ObjectId> {
         val view = act.view()
-        val destroyable = ids.distinct().filter { id ->
+        val destroyable = withoutShielded(act, ids.distinct().filter { id ->
             act.obj(id)?.zone == Zone.Battlefield && view[id]?.has { it == Mechanic.Indestructible } != true
-        }
+        })
         return move(act, cause, destroyable.map { PlannedMove(it, Zone.Graveyard, meanings = listOf(Meaning.Destroyed) + extra) }, noRegeneration)
+    }
+
+    /** CR 122.1c: a permanent with a shield counter that would be destroyed as the result of an effect instead loses a shield counter
+     * (and, CR 701.19 style, all damage marked on it); returns [ids] without those. */
+    fun withoutShielded(act: Act, ids: List<ObjectId>): List<ObjectId> = ids.filter { id ->
+        val o = act.obj(id) ?: return@filter true
+        if (o.counters.none { it.kind == CounterKind.Shield }) return@filter true
+        act.record(Changes.counters(act.state, TargetRef.Object(id), CounterKind.Shield, -1))
+        if (o.damage > 0 || o.deathtouchDamage) act.record(Change.DamageMarked(id, o.damage, 0, o.deathtouchDamage, false))
+        false
     }
 
     /** Sacrifices [ids] (CR 701.21): only permanents, and not those that can't be sacrificed. */
@@ -792,6 +802,10 @@ internal object Actions {
                 Replacement(Mechanic.Replacement(anyDamage), a.controller, o.id, Bindings.EMPTY, null, own = false,
                     key = "protection:${o.id}:$i", prevention = Prevention.Protection(p.from, TargetRef.Object(o.id)))
             }
+        } + view.objects.values.filter { o -> act.obj(o.id)?.counters.orEmpty().any { it.kind == CounterKind.Shield } }.map { o ->
+            // snc: a shield counter prevents damage to its permanent (CR 122.1c)
+            Replacement(Mechanic.Replacement(anyDamage), o.controller ?: act.obj(o.id)!!.owner, o.id, Bindings.EMPTY, null, own = false,
+                key = "shield-counter:${o.id}", prevention = Prevention.ShieldCounter(TargetRef.Object(o.id)))
         } + view.players.values.flatMap { pv ->
             // fin: a player with protection (CR 702.16e)
             pv.mechanics.mapIndexedNotNull { i, a ->
@@ -851,6 +865,14 @@ internal object Actions {
         if (cantBePrevented) return d
         val left = when (p) {
             is Prevention.Protection -> 0
+            is Prevention.ShieldCounter -> {
+                // CR 122.1c: the one prevention effect removes a single shield counter however many sources hit at once
+                if (prevented.put(r.key, 1) == null) {
+                    val id = (p.recipient as TargetRef.Object).id
+                    act.record(Changes.counters(act.state, p.recipient, CounterKind.Shield, -1))
+                }
+                0
+            }
             is Prevention.Amount -> p.each?.let { each ->
                 d.amount - Evaluator(act.board(), Context(r.controller, r.source, r.names)).value(each)
             } ?: 0

@@ -47,6 +47,9 @@ internal sealed interface Prevention {
     /** All damage to [recipient] from sources [from] matches (protection, CR 702.16e). */
     data class Protection(val from: arcanum.api.ObjectFilter, val recipient: arcanum.engine.state.TargetRef) : Prevention
 
+    /** All damage to [recipient], and a shield counter is removed from it once for the whole damage event (CR 122.1c, 615.1). */
+    data class ShieldCounter(val recipient: arcanum.engine.state.TargetRef) : Prevention
+
     /** All of the damage, or [each] of each such damage event; then its [additional] effect (CR 615.5). */
     data class Amount(val each: arcanum.api.Value?, val additional: arcanum.api.Instructions? = null) : Prevention
 
@@ -54,7 +57,7 @@ internal sealed interface Prevention {
     data class Shield(val effect: EffectId, val redirectTo: arcanum.api.Recipients? = null) : Prevention
 
     /** Prevents all of the damage, whatever the amount. */
-    val all: Boolean get() = this is Protection || (this is Amount && each == null)
+    val all: Boolean get() = this is Protection || this is ShieldCounter || (this is Amount && each == null)
 
     /** Does more than prevent (CR 615.5), so the order it applies in can matter. */
     val hasAdditional: Boolean get() = this is Amount && additional != null || isRedirect
@@ -102,6 +105,11 @@ internal object Replacements {
     /** The instances of the proposed [change] that [r] applies to (empty: it doesn't apply). */
     fun matches(act: Act, r: Replacement, change: Change, board: Board = act.board()): List<TriggerEvent> {
         val e = Evaluator(board, Context(you = r.controller, self = r.source, names = r.names))
+        val shielded = r.prevention as? Prevention.ShieldCounter
+        if (shielded != null) {
+            val hit = (change as? Change.Damage)?.dealt.orEmpty().any { it.recipient == shielded.recipient }
+            return if (hit) listOf(TriggerEvent()) else emptyList()
+        }
         val protection = r.prevention as? Prevention.Protection
         if (protection != null) {
             // CR 702.16e: damage to the protected permanent from a source with the quality

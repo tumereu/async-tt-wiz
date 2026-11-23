@@ -73,7 +73,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
 
     /**
      * LOB-243 (owner, 2026-11-20): the player has the pod [PodSeen.podId] open in front (the Pods list when null): the pod's
-     * news ([ActivityNotices.POD_NEWS]; on the Pods list a destroyed pod's) is seen, so it no longer waits and
+     * news ([ActivityNotices.POD_NEWS]; on the Pods list a destroyed pod's, and a removal's, DRF-308) is seen, so it no longer waits and
      * [ActivityNotices.sweep] clears it on every device of theirs; a push of it not sent yet is dropped. Returns how many
      * notices it marked seen.
      */
@@ -83,7 +83,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         return transaction { sql ->
             val owner = account(principal)
             val pod = podId?.let(UUID::fromString)
-            val kinds = if (pod == null) listOf(ActivityKind.POD_DESTROYED.name) else ActivityNotices.POD_NEWS
+            val kinds = if (pod == null) listOf(ActivityKind.POD_DESTROYED.name, ActivityKind.POD_MEMBER_REMOVED.name) else ActivityNotices.POD_NEWS
             val which = SUMMARY.ACCOUNT_ID.eq(owner).and(SUMMARY.KIND.`in`(kinds)).and(pod?.let { SUMMARY.GAME_ID.eq(it) } ?: DSL.noCondition())
             val marked = sql.update(SUMMARY).set(SUMMARY.SEEN_THROUGH, SUMMARY.ACTIVITY_ID).where(which)
                 .and(SUMMARY.ACTIVITY_ID.gt(SUMMARY.SEEN_THROUGH)).execute()
@@ -466,6 +466,8 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             val anyMember = DSL.exists(DSL.selectOne().from(POD_MEMBER).where(POD_MEMBER.POD_ID.eq(resource)).and(POD_MEMBER.ACCOUNT_ID.eq(owner)))
             return kind.`in`("POD_DRAFT_CANCELLED", "POD_DESTROYED").or(member).or(kind.eq("POD_INVITATION").and(invited))
                 .or(kind.eq("POD_AUTO_START_OFF").and(autoStartOff)).or(kind.eq("POD_REMOVAL").and(anyMember))
+                // DRF-308: "Removed from <pod>" while the player is not a member again
+                .or(kind.eq("POD_MEMBER_REMOVED").andNot(anyMember))
         }
 
         /** Call inside the accepting transaction. Gameplay integration supplies the real group ID.

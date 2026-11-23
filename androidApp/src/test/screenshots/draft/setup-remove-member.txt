@@ -1,0 +1,1 @@
+The creator tapped the ✕ on Bob's row in the setup above: a dialog "Remove member" asks "Remove Bob from Bot night?" with Cancel and a red Remove.

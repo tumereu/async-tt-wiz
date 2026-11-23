@@ -172,18 +172,46 @@ class DraftGalleryScreenshotTest {
             "\"Start when everyone accepts\".")
     }
 
-    // DRF-296, DRF-297, DRF-030 (owner, 2026-11-21): no Bots tile; the "Bots − N +" stepper beside the invite button reads 3, the
-    // three bot seats listed after the members as "Bot 1"… and counted in Members (5/8) (a tall screen shows the whole form)
+    // DRF-296, DRF-297, DRF-030, DRF-307, DRF-308 (owner, 2026-11-21 and 2026-11-22): no Bots tile; "Add bot" beside the invite
+    // button; the three bot seats listed after the members as "Bot 1"… and counted in Members (5/8); every row but the creator's
+    // own ends in a ✕; Bob's ✕ asks to confirm his removal (a tall screen shows the whole form)
     @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun botSeatsSetup() {
         val detail = detail(PodPhase.SETUP, DraftSettings(bots = 3), listOf(PodMember(alice), PodMember(bob)), name = "Bot night")
+            .copy(pendingInvitations = listOf(carol))
         show(opened(detail))
         compose.onNodeWithText("Members (5/8)").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("pod-bots-value", useUnmergedTree = true).performScrollTo().assertTextEquals("3")
+        compose.onNodeWithTag("pod-add-bot").performScrollTo().assertIsEnabled()
         // In the strip over the setup and in its members list
         compose.onAllNodesWithText("bot").assertCountEquals(6)
+        compose.onNodeWithContentDescription("Remove Bob").assertIsEnabled()
+        compose.onNodeWithContentDescription("Remove Bot 2").assertIsEnabled()
+        compose.onNodeWithContentDescription("Cancel Carol's invitation").assertIsEnabled()
+        compose.onNodeWithContentDescription("Remove Alice").assertDoesNotExist()
         shot("setup-bots", "The creator's setup of a Booster pod with three bot seats: the tiles end with Sideboard (no Bots tile); " +
             "the strip at the top and the members list (five of eight seats) show Alice and Bob, then Bot 1, Bot 2 and Bot 3 marked " +
-            "\"bot\", and under them the invite button with the \"Bots − 3 +\" stepper at the row's right.")
+            "\"bot\" and Carol's pending invitation, each row but Alice's own with a ✕ at its end, and under them the invite button " +
+            "with \"Add bot\" at the row's right.")
+        compose.onNodeWithTag("pod-remove-member-bob").performScrollTo().performClick()
+        settle()
+        compose.onNodeWithText("Remove Bob from Bot night?").assertIsDisplayed()
+        shot("setup-remove-member", "The creator tapped the ✕ on Bob's row in the setup above: a dialog \"Remove member\" asks " +
+            "\"Remove Bob from Bot night?\" with Cancel and a red Remove.")
+    }
+
+    // DRF-030, DRF-297 (owner, 2026-11-22): a member sees the same members list without any ✕ and without Add bot
+    @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun membersSeeTheSetupListWithoutCrosses() {
+        val detail = detail(PodPhase.SETUP, DraftSettings(bots = 2), listOf(PodMember(alice), PodMember(bob)), name = "Bot night")
+            .copy(pendingInvitations = listOf(carol))
+        pods.seed(opened(detail))
+        compose.setContent { ScreenTheme { NoRipples { Surface(Modifier.fillMaxSize(), color = ScreenBackground) {
+            PodsDestination(pods, bob.accountId, {}, null, {}, mainMenu = {})
+        } } } }
+        settle()
+        compose.onNodeWithText("Members (4/8)").performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText("Bot 2").assertCountEquals(2)
+        compose.onAllNodesWithContentDescription("Remove", substring = true).assertCountEquals(0)
+        compose.onNodeWithContentDescription("Cancel Carol's invitation").assertDoesNotExist()
+        compose.onNodeWithTag("pod-add-bot").assertDoesNotExist()
     }
 
     // DRF-030 (owner, 2026-11-22): the pod's invite picker stays open after an invite (pods are often multiplayer): Bob, just
@@ -211,14 +239,14 @@ class DraftGalleryScreenshotTest {
         } finally { lobby.close() }
     }
 
-    // DRF-296: Sealed and Arena take no bots, so their setup has no stepper; Grid's stops at two (+ greyed)
-    @Test fun botSeatsStepperFollowsTheMode() {
+    // DRF-296: Sealed and Arena take no bots, so their setup has no Add bot; Grid's greys at two
+    @Test fun addBotFollowsTheMode() {
         show(opened(detail(PodPhase.SETUP, DraftSettings.arena(), listOf(PodMember(alice), PodMember(bob)))))
-        compose.onNodeWithTag("pod-bots").assertDoesNotExist()
+        compose.onNodeWithTag("pod-add-bot").assertDoesNotExist()
         compose.runOnIdle { pods.seed(opened(detail(PodPhase.SETUP, DraftSettings.grid().copy(bots = 2), listOf(PodMember(alice), PodMember(bob))))) }
         settle()
-        compose.onNodeWithTag("pod-bots-more").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithTag("pod-bots-fewer").assertIsEnabled()
+        compose.onNodeWithTag("pod-add-bot").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Remove Bot 2").assertIsEnabled()
     }
 
     // DRF-297, DRF-298: a started Booster pod with three bot seats: they are in the header's avatars after the people, ready (✓)

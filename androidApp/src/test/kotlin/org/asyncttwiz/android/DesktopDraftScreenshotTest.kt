@@ -127,16 +127,20 @@ class DesktopDraftScreenshotTest {
             "Alice's Glimpse pick on the desktop layout, eight cards to a row: a click kept Cinder Whelp, a right-click burned Gravel Ghoul and B over Mistweave burned it, so both trays at the bottom are full with Confirm at the end of their row; the header holds the tabs at its left, the pod's name and avatars in its middle and its icons at the right; the pointer rests on Archive Drake, which shows its ⋯ menu button.")
     }
 
-    // DRF-296, DRF-297, WEB-038 (owner, 2026-11-21): a pod's setup with bot seats on the desktop layout, at its readable width:
-    // the bot seats after the members and the "Bots − N +" stepper beside the invite button
+    // DRF-296, DRF-297, DRF-030, DRF-307, DRF-308, WEB-038 (owner, 2026-11-21 and 2026-11-22): a pod's setup with bot seats on the
+    // desktop layout, at its readable width: the bot seats after the members, every row but the creator's own with a ✕, and
+    // "Add bot" beside the invite button
     @Test fun botSeatsSetup() {
         val detail = detail(PodPhase.SETUP, DraftSettings(bots = 2), listOf(PodMember(alice), PodMember(bob)))
+            .copy(pendingInvitations = listOf(carol))
         show(PodState(loaded = true, selected = detail.id, detail = detail, tab = PodTab.DRAFT))
-        compose.onNodeWithTag("pod-bots-value", useUnmergedTree = true).assertTextEquals("2")
         compose.onNodeWithText("Members (4/8)").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("pod-bots").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Remove Bob").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Remove Bot 1").assertIsDisplayed()
+        compose.onNodeWithTag("pod-add-bot").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Cancel Carol's invitation").assertIsDisplayed()
         captureShot("$SCREENSHOTS/desktop/setup-bots.png",
-            "A Booster pod's setup with two bot seats on the desktop layout at its readable width: the setting tiles end with the sideboard's ∞ (no Bots tile), the members list counts four of eight seats, Alice and Bob, then Bot 1 and Bot 2 marked \"bot\", and under it the invite button with the \"Bots − 2 +\" stepper at the row's right.")
+            "A Booster pod's setup with two bot seats on the desktop layout at its readable width: the setting tiles end with the sideboard's ∞ (no Bots tile), the members list counts four of eight seats, Alice and Bob, then Bot 1 and Bot 2 marked \"bot\" and Carol's pending invitation, each row but Alice's own with a ✕ at its end, and under it the invite button with \"Add bot\" at the row's right.")
     }
 
     // DRF-293, DRF-294 (owner, 2026-11-21): on the desktop layout Auto is the tip at the right end of Confirm, at the end of the

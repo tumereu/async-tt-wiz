@@ -52,7 +52,7 @@ object ActivityNotices {
     /** LOB-243 (owner, 2026-11-20): the pod notices that tell something rather than wait for the player: seen once the player
      * has opened the pod on any device ([ActivityService.podSeen]; a destroyed pod's on the Pods list). */
     val POD_NEWS = listOf(ActivityKind.POD_DECKS_READY, ActivityKind.POD_DRAFT_CANCELLED, ActivityKind.POD_DESTROYED,
-        ActivityKind.POD_AUTO_START_OFF, ActivityKind.POD_REMOVAL).map { it.name }
+        ActivityKind.POD_AUTO_START_OFF, ActivityKind.POD_REMOVAL, ActivityKind.POD_MEMBER_REMOVED).map { it.name }
 
     /** The key a clear push ([PUSH] kind [kind], its id [id]) clears; null for any other push. */
     fun clearedKey(kind: String, id: UUID): String? = clearKinds.entries.firstOrNull { it.value == kind }?.let { "${it.key}:$id" }

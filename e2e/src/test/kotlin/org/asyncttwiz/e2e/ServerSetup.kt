@@ -84,6 +84,14 @@ object ServerSetup {
         return accounts()
     }
 
+    /** A third player for a test that needs one (invited, never on a phone): the next pair's Alice, none of the current test's
+     * own accounts. */
+    @Synchronized fun third(): TestAccount {
+        accounts()
+        val pairs = pool!!
+        return pairs[((System.getProperty(CURRENT)?.toInt() ?: 0) + 1) % pairs.size].first
+    }
+
     private fun made(): List<Pair<TestAccount, TestAccount>> {
         val tag = UUID.randomUUID().toString().take(8)
         val (x, y) = account("e2e${tag}x") to account("e2e${tag}y")

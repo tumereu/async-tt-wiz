@@ -368,35 +368,25 @@ private fun PodPassNumberPopup(title: String, explanation: String, value: Int, r
     }
 }
 
-/**
- * DRF-296 (owner, 2026-11-21): "Bots − N +" among the pod setup's members, by the invite button: the creator's bot seats, one
- * fewer or one more a tap within [podBotRange]; holding − or + says what it does.
- */
-@Composable
-fun PodBotsStepper(settings: DraftSettings, enabled: Boolean, change: ((DraftSettings) -> DraftSettings) -> Unit, modifier: Modifier = Modifier) {
-    val range = podBotRange(settings)
-    fun set(bots: Int, why: String) {
-        AppLog.info("pod", "Setup: bot seats ${settings.bots} -> $bots ($why)")
-        change { it.withBots(bots) }
-    }
-    Row(modifier.testTag("pod-bots"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Bots", style = MaterialTheme.typography.labelLarge)
-        PodBotsStepButton("One bot fewer", "remove", "pod-bots-fewer", enabled && settings.bots > range.first) { set(settings.bots - 1, "−") }
-        Text(settings.bots.toString(), Modifier.widthIn(min = 24.dp).testTag("pod-bots-value"),
-            style = MaterialTheme.typography.titleMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        PodBotsStepButton("One bot more", "add", "pod-bots-more", enabled && settings.bots < range.last) { set(settings.bots + 1, "+") }
-    }
+/** DRF-296 (owner, 2026-11-22): why Add bot is greyed ("Booster takes at most 6 bots"), null while one more fits. */
+fun podAddBotBlocked(settings: DraftSettings): String? {
+    val most = podBotRange(settings).last
+    return if (settings.bots < most) null else "${podModeName(settings.mode)} takes at most $most ${if (most == 1) "bot" else "bots"}"
 }
 
-/** One of the Bots stepper's − and + (DRF-296): an outlined icon button, holding it says what it does. */
+/**
+ * DRF-296 (owner, 2026-11-22): "Add bot" among the pod setup's members, by the invite button: one bot seat more a tap, greyed
+ * at the mode's most with the reason on hold ([podAddBotBlocked]). Each bot row's ✕ removes one.
+ */
 @Composable
-private fun PodBotsStepButton(description: String, icon: String, tag: String, enabled: Boolean, onClick: () -> Unit) {
-    HoldTip(description) {
-        OutlinedIconButton(onClick, Modifier.size(48.dp).testTag(tag), enabled, shape = MaterialTheme.shapes.small,
-            border = BorderStroke(1.dp, if (enabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outline.copy(alpha = .38f))) {
-            EntryIcon(description, icon)
+fun PodAddBotButton(settings: DraftSettings, enabled: Boolean, add: () -> Unit, modifier: Modifier = Modifier) {
+    val why = podAddBotBlocked(settings)
+    val button: @Composable () -> Unit = {
+        ScreenOutlinedButton(add, Modifier.testTag("pod-add-bot"), enabled = enabled && why == null) {
+            EntryIcon(null, "add"); Spacer(Modifier.width(8.dp)); Text("Add bot")
         }
     }
+    if (why != null) HoldTip(why, modifier) { button() } else Box(modifier) { button() }
 }
 
 /** DRF-020: one full-width button showing the pod's mode with a switch icon; it opens a popup list of the modes,

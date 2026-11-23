@@ -128,6 +128,9 @@ import kotlinx.serialization.SerialName
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val packSets: List<String>? = null)
 /** POST /v1/pods/{id}/invitations. */
 @Serializable data class InviteToPod(val requestId: String, val accountId: String)
+/** POST /v1/pods/{id}/invitations/cancel (DRF-307) and /v1/pods/{id}/members/remove (DRF-308): the creator, in setup,
+ * cancels [accountId]'s pending invitation or removes that member (never the creator). */
+@Serializable data class PodAccountRequest(val requestId: String, val accountId: String)
 /** POST /v1/pods/{id}/{start,accept,decline,leave}; DELETE /v1/pods/{id} destroys.
  * Leave is membership-scoped, even while drafting: it cancels whichever draft is current. */
 @Serializable data class PodRequest(val requestId: String)

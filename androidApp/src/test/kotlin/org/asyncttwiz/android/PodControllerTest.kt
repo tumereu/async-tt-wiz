@@ -79,6 +79,17 @@ class PodControllerTest {
             return saved
         }
         override suspend fun invite(token: String, id: String, input: InviteToPod): PodDetail { calls += "invite" to input; return saved }
+        var leavingFailure: String? = null
+        override suspend fun cancelInvitation(token: String, id: String, input: PodAccountRequest): PodDetail {
+            calls += "cancelInvitation" to input
+            leavingFailure?.let { throw PodFailure(it) }
+            saved = saved.copy(pendingInvitations = saved.pendingInvitations.filterNot { it.accountId == input.accountId }); return saved
+        }
+        override suspend fun removeMember(token: String, id: String, input: PodAccountRequest): PodDetail {
+            calls += "removeMember" to input
+            leavingFailure?.let { throw PodFailure(it) }
+            saved = saved.copy(members = saved.members.filterNot { it.account.accountId == input.accountId }); return saved
+        }
         override suspend fun accept(token: String, id: String, input: PodRequest): PodDetail { calls += "accept" to input; return saved }
         override suspend fun decline(token: String, id: String, input: PodRequest): PodAcknowledged { calls += "decline" to input; return PodAcknowledged(id) }
         override suspend fun start(token: String, id: String, input: PodRequest): PodDetail { calls += "start" to input; saved = detail(); return saved }
@@ -1212,6 +1223,66 @@ class PodControllerTest {
         assertEquals(listOf(invitee), f.controller.state.detail!!.pendingInvitations)
         f.controller.back()
         assertFalse(f.controller.state.choosingMember)
+    }
+
+    // DRF-307 (owner, 2026-11-22): the creator's ✕ on a pending invitation cancels it, gone from the list at once; a refusal
+    // brings the row back with its reason
+    @Test fun cancellingAnInvitationRemovesItsRowAtOnce() = Fixture(PodPhase.SETUP).use { f ->
+        f.api.saved = f.api.saved.copy(pendingInvitations = listOf(invitee))
+        f.open()
+        f.controller.cancelInvitation(invitee)
+        assertEquals(emptyList(), f.controller.state.detail!!.pendingInvitations, "gone before the server's answer")
+        f.deliver()
+        assertEquals(PodAccountRequest((f.api.calls.single().second as PodAccountRequest).requestId, invitee.accountId), f.api.calls.single().second)
+        assertEquals(emptyList(), f.controller.state.detail!!.pendingInvitations)
+        // Refused (here: the draft started meanwhile): the row comes back with the reason
+        f.api.saved = f.api.saved.copy(pendingInvitations = listOf(invitee)); f.controller.refresh(); f.deliver()
+        f.api.leavingFailure = "not_setup"
+        f.controller.cancelInvitation(invitee); f.deliver()
+        assertEquals(listOf(invitee), f.controller.state.detail!!.pendingInvitations)
+        assertEquals("The draft has already started.", f.controller.state.error)
+    }
+
+    // DRF-308 (owner, 2026-11-22): the creator's ✕ on a member asks first; confirmed, the member is gone at once and the server
+    // asked to remove them; not confirmed, nothing is sent
+    @Test fun removingAMemberIsConfirmedFirst() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        f.controller.requestRemoval(other)
+        assertEquals(other, f.controller.state.removing)
+        assertEquals("Remove Bob from Pod?", podRemovalText(other, f.controller.state.detail!!))
+        f.controller.dismissRemoval()
+        assertNull(f.controller.state.removing)
+        f.deliver()
+        assertEquals(emptyList(), f.api.calls)
+        f.controller.requestRemoval(other)
+        f.controller.confirmRemoval()
+        assertNull(f.controller.state.removing)
+        assertEquals(listOf(self), f.controller.state.detail!!.members.map { it.account }, "gone before the server's answer")
+        f.deliver()
+        assertEquals(listOf("removeMember"), f.api.calls.map { it.first })
+        assertEquals(other.accountId, (f.api.calls.single().second as PodAccountRequest).accountId)
+        assertEquals(listOf(self), f.controller.state.detail!!.members.map { it.account })
+    }
+
+    // DRF-308, DRF-137: the removed member's open pod closes at its next read, as a destroyed pod's does; their notice names it
+    @Test fun aRemovedMembersOpenPodCloses() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        f.api.missing = true
+        f.controller.refresh(); f.deliver()
+        assertNull(f.controller.state.selected)
+        assertEquals("This pod is no longer available.", f.controller.state.notice)
+        assertEquals("Removed from Pod", podActivityText(ActivityKind.POD_MEMBER_REMOVED, "Pod"))
+    }
+
+    // DRF-296 (owner, 2026-11-22): Add bot adds a bot seat up to the mode's most; a bot row's ✕ removes one
+    @Test fun addBotAndTheBotCrossChangeTheBotSeats() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        repeat(7) { f.controller.addBot() }
+        assertEquals(6, f.controller.state.detail!!.settings.bots)
+        f.controller.removeBot("Bot 2")
+        assertEquals(5, f.controller.state.detail!!.settings.bots)
+        f.controller.flushSetup(); f.deliver()
+        assertEquals(5, f.api.saved.settings.bots)
     }
 
     // DRF-039

@@ -1,0 +1,1 @@
+fix: When you pay with mana already in your pool, each mana now shows its own coloured symbol ({R}, {G} …) instead of a plain "Pool mana" chip, so you can tell them apart.

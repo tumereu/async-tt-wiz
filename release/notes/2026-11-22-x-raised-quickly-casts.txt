@@ -1,0 +1,1 @@
+fix: Raising X quickly while casting no longer says "The table changed: cast it again." and leaves the cast stuck: the spell casts with the X you set.

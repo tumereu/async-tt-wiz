@@ -24,10 +24,13 @@ import java.io.File
  * network time, and no engine working time (the clock stands still while it works). Each clip's moments are written beside
  * the build's clip frames (build/outputs/clips/timing).
  */
-@org.junit.Ignore("Work in progress: the clips are recorded once the remaining gaps are looked into")
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
+// The app's own monotonic clock (org.asyncttwiz.appui's nanoTime: the event chip's lifetime, HIS-077, and the change flashes',
+// HIS-031) on the main looper's clock rather than the machine's, so each run draws the same frames. That clock runs about twice as
+// fast as the frames under test, so the chip and the flashes go sooner than on a phone; the plays, arrows, holds and
+// resolutions are timed on the frame clock (the Stack animation's clock is put on it, LiveTableScreen)
+@Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi", instrumentedPackages = ["org.asyncttwiz.appui"])
 class TriggerTimingClipTest {
     @get:Rule val compose = createComposeRule()
     private var screen: LiveTableScreen? = null
@@ -54,7 +57,7 @@ class TriggerTimingClipTest {
     private fun LiveTableScreen.clip(file: String, caption: String, millis: Long, act: () -> Unit, during: (Long) -> Unit = {}) {
         var last = ""
         origin = compose.mainClock.currentTime + CLIP_LEAD_MILLIS
-        compose.captureClip("$SCREENSHOTS/clips/$file", caption, millis) { at ->
+        compose.captureClip("$SCREENSHOTS/clips/$file", caption, millis, advance = { advance(it) }) { at ->
             if (at > 0) world()
             if (at == CLIP_LEAD_MILLIS) act()
             if (at > CLIP_LEAD_MILLIS) during(at - CLIP_LEAD_MILLIS)
@@ -139,7 +142,7 @@ class TriggerTimingClipTest {
             "held 1.2 s, the band closing in 0.35 s: about 7.3 s in all."
         const val CAPTION_THEIR_ATTACK = "Bob attacks Alice with his Spark Harrier (the clip starts 0.3 s before his attack reaches " +
             "her phone) and her phone plays it back to his second main phase: attackers held 1.2 s, his trigger flies in in " +
-            "0.29 s, shown 1.23 s and flying 0.25 s to the Stack, its arrow to Alice grown and read in 0.65 s, its effect about " +
+            "0.29 s, shown 1.25 s and flying 0.25 s to the Stack, its arrow to Alice grown and read in 0.65 s, its effect about " +
             "0.35 s with the 0.33 s playback pause, damage held 1.2 s, the band closing in 0.35 s: about 6 s in all."
         const val CAPTION_YOUR_CHAIN = "Alice casts a Kindle Herald with her Kindle Warden out (the test raised it with a tap; the " +
             "clip starts 0.3 s before the tap that casts it) and her table runs on until her move again, the test tapping OK on " +

@@ -53,6 +53,10 @@ internal class LiveTableScreen(private val compose: ComposeContentTestRule, val 
             inputs.filterIsInstance<TableToolkitController>().firstOrNull()?.takeIf { it !== toolkit }?.let { found ->
                 toolkit = found
                 (found.engine as? EngineTableRoutes)?.stackAnimation?.let(::onFrameClock)
+                // The work the table does for its shown board on the coroutines' threads (the shared panels' values, the
+                // combat worked out) done on the main thread as it is asked, as tests of the table do: no thread to wait for
+                TableToolkitController::class.java.getDeclaredField("automatumWork").apply { isAccessible = true }
+                    .set(found, AutomatumWork.Inline)
             }
         }
         compose.setContent { MaterialTheme { NoRipples { TableScreen(kit.lobby, kit.f.a, {}, false) } } }
@@ -80,11 +84,25 @@ internal class LiveTableScreen(private val compose: ComposeContentTestRule, val 
         backgroundIdle()
     }
 
+    /** Moves the frame clock on by [millis] a frame at a time, the table's background work done after each frame, so what a
+     * frame started comes in at the same frame whatever the machine's speed. */
+    fun advance(millis: Long) {
+        var left = millis
+        while (left > 0) {
+            val step = minOf(FRAME_MILLIS, left)
+            // What the last frame (or a capture's wait for the composition) started is done before the next frame
+            backgroundDone()
+            compose.mainClock.advanceTimeBy(step)
+            backgroundDone()
+            left -= step
+        }
+    }
+
     /** [millis] of the app's time with nobody touching it, a frame step at a time. */
     fun run(millis: Long) {
         var left = millis
         while (left > 0) {
-            compose.mainClock.advanceTimeBy(CLIP_STEP_MILLIS)
+            advance(CLIP_STEP_MILLIS)
             world()
             left -= CLIP_STEP_MILLIS
         }
@@ -95,7 +113,7 @@ internal class LiveTableScreen(private val compose: ComposeContentTestRule, val 
         var left = millis
         while (left > 0) {
             if (done()) return true
-            compose.mainClock.advanceTimeBy(CLIP_STEP_MILLIS)
+            advance(CLIP_STEP_MILLIS)
             world()
             left -= CLIP_STEP_MILLIS
         }
@@ -105,20 +123,27 @@ internal class LiveTableScreen(private val compose: ComposeContentTestRule, val 
     /** The table's background work done and its results in, composed, and what that started done too. Each wait for the
      * composition to be idle moves the main looper's clock on by about a frame, so there is one. */
     private fun backgroundIdle() {
-        backgroundDone()
-        compose.waitForIdle()
+        repeat(3) {
+            backgroundDone()
+            compose.waitForIdle()
+        }
         backgroundDone()
     }
 
+    /** Automatum's workers have done what was given them before now, no background thread has worked for a few
+     * milliseconds (a coroutine just sent to the default threads takes a moment to wake one), and their results posted to
+     * the main thread are in. */
     private fun backgroundDone() {
         val done = AtomicBoolean(false)
         val board = AtomicBoolean(false)
         AutomatumWork.Background.run({ }) { done.set(true) }
         AutomatumBoards.boardWorker.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable { board.set(true) })
         val until = System.nanoTime() + 30_000_000_000L
-        while (!done.get() || !board.get() || backgroundBusy()) {
+        var quiet = 0
+        while (!done.get() || !board.get() || quiet < 5) {
             looper.idle()
             Thread.sleep(1)
+            quiet = if (backgroundBusy()) 0 else quiet + 1
             check(System.nanoTime() < until) { "The table's background work never ended" }
         }
         looper.idle()
@@ -184,7 +209,9 @@ internal class LiveTableScreen(private val compose: ComposeContentTestRule, val 
             ((toolkit?.engine as? EngineTableRoutes)?.stackAnimation?.let { a ->
                 (a.targeting?.takeIf { !it.done }?.let { ", arrows of ${it.entry}" } ?: "") + (a.pending?.let { ", arrows pending of $it" } ?: "")
             } ?: "") +
-            ", life " + s.players.joinToString { "${name(it.id.value)} ${it.life}" }    }
+            ", life " + s.players.joinToString { "${name(it.id.value)} ${it.life}" } +
+            ", main looper clock ${SystemClock.uptimeMillis() - clockBase - compose.mainClock.currentTime} ms ahead"
+    }
 
     override fun close() {
         AppLog.observer = null
@@ -269,3 +296,6 @@ internal object TriggerTimingGames {
         return kit
     }
 }
+
+/** A Compose frame on the test clock (LiveTableScreen.advance steps the clock by it). */
+private const val FRAME_MILLIS = 16L

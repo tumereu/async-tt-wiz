@@ -68,7 +68,9 @@ private const val CLIP_END_HOLD_MILLIS = 1_200L
  * committed one and fails on any difference; `-Pscreenshots=record` rewrites it.
  */
 fun ComposeTestRule.captureClip(path: String, caption: String, millis: Long, stepMillis: Long = CLIP_STEP_MILLIS,
-    node: SemanticsNodeInteraction = onRoot(), screen: Boolean = false, onFrame: (elapsedMillis: Long) -> Unit = {}) {
+    node: SemanticsNodeInteraction = onRoot(), screen: Boolean = false,
+    /** How the clock moves on by a frame step (its milliseconds): by default at once; a test may move it in smaller steps. */
+    advance: (Long) -> Unit = { mainClock.advanceTimeBy(it) }, onFrame: (elapsedMillis: Long) -> Unit = {}) {
     require(!mainClock.autoAdvance) { "A clip runs on the test clock: set mainClock.autoAdvance = false first ($path)" }
     require(millis > 0 && stepMillis > 0) { "A clip needs a length and a frame step: $path" }
     writeCaption(path, caption, ".webp")
@@ -85,7 +87,7 @@ fun ComposeTestRule.captureClip(path: String, caption: String, millis: Long, ste
         inputs += if (screen) captureScreenFrame(File(frames, "%04d.png".format(inputs.size)))
             else captureNodeFrame(node, File(frames, "%04d.rgba".format(inputs.size)))
         if (elapsed >= millis) break
-        mainClock.advanceTimeBy(stepMillis)
+        advance(stepMillis)
         elapsed += stepMillis
     }
     if (!record && !verify) return

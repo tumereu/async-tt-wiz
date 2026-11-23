@@ -17,9 +17,44 @@ class WriterOwnershipTest {
     }
     private fun Connection.epoch() = number("SELECT epoch FROM service_writer")
     private fun epoch(db: OwnedPostgres) = db.connection().use { it.epoch() }
-    private fun migrated(): OwnedPostgres =
-        OwnedPostgres().start().also { FoundationMigrations.migrate(it.settings) }
+    /** Over the bridge address unless the test stops, pauses or restarts the container ([viaBridge] false): the
+     * published port resets about one new connection in a few hundred under load (see [OwnedPostgres]), which
+     * once failed the acquisition test in a merge gate. The migration runs before any stop, over the bridge. */
+    private fun migrated(viaBridge: Boolean = true): OwnedPostgres =
+        OwnedPostgres(viaBridge).start().also { FoundationMigrations.migrate(it.settings(viaBridge = true)) }
     private fun acquired(owner: WriterOwnership) = owner.refresh().orElseThrow()
+
+    /**
+     * [acquired] for an owner on the published port, while the database is up: a dropped connection attempt there
+     * is DATABASE_UNAVAILABLE, which the service's recovery loop simply retries, so this does too (bounded). Any
+     * other refusal still fails at once.
+     */
+    private fun acquiredOnPublishedPort(owner: WriterOwnership): WriterOwnership.Token {
+        var token: WriterOwnership.Token? = null
+        eventually("ownership over the published port") {
+            token = try { owner.refresh().orElse(null) } catch (failure: OwnershipFailure) {
+                if (failure.reason() != OwnershipFailure.Reason.DATABASE_UNAVAILABLE) throw failure
+                null
+            }
+            token != null
+        }
+        return token!!
+    }
+    private fun advisoryLocks(db: OwnedPostgres) =
+        db.connection().use { it.number("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory'") }
+
+    /** What [action] wrote to stderr (the availability diagnostics); this fork runs one test at a time. */
+    private fun stderrOf(action: () -> Unit): String {
+        val original = System.err
+        val captured = java.io.ByteArrayOutputStream()
+        System.setErr(java.io.PrintStream(captured, true, Charsets.UTF_8))
+        try { action() } finally { System.setErr(original) }
+        return captured.toString(Charsets.UTF_8).also(original::print)
+    }
+
+    private fun assertNoSecrets(text: String, settings: DatabaseSettings) {
+        for (secret in listOf(settings.url(), settings.user(), settings.password())) assertFalse(text.contains(secret), text)
+    }
     private fun await(latch: CountDownLatch) { assertTrue(latch.await(8, TimeUnit.SECONDS), "Synchronization timed out") }
 
     private fun eventually(label: String, assertion: () -> Boolean) {
@@ -74,7 +109,7 @@ class WriterOwnershipTest {
     }
 
     @Test fun `empty and unversioned schemas remain unchanged and unavailable`() {
-        OwnedPostgres().use { db ->
+        OwnedPostgres(viaBridge = true).use { db ->
             db.start()
             WriterOwnership(db.settings).use { owner ->
                 assertEquals(OwnershipFailure.Reason.UNSUPPORTED_SCHEMA,
@@ -298,10 +333,64 @@ class WriterOwnershipTest {
         }
     }
 
-    @Test fun `database restart invalidates ownership and requires schema validation reload and new epoch`() {
+    /**
+     * A merge gate failed here: right after a failed acquisition, recovery's schema validation could not open
+     * its connection (Docker's published port resets about one new connection in a few hundred under load, see
+     * [OwnedPostgres]) and that was reported as an unsupported schema, its cause hidden. A database that cannot
+     * be reached is unavailable, the diagnostic says why, and the next refresh recovers once it can be.
+     */
+    @Test fun `connection reset during recovery schema validation is unavailability and the next refresh recovers`() {
         migrated().use { db ->
+            RoundTripProxy(db.settings).use { proxy ->
+                db.connection().use { blocker ->
+                    blocker.autoCommit = false
+                    blocker.execute("SELECT epoch FROM service_writer FOR SHARE")
+                    WriterOwnership(proxy.settings).use { owner ->
+                        assertThrows(OwnershipFailure::class.java) { owner.refresh() }
+                        blocker.rollback()
+                        proxy.resetNewConnections = true
+                        val diagnostics = stderrOf {
+                            assertEquals(OwnershipFailure.Reason.DATABASE_UNAVAILABLE,
+                                assertThrows(OwnershipFailure::class.java) { owner.refresh() }.reason())
+                        }
+                        assertTrue(diagnostics.contains("phase=refresh category=SQL_CONNECTION cause0={class=org.postgresql.util.PSQLException sqlState=08001"), diagnostics)
+                        assertFalse(diagnostics.contains("OWNERSHIP_UNSUPPORTED_SCHEMA"), diagnostics)
+                        assertNoSecrets(diagnostics, proxy.settings)
+                        proxy.resetNewConnections = false
+                        assertTrue(owner.token().isEmpty)
+                        assertEquals(0, epoch(db))
+                        assertEquals(0, advisoryLocks(db))
+                        assertEquals(1, acquired(owner).epoch())
+                        println("PASS reset connection in schema validation after a failed acquisition: unavailable with its cause; next refresh recovers")
+                    }
+                }
+            }
+        }
+    }
+
+    // The other side of the line above: a history table the database answers about with an error is still refused.
+    @Test fun `damaged history table is an unsupported schema with its cause in the diagnostic`() {
+        migrated().use { db ->
+            db.connection().use { it.execute("ALTER TABLE flyway_schema_history RENAME COLUMN checksum TO damaged") }
             WriterOwnership(db.settings).use { owner ->
-                val stale = acquired(owner)
+                val diagnostics = stderrOf {
+                    assertEquals(OwnershipFailure.Reason.UNSUPPORTED_SCHEMA,
+                        assertThrows(OwnershipFailure::class.java) { owner.refresh() }.reason())
+                }
+                assertTrue(diagnostics.contains("category=OWNERSHIP_UNSUPPORTED_SCHEMA"), diagnostics)
+                assertTrue(diagnostics.contains("sqlState=42703"), diagnostics)
+                assertNoSecrets(diagnostics, db.settings)
+                assertTrue(owner.token().isEmpty)
+                assertEquals(0, epoch(db))
+                assertEquals(0, advisoryLocks(db))
+            }
+        }
+    }
+
+    @Test fun `database restart invalidates ownership and requires schema validation reload and new epoch`() {
+        migrated(viaBridge = false).use { db ->
+            WriterOwnership(db.settings).use { owner ->
+                val stale = acquiredOnPublishedPort(owner)
                 val id = db.container.containerId
                 println("Restart diagnostic: original mapped port=${db.container.getMappedPort(5432)}")
                 db.container.dockerClient.stopContainerCmd(id).withTimeout(0).exec()
@@ -320,7 +409,7 @@ class WriterOwnershipTest {
                     assertTrue(owner.token().isEmpty)
                     assertEquals(stale.epoch(), inspect.epoch())
                     inspect.execute("UPDATE flyway_schema_history SET checksum = checksum - 1 WHERE version = '1'")
-                    assertEquals(stale.epoch() + 1, acquired(owner).epoch())
+                    assertEquals(stale.epoch() + 1, acquiredOnPublishedPort(owner).epoch())
                 }
                 println("PASS actual database stop/start, immediate observed invalidation, recovery schema revalidation and new persisted epoch")
             }
@@ -328,16 +417,16 @@ class WriterOwnershipTest {
     }
 
     @Test fun `unresponsive database probe times out and recovers without stale ownership`() {
-        migrated().use { db ->
+        migrated(viaBridge = false).use { db ->
             WriterOwnership(db.settings).use { owner ->
-                val stale = acquired(owner)
+                val stale = acquiredOnPublishedPort(owner)
                 val id = db.container.containerId
                 db.container.dockerClient.pauseContainerCmd(id).exec()
                 try {
                     assertTimeoutPreemptively(Duration.ofSeconds(8)) { assertTrue(owner.token().isEmpty) }
                 } finally { db.container.dockerClient.unpauseContainerCmd(id).exec() }
                 assertThrows(OwnershipFailure::class.java) { owner.transaction(stale) { fail<Unit>("Stale token admitted") } }
-                eventually("ownership after unpause") { owner.refresh().isPresent }
+                acquiredOnPublishedPort(owner)
                 assertEquals(stale.epoch() + 1, owner.token().orElseThrow().epoch())
                 println("PASS blackholed DB probe bounded by socket timeout; stale ownership invalidated and reacquired")
             }
@@ -345,9 +434,9 @@ class WriterOwnershipTest {
     }
 
     @Test fun `unobserved database restart cannot admit under an unchanged old epoch`() {
-        migrated().use { db ->
+        migrated(viaBridge = false).use { db ->
             WriterOwnership(db.settings).use { owner ->
-                val stale = acquired(owner)
+                val stale = acquiredOnPublishedPort(owner)
                 val id = db.container.containerId
                 db.container.dockerClient.stopContainerCmd(id).withTimeout(0).exec()
                 db.container.dockerClient.startContainerCmd(id).exec()
@@ -356,7 +445,7 @@ class WriterOwnershipTest {
                 assertThrows(OwnershipFailure::class.java) { owner.transaction(stale) { entered = true } }
                 assertFalse(entered)
                 assertTrue(owner.token().isEmpty)
-                assertEquals(stale.epoch() + 1, acquired(owner).epoch())
+                assertEquals(stale.epoch() + 1, acquiredOnPublishedPort(owner).epoch())
                 println("PASS transaction checks dedicated session, not just same persisted epoch, after unobserved DB restart")
             }
         }

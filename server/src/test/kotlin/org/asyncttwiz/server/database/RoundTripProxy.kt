@@ -26,6 +26,9 @@ class RoundTripProxy(target: DatabaseSettings, private val latencyMillis: Long =
     private val connects = ConcurrentHashMap<String, AtomicInteger>()
     private val texts = ConcurrentHashMap<String, MutableList<String>>()
     @Volatile private var closed = false
+    /** While set, every new connection is reset at once (established ones keep working), like the resets
+     * Docker's published port gives under load (see [OwnedPostgres]), but deterministic. */
+    @Volatile var resetNewConnections = false
     // Unnamed statements only (same round trips), so every statement's text is seen on the wire.
     val settings = DatabaseSettings("jdbc:postgresql://127.0.0.1:${server.localPort}${upstream.rawPath}?" +
         (upstream.rawQuery?.let { "$it&" } ?: "") + "prepareThreshold=0", target.user(), target.password())
@@ -34,6 +37,11 @@ class RoundTripProxy(target: DatabaseSettings, private val latencyMillis: Long =
         Thread({
             while (!closed) {
                 val client = try { server.accept() } catch (_: Exception) { break }
+                if (resetNewConnections) {
+                    // An RST before any byte: the connection attempt fails as the published port's resets do.
+                    runCatching { client.setSoLinger(true, 0); client.close() }
+                    continue
+                }
                 sockets.add(client)
                 Thread({ relay(client) }, "round-trip-proxy").apply { isDaemon = true }.start()
             }

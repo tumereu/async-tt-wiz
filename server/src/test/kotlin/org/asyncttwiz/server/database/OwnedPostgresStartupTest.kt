@@ -8,7 +8,7 @@ import java.sql.SQLException
 class OwnedPostgresStartupTest {
     @Test fun `fresh Testcontainers startup exposes a usable JDBC connection`() {
         repeat(30) { iteration ->
-            OwnedPostgres().use { database ->
+            OwnedPostgres(viaBridge = false).use { database ->
                 try {
                     database.start()
                 } catch (failure: SQLException) {
@@ -30,7 +30,8 @@ class OwnedPostgresStartupTest {
                     .exec().networkSettings.ports.bindings.values.flatMap { it.toList() }
                 assertTrue(bindings.isNotEmpty())
                 assertTrue(bindings.all { it.hostIp == "127.0.0.1" })
-                database.connection().use { connection ->
+                // A single attempt on the published port, without connection()'s one retry: this is the check.
+                java.sql.DriverManager.getConnection(database.jdbcUrl(), database.container.username, database.container.password).use { connection ->
                     connection.createStatement().use { sql ->
                         sql.executeQuery("SELECT 1").use { rows ->
                             assertTrue(rows.next() && rows.getInt(1) == 1)
@@ -43,7 +44,7 @@ class OwnedPostgresStartupTest {
     }
 
     @Test fun `startup alone retries connection failures before returning the real database connection`() {
-        OwnedPostgres().use { database ->
+        OwnedPostgres(viaBridge = false).use { database ->
             database.start()
             var attempts = 0
             OwnedPostgres.awaitStartupConnection {

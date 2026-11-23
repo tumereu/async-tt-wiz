@@ -15,6 +15,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import org.asyncttwiz.android.EngineGameFixture.Choices
 import org.asyncttwiz.protocol.PlayZone
 import org.junit.After
@@ -140,5 +141,52 @@ class BoardManaTest {
         assertEquals(setOf(elders), toolkit.cast.paySources())
         compose.onNodeWithContentDescription("Not paid", substring = true).assertDoesNotExist()
         compose.onNode(hasText("Cast") and hasClickAction()).assertIsEnabled()
+    }
+
+    // STK-228, STK-157, STK-024 (owner problem report 2026-11-22, prod 0.3.1): with Autotap off and red and green mana in her pool (her Ember
+    // Shard and Moss Shard tapped on the table), Alice's Hedge Penny ({2}) panel shows each pool mana as its symbol in its colour on a
+    // small card, never "Pool mana"; a tap chooses one ("Red mana from your pool, chosen"), and the payment line names them by colour
+    @Test fun poolManaShowsAsItsColouredSymbol() {
+        val k = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.SHARD, Choices.MOSS, Choices.PENNY))))
+        kitOverride = k
+        k.opening()
+        val sources = listOf(Choices.SHARD, Choices.MOSS).map { name ->
+            val card = k.atw(k.hand(name).first())
+            assertTrue(k.toolkit.cast.start(card), "cast $name: ${k.toolkit.error}")
+            k.playOn("$name on the battlefield") { card in k.field(name).map(k::atw) && k.aliceMain() }
+            card
+        }
+        render()
+        for (source in sources) {
+            k.tap(k.item(source))
+            k.playOn("its mana in the pool") { k.state().player(k.me).manaPool.any { it.source != null } && k.aliceMain() }
+        }
+        k.playOn("both in the pool") { k.state().player(k.me).manaPool.size == 2 && k.aliceMain() }
+        val penny = k.atw(k.hand(Choices.PENNY).first())
+        k.toolkit.cast.autotap = false
+        refresh()
+        k.tap(k.item(penny, PlayZone.HAND))
+        k.tap(k.item(penny, PlayZone.HAND))
+        assertTrue(k.toolkit.cast.open, "the cast panel: ${k.toolkit.error}")
+        k.playOn("the panel worked out") { !k.toolkit.cast.busy }
+        refresh()
+        compose.onNodeWithContentDescription("Red mana from your pool").assertExists()
+        compose.onNodeWithContentDescription("Green mana from your pool").assertExists()
+        compose.onNodeWithText("Pool mana", substring = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Pool mana", substring = true).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Red mana from your pool").performClick()
+        k.playOn("the red chosen") { !k.toolkit.cast.busy }
+        refresh()
+        compose.onNodeWithContentDescription("Red mana from your pool, chosen").assertExists()
+        compose.onNodeWithContentDescription("Payment: Paid with Red mana from your pool").assertExists()
+        compose.onRoot().captureShot("$SCREENSHOTS/cast-panel/pool-mana.png",
+            "Alice tapped her Ember Shard and Moss Shard on the table (red and green mana in her pool), opened Hedge Penny's ({2}) cast " +
+                "panel with Autotap off and tapped the red pool mana: the panel shows each pool mana as a small card with its symbol in " +
+                "its colour, {R} chosen with a violet ring and a check, {G} not yet, and the panel says in red that {2} isn't paid yet.")
+        compose.onNodeWithContentDescription("Green mana from your pool").performClick()
+        k.playOn("the green chosen") { !k.toolkit.cast.busy }
+        refresh()
+        assertTrue(k.toolkit.cast.paid, "the pool pays: ${k.toolkit.cast.mana}")
+        compose.onNodeWithContentDescription("Payment: Paid with Red mana from your pool, Green mana from your pool").assertExists()
     }
 }

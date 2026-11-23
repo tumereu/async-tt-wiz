@@ -108,7 +108,11 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
     /** [outcome] as the page gets it: a new version for a new flow. */
     private fun answer(session: Long, name: String, version: Long?, outcome: Outcome): CastAnswer = when (outcome) {
         is Outcome.Show -> {
-            val v = sessions.put(session, Entry(outcome.flow, outcome.ahead), "$name shows ${outcome.flow.pending?.kind ?: "the complete flow"}")
+            val entry = Entry(outcome.flow, outcome.ahead)
+            val what = "$name shows ${outcome.flow.pending?.kind ?: "the complete flow"}"
+            // Owner problem report 4DKZET: a preview shows the same flow (only the payment ahead worked out with the X being
+            // set): it keeps the version it was made on, so raising the X any number of times never makes its answer stale
+            val v = if (outcome.same && version != null) sessions.replace(session, version, entry, what) else sessions.put(session, entry, what)
             // Prod reports V5LJML, SFBXD9 (convoke): the payment a panel opens on, Autotap's suggestion and every way offered
             ((outcome.ahead ?: outcome.flow).pending as? Decision.ManaPayment)?.let { pay ->
                 AppLog.info("cast", "Payment of ${outcome.flow.cardId} opens: ${pay.cost}; Autotap suggests " +
@@ -134,7 +138,10 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
     /** What a step comes to (worked out by [Step]). */
     private sealed interface Outcome {
         /** [flow] with its open question shown ([panel] makes the page's value); [fresh]: on the step's board. */
-        class Show(val flow: CastFlow, val ahead: CastFlow?, val fresh: Boolean, val panel: (CastFlowValue) -> CastPanelValue) : Outcome
+        class Show(val flow: CastFlow, val ahead: CastFlow?, val fresh: Boolean, val panel: (CastFlowValue) -> CastPanelValue) : Outcome {
+            /** The flow of the version the step was made on, unchanged (a preview): that version is worked out again in place. */
+            var same = false
+        }
         class Mana(val mana: List<ManaUse>, val paid: Boolean, val taps: ManaTaps) : Outcome
         /** The complete [flow]'s own [inputs]. */
         class Engine(val flow: CastFlow, val inputs: List<Input>, val fresh: Boolean) : Outcome
@@ -246,6 +253,7 @@ class CastSessions(private val viewer: String, private val log: EngineLog = Engi
         fun preview(f: CastFlow, op: CastOp.Preview): Outcome {
             val c = op.choices
             return settle(f, fresh = false, auto = false, c.autotap, c.keep, c.custom, clear = false, picks = c.taps.taps(), open = op.answer)
+                .also { (it as? Outcome.Show)?.same = true }
         }
 
         /** STK-024 (owner playtest 2026-11-09): a tap on a source: one paying is taken out, one not paying is added with its

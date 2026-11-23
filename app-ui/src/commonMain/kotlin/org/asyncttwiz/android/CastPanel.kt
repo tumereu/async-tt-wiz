@@ -55,6 +55,7 @@ import arcanum.engine.decision.ManaUse
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
+import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import org.asyncttwiz.automatum.CastFlow
 import org.asyncttwiz.automatum.ManaPicks
@@ -701,19 +702,25 @@ fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, deci
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             for (group in groups) {
                 val used = cast.mana.firstOrNull { it in group }
-                val label = manaLabel(flow, play, used ?: group.first(), group)
-                // I-D48: a mana ability's source is drawn as its card, turned sideways while it is tapped for the payment
-                val source = (group.first() as? ManaUse.Ability)?.source
-                if (source != null) {
-                    val card = choiceCardOf(flow, play, viewer, source, tapped = used != null)
-                    ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = { cast.toggleMana(group) }, hold = { inspector.hold(card, it) }, moved = inspector::moved)
-                        .semantics { contentDescription = "Mana source $label${if (used != null) ", tapped" else ""}" },
-                        badge = label.substringAfterLast(' '))
-                } else FilterChip(used != null, { cast.toggleMana(group) },
-                    modifier = Modifier.semantics { contentDescription = "Mana source $label${if (used != null) ", tapped" else ""}" },
-                    label = { CardText(label, style = TextStyle(fontSize = 12.sp)) },
-                    leadingIcon = { TapGlyph(used != null) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AutomatumViolet.copy(alpha = .18f)))
+                val use = used ?: group.first()
+                // STK-228, STK-049 (owner problem report 2026-11-22): a pool mana is its symbol in its colour on a small card, as the
+                // sources are
+                if (use is ManaUse.Pool) PoolManaTile(poolManaLook(flow, play, decision.player, viewer, use), used != null, { cast.toggleMana(group) })
+                else {
+                    val label = manaLabel(flow, play, use, group)
+                    // I-D48: a mana ability's source is drawn as its card, turned sideways while it is tapped for the payment
+                    val source = (group.first() as? ManaUse.Ability)?.source
+                    if (source != null) {
+                        val card = choiceCardOf(flow, play, viewer, source, tapped = used != null)
+                        ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = { cast.toggleMana(group) }, hold = { inspector.hold(card, it) }, moved = inspector::moved)
+                            .semantics { contentDescription = "Mana source $label${if (used != null) ", tapped" else ""}" },
+                            badge = label.substringAfterLast(' '))
+                    } else FilterChip(used != null, { cast.toggleMana(group) },
+                        modifier = Modifier.semantics { contentDescription = "Mana source $label${if (used != null) ", tapped" else ""}" },
+                        label = { CardText(label, style = TextStyle(fontSize = 12.sp)) },
+                        leadingIcon = { TapGlyph(used != null) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AutomatumViolet.copy(alpha = .18f)))
+                }
             }
         }
         Text(if (cast.paid) "Paid" else "Not paid yet", fontSize = 11.sp,
@@ -734,7 +741,10 @@ private fun PaymentLine(cast: CastController, play: TableBoard) {
     val payment = cast.payment ?: return
     val due = payment.cost.toString()
     if (due.isEmpty()) return
-    val names = cast.mana.map { useName(cast, play, it) }
+    val viewer = LocalChoiceFrame.current.viewer
+    val payer = payment.player
+    // STK-228 (owner problem report 2026-11-22): pool mana is named by its colour ("Red mana from your pool")
+    val names = cast.mana.map { useName(cast, play, it, payer, viewer) }
     // STK-024 (owner 2026-11-14): never a card named as a choice: what is still owed, produced on the board
     val reason = when {
         cast.paid -> null
@@ -755,8 +765,8 @@ private fun PaymentLine(cast: CastController, play: TableBoard) {
         val choosable = cast.mana.filter { cast.costChoiceOf(it) != null }
         if (choosable.isNotEmpty() && cast.costPick == null) for (use in choosable) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CardText(useName(cast, play, use), Modifier.weight(1f), style = TextStyle(fontSize = 12.sp))
-                TextButton({ cast.openCostPick(use) }, Modifier.semantics { contentDescription = "Change the cards ${useName(cast, play, use)} uses" }) {
+                CardText(useName(cast, play, use, payer, viewer), Modifier.weight(1f), style = TextStyle(fontSize = 12.sp))
+                TextButton({ cast.openCostPick(use) }, Modifier.semantics { contentDescription = "Change the cards ${useName(cast, play, use, payer, viewer)} uses" }) {
                     Text("Change", fontSize = 12.sp)
                 }
             }
@@ -764,14 +774,19 @@ private fun PaymentLine(cast: CastController, play: TableBoard) {
         // STK-024 (owner 2026-11-14): a source whose cost uses other cards (tapping two creatures, sacrificing one) is never a chip
         // naming them: it is tapped on the table like any other source
         val others = ManaPicks.groups(payment).filter { group -> cast.tableSource(group.first()) == null && !ManaPicks.usesObjects(group.first()) }
-        if (others.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (others.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             for (group in others) {
                 val used = cast.mana.firstOrNull { it in group }
-                val label = useName(cast, play, used ?: group.first())
-                FilterChip(used != null, { cast.toggleMana(group) },
-                    modifier = Modifier.semantics { contentDescription = "Mana source $label${if (used != null) ", chosen" else ""}" },
-                    label = { CardText(label, style = TextStyle(fontSize = 12.sp)) }, leadingIcon = { TapGlyph(used != null) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AutomatumViolet.copy(alpha = .18f)))
+                val use = used ?: group.first()
+                // STK-228 (owner problem report 2026-11-22): a pool mana is its symbol in its colour on a small card, as the sources are
+                if (use is ManaUse.Pool) PoolManaTile(poolManaLook(cast, play, payer, viewer, use), used != null, { cast.toggleMana(group) })
+                else {
+                    val label = useName(cast, play, use, payer, viewer)
+                    FilterChip(used != null, { cast.toggleMana(group) },
+                        modifier = Modifier.semantics { contentDescription = "Mana source $label${if (used != null) ", chosen" else ""}" },
+                        label = { CardText(label, style = TextStyle(fontSize = 12.sp)) }, leadingIcon = { TapGlyph(used != null) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AutomatumViolet.copy(alpha = .18f)))
+                }
             }
         }
     }
@@ -822,10 +837,11 @@ private class CostPickQuestions(private val cast: CastController, private val ch
     }
 }
 
-/** A payment's use as the payment line names it: its source card, "Pool mana", "2 life". */
-private fun useName(flow: FlowQuestions, play: TableBoard, use: ManaUse): String = when (use) {
+/** A payment's use as the payment line names it: its source card, a pool mana by its colour ("Red mana from your pool", the
+ * payment [payer]'s pool, [viewer] looking), "2 life". */
+private fun useName(flow: FlowQuestions, play: TableBoard, use: ManaUse, payer: PlayerId?, viewer: String): String = when (use) {
     is ManaUse.Ability -> objectName(flow, play, use.source) + usedWith(flow, play, use)
-    is ManaUse.Pool -> "Pool mana"
+    is ManaUse.Pool -> poolManaLook(flow, play, payer, viewer, use).words
     is ManaUse.Life -> "2 life"
     is ManaUse.Special -> use.objects.joinToString { objectName(flow, play, it) }
 }
@@ -996,7 +1012,8 @@ private fun copiedName(flow: FlowQuestions, play: TableBoard, id: ObjectId): Str
 private fun manaLabel(flow: FlowQuestions, play: TableBoard, use: ManaUse, group: List<ManaUse>): String = when (use) {
     is ManaUse.Ability -> objectName(flow, play, use.source) + usedWith(flow, play, use) + " " + group.filterIsInstance<ManaUse.Ability>()
         .map { it.color?.symbol ?: 'C' }.distinct().joinToString("/")
-    is ManaUse.Pool -> "Pool mana"
+    // Drawn as its own tile (PoolManaTile), never by this label
+    is ManaUse.Pool -> Faults.placeholder("CastPanel", "pool mana labelled without its colour", "Pool mana", mapOf("index" to "${use.index}"))
     is ManaUse.Life -> "2 life"
     is ManaUse.Special -> use.objects.joinToString { objectName(flow, play, it) }
 }

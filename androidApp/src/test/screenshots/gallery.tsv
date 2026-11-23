@@ -382,6 +382,7 @@ number	item	screenshot	catalog	decisions	sequence
 557	Hand card types: a hand of every kind with its type icons (instant a bolt, sorcery a swirl) and the P/T, loyalty or defense in the bottom row	hand/types-pt.png	TBL-239 TBL-233 TBL-021		Hand card types
 558	Hand card types: the same hand at the smallest Hand card size	hand/types-pt-small.png	TBL-239		Hand card types
 559	Hand card types: full-picture hand cards with their type icons on the white chip	hand/types-full-picture.png	TBL-239 TBL-236		Hand card types
+560	Payment with mana in the pool: each mana a small card with its symbol in its colour, the red one chosen	cast-panel/pool-mana.png	STK-228 STK-157 STK-024	ManaPayment
 561	Trigger timing: your attack with two attack triggers, from the tap on Attack until the second main phase	clips/trigger-timing/your-attack.webp	HIS-113 HIS-112 HIS-133 HIS-136 STK-058 STK-127 HIS-230 TBL-150 TBL-203 TBL-204 TBL-205	OrderTriggers	Trigger timing
 562	Trigger timing: the other player's attack with an attack trigger, played back on your phone	clips/trigger-timing/their-attack.webp	HIS-113 HIS-021 HIS-112 STK-058 STK-127 HIS-230 TBL-150 TBL-205 TBL-206		Trigger timing
 563	Trigger timing: your creature whose enters trigger makes a token, each entering triggering another creature	clips/trigger-timing/your-token-chain.webp	HIS-112 HIS-133 HIS-136 HIS-138 TBL-150 TBL-203 TBL-038	OrderTriggers	Trigger timing

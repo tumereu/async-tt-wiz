@@ -219,6 +219,23 @@ class FlowSessions<E>(private val log: EngineLog, private val keep: Int = 4) {
         return version
     }
 
+    /**
+     * [entry] in place of session [id]'s version [version], which keeps its number: a step that shows the same flow worked out
+     * again (owner problem report 4DKZET: the payment previewed with the X being set, [CastOp.Preview]) makes no new version,
+     * so any number of them never leaves the open question's own version behind as stale. Null when the session isn't open or
+     * doesn't keep that version.
+     */
+    fun replace(id: Long, version: Long, entry: E, step: String): Long? {
+        val session = sessions[id] ?: run { log.log(true, "Flow session $id: $step after it closed, dropped"); return null }
+        if (version !in session.versions) {
+            log.log(true, "Flow session $id: $step on version $version, which isn't kept (newest ${session.last}), dropped")
+            return null
+        }
+        session.versions[version] = entry
+        log.log(false, "Flow session $id (${session.kind} ${session.what}): $step, version $version worked out again (newest ${session.last})")
+        return version
+    }
+
     /** Session [id]'s version [version]: the entry, or why the step is stale ([Found.entry] null, [Found.stale] the reason). */
     fun get(id: Long, version: Long?, step: String): Found<E> {
         val session = sessions[id] ?: return Found<E>(null, "the session isn't open").also { stale(id, step, it.stale) }

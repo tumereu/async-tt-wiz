@@ -22970,6 +22970,23 @@ internal class Sentences(
                     resultingSpell = ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.EventAmount)))), payer = Players.You, bind = "played"),
                 Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("played")), then = listOf(Step.Do(Effect.Move(top, Destination(Zone.Hand))))))
         }
+        // snc chunk 02: choose a target; if it was dealt noncombat damage this turn, one effect, otherwise another (CR 120.2b: noncombat damage is
+        // any damage that isn't combat damage; the target's history this turn, CR 608.2h)
+        Snc.CHOOSE_TARGET_IF_DEALT_NONCOMBAT_OTHERWISE.matchEntire(text)?.let { m ->
+            val slots = context.targets.size
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val savedIt = context.it
+            context.it = target
+            // "<effect> and you <effect>": two effects of one clause, each read as its own sentence
+            fun both(clause: String): List<Step>? = clause.split(" and you ").mapIndexed { i, part ->
+                effect(if (i == 0) "${part.replaceFirstChar { c -> c.uppercase() }}." else "You $part.", context) ?: return null
+            }.flatten()
+            val (then, otherwise) = try { both(m.groupValues[2]) to both(m.groupValues[3]) } finally { context.it = savedIt }
+            if (then == null || otherwise == null) { while (context.targets.size > slots) context.targets.removeAt(context.targets.size - 1); return null }
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(target, ObjectFilter.ThisTurn(
+                EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = ObjectFilter.Any), combat = false), role = EventRole.Object)),
+                then = then, otherwise = otherwise))
+        }
         return null
     }
 

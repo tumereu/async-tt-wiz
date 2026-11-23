@@ -15,15 +15,18 @@ import java.util.concurrent.TimeUnit
 /**
  * Never attaches to Compose/developer databases and never enables container reuse.
  *
- * With [viaBridge], [settings] and [connection] reach the container on its Docker bridge address
- * when that is reachable from this host. Docker's published loopback port runs every new
+ * By default ([viaBridge]), [settings] and [connection] reach the container on its Docker bridge
+ * address when that is reachable from this host. Docker's published loopback port runs every new
  * connection through the userland proxy and, on this WSL host, the mirrored Windows loopback:
  * about 2 ms per query instead of 0.2 ms, and under CPU load it resets roughly one new connection
- * in a few hundred ("The connection attempt failed.", Connection reset). The bridge address is
- * host-only too. Tests that stop, pause or restart the container must not use it: a restarted
- * container may get another bridge address, while the published port mapping stays stable.
+ * in a few hundred ("The connection attempt failed.", Connection reset), which has failed merge
+ * gates. The bridge address is host-only too. Only tests that stop, pause or restart the container
+ * pass `viaBridge = false`: a restarted container may get another bridge address, while the
+ * published port mapping stays stable. Such tests may still take the bridge for steps before the
+ * first stop or pause ([settings] with `viaBridge = true`), and their [connection] retries one
+ * dropped connection attempt.
  */
-class OwnedPostgres(private val viaBridge: Boolean = false) : TestPostgres {
+class OwnedPostgres(private val viaBridge: Boolean = true) : TestPostgres {
     // Reserve on the actual eventual bind address, including non-restart tests.
     // Docker's random wildcard publisher does not consult this host's loopback
     // socket allocation. WSL can reset that path even after PostgreSQL is ready.
@@ -77,9 +80,8 @@ class OwnedPostgres(private val viaBridge: Boolean = false) : TestPostgres {
         }
     }
 
-    /** Bridge host:port with [viaBridge] when reachable, chosen once after startup and never per query. */
+    /** Bridge host:port when reachable, chosen once on first use after startup and never per query. */
     private val bridgeAddress: String? by lazy {
-        if (!viaBridge) return@lazy null
         val bridge = container.dockerClient.inspectContainerCmd(container.containerId).exec()
             .networkSettings.networks.orEmpty().values.mapNotNull { it.ipAddress?.takeIf(String::isNotEmpty) }.firstOrNull()
         val reachable = bridge != null && try {
@@ -94,15 +96,27 @@ class OwnedPostgres(private val viaBridge: Boolean = false) : TestPostgres {
     }
 
     /** JDBC URL of [database] in this container, over the bridge address with [viaBridge] when reachable. */
-    fun jdbcUrl(database: String = container.databaseName): String {
-        val address = bridgeAddress ?: "${container.host}:${container.getMappedPort(5432)}"
+    fun jdbcUrl(database: String = container.databaseName, viaBridge: Boolean = this.viaBridge): String {
+        val address = (if (viaBridge) bridgeAddress else null) ?: "${container.host}:${container.getMappedPort(5432)}"
         val query = container.jdbcUrl.substringAfter('?', "")
         return "jdbc:postgresql://$address/$database" + if (query.isEmpty()) "" else "?$query"
     }
 
-    override val settings: DatabaseSettings get() = DatabaseSettings(jdbcUrl(), container.username, container.password)
+    override val settings: DatabaseSettings get() = settings(viaBridge)
 
-    override fun connection(): Connection = DriverManager.getConnection(jdbcUrl(), container.username, container.password)
+    /** `settings(viaBridge = true)` in a published-port test: only for steps before the first stop or pause. */
+    fun settings(viaBridge: Boolean) = DatabaseSettings(jdbcUrl(viaBridge = viaBridge), container.username, container.password)
+
+    /** On the published port (also when the bridge is unreachable), one dropped connection attempt (08001) is
+     * tried again; a database that is down still fails, as the second attempt does too. */
+    override fun connection(): Connection = try { connect() } catch (failure: SQLException) {
+        if ((viaBridge && bridgeAddress != null) || failure.sqlState != "08001") throw failure
+        println("WAIT integration PostgreSQL published port: connection attempt failed, trying once more")
+        Thread.sleep(50)
+        connect()
+    }
+
+    private fun connect(): Connection = DriverManager.getConnection(jdbcUrl(), container.username, container.password)
 
     companion object {
         internal fun awaitStartupConnection(timeoutMillis: Long = 10_000, connect: () -> Connection): Connection {

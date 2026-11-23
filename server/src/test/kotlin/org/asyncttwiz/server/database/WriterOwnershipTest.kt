@@ -19,10 +19,27 @@ class WriterOwnershipTest {
     private fun epoch(db: OwnedPostgres) = db.connection().use { it.epoch() }
     /** Over the bridge address unless the test stops, pauses or restarts the container ([viaBridge] false): the
      * published port resets about one new connection in a few hundred under load (see [OwnedPostgres]), which
-     * once failed the acquisition test in a merge gate. */
+     * once failed the acquisition test in a merge gate. The migration runs before any stop, over the bridge. */
     private fun migrated(viaBridge: Boolean = true): OwnedPostgres =
-        OwnedPostgres(viaBridge).start().also { FoundationMigrations.migrate(it.settings) }
+        OwnedPostgres(viaBridge).start().also { FoundationMigrations.migrate(it.settings(viaBridge = true)) }
     private fun acquired(owner: WriterOwnership) = owner.refresh().orElseThrow()
+
+    /**
+     * [acquired] for an owner on the published port, while the database is up: a dropped connection attempt there
+     * is DATABASE_UNAVAILABLE, which the service's recovery loop simply retries, so this does too (bounded). Any
+     * other refusal still fails at once.
+     */
+    private fun acquiredOnPublishedPort(owner: WriterOwnership): WriterOwnership.Token {
+        var token: WriterOwnership.Token? = null
+        eventually("ownership over the published port") {
+            token = try { owner.refresh().orElse(null) } catch (failure: OwnershipFailure) {
+                if (failure.reason() != OwnershipFailure.Reason.DATABASE_UNAVAILABLE) throw failure
+                null
+            }
+            token != null
+        }
+        return token!!
+    }
     private fun advisoryLocks(db: OwnedPostgres) =
         db.connection().use { it.number("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory'") }
 
@@ -373,7 +390,7 @@ class WriterOwnershipTest {
     @Test fun `database restart invalidates ownership and requires schema validation reload and new epoch`() {
         migrated(viaBridge = false).use { db ->
             WriterOwnership(db.settings).use { owner ->
-                val stale = acquired(owner)
+                val stale = acquiredOnPublishedPort(owner)
                 val id = db.container.containerId
                 println("Restart diagnostic: original mapped port=${db.container.getMappedPort(5432)}")
                 db.container.dockerClient.stopContainerCmd(id).withTimeout(0).exec()
@@ -392,7 +409,7 @@ class WriterOwnershipTest {
                     assertTrue(owner.token().isEmpty)
                     assertEquals(stale.epoch(), inspect.epoch())
                     inspect.execute("UPDATE flyway_schema_history SET checksum = checksum - 1 WHERE version = '1'")
-                    assertEquals(stale.epoch() + 1, acquired(owner).epoch())
+                    assertEquals(stale.epoch() + 1, acquiredOnPublishedPort(owner).epoch())
                 }
                 println("PASS actual database stop/start, immediate observed invalidation, recovery schema revalidation and new persisted epoch")
             }
@@ -402,14 +419,14 @@ class WriterOwnershipTest {
     @Test fun `unresponsive database probe times out and recovers without stale ownership`() {
         migrated(viaBridge = false).use { db ->
             WriterOwnership(db.settings).use { owner ->
-                val stale = acquired(owner)
+                val stale = acquiredOnPublishedPort(owner)
                 val id = db.container.containerId
                 db.container.dockerClient.pauseContainerCmd(id).exec()
                 try {
                     assertTimeoutPreemptively(Duration.ofSeconds(8)) { assertTrue(owner.token().isEmpty) }
                 } finally { db.container.dockerClient.unpauseContainerCmd(id).exec() }
                 assertThrows(OwnershipFailure::class.java) { owner.transaction(stale) { fail<Unit>("Stale token admitted") } }
-                eventually("ownership after unpause") { owner.refresh().isPresent }
+                acquiredOnPublishedPort(owner)
                 assertEquals(stale.epoch() + 1, owner.token().orElseThrow().epoch())
                 println("PASS blackholed DB probe bounded by socket timeout; stale ownership invalidated and reacquired")
             }
@@ -419,7 +436,7 @@ class WriterOwnershipTest {
     @Test fun `unobserved database restart cannot admit under an unchanged old epoch`() {
         migrated(viaBridge = false).use { db ->
             WriterOwnership(db.settings).use { owner ->
-                val stale = acquired(owner)
+                val stale = acquiredOnPublishedPort(owner)
                 val id = db.container.containerId
                 db.container.dockerClient.stopContainerCmd(id).withTimeout(0).exec()
                 db.container.dockerClient.startContainerCmd(id).exec()
@@ -428,7 +445,7 @@ class WriterOwnershipTest {
                 assertThrows(OwnershipFailure::class.java) { owner.transaction(stale) { entered = true } }
                 assertFalse(entered)
                 assertTrue(owner.token().isEmpty)
-                assertEquals(stale.epoch() + 1, acquired(owner).epoch())
+                assertEquals(stale.epoch() + 1, acquiredOnPublishedPort(owner).epoch())
                 println("PASS transaction checks dedicated session, not just same persisted epoch, after unobserved DB restart")
             }
         }

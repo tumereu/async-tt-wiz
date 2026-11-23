@@ -26,7 +26,8 @@ import java.util.concurrent.TimeUnit
  * Tests that never stop or pause their container reach it over the bridge address (`OwnedPostgres(viaBridge = true)`,
  * the processes too through DB_URL): the published port resets about one new connection in a few hundred under CPU
  * load, which once failed an explicit `migrate` run here (Flyway connects with no retries). The stop/start and pause
- * tests keep the published port, whose mapping survives a restart.
+ * tests keep the published port, whose mapping survives a restart, for the services; their `migrate` runs before
+ * the first stop or pause, so it takes the bridge address.
  */
 class ServiceProcessTest {
     @TempDir lateinit var temporary: Path
@@ -303,9 +304,9 @@ class ServiceProcessTest {
     }
 
     @Test fun `two actual processes recover database outage and lock takeover without dual ready writers`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = false).start().use { db ->
             val firstInputs = environment(db)
-            migrate(firstInputs)
+            migrate(firstInputs + ("DB_URL" to db.jdbcUrl(viaBridge = true)))
             Service(firstInputs).use { first ->
                 first.awaitStatus("/health/ready", 200)
                 Service(environment(db)).use { second ->
@@ -346,9 +347,9 @@ class ServiceProcessTest {
     }
 
     @Test fun `invalid credentials remain live and detail free and SIGTERM is bounded during database blackhole`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = false).start().use { db ->
             val inputs = environment(db)
-            migrate(inputs)
+            migrate(inputs + ("DB_URL" to db.jdbcUrl(viaBridge = true)))
             val wrongSecret = temporary.resolve("wrong-secret")
             Files.writeString(wrongSecret, "synthetic-credential-do-not-log")
             Service(inputs + ("DB_PASSWORD_FILE" to wrongSecret.toString())).use { service ->

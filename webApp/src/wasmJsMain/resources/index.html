@@ -89,6 +89,44 @@
         // WEB-005: a built-in file that fails to load is tried again a couple of times (after 1 s, then 3 s) before
         // "ATW couldn't load" shows
         var retries = [1000, 3000];
+        function couldNotLoad(what) {
+            globalThis.atwStartFailed(what);
+            var text = document.getElementById('atw-loading-text');
+            if (text) text.textContent = "ATW couldn't load. Check your connection and reload the page.";
+        }
+        // The app's code is built-in files too: the starting script fetches its WebAssembly modules (the app's and the drawing
+        // library's), and one that didn't come stopped the app on its loading screen with nothing said (WebFileRetryTest in
+        // the full run of 2026-11-23: a connection reset)
+        var plainFetch = globalThis.fetch.bind(globalThis);
+        globalThis.fetch = function (input, init) {
+            var url = typeof input === 'string' ? input : (input && input.url) || String(input);
+            if (!/\.wasm$/.test(url.split(/[?#]/)[0])) return plainFetch(input, init);
+            function attempt(index) {
+                function again(why) {
+                    if (index >= retries.length) {
+                        console.warn('ATW: ' + url + " didn't load after " + (index + 1) + ' tries: ' + why);
+                        couldNotLoad(url + " couldn't be loaded after " + (index + 1) + ' tries: ' + why);
+                        return null;
+                    }
+                    console.warn('ATW: ' + url + " didn't load (try " + (index + 1) + ' of ' + (retries.length + 1) + '): ' + why +
+                        ': trying again in ' + retries[index] + ' ms');
+                    return new Promise(function (resolve) { setTimeout(resolve, retries[index]); })
+                        .then(function () { return attempt(index + 1); });
+                }
+                return plainFetch(input, init).then(function (response) {
+                    if (response.ok) {
+                        if (index > 0) console.info('ATW: ' + url + ' loaded at try ' + (index + 1));
+                        return response;
+                    }
+                    return again('HTTP ' + response.status) || response;
+                }, function (failure) {
+                    var next = again(String(failure));
+                    if (next) return next;
+                    throw failure;
+                });
+            }
+            return attempt(0);
+        };
         function load(attempt) {
             var script = document.createElement('script');
             script.src = globalThis.atwBase + 'atw.js';
@@ -100,9 +138,7 @@
                     setTimeout(function () { load(attempt + 1); }, retries[attempt]);
                     return;
                 }
-                globalThis.atwStartFailed(script.src + " couldn't be loaded after " + (attempt + 1) + ' tries');
-                var text = document.getElementById('atw-loading-text');
-                if (text) text.textContent = "ATW couldn't load. Check your connection and reload the page.";
+                couldNotLoad(script.src + " couldn't be loaded after " + (attempt + 1) + ' tries');
             };
             if (attempt > 0) script.onload = function () { console.info('ATW: ' + script.src + ' loaded at try ' + (attempt + 1)); };
             document.body.appendChild(script);

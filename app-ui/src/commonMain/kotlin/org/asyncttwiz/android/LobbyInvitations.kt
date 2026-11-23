@@ -26,10 +26,16 @@ class LobbyInvitations(private val scope: LobbyScope, private val api: Lobbies,
     private var pendingRecipient: AccountIdentity? = null
     fun clear() { pendingCreate = null; pendingChallenge = null; pendingRecipient = null }
     fun respond(game: GameSummary, accept: Boolean) {
-        if (game.recipient.accountId != accountId() || game.invitationState != InvitationState.PENDING || game.lifecycle != GameLifecycle.LOBBY) return
+        val what = "Invitation ${game.id.take(8)}: ${if (accept) "accept" else "decline"}"
+        if (game.recipient.accountId != accountId() || game.invitationState != InvitationState.PENDING || game.lifecycle != GameLifecycle.LOBBY) {
+            AppLog.info("lobby", "$what not sent: ${if (game.recipient.accountId != accountId()) "not to you" else
+                "${game.lifecycle}, invitation ${game.invitationState}"}")
+            return
+        }
         // A held pod challenge can be declined at once; accepting waits for the player's submitted deck.
-        if (accept && game.invitationHeld) return
-        session?.submit(game, if (accept) GameAction.AcceptInvitation else GameAction.DeclineInvitation)
+        if (accept && game.invitationHeld) { AppLog.info("lobby", "$what not sent: it waits for your deck"); return }
+        val sent = session?.submit(game, if (accept) GameAction.AcceptInvitation else GameAction.DeclineInvitation) == true
+        AppLog.info("lobby", if (sent) "$what sent" else "$what not sent: the game connection refused it (not in its lobby now)")
     }
     fun reinvite(game: GameSummary) {
         if (game.inviter.accountId != accountId() || game.invitationState != InvitationState.DECLINED || game.lifecycle != GameLifecycle.LOBBY) return

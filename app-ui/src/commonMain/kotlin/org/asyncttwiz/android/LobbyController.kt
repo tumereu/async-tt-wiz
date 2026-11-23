@@ -76,7 +76,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val lastChatTabs = mutableMapOf<String, ChatTab>()
     /** The chat tab last shown in [gameId]'s chat, null before any. */
     fun lastChatTab(gameId: String): ChatTab? = lastChatTabs[gameId]
-    fun clear() { lastChatTabs.clear(); queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); releasedHeld.clear(); session?.clear(); history.clear(); state = LobbyState() }
+    fun clear() { lastChatTabs.clear(); queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); releasedHeld.clear(); acceptOnRelease = null; session?.clear(); history.clear(); state = LobbyState() }
     /** Opens the game's chat; [focus]: at that message (holding its bubble on the table, LOB-136); [tab]: on that tab in a pod
      * game (LOB-145). */
     fun openChat(focus: String? = null, tab: ChatTab = ChatTab.GAME) {
@@ -202,8 +202,58 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         for (id in held) latest[id]?.let { latest[id] = released(it) }
         state = state.copy(games = state.games.map(::released), invitations = state.invitations.map(::released),
             detail = state.detail?.let(::released))
+        acceptWaiting("your submit confirmed")
         refresh()
     }
+
+    /** DRF-181: the pod challenge to you the pod's Challenge pressed to accept while it waited for your submit's confirmation. */
+    private var acceptOnRelease: String? = null
+
+    /**
+     * DRF-181, DRF-122 (full run 2026-11-23: a press as the submit landed did nothing): the pod's Challenge beside its sender
+     * accepts [game], a challenge to you. One still waiting for your deck (your submit on its way) waits for the submit's
+     * confirmation ([podDeckSubmitted]); then, as one acceptable at once, it is sent once its game can send (connected,
+     * nothing of it on its way). Each step is logged, and so is a press that can't accept any more.
+     */
+    fun acceptPodChallenge(game: GameSummary) {
+        if (closed) return
+        val current = current(game.id) ?: game
+        if (current.invitationHeld) {
+            acceptOnRelease = current.id
+            AppLog.info("lobby", "Challenge ${current.id.take(8)}: accept waits for your submit's confirmation (it waits for your deck)")
+            return
+        }
+        acceptOnRelease = null
+        if (current.id !in state.connectedGames || current.id in state.pendingGames)
+            AppLog.info("lobby", "Challenge ${current.id.take(8)}: accept waits for its game to " +
+                if (current.id in state.pendingGames) "send what is on its way" else "connect")
+        queue.whenReady(current.id, "acceptChallenge") {
+            val now = current(current.id)
+            if (now == null) AppLog.info("lobby", "Challenge ${current.id.take(8)}: accept dropped, the game is gone from the lists")
+            else invitations.respond(now, true)
+            connectionState()
+        }
+    }
+
+    /** The accept [acceptPodChallenge] kept for a challenge that waited for your deck, once it no longer does ([why]). */
+    private fun acceptWaiting(why: String) {
+        val id = acceptOnRelease ?: return
+        val game = current(id)
+        if (game == null || game.invitationState != InvitationState.PENDING || game.lifecycle != GameLifecycle.LOBBY) {
+            acceptOnRelease = null
+            AppLog.info("lobby", "Challenge ${id.take(8)}: waiting accept dropped (${game?.let { "${it.lifecycle}, invitation " +
+                it.invitationState }.orEmpty().ifEmpty { "gone from the lists" }})")
+            return
+        }
+        if (game.invitationHeld) return
+        AppLog.info("lobby", "Challenge ${id.take(8)}: no longer waits for your deck ($why): its waiting accept goes")
+        acceptPodChallenge(game)
+    }
+
+    /** [id]'s game as the lists and the open game show it now. */
+    private fun current(id: String): GameSummary? =
+        (listOfNotNull(state.detail) + state.games + state.invitations).firstOrNull { it.id == id }?.let(::released)
+            ?: latest[id]?.let(::released)
 
     private fun accepted(incoming: GameSummary) {
         val game = released(incoming)
@@ -230,6 +280,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             AppLog.info("chat", "Chat of ${game.id.take(8)} closed: the game is ${game.lifecycle.name.lowercase()}")
             state = state.copy(listChat = null, chatOpen = false)
         }
+        // DRF-181: a waiting accept of this challenge goes once it no longer waits for your deck (after this update, not from
+        // inside the session's own callback)
+        if (game.id == acceptOnRelease) post { if (!closed) acceptWaiting("its newer revision") }
     }
     private fun leaveUnavailable() {
         state.selected?.let { AppLog.info("lobby", "Game ${it.take(8)} no longer available: back to the list") }

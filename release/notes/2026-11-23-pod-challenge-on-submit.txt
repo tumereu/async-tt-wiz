@@ -1,0 +1,1 @@
+fix: Pressing Challenge beside a player right after submitting your pod deck accepts their waiting challenge as soon as your deck is in, instead of doing nothing

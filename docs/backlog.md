@@ -18,6 +18,11 @@ Catalog review notes (owner, 2026-11-22):
 
 Playtest notes (owner, 2026-11-22):
 
+- Fewer notes at the top of the table (owner, 2026-11-22): a branch's note "<name> responded — your … was taken back" goes (the centre text HIS-190 says it; what was taken back isn't said anywhere any more: HIS-185, HIS-186, SYS-078), and so do the other player's undo's fading "<name> undid: <action>" and its "library reshuffled" line (HIS-099, HIS-168, HIS-236). "That wasn't taken: …" (SYS-012) stays.
+- Opening a game whose result still waits for an OK opens its table with the result dialog over it, as when it ended live (the eye shows the final board), not the lobby (TRN-142, TRN-141).
+- The other player's ▶ list (ZON-136): titled "Playable from other zones", each card with its zone badge in its top-right corner as on your own hand row's cards from other zones (ZON-106), not under it.
+- Pod setup's bots and members (DRF-296, DRF-030): an "Add bot" button instead of the Bots stepper, and a ✕ on each bot row to remove it; the same ✕ on pending invitations (cancels the invitation) and on joined members (removes them, in setup only, before the draft starts; the removed player gets a notification "Removed from <pod>" and can be invited again). New server actions with tests; e2e of the flow.
+
 
 ### Earlier
 

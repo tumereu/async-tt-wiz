@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
 class ManaWordsTest {
     /** The riders (as the production holds them) and words of each mana production of the card's abilities, in order. */
     private fun words(type: String, text: String, pt: String? = null): List<Pair<Boolean, List<String>>> {
-        val face = OracleParser.parse(card(name = "Ember Thing", cost = "{1}", type = type, text = text, pt = pt))
+        val face = OracleParser.parse(card(name = "Glintwick Thing", cost = "{1}", type = type, text = text, pt = pt))
         fun adds(steps: List<Step>): List<arcanum.api.ManaProduction> = steps.mapNotNull { ((it as? Step.Do)?.effect as? Effect.AddMana)?.mana }
         fun of(a: Ability): List<arcanum.api.ManaProduction> = when (a) {
             is Ability.Activated -> adds(a.instructions.steps)

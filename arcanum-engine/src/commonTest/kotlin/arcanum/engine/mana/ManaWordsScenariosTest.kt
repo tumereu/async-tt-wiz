@@ -17,7 +17,7 @@ import kotlin.test.assertEquals
 class ManaWordsScenariosTest {
     private val grove = Cards.invent("Gildleaf Grove", "{2}{G}", "Creature — Elf Druid",
         "{T}: Add three mana of any one color. Spend this mana only to cast creature spells.", "1/1")
-    private val bear = Cards.invent("Mossback Cub", "{2}", "Creature — Bear", "", "2/2")
+    private val bear = Cards.invent("Fernhollow Cub", "{2}", "Creature — Bear", "", "2/2")
     private val duelist = Cards.invent("Cinder Duelist", "{1}{R}", "Creature — Human Warrior", "Firebending 1", "2/2")
     private val powerstone = Cards.define("Powerstone Stand-in", CardDefinition(Layout.Normal,
         listOf(PredefinedTokens.face("Powerstone")!!.copy(name = "Powerstone Stand-in"))))

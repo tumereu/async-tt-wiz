@@ -849,6 +849,11 @@ sealed interface Modification {
     /** The tokens of a token-creating event that match the replacement's event are created as [token] instead, as many ("that
      * many 5/5 red Dragon creature tokens with flying are created instead", CR 614.1a); other tokens of the event stay. */
     @Serializable @SerialName("create-instead") data class CreateInstead(val token: TokenSpec) : Modification
+    // snc
+    /** As [CreateInstead], with the token one of [tokens] that the replacement's controller chooses as it applies ("you may instead create
+     * that many 2/2 green Cat creature tokens with haste or that many 3/1 green Dog creature tokens with vigilance"): one replacement effect,
+     * applied once to the event (CR 614.1a, 614.5). */
+    @Serializable @SerialName("create-instead-chosen") data class CreateInsteadChosen(val tokens: List<TokenSpec>) : Modification
     // msh
     /** The damage is dealt, but all other damage already marked on the permanent it is dealt to is healed first ("instead that
      * damage is dealt, but all other damage already dealt to him is healed", CR 701.69a). */

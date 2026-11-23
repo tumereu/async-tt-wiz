@@ -29,4 +29,9 @@ internal object Snc {
     val ALL_ATTACK_ATTACHED_CONTROLLER = Regex("""All (creatures) attack (?:enchanted|equipped) creature's controller each combat if able\.""")
     // snc chunk 05: "Equipped permanent isn't a planeswalker and is a creature in addition to its other types."
     val ATTACHED_ISNT_AND_IS_ADDITION = Regex("""(?:Enchanted|Equipped) permanent isn't an? (\w+) and is an? (\w+) in addition to its other types\.""")
+    // snc chunk 06: "any opponent may tap an untapped creature they control."
+    val ANY_OPPONENT_MAY_TAP = Regex("""[Aa]ny opponent may (tap an untapped .+?) they control\.""")
+    // snc chunk 06: "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste or that
+    // many 3/1 green Dog creature tokens with vigilance."
+    val CREATE_TOKENS_MAY_INSTEAD_ONE_OF = Regex("""If you would create one or more tokens, you may instead create that many (.+? tokens(?: with [^,]+?)?) or that many (.+? tokens(?: with .+?)?)\.""")
 }

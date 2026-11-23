@@ -1588,7 +1588,11 @@ internal object Conditions {
         CARD_TYPES_IN_GRAVEYARD.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             return Condition.Compare(Value.CountDistinct(Objects.Each(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Graveyard),
-                ObjectFilter.OwnedBy(PlayerFilter.You)))), if (m.groupValues[2] == "card") SharedQuality.CardType else SharedQuality.PermanentType),
+                ObjectFilter.OwnedBy(PlayerFilter.You)))), when (m.groupValues[2]) {
+                    "card types" -> SharedQuality.CardType
+                    "permanent types" -> SharedQuality.PermanentType
+                    else -> SharedQuality.Number(arcanum.api.NumericProperty.ManaValue)
+                }),
                 Comparison.AtLeast, Value.Fixed(n))
         }
         // trk chunk 11: "a permanent was returned to your hand from the battlefield this turn" (a hand is its owner's, CR 400.3; looked back
@@ -1853,7 +1857,8 @@ internal object Conditions {
     private val WAS_KICKED = Regex("""(.+) was kicked( twice)?""")
     private val ESCAPED = Regex("""(.+) escaped""")
     // lci chunk 07: "permanent types" too (CR 110.4a)
-    private val CARD_TYPES_IN_GRAVEYARD = Regex("""there are (\w+) or more (card|permanent) types among cards in your graveyard""")
+    // snc chunk 06: "mana values" too (CR 202.3)
+    private val CARD_TYPES_IN_GRAVEYARD = Regex("""there are (\w+) or more (card types|permanent types|mana values) among cards in your graveyard""")
     private val SELF_IS_TAPPED = Regex("""(.+) is tapped""")
 
     /** The object of "[this] is tapped" / "is untapped": this object, or the creature it is attached to (rvr chunk 01). */

@@ -550,6 +550,8 @@ class PodChallengeTest {
         assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, false).body).games.filter { it.podId == pod }.all { it.podOrphaned })
         assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.a, null, false).body).games.map { it.id }
             .containsAll(listOf(finished.id, playing.id, lobbyGame.id)), "still in the Games list")
+        // DRF-039: the deck of an orphaned game in play stays as it is (Prepare deck is the lobby's)
+        assertEquals(409, f.pods.gameDeck(f.a, pod, playing.id, SetPodGameDeck(id(), name = "In play")).status)
         // The match in play ends after the cancel: its record is the players' own, not the pod's
         assertEquals("accepted", playingBob.execute(f.games.concession(f.b, playing.id)).outcome)
         assertEquals(PodMatches(emptyList(), emptyList()), matches())
@@ -557,6 +559,19 @@ class PodChallengeTest {
         assertEquals(setOf(finished.id, playing.id), history.map { it.gameId }.toSet())
         assertTrue(history.all { it.podName == "Cancelled pod" })
 
+        // DRF-105, DRF-166 (owner, 2026-11-23): Prepare deck in the orphaned game's lobby renames and covers that game's deck
+        // alone; not a game in play, nor someone else's
+        fun gameDeck(who: AccountService.Principal, game: GameSummary, input: SetPodGameDeck) = f.pods.gameDeck(who, pod, game.id, input).status
+        assertEquals(200, gameDeck(f.a, lobbyGame, SetPodGameDeck(id(), name = "  The cancelled draft's deck ")))
+        assertEquals("The cancelled draft's deck", f.games.head(f.a, lobbyGame.id).ownPodDeckName)
+        assertNotEquals("The cancelled draft's deck", f.games.head(f.b, lobbyGame.id).ownPodDeckName)
+        fun aDeck() = f.games.head(f.a, lobbyGame.id).preparation!!.players.single { it.accountId == f.a.account.accountId }.deck!!
+        val plains = aDeck().entries.first { it.suppliedBasic == BasicLand.PLAINS }.definition
+        assertEquals(400, gameDeck(f.a, lobbyGame, SetPodGameDeck(id(), cover = plains)), "a supplied basic is no cover")
+        val card = aDeck().entries.first { it.suppliedBasic == null && it.section == SavedDeckSection.MAINBOARD }.definition
+        assertEquals(200, gameDeck(f.a, lobbyGame, SetPodGameDeck(id(), cover = card)))
+        assertEquals(card, aDeck().cover)
+        assertEquals(404, gameDeck(f.c, lobbyGame, SetPodGameDeck(id(), name = "Not mine")))
         // The next draft: Alice's new deck name stays out of the orphaned game's lobby
         val before = f.games.head(f.a, lobbyGame.id).ownPodDeckName
         assertEquals(200, f.pods.start(f.a, pod, PodRequest(id())).status)
@@ -567,6 +582,8 @@ class PodChallengeTest {
         submit(f.a); picks(f.b); submit(f.b)
         val next = json.decodeFromString<GameSummary>(f.pods.challenge(f.a, pod, ChallengeFromPod(id(), f.b.account.accountId)).body)
         assertEquals("Cancelled pod #4", next.gameName)
+        // A game of the pod's own draft changes the pod deck instead (its own requests)
+        assertEquals(409, gameDeck(f.a, next, SetPodGameDeck(id(), name = "Not orphaned")))
     }
 
     // DRF-041

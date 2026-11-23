@@ -764,29 +764,71 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         // A game orphaned by a cancelled draft (DRF-039) holds that draft's deck, not this one's
         val games = sql.selectFrom(GAME).where(GAME.POD_ID.eq(pod)).and(GAME.LIFECYCLE.eq("LOBBY")).and(GAME.POD_ORPHANED.isFalse)
             .and(GAME.INVITER_ID.eq(owner).or(GAME.RECIPIENT_ID.eq(owner))).orderBy(GAME.ID).forUpdate().fetch()
-        for (game in games) {
-            val preparation = sql.selectFrom(PLAYER_PREPARATION).where(PLAYER_PREPARATION.GAME_ID.eq(game.id))
-                .and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner)).fetchOne() ?: continue
-            val deck = preparation.deck?.let { StoredData.decode("game preparation", game.id) { GameWire.json.decodeFromString<PreparedDeck>(it) } } ?: continue
-            var changed = false
-            if (name != null && preparation.podDeckName != name) {
-                sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.POD_DECK_NAME, name).where(PLAYER_PREPARATION.GAME_ID.eq(game.id))
-                    .and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner)).execute()
-                changed = true
+        for (game in games) followInLobby(sql, game, owner, name, cover)
+    }
+
+    /** [owner]'s deck in [game]'s lobby gets [name] and/or [cover] (a card of its own); the change is published as a revision
+     * of the game. Returns whether anything changed. The game is locked. */
+    private fun followInLobby(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord, owner: UUID,
+        name: String?, cover: String?): Boolean {
+        val preparation = sql.selectFrom(PLAYER_PREPARATION).where(PLAYER_PREPARATION.GAME_ID.eq(game.id))
+            .and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner)).fetchOne() ?: return false
+        val deck = preparation.deck?.let { StoredData.decode("game preparation", game.id) { GameWire.json.decodeFromString<PreparedDeck>(it) } } ?: return false
+        var changed = false
+        if (name != null && preparation.podDeckName != name) {
+            sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.POD_DECK_NAME, name).where(PLAYER_PREPARATION.GAME_ID.eq(game.id))
+                .and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner)).execute()
+            changed = true
+        }
+        if (cover != null && deck.cover != cover && deck.entries.any { it.definition == cover }) {
+            sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.DECK, GameWire.json.encodeToString(deck.copy(cover = cover)))
+                .where(PLAYER_PREPARATION.GAME_ID.eq(game.id)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner)).execute()
+            changed = true
+        }
+        if (!changed) return false
+        sql.update(GAME).set(GAME.REVISION, game.revision!! + 1).set(GAME.UPDATED_AT, DSL.currentOffsetDateTime())
+            .where(GAME.ID.eq(game.id)).execute()
+        val summary = LobbyService(runtime).summary(sql, game.id!!)
+        val revision = GameRevision(summary.id, game.revision.toString(), summary.revision, UUID.randomUUID().toString(),
+            owner.toString(), GameScope(summary.id, summary.preparationRound), summary, PreparationStore.read(sql, summary))
+        sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, game.revision!! + 1)
+            .set(GAME_REVISION.PAYLOAD, GameWire.encode(revision)).execute()
+        return true
+    }
+
+    /**
+     * DRF-039, DRF-105, DRF-166 (owner, 2026-11-23): Prepare deck in the lobby of a game a cancelled draft orphaned from [podId]
+     * renames the caller's deck of that game alone, or gives it another cover (a card of its Main or Side): the pod's current
+     * draft deck is another one. Needs no pod membership (the pod may be gone, DRF-042). Setting the same again changes nothing.
+     */
+    fun gameDeck(principal: AccountService.Principal, podId: String, gameId: String, input: SetPodGameDeck): Result {
+        if (!DeckValidation.uuid(podId) || !DeckValidation.uuid(gameId) || (input.name == null) == (input.cover == null))
+            return error(400, "invalid_request")
+        val name = input.name?.trim()
+        if (name != null && !validName(name)) return error(400, "invalid_name")
+        val owner = UUID.fromString(principal.account.accountId)
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val game = sql.selectFrom(GAME).where(GAME.ID.eq(UUID.fromString(gameId))).forUpdate().fetchOne()
+            fun refuse(status: Int, code: String): Result {
+                log("pod $podId game $gameId deck change by $owner refused: $code"); return error(status, code)
             }
-            if (cover != null && deck.cover != cover && deck.entries.any { it.definition == cover }) {
-                sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.DECK, GameWire.json.encodeToString(deck.copy(cover = cover)))
-                    .where(PLAYER_PREPARATION.GAME_ID.eq(game.id)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner)).execute()
-                changed = true
+            if (game == null || game.podId != UUID.fromString(podId) || owner !in listOf(game.inviterId, game.recipientId))
+                return@transaction refuse(404, "game_not_found")
+            if (game.podOrphaned != true) return@transaction refuse(409, "not_orphaned")
+            if (game.lifecycle != "LOBBY") return@transaction refuse(409, "not_lobby")
+            if (input.cover != null) {
+                val deck = sql.select(PLAYER_PREPARATION.DECK).from(PLAYER_PREPARATION).where(PLAYER_PREPARATION.GAME_ID.eq(game.id))
+                    .and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner)).fetchOne(PLAYER_PREPARATION.DECK)
+                    ?.let { StoredData.decode("game preparation", game.id) { GameWire.json.decodeFromString<PreparedDeck>(it) } }
+                val choices = deck?.entries.orEmpty().filter { it.suppliedBasic == null &&
+                    it.section in listOf(SavedDeckSection.MAINBOARD, SavedDeckSection.SIDEBOARD) }.map { it.definition }
+                if (input.cover !in choices) return@transaction refuse(400, "invalid_cover")
             }
-            if (!changed) continue
-            sql.update(GAME).set(GAME.REVISION, game.revision!! + 1).set(GAME.UPDATED_AT, DSL.currentOffsetDateTime())
-                .where(GAME.ID.eq(game.id)).execute()
-            val summary = LobbyService(runtime).summary(sql, game.id!!)
-            val revision = GameRevision(summary.id, game.revision.toString(), summary.revision, UUID.randomUUID().toString(),
-                owner.toString(), GameScope(summary.id, summary.preparationRound), summary, PreparationStore.read(sql, summary))
-            sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, game.revision!! + 1)
-                .set(GAME_REVISION.PAYLOAD, GameWire.encode(revision)).execute()
+            val changed = followInLobby(sql, game, owner, name, input.cover)
+            val what = if (name != null) "named \"$name\"" else "cover ${input.cover}"
+            log("pod $podId orphaned game $gameId: $owner's deck $what" + if (changed) "" else " (already so)")
+            acknowledged(game.podId!!)
         }
     }
 
@@ -1274,7 +1316,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     private fun creator(row: PodRecord, owner: UUID): Result? = if (row.creatorId != owner) error(403, "creator_only") else null
     private fun member(sql: DSLContext, row: PodRecord, owner: UUID): Result? =
         if (members(sql, row.id!!).none { it.accountId == owner }) error(404, "not_found") else null
-    private fun acknowledged(row: PodRecord) = Result(200, json.encodeToString(PodAcknowledged(row.id.toString())))
+    private fun acknowledged(row: PodRecord) = acknowledged(row.id!!)
+    private fun acknowledged(pod: UUID) = Result(200, json.encodeToString(PodAcknowledged(pod.toString())))
 
     fun read(principal: AccountService.Principal, id: String): Result {
         if (!DeckValidation.uuid(id)) return error(404, "not_found")

@@ -179,6 +179,9 @@ import kotlinx.serialization.SerialName
 /** PUT /v1/pods/{id}/build/cover. Changes only the caller's private deck cover: [definition] must be among their
  * [PodDeckRules.coverChoices] (DRF-166). */
 @Serializable data class SetPodDeckCover(val requestId: String, val draftAttemptId: String, val definition: String)
+/** PUT /v1/pods/{id}/games/{gameId}/deck (DRF-039, owner 2026-11-23): in the lobby of a game a cancelled draft orphaned from pod {id},
+ * the caller's own deck of that game alone gets [name] (1–120 characters) and/or the cover [cover] (a card of its Main or Side). */
+@Serializable data class SetPodGameDeck(val requestId: String, val name: String? = null, val cover: String? = null)
 /** GET /v1/pods/{id}/cube (creator): the pod's prepared cube, Main (drafted) and Maybe (not drafted). The saved cube
  * is never changed by preparing. */
 @Serializable data class PodCube(val cubeName: String, val entries: List<PodCubeEntry>)

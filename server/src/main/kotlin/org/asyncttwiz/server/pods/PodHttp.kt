@@ -48,6 +48,8 @@ class PodHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 action == "chat" -> "GET, POST"
                 action == "chat/read" -> "GET, PUT"
                 action in listOf("invitations", "invitations/cancel", "members/remove", "accept", "decline", "start", "auto-start", "pick", "grid/select", "turn", "submit", "leave", "cancel", "challenge") -> "POST"
+                // DRF-039: a deck in an orphaned game's lobby
+                parts.size == 4 && parts[1] == "games" && parts[3] == "deck" -> "PUT"
                 action in listOf("cube/move", "build/move", "build/basics", "build/name", "build/cover", "build/notes", "draft/marks", "rotisserie/queue", "rotisserie/seen") -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
@@ -91,6 +93,7 @@ class PodHttp @JvmOverloads constructor(private val runtime: ServiceRuntime,
                      action == "build/basics" -> pods.basics(principal, id, json.decodeFromString<SetPodBasics>(text))
                      action == "build/name" -> pods.deckName(principal, id, json.decodeFromString<SetPodDeckName>(text))
                      action == "build/cover" -> pods.deckCover(principal, id, json.decodeFromString<SetPodDeckCover>(text))
+                    parts.size == 4 && parts[1] == "games" -> pods.gameDeck(principal, id, parts[2], json.decodeFromString<SetPodGameDeck>(text))
                     action == "chat" -> pods.sendChat(principal, id, json.decodeFromString<SendPodChat>(text))
                     action == "chat/read" -> pods.chatRead(principal, id, json.decodeFromString<ReadChat>(text))
                     action == "draft/marks" -> pods.saveMarks(principal, id, json.decodeFromString<SetPodDraftMarks>(text))

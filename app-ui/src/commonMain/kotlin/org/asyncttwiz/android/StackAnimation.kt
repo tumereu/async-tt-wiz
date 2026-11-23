@@ -313,6 +313,10 @@ class StackAnimation(private val viewer: String, private val clock: () -> Long =
         val stack = CombatStackRules.stack(unhidden.board).cards
         val gone = (beforeUnhidden ?: before)?.let { CombatStackRules.stack(it.board).cards - stack.toSet() }.orEmpty()
         if (gone.isNotEmpty() && !asIs && before != null) {
+            // TBL-150, HIS-138 (owner, 2026-11-22: a board wipe's second "dies" trigger resolved at full time): a step 5 the
+            // table never settled on (an effect with nothing to move, a life total changing) ends as the next begins, so the
+            // chain of repeats goes on from it
+            if (resolving != null) resolved()
             val key = gone.firstNotNullOfOrNull { StackAbilities.of(before, it, viewer) }
             val (repeats, _) = resolutionPace.begin(key, clock())
             val share = StackSchedule.resolutionShare(repeats)

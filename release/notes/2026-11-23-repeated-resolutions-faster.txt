@@ -1,0 +1,1 @@
+fix: When the same trigger resolves several times in a row (a board wipe's "dies" triggers), the second one now plays faster too, like the ones after it

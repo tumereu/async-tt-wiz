@@ -3,20 +3,21 @@ package org.asyncttwiz.e2e
 import arcanum.engine.input.Input
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
  * Owner, 2026-11-05 (from the Analysis): a later table note no longer replaces an earlier one at once; the notes show
- * one after another (SYS-078).
+ * one after another (SYS-078; the queue itself: TableNotesTest). Owner, 2026-11-22: a branch shows no note (HIS-185),
+ * while the refusal's "That wasn't taken" still does (SYS-012).
  */
 class NotesInTurnTest : E2e() {
-    private val branched = "responded"
     private val notTaken = "That wasn't taken"
 
-    // SYS-078, HIS-097, SYS-012, SYS-138: Alice plays on while Bob is away; Bob comes back and answers her Herald with an Idle
-    // Glimmer (a branch) while her pass on the line he discarded is on its way to the server, which refuses it: her table
-    // tells the branch first and keeps it shown, then "That wasn't taken" (before, the second replaced the first at once)
-    @Test fun aBranchNoteThenARefusalShowOneAfterTheOther() {
+    // SYS-078, HIS-185, HIS-097, SYS-012, SYS-138: Alice plays on while Bob is away; Bob comes back and answers her Herald with an
+    // Idle Glimmer (a branch) while her pass on the line he discarded is on its way to the server, which refuses it: her
+    // table shows no branch note, only "That wasn't taken"
+    @Test fun aBranchShowsNoNoteWhileTheRefusalStillDoes() {
         aliceCastsAHeraldWhileBobIsAway(endTurn = false)
         alice.link.holdIncoming()
         bob.back()
@@ -31,14 +32,10 @@ class NotesInTurnTest : E2e() {
         alice.tap("To combat")
         waitUntil("Alice's pass on its way") { alice.engine { device.session.pending.isNotEmpty() } }
         alice.link.releaseIncoming()
-        waitUntil("the branch told on Alice's table, the refusal in") {
-            alice.told(branched) && alice.engine { device.repro(codec).log }.any { it.startsWith("refused Submit") }
+        waitUntil("the branch on Alice's device, the refusal in") {
+            alice.branchLogged() && alice.engine { device.repro(codec).log }.any { it.startsWith("refused Submit") }
         }
-        // Shown for its while: the refusal waits for it
-        repeat(3) { run(skip = java.time.Duration.ofMillis(800)) }
-        assertTrue(alice.showsText(branched, substring = true), "the branch note still shows: ${alice.screen()}")
-        assertTrue(!alice.told(notTaken), "the refusal waits for the branch note")
-        waitUntil("the refusal told after it") { alice.told(notTaken) }
-        assertTrue(alice.shownTexts.indexOfFirst { branched in it } < alice.shownTexts.indexOfFirst { notTaken in it })
+        waitUntil("the refusal told") { alice.told(notTaken) }
+        assertFalse(alice.toldATakeBack(bob), "no branch note: ${alice.shownTexts}")
     }
 }

@@ -97,8 +97,14 @@ class MainPhaseUndoTest : E2e() {
         everyRun.clear()
         assertFalse(dialog, "free: no dialog")
         assertEquals(alice.me, bob.state.turn.active, "Alice's turn; Bob has nothing to redo")
-        // HIS-076, HIS-168: Bob's phone reads what she pressed from the record
-        waitUntil("Bob told what she undid") { bob.told("${alice.name} undid: went to combat") }
+        // HIS-076, HIS-168: Bob's phone reads what she pressed from the record (only logged since 2026-11-22: his table shows
+        // no text for her undo)
+        waitUntil("her undo on Bob's table") { bob.game?.shown?.transition?.undone?.by == alice.id }
+        val undone = bob.shown.transition!!.undone!!
+        assertEquals("${alice.name} undid: went to combat",
+            org.asyncttwiz.android.EngineEventText.undid(undone.event, undone.state, bob.id, undone.by, names()))
+        repeat(3) { run() }
+        assertFalse(bob.toldATakeBack(alice), "no text for her undo: ${bob.shownTexts}")
     }
 
     // HIS-101, HIS-120 (owner, 2026-11-08): the other player's press shows on your timeline only as what it led to, also now that it

@@ -14,16 +14,16 @@ import kotlin.test.assertTrue
  * Owner problem report DY6VCM (0.2.0-beta4): Alice attacked and waited for Bob's blocks, her phone having assumed his
  * pass right after the attack; Bob pumped his creature there instead. Her phone said "Bob responded — your later
  * actions were taken back" though nothing of hers but that assumed pass was taken back. A branch that takes back only
- * the phone's own passes and assumptions says just "Bob responded", with no rewind animation when the board shown
- * doesn't change (HIS-097, HIS-186).
+ * the phone's own passes and assumptions has no rewind animation when the board shown doesn't change (HIS-097, HIS-186);
+ * since 2026-11-22 (owner) no branch shows a note (HIS-185).
  */
 class BranchNoteTest : E2e() {
-    // HIS-097, HIS-186, HIS-096, HIS-180, TRN-070, TRN-157: Bob plays a Mountain and an Ash Hound in his first turn; Alice plays a Mountain and an
+    // HIS-097, HIS-185, HIS-186, HIS-096, HIS-180, TRN-070, TRN-157: Bob plays a Mountain and an Ash Hound in his first turn; Alice plays a Mountain and an
     // Ember Dasher (haste) and attacks with it, her phone assuming Bob's pass right after the attack (never a wait) so
     // that she waits for his blocks; Bob pumps his Hound at that point instead. Alice's table goes back to her attack
-    // with the note "Bob responded" (no take-back clause: only the assumed pass went), without the take-back's rewind
-    // look (nothing on the board moved back), then shows Bob's pump; her attack stays
-    @Test fun aBranchTakingBackOnlyAnAssumedPassJustSaysTheyResponded() {
+    // with no note (her device logs the branch), without the take-back's rewind look (nothing on the board moved back),
+    // then shows Bob's pump; her attack stays
+    @Test fun aBranchTakingBackOnlyAnAssumedPassShowsNoNoteNorRewind() {
         startGame(TestDeck("Dashers", listOf(TestCards.mountain to 20, TestCards.dasher to 20)),
             TestDeck("Hounds", listOf(TestCards.mountain to 20, TestCards.ashHound to 20)), bobStarts = true,
             deal = { a, b -> "Mountain" in hand(a) && "Ember Dasher" in hand(a) && "Mountain" in hand(b) && "Ash Hound" in hand(b) })
@@ -71,11 +71,11 @@ class BranchNoteTest : E2e() {
             bob.engine { device.session.pending.isEmpty() && device.session.events.any(::pump) }
         }
 
-        waitUntil("Alice told Bob responded") { alice.told("${bob.name} responded") }
+        waitUntil("the branch on Alice's device") { alice.branchLogged() }
         // HIS-106, HIS-190: her table stops at the branch point; her tap plays Bob's pump back
         alice.continuesPastBranchStop(this)
         waitUntil("Bob's pump shown on Alice's table") { alice.shown.held.any(::pump) && !alice.shown.behind }
-        assertFalse(alice.told("taken back"), "no take-back clause: only her phone's assumed pass was taken back: ${alice.shownTexts}")
+        assertFalse(alice.toldATakeBack(bob), "HIS-185: no branch note: ${alice.shownTexts}")
         assertTrue(alice.engine { device.session.events }.none { it.id == assumed.id }, "the assumed pass is discarded")
         val back = boards.firstOrNull { it.transition?.undone?.branch == true }
         assertTrue(back == null || back.transition!!.steps.isEmpty(), "no rewind animation: nothing on the board moved back")

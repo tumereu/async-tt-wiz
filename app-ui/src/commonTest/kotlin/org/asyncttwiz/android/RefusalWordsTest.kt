@@ -72,7 +72,8 @@ class RefusalWordsTest {
     }
 
     // HIS-236, HIS-168: after a free undo that touched library cards the top text has a second line; after an approved
-    // request (its dialogs said it) and after one that touched none, only the undo's words
+    // request (its dialogs said it) and after one that touched none, only the undo's words. The other player's forms
+    // ("Alice undid …") are only logged since 2026-11-22 (owner): their table shows no text for the undo
     @Test fun aFreeUndoNoteSaysTheLibrariesReshuffled() {
         val names = mapOf("a" to "Alice", "b" to "Bob")
         assertEquals("Undid\nYour library reshuffled: the next draws may change.",

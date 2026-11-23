@@ -332,7 +332,7 @@ object EngineEventText {
 
     /**
      * §29.4: the fading top text of an undo: "Undid: cast Storm Spark" for the player who undid ([by] is [viewer]),
-     * "Alice undid: cast Storm Spark" for the other player, naming [event], the first action taken back, as [viewer] saw it
+     * "Alice undid: cast Storm Spark" for the other player (only logged: their undo shows no text, HIS-168), naming [event], the first action taken back, as [viewer] saw it
      * on [state] (the board before the undo). An End turn's first pass reads "End turn", a press leaving a main phase
      * ([GameEvent.press]) "went to combat"; with no event, just who undid.
      */
@@ -382,7 +382,8 @@ object EngineEventText {
     }
 
     /**
-     * HIS-097 (owner, problem report DY6VCM): the branch note of [by] (the other player's name) whose real answer differed
+     * HIS-185 (owner, problem report DY6VCM; shown nowhere since 2026-11-22, only logged): the branch's words for [by] (the
+     * other player's name) whose real answer differed
      * from the assumed one ([discarded], the first event of the line it discarded): "Bob responded" ("blocked
      * differently", "took a mulligan"), and when the branch took back actions of [viewer]'s own ([actions], as Undo counts
      * them: never their phone's own passes and assumptions, HIS-109), the first one named as HIS-091 names it: "Bob

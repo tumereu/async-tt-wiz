@@ -783,6 +783,8 @@ fun AssumeResolves.meaning(): String = when (this) {
 @Composable
 fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
     val game = routes.engine ?: return
+    // Read on every board published: the settings shown are the newest
+    game.shownVersion
     val shown = game.shown ?: return
     val settings = shown.settings
     // Each change is made on the settings as they are at the tap (a second tap before the row is drawn again goes on from
@@ -897,6 +899,9 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
     names: Map<String, String>, presence: ReceivedPresence?, summary: GameSummary, peekScroll: androidx.compose.foundation.ScrollState? = null,
     peekSwipe: InspectSwipe? = null) {
     val game = routes.engine ?: return
+    // HIS-112, HIS-113: every board published composes this again (a play shown or reveal it brings begins at once, even when
+    // the table's board stayed the same one)
+    game.shownVersion
     val shown = game.shown ?: return
     val status = shown.status
     val opponent = org.asyncttwiz.automatum.PlayerNames.of(names, shown.opponent.value, "The other player", "EngineTable")
@@ -1122,8 +1127,15 @@ fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode, previous: G
 private fun EnginePlayback(routes: EngineTableRoutes) {
     val game = routes.engine ?: return
     val multiplier by rememberCardMovePreferences(routes.viewer).multiplierState()
-    LaunchedEffect(game.version) {
+    // HIS-021, HIS-112 (owner, 2026-11-22: a pause after declaring attacks before the triggers went on): each board published
+    // starts playback's next step, read as snapshot state. Keyed on the game's plain version, which nothing observes, the
+    // step tried while a play shown or a combat hold held the view never came again once it ended: the table waited for an
+    // unrelated message to recompose it
+    val version = game.shownVersion
+    val woken = remember(game) { longArrayOf(-1L) }
+    LaunchedEffect(game, version) {
         val shown = game.shown ?: return@LaunchedEffect
+        val from = woken[0].also { woken[0] = shown.version }
         // HIS-021 (owner, 2026-11-08): a finger held on the table pauses playback between events; a branch's take-back goes
         // on (HIS-106)
         val pause = routes.viewPause.takeUnless { shown.takingBack }
@@ -1148,9 +1160,15 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
         }
         // Stack animation: the next event waits for the top entry's arrows (step 4) to play
         if (!shown.takingBack && stack.busy) snapshotFlow { stack.busy }.first { !it }
+        AppLog.info("game", "Playback woken by board v${shown.version} (after v$from): next step after " +
+            "${last?.id?.take(8) ?: "no event held"} in $wait ms" + if (pause?.paused == true) ", paused by a finger or Inspect" else "")
         if (pause != null) pause.wait(wait) else if (wait > 0) delay(wait)
         // The callback form (the device may be in the browser's worker; Android answers at once)
-        if (game.shown?.status is GameDevice.Status.Playing) game.step { routes.pump() }
+        if (game.shown?.status is GameDevice.Status.Playing) game.step { event ->
+            AppLog.info("game", "Playback step on board v${shown.version}: " +
+                (event?.let { "showed ${it.id.take(8)}" } ?: "nothing to show (the device holds; its record says why)"))
+            routes.pump()
+        }
     }
 }
 

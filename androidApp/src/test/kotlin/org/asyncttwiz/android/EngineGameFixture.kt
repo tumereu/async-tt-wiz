@@ -164,6 +164,22 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val MOSS = "Moss Shard"
         /** STK-228: a {2} "Draw a card." sorcery: any two mana of the pool pay it. */
         const val PENNY = "Hedge Penny"
+        // Trigger timing clips (owner, 2026-11-22): attack, enter, dies and targeted triggers at the app's real pace
+        /** A free 2/2 with haste and "Whenever this creature attacks, it gets +1/+0 until end of turn." */
+        const val RAIDER = "Ember Raider"
+        /** A free 2/1 with haste and "Whenever this creature attacks, it deals 1 damage to target opponent." (its one target
+         * chosen by itself in Quick, SYS-063). */
+        const val HARRIER = "Spark Harrier"
+        /** A free 1/1 with "When this creature enters, create a 1/1 red Elemental creature token." */
+        const val KINDLE_HERALD = "Kindle Herald"
+        /** A free 1/1 with "Whenever another creature you control enters, put a +1/+1 counter on this creature." */
+        const val WARDEN = "Kindle Warden"
+        /** A free 1/1 with "When this creature dies, you gain 1 life." */
+        const val MOURNER = "Ash Mourner"
+        /** A free "Destroy all creatures." sorcery. */
+        const val UNMAKING = "Ember Unmaking"
+        /** A free 1/1 with "When this creature enters, it deals 2 damage to target creature an opponent controls." */
+        const val LANCER = "Spark Lancer"
     }
     private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
@@ -242,6 +258,13 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         Invented(DefinitionFace("masquer", Choices.MASQUER, typeLine = "Creature — Elemental Rogue", manaCost = "{2}{R}",
             rulesText = "Morph {0}", power = "3", toughness = "3"),
             OracleCard(Choices.MASQUER, "{2}{R}", "Creature — Elemental Rogue", "Morph {0}", "3", "3")),
+        free("raider", Choices.RAIDER, "Creature — Elemental Warrior", "Haste\nWhenever this creature attacks, it gets +1/+0 until end of turn.", "2", "2"),
+        free("harrier", Choices.HARRIER, "Creature — Elemental Warrior", "Haste\nWhenever this creature attacks, it deals 1 damage to target opponent.", "2", "1"),
+        free("kindleherald", Choices.KINDLE_HERALD, "Creature — Elemental", "When this creature enters, create a 1/1 red Elemental creature token.", "1", "1"),
+        free("warden", Choices.WARDEN, "Creature — Elemental Soldier", "Whenever another creature you control enters, put a +1/+1 counter on this creature.", "1", "1"),
+        free("mourner", Choices.MOURNER, "Creature — Spirit", "When this creature dies, you gain 1 life.", "1", "1"),
+        free("unmaking", Choices.UNMAKING, "Sorcery", "Destroy all creatures."),
+        free("lancer", Choices.LANCER, "Creature — Elemental Soldier", "When this creature enters, it deals 2 damage to target creature an opponent controls.", "1", "1"),
         free("tollkeeper", Choices.TOLLKEEPER, "Creature — Elemental", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1"),
         Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",
             rulesText = BROODRAIDER_TEXT, power = "2", toughness = "2"),

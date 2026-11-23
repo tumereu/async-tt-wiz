@@ -48,6 +48,8 @@ internal class EngineAppSim(val f: EngineGameFixture, private val worker: (Strin
     val settings = players.associateWith { PlaySettings() }.toMutableMap()
     var now = 0L
     private var revision = 1
+    /** The revision the server's next message starts from (a head opened now is at this revision). */
+    val nextRevision: Int get() = revision
     private var ids = 0
     var branches = 0; var confirmations = 0; var rewinds = 0; var requests = 0; var shownChecked = 0
     val leaks = mutableListOf<String>()
@@ -120,13 +122,30 @@ internal class EngineAppSim(val f: EngineGameFixture, private val worker: (Strin
         queue.clear(); queue.addAll(sorted)
     }
 
+    /** Tests: where a message for a player goes instead of their game (true: taken), as for a player whose app talks to this
+     * server over its connection ([submit]). */
+    var route: ((p: String, delivery: Delivery) -> Boolean)? = null
+
+    /** Tests: [p]'s [action] as it reaches the server over their connection (not from their game's outbox); the refusal's
+     * reason, or null when the server took it. */
+    fun submit(p: String, action: GameAction): String? {
+        val queue = inbox.getValue(p)
+        val before = queue.size
+        handle(p, action)
+        return queue.drop(before).filterIsInstance<Delivery.Refused>().firstOrNull { it.action === action }?.reason
+    }
+
     /** Delivers [p]'s next [count] messages (all when null), in order. */
     fun deliver(p: String, count: Int? = null) {
         val queue = inbox.getValue(p)
         var n = 0
-        while (queue.isNotEmpty() && (count == null || n++ < count)) when (val d = queue.removeFirst()) {
-            is Delivery.Revision -> { game(p).revision(d.message); tee?.invoke(p, d) }
-            is Delivery.Refused -> { game(p).refused(d.action, d.reason); tee?.invoke(p, d) }
+        while (queue.isNotEmpty() && (count == null || n++ < count)) {
+            val d = queue.removeFirst()
+            if (route?.invoke(p, d) == true) continue
+            when (d) {
+                is Delivery.Revision -> { game(p).revision(d.message); tee?.invoke(p, d) }
+                is Delivery.Refused -> { game(p).refused(d.action, d.reason); tee?.invoke(p, d) }
+            }
         }
     }
 

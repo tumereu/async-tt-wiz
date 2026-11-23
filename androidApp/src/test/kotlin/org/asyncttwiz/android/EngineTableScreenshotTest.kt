@@ -299,9 +299,12 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag(QUIET_WAIT_TAG).assertExists()
         captureShot("$SCREENSHOTS/engine/catch-up.png",
             "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions in live play's places: the response mode cell (Quick, amber), Assume resolves greyed (nothing is assumed while catching up) and Autotap mana, and in the main button's place \"Alice's move…\", what waits once he has caught up; nothing plays until he taps the text.")
+        val held = bob.device.session.localHead
         compose.onNodeWithTag("centre-action").performClick()
+        // The tap starts playback, which (the clock running by itself here) plays on by itself, past Alice's land
         compose.runOnIdle {
-            assertTrue(bob.device.status.let { it is GameDevice.Status.Playing || it is GameDevice.Status.Stopped }, "the tap started it")
+            assertTrue(bob.device.status != GameDevice.Status.CatchUp && bob.device.session.localHead != held, "the tap started it: " +
+                "${bob.device.status}")
         }
     }
 

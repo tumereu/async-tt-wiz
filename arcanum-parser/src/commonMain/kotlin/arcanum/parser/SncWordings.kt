@@ -62,4 +62,17 @@ internal object Snc {
     // snc chunk 08: Urabrask, "the next time they would draw a card this turn, instead they exile the top card of their library. They may play it
     // this turn."
     val NEXT_DRAW_INSTEAD_EXILE_TOP_MAY_PLAY = Regex("""The next time they would draw a card this turn, instead they exile the top card of their library\. They may play (?:it|that card) this turn\.""")
+    // snc chunk 09: "Creatures you control also get +1/+0 and have trample as long as you control six or more creatures."
+    val ALSO_GET_AS_LONG_AS = Regex("""(.+? you control) also (get .+ as long as .+\.)""")
+    // snc chunk 09: "Put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control."
+    val PUT_COUNTERS_ON_EACH_AND_EACH = Regex("""[Pp]ut (an? \S+ counter on each .+?) and (an? \S+ counter on each .+)\.""")
+    // snc chunk 09: "When it deals excess damage this way, destroy target artifact or enchantment an opponent controls with mana value less than or
+    // equal to that amount of excess damage."
+    val WHEN_IT_DEALS_EXCESS_DESTROY = Regex("""When it deals excess damage this way, destroy target (.+?) with mana value less than or equal to that amount of excess damage\.""")
+    // snc chunk 09: "Once during each of your turns, you may cast an instant or sorcery spell from your graveyard by sacrificing a creature in addition
+    // to paying its other costs. If a spell cast this way would be put into your graveyard, exile it instead."
+    val ONCE_CAST_FROM_GRAVEYARD_BY_ADDITIONAL = Regex("""Once (during each of your turns|each turn), you may cast (an? .+?) from your graveyard by (removing|sacrificing|discarding|exiling|tapping|paying) (.+?) in addition to paying its other costs\.( If a spell cast this way would be put into your graveyard, exile it instead\.)?""")
+    // snc chunk 09: "Exile an instant or sorcery card at random from your graveyard. Then copy each card exiled with this enchantment. You may cast any
+    // number of the copies without paying their mana costs."
+    val EXILE_RANDOM_COPY_EACH_EXILED_WITH_CAST = Regex("""Exile an? (.+?) card at random from your graveyard\. Then copy each card exiled with (.+?)\. You may cast any number of the copies without paying their mana costs\.""")
 }

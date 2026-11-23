@@ -2059,6 +2059,16 @@ internal object Values {
         if (LazyRegexes.COUNTERS_REMOVED_THIS_WAY.matches(text)) return Value.Announced(name = "X")
         // dsk chunk 12: "the power of the creature you chose or the card you revealed" (the beheld creature, CR 701.4a)
         if (text == "the power of the creature you chose or the card you revealed") return Value.Of(arcanum.api.NumericProperty.Power, Objects.Bound("beheld"), Combine.Single)
+        // snc chunk 09: "the greatest power and/or toughness among other creatures you control" (the greatest of all those numbers)
+        if (text.startsWith("the greatest power and/or toughness among ")) {
+            val among = Filters.objects(text.removePrefix("the greatest power and/or toughness among ")) ?: return null
+            return Value.Max(listOf(Value.Of(arcanum.api.NumericProperty.Power, among, Combine.Greatest), Value.Of(arcanum.api.NumericProperty.Toughness, among, Combine.Greatest)))
+        }
+        // snc chunk 09: "the number of different mana values among cards in your graveyard" (CR 202.3)
+        if (text.startsWith("the number of different mana values among ")) {
+            return Value.CountDistinct(Filters.objects(text.removePrefix("the number of different mana values among ")) ?: return null,
+                SharedQuality.Number(arcanum.api.NumericProperty.ManaValue))
+        }
         // dsk chunk 12: "the greatest power among creatures you control"
         if (text.startsWith("the greatest power among ")) {
             return Value.Of(arcanum.api.NumericProperty.Power, Filters.objects(text.removePrefix("the greatest power among ")) ?: return null, Combine.Greatest)

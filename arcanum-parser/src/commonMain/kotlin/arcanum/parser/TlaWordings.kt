@@ -118,7 +118,7 @@ internal object Tla {
     val CANT_CAST_OTHER_THAN_HANDS = Regex("""Until your next turn, your opponents can't cast spells from anywhere other than their hands\.""")
     val BECOMES_PUT_COUNTERS_ON_IT = Regex("""(.+?)\. Put (\w+) \+1/\+1 counters on it\.""")
     val ONE_OR_MORE_ATTACK = Regex("""one or more (.+) attack""")
-    val ATTACK_A_PLAYER_WITH = Regex("""you attack a player with one or more (.+)""")
+    val ATTACK_A_PLAYER_WITH = Regex("""you attack a player( or planeswalker)? with one or more (.+)""")
     val OPPONENT_SEARCHES = Regex("""an opponent searches their library""")
     val MAY_CAST_FROM_AMONG_EXILED_WITH = Regex("""you may cast an? (.+?) spell from among cards you own exiled with (.+)\.""")
     val DIES_IF_HAD_COUNTERS = Regex("""Whenever (.+) dies, if it had counters on it, put its counters on (.+)\.""")

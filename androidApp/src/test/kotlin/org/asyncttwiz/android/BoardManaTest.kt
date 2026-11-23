@@ -225,13 +225,20 @@ class BoardManaTest {
         assertTrue(k.toolkit.cast.open, "the cast panel: ${k.toolkit.error}")
         k.playOn("the panel worked out") { !k.toolkit.cast.busy }
         refresh()
-        assertEquals(2, compose.onAllNodesWithContentDescription("Green mana from your pool").fetchSemanticsNodes().size)
+        compose.onNodeWithContentDescription("Green mana from your pool").assertExists()
+        // Screen readers hear what the marked one carries (owner 2026-11-23)
+        compose.onNodeWithContentDescription("Green mana from your pool, spend this mana only to cast creature spells").assertExists()
         assertEquals(1, compose.onAllNodesWithTag(POOL_MANA_SPARKLE, useUnmergedTree = true).fetchSemanticsNodes().size, "one marked tile")
         val restricted = "Green mana from your pool. From ${Choices.GILDLEAF}: Spend this mana only to cast creature spells."
         compose.onNodeWithTag(POOL_MANA_SPARKLE, useUnmergedTree = true).performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(1000)
         compose.waitForIdle()
         compose.onNodeWithText(restricted).assertExists()
+        // The tip stays whole inside the window, wrapped, though the held mana sits at the screen's left edge (rememberHoldTipPosition)
+        val tip = compose.onNodeWithText(restricted).fetchSemanticsNode()
+        val screen = compose.onAllNodes(androidx.compose.ui.test.isRoot()).fetchSemanticsNodes().maxOf { it.size.width }
+        assertTrue(tip.positionOnScreen.x >= 0f && tip.positionOnScreen.x + tip.size.width <= screen,
+            "the tip at ${tip.positionOnScreen.x}, ${tip.size.width} wide, inside a window $screen wide")
         compose.onNodeWithText("It can be spent only on some spells or abilities", substring = true).assertDoesNotExist()
         captureShot("$SCREENSHOTS/cast-panel/pool-mana-restricted.png",
             "Alice tapped her Gildleaf Shard (\"Spend this mana only to cast creature spells.\") and Moss Shard on the table, opened Hedge " +

@@ -94,7 +94,7 @@ fun ScreenOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, ena
 @Composable
 fun ScreenIconButton(description: String, kind: String, onClick: () -> Unit,
     modifier: Modifier = Modifier, enabled: Boolean = true, danger: Boolean = false) {
-    TooltipBox(modifier = modifier, positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+    TooltipBox(modifier = modifier, positionProvider = rememberHoldTipPosition(),
         tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState()) {
     if (kind == "close") IconButton(onClick, Modifier.size(48.dp), enabled) { EntryIcon(description, kind) }
     else OutlinedIconButton(onClick, Modifier.size(48.dp), enabled, shape = RoundedCornerShape(6.dp),
@@ -112,7 +112,7 @@ fun ScreenIconButton(description: String, kind: String, onClick: () -> Unit,
 fun HoldTip(description: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     // The outer Box takes the caller's layout modifiers (weight, align), which the tooltip's own layout doesn't pass on
     Box(modifier, propagateMinConstraints = true) {
-        TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        TooltipBox(positionProvider = rememberHoldTipPosition(),
             tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState(), content = content)
     }
 }

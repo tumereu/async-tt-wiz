@@ -37,8 +37,10 @@ class PoolManaRidersTest : E2e() {
         waitUntil("the Grove's mana in Alice's pool", along = listOf(bob)) { alice.pool() == 1 && alice.inOwnMain() && alice.engine { device.session.pending.isEmpty() } }
         assertEquals(listOf("Spend this mana only to cast creature spells."), alice.state.player(alice.me).manaPool.single().words)
         alice.playFromHand("Hedge Cub", this)
+        // Screen readers hear what it carries (owner 2026-11-23)
+        val spoken = "Green mana from your pool, spend this mana only to cast creature spells"
         waitUntil("the panel showing the pool's green mana with the sparkle: ${alice.screen()}") {
-            alice.shows(hasContentDescription("Green mana from your pool") and hasTestTag(POOL_MANA_SPARKLE))
+            alice.shows(hasContentDescription(spoken) and hasTestTag(POOL_MANA_SPARKLE))
         }
         val words = "Green mana from your pool. From Gildleaf Grove: Spend this mana only to cast creature spells."
         alice.node(hasTestTag(POOL_MANA_SPARKLE)).performTouchInput { down(center) }
@@ -46,8 +48,8 @@ class PoolManaRidersTest : E2e() {
         alice.node(hasTestTag(POOL_MANA_SPARKLE)).performTouchInput { up() }
         assertFalse(alice.shows(hasText("It can be spent only on some spells or abilities", substring = true)), "no generic text")
         waitUntil("the tip gone") { !alice.shows(hasText(words)) }
-        alice.described("Green mana from your pool").performClick()
-        waitUntil("the green chosen") { alice.shows(hasContentDescription("Green mana from your pool, chosen")) }
+        alice.described(spoken).performClick()
+        waitUntil("the green chosen") { alice.shows(hasContentDescription("$spoken, chosen")) }
         val cast = alice.nodes(hasClickAction() and hasAnyDescendant(hasText("Cast"))).fetchSemanticsNodes().minBy { it.size.width * it.size.height }
         alice.node(SemanticsMatcher("Cast button") { it.id == cast.id }).performClick()
         waitUntil("Hedge Cub out, the pool spent", along = listOf(bob)) {

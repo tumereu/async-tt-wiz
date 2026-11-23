@@ -44,7 +44,10 @@ import org.asyncttwiz.protocol.Faults
  * Gildleaf Grove: Spend this mana only to cast creature spells."), said on hold. [marked]: it carries a rider or is snow, so it shows
  * the effects sparkle (TBL-136; owner 2026-11-22).
  */
-class PoolManaLook(val symbol: String, val words: String, val notes: List<String>, val marked: Boolean = false) {
+class PoolManaLook(val symbol: String, val words: String, val notes: List<String>, val marked: Boolean = false,
+    /** What screen readers hear: [words] and, for mana carrying something, what it carries ("Green mana from your pool, spend this mana
+     * only to cast creature spells"; owner 2026-11-23). */
+    val spoken: String = words) {
     /** What holding it says: its name and its notes, each a sentence. */
     val hold: String get() = (listOf(words) + notes).joinToString(" ") { if (it.endsWith('.')) it else "$it." }
 
@@ -62,12 +65,16 @@ class PoolManaLook(val symbol: String, val words: String, val notes: List<String
             }
             val symbol = unit.color?.symbol?.toString() ?: "C"
             val source = unit.source?.let(name)
+            val riders = if (unit.hasRiders) riderWords(unit, source) else emptyList()
             val notes = buildList {
                 if (unit.snow) add("Snow mana")
-                if (unit.hasRiders) add((source?.let { "From $it: " } ?: "") + riderWords(unit, source).joinToString(" "))
+                if (unit.hasRiders) add((source?.let { "From $it: " } ?: "") + riders.joinToString(" "))
                 else source?.let { add("Made by $it") }
             }
-            return PoolManaLook(symbol, "${colorWords(symbol)} mana from $whose", notes, marked = unit.hasRiders || unit.snow)
+            val words = "${colorWords(symbol)} mana from $whose"
+            val spoken = (listOf(words) + listOfNotNull("snow mana".takeIf { unit.snow }) +
+                riders.map { it.removeSuffix(".").replaceFirstChar(Char::lowercase) }).joinToString(", ")
+            return PoolManaLook(symbol, words, notes, marked = unit.hasRiders || unit.snow, spoken = spoken)
         }
 
         /** The printed words of [unit]'s riders ([ManaUnit.words]); when the engine has none for them, a fault and what it can say. */
@@ -108,7 +115,7 @@ fun PoolManaTile(look: PoolManaLook, chosen: Boolean, toggle: () -> Unit, modifi
             toggle()
         }
             .clearAndSetSemantics {
-                contentDescription = look.words + if (chosen) ", chosen" else ""
+                contentDescription = look.spoken + if (chosen) ", chosen" else ""
                 selected = chosen
                 role = Role.Checkbox
                 if (look.marked) testTag = POOL_MANA_SPARKLE

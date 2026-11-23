@@ -118,7 +118,7 @@ fun PodColumnControl(label: String, description: String, value: Int, range: IntR
         setProgress { change(it.toInt().coerceIn(range)); true }
     }) {
         PodColumnButton("Fewer ${description.replaceFirstChar(Char::lowercase)}", false, value > range.first) { change(value - 1) }
-        TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        TooltipBox(positionProvider = rememberHoldTipPosition(),
             tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState()) {
             Row(Modifier.height(32.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp)) {

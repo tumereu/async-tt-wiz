@@ -12,7 +12,8 @@ import kotlin.test.assertNotNull
 /**
  * The "Waiting for you" dots (owner, 2026-11-22), the overall flow: a pod game where it is your move lights your hamburger
  * red while you look at its pod, and its side-menu row red, the open pod's row none; a draft starting with your pick lights
- * its row blue, and at the game's table (the game itself left out) the hamburger blue.
+ * its row blue, and at the game's table (the game itself left out) the hamburger blue; the other screens' hamburgers (Contacts,
+ * Settings) red again.
  */
 class WaitingDotsTest : E2e() {
     private fun dotIn(dot: String, ancestor: String) = hasTestTag(dot) and hasAnyAncestor(hasTestTag(ancestor))
@@ -47,5 +48,11 @@ class WaitingDotsTest : E2e() {
         you.openGame(game, this)
         waitUntil("the blue dot on ${you.name}'s table hamburger") { you.shows(hasTestTag("navigation-dot-pick")) }
         assertFalse(you.shows(hasTestTag("navigation-dot-move")), "the open game's move lights nothing: ${you.screen()}")
+
+        // LOB-268: every other screen's hamburger too, with nothing open there: red for the game's move on Contacts and Settings
+        for (screen in listOf(ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
+            you.auth.navigate(screen)
+            waitUntil("the red dot on ${you.name}'s $screen hamburger") { you.shows(hasTestTag("navigation-dot-move")) }
+        }
     }
 }

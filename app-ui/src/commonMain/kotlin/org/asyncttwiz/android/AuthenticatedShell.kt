@@ -61,7 +61,7 @@ fun AuthenticatedShell(controller: AuthController, landscapeWindow: Boolean, cat
     LaunchedEffect(state.drawerOpen) {
         if (state.drawerOpen) pods?.refresh()
     }
-    // LOB-268: the play screens' hamburger dot: everything waiting for you but the game or pod open, logged when its colour
+    // LOB-268: every hamburger's dot: everything waiting for you but the game or pod open, logged when its colour
     // changes, with the game or pod that lights it
     val openGame = lobby?.state?.selected?.takeIf { state.destination == ShellDestination.GAMES }
     val openPod = pods?.state?.selected?.takeIf { state.destination == ShellDestination.PODS }
@@ -312,13 +312,13 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
         ShellDestination.SETTINGS, ShellDestination.STATS -> Modifier.desktopReadable(DesktopScreens.SettingsMaxWidth)
         else -> Modifier
     }
+    // LOB-268: these screens' hamburger carries the dot of everything waiting for you (no game or pod is open here)
+    val waiting = navigationDot(lobby?.state?.let { it.games + it.invitations }.orEmpty(), pods?.state?.pods.orEmpty(), accountId)?.dot
     Column(readable.fillMaxSize()) {
         if (destination == ShellDestination.MENU) {
-            // LOB-268: in portrait the Menu screen's hamburger carries the dot of everything waiting for you (nothing is open here)
-            if (hamburger) ScreenHeader("", open, navigationDot = navigationDot(lobby?.state?.let { it.games + it.invitations }.orEmpty(),
-                pods?.state?.pods.orEmpty(), accountId)?.dot) { WizardLogo(Modifier.padding(end = 8.dp), compact = true) }
+            if (hamburger) ScreenHeader("", open, navigationDot = waiting) { WizardLogo(Modifier.padding(end = 8.dp), compact = true) }
         } else ScreenHeader(if (destination == ShellDestination.CONTACTS && lobby?.state?.choosingOpponent == true) "Choose opponent" else destination.title,
-            if (hamburger) open else null, Modifier.testTag("destination-title")) {
+            if (hamburger) open else null, Modifier.testTag("destination-title"), navigationDot = waiting) {
             if (destination == ShellDestination.GAMES)
                 ScreenCreateAction("New game", "add", { lobby?.contacts(true); push(ShellDestination.CONTACTS) },
                     Modifier.testTag("new-game"), enabled = cardRecordsReady())

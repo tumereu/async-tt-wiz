@@ -543,6 +543,11 @@ class PodChallengeTest {
         assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, playing.id).summary.lifecycle)
         assertEquals(GameLifecycle.LOBBY, f.games.head(f.b, lobbyGame.id).summary.lifecycle)
         assertEquals("Cancelled pod", f.games.head(f.b, lobbyGame.id).summary.podName)
+        // (owner, 2026-11-23) marked orphaned for both players' apps (out of the pod's Games tab, no Pod chat); the game in its
+        // lobby is told at once with a revision
+        for (game in listOf(finished, playing, lobbyGame)) assertTrue(f.games.head(f.b, game.id).summary.podOrphaned)
+        assertTrue(f.games.revisions(f.a, lobbyGame.id, "0").revisions.last().summary.podOrphaned)
+        assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, false).body).games.filter { it.podId == pod }.all { it.podOrphaned })
         assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.a, null, false).body).games.map { it.id }
             .containsAll(listOf(finished.id, playing.id, lobbyGame.id)), "still in the Games list")
         // The match in play ends after the cancel: its record is the players' own, not the pod's

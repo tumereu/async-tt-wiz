@@ -1049,7 +1049,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         val submitted = members(sql, row.id!!).count { it.submittedDeck != null }
         if (submitted > 0) log("pod ${row.id} draft reset by $author with $submitted deck(s) submitted: their open challenges are withdrawn")
         withdrawChallenges(sql, row.id!!)
-        orphanGames(sql, row.id!!)
+        orphanGames(sql, row.id!!, author)
         clearDraftHints(sql, row.id!!)
         clearMarks(sql, row.id!!)
         sql.deleteFrom(NOTES).where(NOTES.POD_ID.eq(row.id)).execute()
@@ -1064,11 +1064,26 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     /**
      * DRF-039, DRF-235, DRF-236 (owner, 2026-11-22): the games that carry on past a cancelled draft (accepted or in play, and
      * the matches they finished) are orphaned from the pod: they keep their pod deck, name and number, but no longer count in
-     * its Standings and Matches, nor follow the next draft's deck. They stay ordinary games in the Games list (DRF-042).
+     * its Standings and Matches or its Games tab (owner, 2026-11-23; nor have its chat beside theirs), nor follow the next
+     * draft's deck. They stay ordinary games in the Games list (DRF-042).
      */
-    private fun orphanGames(sql: DSLContext, pod: UUID) {
-        val games = sql.update(GAME).set(GAME.POD_ORPHANED, true).where(GAME.POD_ID.eq(pod)).and(GAME.POD_ORPHANED.isFalse)
-            .and(GAME.LIFECYCLE.ne("CANCELLED")).returning(GAME.ID, GAME.LIFECYCLE).fetch()
+    private fun orphanGames(sql: DSLContext, pod: UUID, author: UUID) {
+        // Locked in identity order like withdrawal
+        val games = sql.selectFrom(GAME).where(GAME.POD_ID.eq(pod)).and(GAME.POD_ORPHANED.isFalse).and(GAME.LIFECYCLE.ne("CANCELLED"))
+            .orderBy(GAME.ID).forUpdate().fetch()
+        for (game in games) {
+            // A game in its lobby is told at once (its pod deck and Games tab place change, DRF-121); one in play hears it with
+            // its next revision, the Games lists at their next read (the game's change marker)
+            val lobby = game.lifecycle == "LOBBY"
+            if (!lobby) { sql.update(GAME).set(GAME.POD_ORPHANED, true).where(GAME.ID.eq(game.id)).execute(); continue }
+            sql.update(GAME).set(GAME.POD_ORPHANED, true).set(GAME.REVISION, game.revision!! + 1)
+                .set(GAME.UPDATED_AT, DSL.currentOffsetDateTime()).where(GAME.ID.eq(game.id)).execute()
+            val summary = LobbyService(runtime).summary(sql, game.id!!)
+            val revision = GameRevision(summary.id, game.revision.toString(), summary.revision, UUID.randomUUID().toString(),
+                author.toString(), GameScope(summary.id, summary.preparationRound), summary, PreparationStore.read(sql, summary))
+            sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, game.revision!! + 1)
+                .set(GAME_REVISION.PAYLOAD, GameWire.encode(revision)).execute()
+        }
         val records = sql.update(MATCH_RECORD).setNull(MATCH_RECORD.POD_ID).where(MATCH_RECORD.POD_ID.eq(pod)).execute()
         if (games.isNotEmpty() || records > 0) log("pod $pod draft cancelled: ${games.size} game(s) carry on orphaned from the pod " +
             "(${games.joinToString { "${it.id} ${it.lifecycle?.lowercase()}" }}); $records match record(s) leave its standings")

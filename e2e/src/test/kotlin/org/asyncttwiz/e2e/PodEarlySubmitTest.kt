@@ -199,10 +199,19 @@ class PodEarlySubmitTest : E2e() {
             alice.pods.state.tab == PodTab.GAMES && alice.pods.state.detail?.submitted == true && alice.showsText("No matches yet.")
         }
         assertTrue(!alice.shows(hasTestTag("pod-match-playing-${game.id}")), alice.screen())
-        // The game is still in her Games list
+        // (owner, 2026-11-23) nor among the pod's games
         alice.lobby.refresh()
+        waitUntil("Alice's games read again") { alice.lobby.state.games.any { it.id == game.id && it.podOrphaned } }
+        assertTrue(!alice.shows(hasTestTag("pod-game-${game.id}")), alice.screen())
+        // The game is still in her Games list
         alice.auth.navigate(ShellDestination.GAMES)
         waitUntil("the game in Alice's Games list") { alice.showsText("$name game") }
+        // LOB-145: its chat is the Game chat alone, no Pod tab
+        alice.auth.navigate(ShellDestination.MENU)
+        alice.openGame(game, this)
+        alice.described("Chat, ", substring = true).performClick()
+        waitUntil("the game's chat open") { alice.lobby.state.chatOpen }
+        assertTrue(!alice.shows(hasTestTag("chat-tabs")) && !alice.shows(hasTestTag("chat-tab-pod")), alice.screen())
     }
 
     // DRF-119, DRF-302: a Booster pod whose last card of a pack is thrown away (discard at 1): Alice's two picks end her draft

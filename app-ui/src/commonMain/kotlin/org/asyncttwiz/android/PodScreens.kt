@@ -691,11 +691,15 @@ fun podPickOrientationText(detail: PodDetail): String? {
     return "$round$step · $from"
 }
 
+/** DRF-121: pod [podId]'s games among [games], once each; DRF-039 (owner, 2026-11-23): not those a cancelled draft orphaned. */
+fun podTabGames(games: List<GameSummary>, podId: String): List<GameSummary> =
+    games.filter { it.podId == podId && !it.podOrphaned }.distinctBy { it.id }
+
 /** Members with a submitted deck can challenge each other; the new game opens in the normal lobby. */
 @Composable
 fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyController?) {
     val mine = detail.members.firstOrNull { it.account.accountId == accountId }
-    val games = lobby?.state?.let { it.games + it.invitations }.orEmpty().filter { it.podId == detail.id }.distinctBy { it.id }
+    val games = lobby?.state?.let { podTabGames(it.games + it.invitations, detail.id) }.orEmpty()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Members", style = MaterialTheme.typography.titleMedium)
         // DRF-297, DRF-301: bots play no games, so the Games tab lists only people

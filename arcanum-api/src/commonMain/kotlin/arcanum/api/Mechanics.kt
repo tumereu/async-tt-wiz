@@ -322,7 +322,8 @@ sealed interface Mechanic {
         val colorlessAsAnyColor: Boolean = false,
         // mom chunk 11
         /** At most this many spells cast with this permission in all, over the whole duration of the effect that grants it
-         * ("Until the end of your next turn, you may cast an instant or sorcery spell from among those exiled cards": one, CR 611.2a). */
+         * ("Until the end of your next turn, you may cast an instant or sorcery spell from among those exiled cards": one, CR 611.2a);
+         * snc: lands played with it count too ("you may play one of those cards", CR 305.1). */
         val total: Int? = null,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for

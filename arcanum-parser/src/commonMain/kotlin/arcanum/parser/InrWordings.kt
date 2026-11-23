@@ -71,7 +71,8 @@ internal object Inr {
     val IF_ITS_COLOR = Regex("""If it's (white|blue|black|red|green), (.+)""")
     // inr chunk 08: Chandra, Dressed to Kill: "You may cast red spells from among them this turn." (CR 601.2a)
     // mh3 chunk 09: any kind of spell ("instant and sorcery spells"), also "without paying their mana costs"
-    val MAY_CAST_COLOR_SPELLS_FROM_AMONG_THEM = Regex("""You may cast (.+?) spells from among (?:them|those cards) this turn( without paying their mana costs)?\.""")
+    // snc chunk 07: also "spells with exactly three colors"
+    val MAY_CAST_COLOR_SPELLS_FROM_AMONG_THEM = Regex("""You may cast (?:(.+?) spells|spells (with exactly (\w+) colors)) from among (?:them|those cards) this turn( without paying their mana costs)?\.""")
     // inr chunk 08: Fiend Hunter: "you may exile another target creature." (CR 115.1)
     val EXILE_ANOTHER_TARGET = Regex("""Exile another target (.+)\.""")
     // inr chunk 08: Compelling Deterrence: "Return target … to its owner's hand. Then that player discards a card if you control a Zombie."

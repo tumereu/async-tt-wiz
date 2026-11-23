@@ -34,4 +34,16 @@ internal object Snc {
     // snc chunk 06: "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste or that
     // many 3/1 green Dog creature tokens with vigilance."
     val CREATE_TOKENS_MAY_INSTEAD_ONE_OF = Regex("""If you would create one or more tokens, you may instead create that many (.+? tokens(?: with [^,]+?)?) or that many (.+? tokens(?: with .+?)?)\.""")
+    // snc chunk 07: "If your life total is less than your starting life total, this spell costs {X} less to cast, where X is the difference."
+    val IF_LESS_THAN_COSTS_X_LESS_DIFFERENCE = Regex("""If (.+?) is less than (.+?), (.+?) costs \{X\} less to cast, where X is the difference\.""")
+    // snc chunk 07: "[Each opponent] sacrifices a creature of their choice, discards a card, and loses 4 life." (the subject's verb phrases)
+    val VERB_LIST_OF_ONE_SUBJECT = Regex("""(.+?), ((?:loses|gains|draws|discards|mills|sacrifices|exiles|gets) [^,]+), and ((?:loses|gains|draws|discards|mills|sacrifices|exiles|gets) [^,]+)\.""")
+    // snc chunk 07: "Exile up to one target creature card from a graveyard. If a card is put into exile this way, look at the top three cards ..."
+    val EXILE_IF_A_CARD_EXILED_THIS_WAY = Regex("""((?:[Ee]xile) [^.]+)\. If a card is put into exile this way, (.+)""")
+    // snc chunk 07: "You may cast spells from the top of your library by removing a counter from a creature you control in addition to paying their other costs."
+    val CAST_FROM_TOP_BY_ADDITIONAL = Regex("""You may cast spells from the top of your library by (removing|sacrificing|discarding|exiling|tapping|paying) (.+?) in addition to paying their other costs\.""")
+    // snc chunk 07: "Remove a counter from a creature you control" (a cost)
+    val REMOVE_A_COUNTER_FROM_A = Regex("""Remove a counter from an? (.+)""")
+    // snc chunk 07: "Spend this mana only to cast spells with exactly three colors."
+    val CAST_SPELLS_EXACTLY_COLORS = Regex("""cast spells with exactly (\w+) colors""")
 }

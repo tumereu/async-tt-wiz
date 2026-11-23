@@ -13,7 +13,8 @@ internal object LazyRegexes {
     val COMMA_AND_WORDS by lazy { Regex(", and |, | and ") }
     val AND_BEFORE_ARTICLE by lazy { Regex(""",? and (?=an? )|, (?=an? )""") }
     val OR_BEFORE_COST_VERB by lazy { Regex(""" or (?=(?:sacrifice|pay|discard|exile|tap) )""") }
-    val OR_BEFORE_COST_VERB_LONG by lazy { Regex(""" or (?=(?:sacrifice|pay|discard|exile|return|tap|reveal|choose) )""") }
+    // snc chunk 07: also a list of three ("sacrifice a creature, discard a card, or pay 4 life")
+    val OR_BEFORE_COST_VERB_LONG by lazy { Regex("""(?:,? or |, )(?=(?:sacrifice|pay|discard|exile|return|tap|reveal|choose) )""") }
     val QUOTED by lazy { Regex(""""(.+?)"""") }
     val AND_QUOTED by lazy { Regex(""",? ?(?:and )?"(.+?)"""") }
 

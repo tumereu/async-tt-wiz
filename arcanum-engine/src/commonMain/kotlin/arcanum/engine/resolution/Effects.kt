@@ -1313,7 +1313,7 @@ internal object Effects {
             } else original.kind
             val snapshots = original.snapshots + listOfNotNull(act.snapshot(id))
             val copy = original.copy(id = copyId, kind = kind, controller = controller, targets = targets, snapshots = snapshots, timestamp = ts,
-                cast = if (kind is StackItemKind.SpellCopy) copiedFacts(original.cast ?: act.state.obj(id)?.cast) else original.cast, copyOf = id)
+                cast = if (kind is StackItemKind.SpellCopy) copiedFacts(original.cast ?: act.state.obj(id)?.cast) else null, copyOf = id)
             act.record(Change.StackItemAdded(copy, act.state.stack.size, listOf(arcanum.engine.change.Meaning.Copied)))
             act.record(Change.Happened(GameEvent.Copied(controller, copyId, scope.self)))
         }

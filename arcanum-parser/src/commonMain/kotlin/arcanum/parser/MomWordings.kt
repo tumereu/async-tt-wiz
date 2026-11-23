@@ -117,7 +117,8 @@ internal object Mom {
 /** mom: nouns and conditions of March of the Machine wordings, tried by [Filters] and [Conditions]. */
 internal object MomPhrases {
     // mom chunk 01: Invasion of Ravnica "spell that's exactly two colors", "permanent … that isn't exactly two colors" (CR 105.2)
-    private val THATS_EXACTLY_COLORS = Regex("""(.+?) that(?:'s| is| (isn't)) exactly (\w+) colors?""")
+    // snc chunk 07: also "spells with exactly three colors"
+    private val THATS_EXACTLY_COLORS = Regex("""(.+?) (?:that(?:'s| is| (isn't))|with) exactly (\w+) colors?""")
 
     // mom chunk 03: The Argent Etchings "other permanents except for artifacts, lands, and Phyrexians"
     private val EXCEPT_FOR = Regex("""(.+?) except for (.+)""")

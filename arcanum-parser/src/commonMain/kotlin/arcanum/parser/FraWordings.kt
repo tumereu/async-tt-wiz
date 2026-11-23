@@ -64,7 +64,7 @@ internal object Fra {
     val SPELLS_HAVE_KEYWORD = Regex("""(.+? spells you control) have ([a-z ]+)\.""")
     val SPELLS_OPPONENTS_CAST_COST_MORE = Regex("""(.+? spells) your opponents cast cost (\{\d+\}) more to cast\.""")
     val COSTS_X_LESS_WHERE = Regex("""(.+?) costs \{X\} less to cast, where X is (.+)\.""")
-    val COSTS_LESS_IF = Regex("""(.+?) costs ((?:\{[^}]+\})+) less to cast (if .+?)\.""")
+    val COSTS_LESS_IF = Regex("""(.+?) costs ((?:\{[^}]+\})+) less to cast if (.+?)\.""") // snc chunk 07: the condition without "if"
     val GETS_FOR_EVERY = Regex("""(.+?) gets \+(\d+)/\+(\d+) for every (\w+) (cards in your graveyard)\.""")
     val COUNTERS_PLUS = Regex("""If one or more (\S+) counters would be put on (an? .+?), that many plus (\w+) (\S+) counters are put on (?:it|that permanent|that creature) instead\.""") // mom: "that permanent"
     // trk chunk 09: also any tokens ("If one or more tokens would be created under your control, that many 3/3 … tokens are created instead.")

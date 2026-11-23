@@ -129,7 +129,10 @@ fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, landscape: 
         }
         if (landscape) Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (navigation != null) HoldTip("Open navigation") { IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") } }
+            // LOB-268: the hamburger's dot of what waits for you
+            if (navigation != null) WithNavigationDot(LocalNavigationDot.current) {
+                HoldTip("Open navigation") { IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") } }
+            }
             Text(title, Modifier.padding(start = if (navigation == null) 8.dp else 0.dp), style = MaterialTheme.typography.titleLarge, maxLines = 1)
             named(Modifier.weight(1f))
             link()

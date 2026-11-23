@@ -80,6 +80,35 @@ class DraftHistoryTest {
         assertEquals(awarded.cards.map { it.id }, awarded.kept)
     }
 
+    // DRF-207, DRF-045, DRF-046 (owner, 2026-11-22): the cards thrown away after a pick, near a pack's end or by the discard
+    // setting, are listed with it (shown as burns), apart from the burns
+    @Test fun cardsThrownAwayAreListedWithThePick() {
+        var state = start(size = 5, burn = 1, discard = 2)
+        val (x, y) = state.seating
+        val mine = head(state, x).cards.map { it.id }
+        val theirs = head(state, y).cards.map { it.id }
+        state = pick(state, x, listOf(mine[0]), listOf(mine[1]))
+        state = pick(state, y, listOf(theirs[0]), listOf(theirs[1]))
+        // Three cards left: keep 1 + burn 1 + discard 2 covers them; the first of the rest burns and the last is thrown away
+        state = pick(state, x, listOf(theirs[2]))
+        val history = DraftEngine.history(state, x)
+        assertTrue(history[0].discarded.isEmpty())
+        assertEquals(listOf(theirs[3]), history[1].burned)
+        assertEquals(listOf(theirs[4]), history[1].discarded)
+        // No burns: after a keep leaves discard cards or fewer, all the rest are thrown away
+        var plain = start(size = 5, discard = 3)
+        val (p, q) = plain.seating
+        val first = head(plain, p).cards.map { it.id }
+        val other = head(plain, q).cards.map { it.id }
+        plain = pick(plain, p, listOf(first[0]))
+        plain = pick(plain, q, listOf(other[0]))
+        plain = pick(plain, p, listOf(other[1]))
+        val last = DraftEngine.history(plain, p).last()
+        assertTrue(last.burned.isEmpty())
+        assertEquals(other.drop(2).toSet(), last.discarded.toSet())
+        assertEquals(other.drop(1).toSet(), ids(last.cards))
+    }
+
     // DRF-165, DRF-207, DRF-053: a spent Librarian joins the pack it was spent on; the next player sees it as a pack card
     @Test fun spentLibrariansShowInThePackTheyWereSpentOn() {
         var state = start(size = 6, librarians = 1)

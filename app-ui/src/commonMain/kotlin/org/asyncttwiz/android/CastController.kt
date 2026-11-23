@@ -65,6 +65,13 @@ interface AutomatumWork {
 }
 
 /**
+ * Where the table's Automatum work runs ([EngineTableScreen]'s [TableToolkitController]: its casts, shared flows, combat and
+ * board values): [AutomatumWork.Background] in the app; tests of the whole app at real pace provide [AutomatumWork.Inline],
+ * so nothing a frame shows waits for a thread the test clock doesn't move.
+ */
+val LocalAutomatumWork = androidx.compose.runtime.staticCompositionLocalOf<AutomatumWork> { AutomatumWork.Background }
+
+/**
  * Casting from the hand through Automatum (integration spec §3 I2a): one private flow at a time (I-D11). Its engine
  * calls stay on this device and go out as the player's own inputs ([engineSend]) when the cast is complete; Undo or Back
  * drops it, sending nothing. While it is open nothing else changes the game ([open] blocks the toolkit's actions, D32);

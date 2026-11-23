@@ -491,9 +491,11 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     /** Starts the draft from setup, or returns why it cannot start. Pending invitations lapse. */
     private fun begin(sql: DSLContext, row: PodRecord): Result? {
         val humans = members(sql, row.id!!).map { it.accountId.toString() }
-        // DRF-035, DRF-296: two people at least; bot seats fill any other seat
-        if (humans.size < 2) return error(409, "not_enough_members")
         val settings = settings(row); val cube = source(row)
+        // DRF-035, DRF-296 (owner, 2026-11-23): two seats at least; the creator may draft alone with bots (Sealed and Arena,
+        // which take none, still need a second person)
+        if (humans.size + settings.bots < 2) return error(409, "not_enough_members")
+        if (humans.size == 1) log("pod ${row.id} starts a solo ${settings.mode} draft: its creator and ${settings.bots} bot seats")
         val players = humans + PodBots.ids(settings.bots)
         if (players.size > settings.mode.players.last) return error(409, "too_many_members")
         if (settings.validate(players.size).isNotEmpty()) return error(400, "invalid_settings")

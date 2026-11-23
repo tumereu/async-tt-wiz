@@ -1274,15 +1274,15 @@ class PodControllerTest {
         assertEquals("Removed from Pod", podActivityText(ActivityKind.POD_MEMBER_REMOVED, "Pod"))
     }
 
-    // DRF-296 (owner, 2026-11-22): Add bot adds a bot seat up to the mode's most; a bot row's ✕ removes one
+    // DRF-296 (owner, 2026-11-22 and 2026-11-23): Add bot adds a bot seat up to the mode's most (Booster 7); a bot row's ✕ removes one
     @Test fun addBotAndTheBotCrossChangeTheBotSeats() = Fixture(PodPhase.SETUP).use { f ->
         f.open()
-        repeat(7) { f.controller.addBot() }
-        assertEquals(6, f.controller.state.detail!!.settings.bots)
+        repeat(8) { f.controller.addBot() }
+        assertEquals(7, f.controller.state.detail!!.settings.bots)
         f.controller.removeBot("Bot 2")
-        assertEquals(5, f.controller.state.detail!!.settings.bots)
+        assertEquals(6, f.controller.state.detail!!.settings.bots)
         f.controller.flushSetup(); f.deliver()
-        assertEquals(5, f.api.saved.settings.bots)
+        assertEquals(6, f.api.saved.settings.bots)
     }
 
     // DRF-039

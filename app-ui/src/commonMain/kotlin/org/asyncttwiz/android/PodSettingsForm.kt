@@ -171,7 +171,7 @@ enum class PodSetting(val label: String) {
     }
 }
 
-/** DRF-296: the bot seats a mode allows, 0 up to its player limit less two. */
+/** DRF-296: the bot seats a mode allows, 0 up to its player limit less one (the creator may draft alone with bots). */
 fun podBotRange(settings: DraftSettings): IntRange = 0..settings.mode.maxBots
 
 /** DRF-296: [this] with [bots] bot seats, kept within [podBotRange]; DRF-028: Grid's two picks are for two players only, so
@@ -368,7 +368,7 @@ private fun PodPassNumberPopup(title: String, explanation: String, value: Int, r
     }
 }
 
-/** DRF-296 (owner, 2026-11-22): why Add bot is greyed ("Booster takes at most 6 bots"), null while one more fits. */
+/** DRF-296 (owner, 2026-11-22): why Add bot is greyed ("Booster takes at most 7 bots"), null while one more fits. */
 fun podAddBotBlocked(settings: DraftSettings): String? {
     val most = podBotRange(settings).last
     return if (settings.bots < most) null else "${podModeName(settings.mode)} takes at most $most ${if (most == 1) "bot" else "bots"}"

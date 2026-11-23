@@ -142,15 +142,14 @@ class BotSeatsHttpTest {
         Fixture(db).use(test)
     }
 
-    // DRF-035, DRF-296, DRF-297, DRF-298, DRF-301: a Booster pod with three bot seats doesn't start with its creator alone; with a
-    // second person it starts, the bots pick at once on the server, everyone sees them as "Bot 1"… after the people, and the
-    // two people draft it to its end; the Pods list names only people and the bots never build
-    @Test fun `a pod with bot seats needs a second person and its bots draft on the server`() = fixture { f ->
+    // DRF-035, DRF-296, DRF-297, DRF-298, DRF-301: a Booster pod with three bot seats and a second person starts, the bots pick at
+    // once on the server, everyone sees them as "Bot 1"… after the people, and the two people draft it to its end; the Pods list
+    // names only people and the bots never build
+    @Test fun `a pod with bot seats and two people starts and its bots draft on the server`() = fixture { f ->
         val pod = f.pod(DraftSettings(packsPerPlayer = 2, cardsPerPack = 5, keep = 1, burn = 1, bots = 3))
         assertEquals(3, f.get(f.a, pod).settings.bots)
         // Setup lists no bot as a member: the bots are the setting
         assertEquals(listOf(f.a.account.accountId), f.get(f.a, pod).members.map { it.account.accountId })
-        assertEquals("not_enough_members", f.code(f.start(pod, 409)))
         f.join(pod, f.b)
         val started = json.decodeFromString<PodDetail>(f.start(pod))
         assertEquals(PodPhase.DRAFTING, started.phase)
@@ -179,13 +178,36 @@ class BotSeatsHttpTest {
         assertTrue(done.members.filter { !it.bot }.all { it.building })
     }
 
-    // DRF-150, DRF-163, DRF-296: bot seats count as players; Sealed and Arena take none; a mode's most is its limit less two
+    // DRF-035, DRF-296, DRF-301 (owner, 2026-11-23): a solo draft: the creator alone with bots starts the draft, drafts it to its end
+    // with the bots and submits a deck, and no "Decks ready" goes to anyone; without bots, or in Sealed and Arena (no bots), the
+    // creator alone can't start
+    @Test fun `the creator alone with bots drafts solo`() = fixture { f ->
+        val lonely = f.pod(DraftSettings(packsPerPlayer = 1, cardsPerPack = 5, keep = 1, burn = 1))
+        assertEquals("not_enough_members", f.code(f.start(lonely, 409)))
+        f.configure(lonely, DraftSettings.sealed())
+        assertEquals("not_enough_members", f.code(f.start(lonely, 409)))
+        val pod = f.pod(DraftSettings(packsPerPlayer = 2, cardsPerPack = 5, keep = 1, burn = 1, bots = 3))
+        val started = json.decodeFromString<PodDetail>(f.start(pod))
+        assertEquals(PodPhase.DRAFTING, started.phase)
+        assertEquals(listOf(f.a.account.accountId) + PodBots.ids(3), started.members.map { it.account.accountId })
+        f.draftToTheEnd(pod, listOf(f.a))
+        val done = f.get(f.a, pod)
+        assertEquals(PodPhase.DRAFTED, done.phase)
+        assertTrue(done.members.single { !it.bot }.building)
+        val attempt = done.draftAttemptId!!
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(UUID.randomUUID().toString(), attempt, PodDeckBasics(plains = 40)))
+        assertTrue(json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods/$pod/submit", SubmitPodDeck(UUID.randomUUID().toString(), attempt))).submitted)
+        assertEquals(0L, f.db.connection().use { connection -> connection.createStatement().executeQuery(
+            "SELECT count(*) FROM account_activity WHERE kind = 'POD_DECKS_READY' AND game_id = '$pod'").let { it.next(); it.getLong(1) } })
+    }
+
+    // DRF-150, DRF-163, DRF-296: bot seats count as players; Sealed and Arena take none; a mode's most is its limit less one
     @Test fun `bot seats count against the engine's limit and only modes with a draft take them`() = fixture { f ->
-        assertEquals("invalid_settings", f.code(f.create(DraftSettings.booster().copy(bots = 7), 400)))
+        assertEquals("invalid_settings", f.code(f.create(DraftSettings.booster().copy(bots = 8), 400)))
         assertEquals("invalid_settings", f.code(f.create(DraftSettings.arena().copy(bots = 1), 400)))
         assertEquals("invalid_settings", f.code(f.create(DraftSettings.sealed().copy(bots = 1), 400)))
         val pod = f.pod(DraftSettings.booster().copy(packsPerPlayer = 1, cardsPerPack = 5, bots = 6))
-        assertEquals("invalid_settings", f.code(f.configure(pod, DraftSettings.grid().copy(grids = 2, bots = 3), 400)))
+        assertEquals("invalid_settings", f.code(f.configure(pod, DraftSettings.grid().copy(grids = 2, bots = 4), 400)))
         f.configure(pod, DraftSettings.grid().copy(grids = 2, bots = 2))
         // Three people and two bots are five: one too many for Grid
         f.join(pod, f.b, f.c)

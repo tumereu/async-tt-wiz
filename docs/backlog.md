@@ -10,10 +10,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-Catalog review notes (owner, 2026-11-22):
-
-- Solo draft: one person with bots (today bots leave room for two people, DRF-296), with a warning that there is no one in the pod to play against (bots play no games, DRF-301).
-
 ### Earlier
 
 Desktop playtest notes (owner, 2026-11-14): high priority.

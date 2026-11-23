@@ -414,6 +414,8 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
                     Modifier.testTag("pod-cancel-invitation-${invitee.accountId}"), enabled = removable)
             }
         }
+        // DRF-296, DRF-301 (owner, 2026-11-23): a solo draft (its creator alone with bots) has no one to play against
+        podSoloWarning(detail, settings)?.let { Text(it, Modifier.testTag("pod-solo-warning"), color = MaterialTheme.colorScheme.error) }
         if (creator) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ScreenOutlinedButton({ controller.chooseMember(true); lobby?.contacts(false) },

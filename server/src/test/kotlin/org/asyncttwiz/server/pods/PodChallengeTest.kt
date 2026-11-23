@@ -767,4 +767,31 @@ class PodChallengeTest {
         f.submit(f.b, pod)
         assertEquals(emptySet<String>(), f.open(f.b), "answered and built: nothing waits")
     }
+
+    // DRF-135, DRF-138, LOB-242, LOB-243 (owner, 2026-11-22): Bob still builds when Alice's challenge replaces his "Draft
+    // complete: build your deck"; he declines it on one device: the pod's notification no longer waits and the server clears it
+    // on his other devices at once (a clear push to his phone), though his deck is still unsubmitted. A newer pod notice waits
+    // on its own again
+    @Test fun `a pod challenge declined on one device clears the pod's notification on every device`() = fixture { f ->
+        val pod = f.pod(three = true)
+        val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+        val phone = activity.register(f.b, RegisterInstallation(id(), id(), "synthetic-android-token"))
+        val cursor = activity.page(f.b, null).nextCursor
+        f.submit(f.a, pod)
+        val game = f.challenge(pod)
+        val key = "pod:$pod"
+        // His phone's poll shows the challenge (remembered until it waits no more)
+        assertEquals(ActivityKind.INVITATION, activity.page(f.b, cursor).readyNotices!!.last { it.podId == pod }.kind)
+        assertEquals(setOf(key), f.open(f.b))
+        f.sql { it.execute("DELETE FROM activity_push") }
+        assertEquals("accepted", f.stream(f.b, game).execute(GameAction.DeclineInvitation).outcome)
+        assertEquals(emptySet<String>(), f.open(f.b), "declined: nothing waits, his build included")
+        f.sql { org.asyncttwiz.server.activity.ActivityNotices.sweep(it, java.time.OffsetDateTime.now()) }
+        assertEquals(1, f.sql { it.fetch("SELECT 1 FROM activity_push WHERE generation = '${phone.generation}' " +
+            "AND kind = 'CLEAR_POD' AND game_id = '$pod'").size }, "a clear for his phone")
+        assertFalse(activity.page(f.b, null).openNotices!!.contains(key), "the phone's refresh clears it")
+        // Alice destroys the pod: its notice is newer than the declined challenge and waits for Bob until he sees it
+        assertEquals(200, f.pods.destroy(f.a, pod, PodRequest(id())).status)
+        assertEquals(setOf(key), f.open(f.b))
+    }
 }

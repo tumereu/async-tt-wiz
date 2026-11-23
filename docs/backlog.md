@@ -13,7 +13,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 Catalog review notes (owner, 2026-11-22):
 
 - Solo draft: one person with bots (today bots leave room for two people, DRF-296), with a warning that there is no one in the pod to play against (bots play no games, DRF-301).
-- A pod challenge declined on one device can keep its notification on your other devices until you submit your deck (DRF-135, DRF-138, LOB-243).
 
 ### Earlier
 

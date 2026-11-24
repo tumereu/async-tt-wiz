@@ -3870,7 +3870,9 @@ internal class Sentences(
      * from your graveyard to the battlefield."), "it" in a trigger is that target, not the trigger's object ("Exile it at the beginning of the
      * next end step."); [followTargetsToBattlefield] then names the new permanent (CR 400.7, 608.2c). */
     private fun nameTargetPutOntoBattlefield(steps: MutableList<Step>, context: Context, targetsFrom: Int, stepsFrom: Int) {
-        if (context.it !is Objects.EventObject && context.it != Objects.Self) return
+        // neo chunk 07: also in a spell, where nothing was "it" before ("Search your library for an Equipment card, put that card onto the
+        // battlefield, then shuffle. If it has mana value less than …")
+        if (context.it == null && !isSpell || context.it != null && context.it !is Objects.EventObject && context.it != Objects.Self) return
         // dmu sweep: likewise one card the sentence chose or found and put onto the battlefield ("You may put a creature card from among them
         // onto the battlefield. Sacrifice it at the beginning of the next end step.", "search your library for a creature card, put it onto the
         // battlefield, then shuffle"): "it" is that permanent, named as it enters (CR 400.7, 608.2c)
@@ -5035,11 +5037,13 @@ internal class Sentences(
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
         }
         if (sentence == "Untap it.") return listOf(Step.Do(Effect.Untap(context.it ?: return null)))
-        // dsk chunk 11: "Exile it." (the event's object; "that card" afterwards)
+        // dsk chunk 11: "Exile it." (the event's object; "that card" afterwards); neo chunk 07: on a card naming cards "exiled with" it, kept as
+        // exiled with it ("Whenever equipped creature dies, exile it.", CR 607.2a)
         if (sentence == "Exile it." && context.it != null) {
             val it = context.it!!
             context.it = Objects.Bound("exiled")
-            return listOf(Step.Do(Effect.Move(it, Destination(Zone.Exile), postBind = "exiled")))
+            return listOf(Step.Do(Effect.Move(it, Destination(Zone.Exile), postBind = "exiled"))) +
+                (if (remembersExile) listOf(Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled")))) else emptyList())
         }
         // dsk chunk 11: "You may play that card from exile this turn."
         if (sentence == "You may play that card from exile this turn.") {
@@ -5552,6 +5556,7 @@ internal class Sentences(
             ?: attempt(context) { oneLateEffect(sentence, context) } // one
             ?: attempt(context) { dmrEffect(sentence, context) } // dmr
             ?: attempt(context) { dmuLateEffect(sentence, context) } // dmu
+            ?: attempt(context) { neoLateEffect(sentence, context) } // neo
             // trk chunk 12: "you put a peace counter on this enchantment" after another player's part of the sentence: the imperative it names
             // (an instruction without a subject is the controller's, CR 608.2c)
             ?: Trk.YOU_IMPERATIVE.matchEntire(sentence)?.let { attempt(context) { effect(it.groupValues[1].replaceFirstChar { c -> c.uppercase() }, context) } }
@@ -7111,25 +7116,7 @@ internal class Sentences(
             return listOf(Step.Do(Effect.ApplyMechanics(mechanics, arcanum.api.Affected.Objects(Objects.Target(name)), arcanum.api.Duration.Indefinitely)))
         }
         // chunks 31, 47: "You may exile it. When you do, [reflexive trigger]." (CR 603.12)
-        YOU_MAY_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
-            // dsk chunk 12: "You may discard a card or pay {2}. When you do, …": one of two costs
-            val options = m.groupValues[1].split(LazyRegexes.OR_BEFORE_COST_VERB)
-            val either = if (options.size < 2) null else options.map { Cost(costPart(it.replaceFirstChar { c -> c.uppercase() }) ?: return@let) }
-            // trk chunk 01: "you may pay {1} and exile a card from your graveyard. When you do, …": one cost of two parts (CR 118.12)
-            (either?.let { listOf(CostPart.OneOf(it)) } ?: costPart(m.groupValues[1].replaceFirstChar { it.uppercase() })
-                ?: oneCostOnIt(m.groupValues[1].replaceFirstChar { it.uppercase() }, context)
-                ?: costPartsJoined(m.groupValues[1].replaceFirstChar { it.uppercase() }, context))?.let { parts ->
-                // snc chunk 03: "you may sacrifice another creature. When you do, … equal to that creature's power …": the sacrifice names
-                // the object the reflexive trigger reads, as it last existed (CR 603.12, 608.2h)
-                val sacrificePart = (parts.singleOrNull() as? CostPart.Sacrifice)?.takeIf { it.what is CostObjects.Choose && it.preBind == null &&
-                    mh3NamesCreatures((it.what as CostObjects.Choose).filter) && m.groupValues[2].contains("that creature") }
-                val reflexive = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() },
-                    that = sacrificePart?.let { Objects.Bound(SACRIFICED) }) ?: return null
-                val payParts = if (sacrificePart == null) parts else listOf(sacrificePart.copy(preBind = SACRIFICED))
-                return listOf(Step.Pay(Cost(payParts), bind = "paid", payer = Players.You),
-                    Step.If(arcanum.api.Condition.Did("paid"), then = listOf(reflexiveTrigger(reflexive, m.groupValues[2]))))
-            }
-        }
+        youMayWhenYouDo(sentence, context)?.let { return it.ifEmpty { null } }
         // chunks 30–33
         enters(sentence, context)?.let { return it }
         // chunk 40: "Until end of turn, each Elf creature you control has base power and toughness 5/5 and becomes a Dinosaur
@@ -8106,10 +8093,11 @@ internal class Sentences(
             }
             return steps
         }
-        // gtc chunk 09: "Untap that creature." / "Untap those creatures."
+        // gtc chunk 09: "Untap that creature." / "Untap those creatures."; neo chunk 07: "Tap that creature." (in a becomes-attached trigger the
+        // creature attached to, CR 701.3a)
         Gtc.UNTAP_THAT.matchEntire(sentence)?.let { m ->
-            val objects = gtcSubject(if (m.groupValues[1] == "those creatures") "it" else "That creature", context) ?: return null
-            return listOf(Step.Do(Effect.Untap(objects)))
+            val objects = gtcSubject(if (m.groupValues[2] == "those creatures") "it" else "That creature", context) ?: return null
+            return listOf(Step.Do(if (m.groupValues[1] == "Tap") Effect.Tap(objects) else Effect.Untap(objects)))
         }
         // gtc chunk 03: "pay any amount of life." (CR 119.4, 107.1b: any number from 0 up to your life total)
         if (sentence == "Pay any amount of life.") {
@@ -9396,6 +9384,14 @@ internal class Sentences(
 
     /** chunk 56: a condition about "it", the object an earlier sentence acted on ("it has no ice counters on it"). */
     private fun itCondition(text: String, context: Context): arcanum.api.Condition? {
+        // neo chunk 07: "it has mana value less than the sacrificed permanent's mana value" ("it": the card just put onto the battlefield, compared as
+        // the spell resolves; the sacrificed permanent as it last existed, CR 608.2h)
+        Neo.IT_HAS_NUMBER_THAN.matchEntire(text)?.let { m ->
+            val it = context.it ?: return@let
+            val other = context.value(m.groupValues[3]) ?: return@let
+            return arcanum.api.Condition.Compare(Value.Of(Dmr.property(m.groupValues[1]), it, arcanum.api.Combine.Single),
+                if (m.groupValues[2] == "less") arcanum.api.Comparison.Less else arcanum.api.Comparison.Greater, other)
+        }
         // mom chunk 17: "its power is 3 or greater" in a trigger about another object ("Whenever a creature you control enters, draw a card if
         // its power is 3 or greater"): "its" is the event's object, not the ability's source (CR 608.2h)
         Mom.ITS_POWER_IS.matchEntire(text)?.let { m ->
@@ -10892,10 +10888,12 @@ internal class Sentences(
             return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Target(name)), Value.Fixed(m.groupValues[2].toInt()), source = Objects.Self)))
         }
         // blb chunk 05: "Exile it." (then "it" is the exiled card, CR 400.7)
+        // neo chunk 07: on a card naming cards "exiled with" it, kept as exiled with it ("Whenever equipped creature dies, exile it.", CR 607.2a)
         if (sentence == "Exile it." && context.it != null && context.it !is Objects.Bound) {
             val card = context.it!!
             context.it = Objects.Bound("exiled")
-            return listOf(Step.Do(Effect.Move(card, Destination(Zone.Exile), postBind = "exiled")))
+            return listOf(Step.Do(Effect.Move(card, Destination(Zone.Exile), postBind = "exiled"))) +
+                (if (remembersExile) listOf(Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled")))) else emptyList())
         }
         // blb chunk 05: "Return a creature card from your graveyard to the battlefield with a finality counter on it."
         Blb.RETURN_A_FROM_GRAVEYARD_WITH_COUNTER.matchEntire(sentence)?.let { m ->
@@ -14093,7 +14091,7 @@ internal class Sentences(
         val ALTERNATIVE_COST_FOR_SPELLS = Regex("""(Once each turn, )?[Yy]ou may (?:pay (\{[^ ]+\})|(collect evidence \d+)) rather than pay the mana cost for (?:a spell|spells|([A-Za-z ]+?) spells) you cast( from exile)?\.""") // inr chunk 09: "Zombie creature spells"
         val GETS_AND_GAINS_UNTIL_EOT = Regex("""(.+?) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) and (gains|loses) (.+) until (end of turn|your next turn)\.""")
         // mh3 chunk 09: "the amount of life you gained this turn"
-        val DEALS_DAMAGE_EQUAL_TO = Regex("""(.+?) deals damage equal to (the number of .+?|the power of .+?|the amount of .+?|the (?:exiled card|sacrificed creature)'s (?:power|toughness)) to (any target|target .+|each opponent|that creature|each \w+ and each \w+)\.""") // snc chunk 08: each creature and each planeswalker; isd chunk 07: the exiled card's; bro chunk 08: the sacrificed creature's; dmu chunk 06: that creature
+        val DEALS_DAMAGE_EQUAL_TO = Regex("""(.+?) deals damage equal to (the number of .+?|the power of .+?|the amount of .+?|the (?:exiled card|sacrificed creature)'s (?:power|toughness|mana value)) to (any target|target .+|each opponent|that creature|each \w+ and each \w+)\.""") // snc chunk 08: each creature and each planeswalker; isd chunk 07: the exiled card's (neo chunk 07: mana value); bro chunk 08: the sacrificed creature's; dmu chunk 06: that creature
         // dungeons: no duration ("You may play them."): for as long as they remain exiled
         val YOU_MAY_PLAY_EXILED = Regex("""You may (play|cast) (it|them|that card)(?: (this turn|until the end of your next turn))?\.""") // dmu chunk 05: that card // inr chunk 08: cast
         val MILL_THEN_RETURN_FROM_AMONG_THEM = Regex("""Mill (\w+) cards, then return up to (\w+) (.+) from among them to your hand\.""")
@@ -24127,6 +24125,34 @@ internal class Sentences(
     /** mh3: one-sentence effects, tried first. */
     // ---- neo: Kamigawa: Neon Dynasty wordings (the set's parser tests, sets/neo/NeoChunk*Test.kt)
 
+    /** chunks 31, 47: "You may exile it. When you do, [reflexive trigger]." (CR 603.12); out of [effectRules] for its size (an empty list: the
+     * sentence matched but doesn't read, and no other rule may read it). */
+    private fun youMayWhenYouDo(sentence: String, context: Context): List<Step>? {
+        YOU_MAY_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
+            // dsk chunk 12: "You may discard a card or pay {2}. When you do, …": one of two costs
+            val options = m.groupValues[1].split(LazyRegexes.OR_BEFORE_COST_VERB)
+            val either = if (options.size < 2) null else options.map { Cost(costPart(it.replaceFirstChar { c -> c.uppercase() }) ?: return@let) }
+            // trk chunk 01: "you may pay {1} and exile a card from your graveyard. When you do, …": one cost of two parts (CR 118.12)
+            (either?.let { listOf(CostPart.OneOf(it)) } ?: costPart(m.groupValues[1].replaceFirstChar { it.uppercase() })
+                ?: oneCostOnIt(m.groupValues[1].replaceFirstChar { it.uppercase() }, context)
+                ?: costPartsJoined(m.groupValues[1].replaceFirstChar { it.uppercase() }, context))?.let { parts ->
+                // snc chunk 03: "you may sacrifice another creature. When you do, … equal to that creature's power …": the sacrifice names
+                // the object the reflexive trigger reads, as it last existed (CR 603.12, 608.2h)
+                val sacrificePart = (parts.singleOrNull() as? CostPart.Sacrifice)?.takeIf { it.what is CostObjects.Choose && it.preBind == null &&
+                    mh3NamesCreatures((it.what as CostObjects.Choose).filter) && m.groupValues[2].contains("that creature") }
+                // neo chunk 07: in a triggered ability "it" stays the trigger's object ("Whenever a Samurai you control attacks alone, you may pay
+                // {1}. When you do, attach this Equipment to it."): the reflexive trigger keeps the event it was made in (CR 603.12, 608.2c)
+                val reflexive = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() },
+                    that = sacrificePart?.let { Objects.Bound(SACRIFICED) }, it = (context.it as? Objects.EventObject)?.takeIf { context.event != null })
+                    ?: return emptyList() // stops the sentence rules, as inside them
+                val payParts = if (sacrificePart == null) parts else listOf(sacrificePart.copy(preBind = SACRIFICED))
+                return listOf(Step.Pay(Cost(payParts), bind = "paid", payer = Players.You),
+                    Step.If(arcanum.api.Condition.Did("paid"), then = listOf(reflexiveTrigger(reflexive, m.groupValues[2]))))
+            }
+        }
+        return null
+    }
+
     /** neo: wordings of several sentences read as one. */
     /** neo chunk 04: "As long as The Reality Chip is attached to a creature, you may play lands and cast spells from the top of your library.":
      * a condition on a line read as several static abilities, each of them under it (CR 611.3a) */
@@ -24159,6 +24185,23 @@ internal class Sentences(
             val instead = instructions("$text.", that = that, it = that) ?: instructions("$split.", that = that, it = that) ?: return null
             if (instead.targets.isNotEmpty()) return null
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Destroyed(ObjectFilter.Is(attached)), instead = instead)), affects = Affected.Objects(Objects.Self))
+        }
+        // neo chunk 07: "As long as a card exiled with Eater of Virtue has flying, equipped creature has flying. The same is true for first strike, …,
+        // protection, …": each such keyword ability of the cards still exiled with it, as it is (a protection with its quality, CR 702.16a; hexproof
+        // from a quality is a hexproof ability, CR 702.11e; cards exiled with it, CR 607.2a)
+        Neo.AS_LONG_AS_EXILED_WITH_HAS_SAME_FOR.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val affected = when {
+                Rtr.ATTACHED_SUBJECT.matches(m.groupValues[4].replaceFirstChar { it.uppercase() }) -> attached
+                isSelf(m.groupValues[4]) -> Objects.Self
+                else -> return@let
+            }
+            val cards = if (m.groupValues[1] == "card") ObjectFilter.InZone(Zone.Exile)
+                else Filters.all(Filters.noun(m.groupValues[1]) ?: return@let, ObjectFilter.InZone(Zone.Exile))
+            val kinds = (listOf(m.groupValues[3]) + m.groupValues[5].split(LazyRegexes.AND_LIST)).map { name ->
+                if (name == "protection") arcanum.api.Keyword.Protection.Kind else (OracleParser.keyword(name) as? arcanum.api.Keyword)?.kind ?: return@let
+            }
+            return Ability.Static(listOf(Mechanic.GainAbilitiesOf(Objects.Where(Objects.Remembered(EXILED_WITH), cards), onlyKeywords = kinds)),
+                affects = Affected.Objects(affected))
         }
         return null
     }
@@ -24197,6 +24240,22 @@ internal class Sentences(
         return null
     }
 
+    /** neo: single sentences no other rule reads, tried late in [effect]. */
+    private fun neoLateEffect(sentence: String, context: Context): List<Step>? {
+        // neo chunk 07: "… any number of target nonland permanents with total mana value 6 or less …": the sentence without the limit, the limit on
+        // the targets it chose (checked as they're chosen and on resolution, CR 601.2c, 608.2b)
+        Neo.TARGETS_WITH_TOTAL_AT_MOST.matchEntire(sentence)?.let { m ->
+            val before = context.targets.size
+            val steps = effect("${m.groupValues[1]}${m.groupValues[4]}.", context) ?: return null
+            if (context.targets.size != before + 1 || context.targets.last().max == Value.Fixed(1)) return null
+            val property = if (m.groupValues[2] == "power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.ManaValue
+            context.targets[context.targets.lastIndex] = context.targets.last().copy(
+                totalAtMost = arcanum.api.Choice.TotalLimit(property, Value.Fixed(m.groupValues[3].toInt())))
+            return steps
+        }
+        return null
+    }
+
     /** neo: sentences that change the steps before them. */
     private fun neoModify(sentence: String, steps: List<Step>): List<Step>? {
         // neo chunk 03: "If you cast a spell this way, pay life equal to its mana value rather than paying its mana cost." after a permission to play
@@ -24216,6 +24275,22 @@ internal class Sentences(
     private fun neoEffect(sentence: String, context: Context): List<Step>? {
         // neo chunk 06: "unattach it" (an Equipment or Aura it names becomes unattached, CR 701.3d)
         if (sentence == "Unattach it.") return listOf(Step.Do(Effect.Unattach(context.it ?: return null)))
+        // neo chunk 07: "Equipped creature gets +X/+0 until end of turn, where X is the number of times this ability has resolved this turn." (the
+        // creature it's attached to as the ability resolves, X fixed then, CR 608.2h, 611.2c)
+        Neo.ATTACHED_GETS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null,
+                ptChange(m.groupValues[3]) ?: return null)), Affected.Objects(Objects.AttachedTo(Objects.Self)), arcanum.api.Duration.EndOfTurn)))
+        }
+        // neo chunk 07: "When you exile a nonland card this way, Hidetsugu deals damage equal to the exiled card's mana value to any target." after
+        // exiling one card: a reflexive trigger only when that card is such a card ("the exiled card" is it, CR 603.12, 608.2c)
+        Neo.WHEN_YOU_EXILE_THIS_WAY.matchEntire(sentence)?.let { m ->
+            val exiled = context.it as? Objects.Bound ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val saved = exiledCard
+            exiledCard = exiled
+            val reflexive = try { instructions(m.groupValues[2].replaceFirstChar { c -> c.uppercase() }, it = exiled) } finally { exiledCard = saved } ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(exiled, filter), then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive)))))
+        }
         // neo chunk 02: "your opponents can't cast spells with the same mana value as that spell until your next turn." (that spell: the one cast;
         // its mana value as the ability resolves, CR 608.2h)
         Neo.OPPONENTS_CANT_CAST_SAME_MANA_VALUE_UNTIL_NEXT_TURN.matchEntire(sentence)?.let { m ->
@@ -31814,9 +31889,9 @@ internal class Sentences(
     /** mh2: a value "where X is …" defines. */
     private fun mh2Value(text: String): Value? {
         // mh2 chunk 02: "the exiled card's toughness" in a spell that exiled it (the card it moved, as it last was, CR 608.2h)
-        Mh2.EXILED_CARDS_NUMBER.matchEntire(text)?.takeIf { isSpell }?.let { m ->
-            val property = if (m.groupValues[1] == "power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness
-            return Value.Of(property, Objects.Bound("exiled"), arcanum.api.Combine.Single)
+        // neo chunk 07: also its mana value, and in a reflexive trigger about the card the ability just exiled ([exiledCard] bound to it)
+        Mh2.EXILED_CARDS_NUMBER.matchEntire(text)?.takeIf { isSpell || exiledCard is Objects.Bound }?.let { m ->
+            return Value.Of(Dmr.property(m.groupValues[1]), exiledCard as? Objects.Bound ?: Objects.Bound("exiled"), arcanum.api.Combine.Single)
         }
         return null
     }

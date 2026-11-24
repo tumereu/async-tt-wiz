@@ -2095,6 +2095,10 @@ internal object Values {
         RvrPhrases.value(text)?.let { return it } // rvr
         // neo chunk 03: "mana value less than or equal to that damage" (the amount of the damage event that triggered, CR 603.2c)
         if (text == "that damage") return Value.EventAmount
+        // neo chunk 07: "the number of times this ability has resolved this turn" (counting this resolution)
+        if (text == "the number of times this ability has resolved this turn") return Value.AbilityUsesThisTurn(resolved = true)
+        // neo chunk 07: "the sacrificed permanent's mana value" (the cost's permanent as it last existed, CR 608.2h)
+        Neo.SACRIFICED_NUMBER.matchEntire(text)?.let { m -> return Value.Of(Dmr.property(m.groupValues[1]), Objects.Bound(SACRIFICED), arcanum.api.Combine.Single) }
         OnePhrases.value(text, exiled)?.let { return it } // one
         LciPhrases.value(text)?.let { return it } // lci
         IsdPhrases.value(text)?.let { return it } // isd

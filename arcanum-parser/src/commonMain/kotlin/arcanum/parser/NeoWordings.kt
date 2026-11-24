@@ -38,6 +38,18 @@ internal object Neo {
     val ATTACHED_IS_CREATURE = Regex("""((?:Enchanted|Equipped) (?:creature|land|permanent|artifact)) is (an? [^.]+? creature(?: with [^.]+)?)\.(?: It's still an? [a-z]+\.)?""")
     // neo chunk 06: "If enchanted land would be destroyed, instead sacrifice this Aura and that land gains indestructible until end of turn."
     val AND_THAT_NOUN = Regex(""" and that (?:creature|land|permanent|artifact) """)
+    // neo chunk 07: "As long as a card exiled with Eater of Virtue has flying, equipped creature has flying. The same is true for first strike, …"
+    val AS_LONG_AS_EXILED_WITH_HAS_SAME_FOR = Regex("""As long as an? (.+?) exiled with (.+?) has ([a-z ]+), (.+?) has \3\. The same is true for (.+)\.""")
+    // neo chunk 07: "Return any number of target nonland permanents with total mana value 6 or less to their owners' hands."
+    val TARGETS_WITH_TOTAL_AT_MOST = Regex("""(.+?\btarget [^.]+?) with total (mana value|power) (\d+) or less( [^.]+)?\.""")
+    // neo chunk 07: "If it has mana value less than the sacrificed permanent's mana value, scry 2."
+    val IT_HAS_NUMBER_THAN = Regex("""it has (mana value|power|toughness) (less|greater) than (.+)""")
+    // neo chunk 07: "the sacrificed permanent's mana value"
+    val SACRIFICED_NUMBER = Regex("""the sacrificed (?:creature|permanent|artifact)'s (mana value|power|toughness)""")
+    // neo chunk 07: "When you exile a nonland card this way, Hidetsugu deals damage equal to the exiled card's mana value to any target."
+    val WHEN_YOU_EXILE_THIS_WAY = Regex("""When you exile an? (.+?) this way, (.+)""")
+    // neo chunk 07: "Equipped creature gets +X/+0 until end of turn, where X is …" (the X cut off before)
+    val ATTACHED_GETS_UNTIL_EOT = Regex("""((?:Enchanted|Equipped) creature) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) until end of turn\.""")
     val IF_WOULD_BE_DESTROYED_INSTEAD = Regex("""If ((?:enchanted|equipped) (?:creature|land|permanent|artifact)) would be destroyed, instead (.+)\.""")
 }
 

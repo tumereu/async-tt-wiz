@@ -646,8 +646,9 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             }))
             is Mechanic.GainAbilitiesOf -> Op.Gain(ev.objects(mechanic.objects).flatMap { from ->
                 board.work[from]?.chars?.abilities.orEmpty()
-                    // tla: triggered abilities too when the mechanic says so
-                    .filter { it.ability is Ability.Activated || (mechanic.triggered && it.ability is Ability.Triggered) }
+                    // tla: triggered abilities too when the mechanic says so; neo: only keyword abilities of the kinds it names (CR 702.16a, 702.11e)
+                    .filter { mechanic.onlyKeywords?.let { kinds -> (it.ability as? arcanum.api.Keyword)?.kind in kinds }
+                        ?: (it.ability is Ability.Activated || (mechanic.triggered && it.ability is Ability.Triggered)) }
                     .filter { !mechanic.exceptLoyalty || (it.ability as? Ability.Activated)?.cost?.parts.orEmpty().none { p -> p is CostPart.Loyalty } }
                     // ltr chunk 13: "except mana abilities" (CR 605.1a)
                     .filter { !mechanic.exceptMana || !it.ability.isManaAbility() }

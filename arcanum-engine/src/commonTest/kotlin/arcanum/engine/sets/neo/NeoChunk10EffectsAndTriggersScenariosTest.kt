@@ -125,6 +125,18 @@ class NeoChunk10EffectsAndTriggersScenariosTest {
         assertEquals(0, untappedIslands())
     }
 
+    // CR 118.12: "unless you discard an artifact card" asks for that action in plain words, not "Pay discard?"
+    @Test
+    fun vexxeretUnlessPromptNamesTheAction() = scenario {
+        alice.battlefield(vexxeret, counters = listOf(CounterKind.Loyalty to 4))
+        alice.hand(relic)
+        alice.library("Island", "Island", "Island")
+        advanceTo(TurnStep.PrecombatMain, turn = 1)
+        alice.activates(vexxeret, ability = 0)
+        resolveAll()
+        assertEquals("Discard an artifact card?", decision<Decision.May>().text)
+    }
+
     // CR 605.1a: a mana ability of an artifact is an activated ability too, so activating it first uses the reduction up ({3} paid in full)
     @Test
     fun vexxeretReductionIsUsedUpByAManaAbility() = scenario {

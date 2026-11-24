@@ -232,3 +232,18 @@ val attackedWithTwo: Condition = Condition.HappenedThisTurn(EventPattern.Attack(
 /** The cards exiled with this object (CR 607.2a). */
 val exiledWith: Objects = Objects.Remembered("exiled")
 fun handOf(player: Players): Objects = Objects.Each(and(inZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.Is(player))))
+
+
+// ---- Disturb (vow chunk 03)
+
+const val disturbLine = "(You may cast this card from your graveyard transformed for its disturb cost.)"
+fun disturb(cost: String): Keyword = Keyword.Disturb(manaCost(cost))
+val enchanted: Objects = Objects.AttachedTo(Objects.Self)
+fun enchant(filter: ObjectFilter): Keyword = Keyword.Enchant(TargetKind.Objects(filter))
+/** A disturb back face's "If [this] would be put into a graveyard from anywhere, exile it instead." (CR 702.146b, 614.1a) */
+val exileInstead: Ability = Ability.Static(
+    listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Graveyard),
+        modify = listOf(arcanum.api.Modification.ChangeDestination(Destination(Zone.Exile))))),
+    Affected.Objects(Objects.Self),
+    functionsIn = listOf(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Exile, Zone.Stack, Zone.Command),
+)

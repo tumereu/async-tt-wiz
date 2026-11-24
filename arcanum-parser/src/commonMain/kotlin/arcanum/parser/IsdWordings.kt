@@ -53,7 +53,7 @@ internal object Isd {
     // isd chunk 04: Wooden Stake
     val BLOCKS_OR_BECOMES_BLOCKED_BY_A = Regex("""(.+?) blocks or becomes blocked by an? (.+)""")
     // isd chunk 04: Sharpened Pitchfork: "equipped creature is a Human"
-    val ATTACHED_IS = Regex("""(equipped|enchanted) creature is (legendary|an? .+)""")
+    val ATTACHED_IS = Regex("""(equipped|enchanted) (?:creature|permanent) is (legendary|an? .+)""")
     // isd chunk 05: Undead Alchemist
     val WOULD_DEAL_DAMAGE_TO_PLAYER_INSTEAD = Regex("""If (.+?) would deal (combat |noncombat |)damage to (a player|an opponent), instead (.+)\.""")
     // isd chunk 05: Caravan Vigil

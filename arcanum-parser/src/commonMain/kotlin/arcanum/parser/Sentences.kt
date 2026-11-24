@@ -554,9 +554,10 @@ internal class Sentences(
         // dft chunk 05: "This creature saddles Mounts and crews Vehicles as though its power were 2 greater." / "… using its toughness rather than its
         // power." (what it counts for as it is tapped to pay those costs, CR 702.171a, 702.122a)
         Dft.SADDLES_AND_CREWS_AS_THOUGH_GREATER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val n = m.groupValues[2].toInt()
-            return Ability.Static(listOf(Mechanic.PowerGreaterFor(arcanum.api.Keyword.Saddle.Kind, n), Mechanic.PowerGreaterFor(arcanum.api.Keyword.Crew.Kind, n)),
-                affects = Affected.Objects(Objects.Self))
+            val n = m.groupValues[3].toInt()
+            // neo chunk 01: "This token crews Vehicles as though its power were 2 greater." (crew only)
+            val kinds = if (m.groupValues[2].isEmpty()) listOf(arcanum.api.Keyword.Crew.Kind) else listOf(arcanum.api.Keyword.Saddle.Kind, arcanum.api.Keyword.Crew.Kind)
+            return Ability.Static(kinds.map { Mechanic.PowerGreaterFor(it, n) }, affects = Affected.Objects(Objects.Self))
         }
         Dft.SADDLES_AND_CREWS_USING_TOUGHNESS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return Ability.Static(listOf(Mechanic.UsesToughnessFor(arcanum.api.Keyword.Saddle.Kind), Mechanic.UsesToughnessFor(arcanum.api.Keyword.Crew.Kind)),
@@ -6057,8 +6058,10 @@ internal class Sentences(
                 arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
         }
         RETURN_UP_TO_FROM_GRAVEYARD_TO_HAND.matchEntire(sentence)?.let { m ->
-            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
-            context.targets += TargetSlot("cards", TargetKind.Objects(filter), min = Value.Fixed(0), max = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+            val filter = Filters.all(Filters.noun(m.groupValues[3]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            // neo chunk 01: "Return X target nonlegendary cards from your graveyard to your hand." (exactly the X announced, CR 107.3a, 601.2c)
+            context.targets += if (m.groupValues[2].isNotEmpty()) TargetSlot("cards", TargetKind.Objects(filter), min = Value.Announced("X"), max = Value.Announced("X"))
+                else TargetSlot("cards", TargetKind.Objects(filter), min = Value.Fixed(0), max = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
             return listOf(Step.Do(Effect.Move(Objects.Target("cards"), Destination(Zone.Hand))))
         }
         YOU_LOSE_LIFE.matchEntire(sentence)?.let { m -> return listOf(Step.Do(Effect.LoseLife(Players.You, Value.Fixed(m.groupValues[1].toInt())))) }
@@ -9971,7 +9974,10 @@ internal class Sentences(
             if (m.groupValues[2] != "it" && !isSelf(m.groupValues[2])) return@let
             val condition = Conditions.condition(m.groupValues[1], self) ?: return null
             return Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt())),
-                Mechanic.GainAbilities(keywords(m.groupValues[5]) ?: return null)), affects = Affected.Objects(Objects.Self), condition = condition)
+                Mechanic.GainAbilities(keywords(m.groupValues[5]) ?: return null)),
+                // neo chunk 01: "As long as enchanted permanent is a creature, it gets +3/+3 and has reach.": "it" is the enchanted permanent (CR 303.4e)
+                affects = Affected.Objects(if (m.groupValues[2] == "it" && Isd.ATTACHED_IS.matches(m.groupValues[1])) Objects.AttachedTo(of = Objects.Self) else Objects.Self),
+                condition = condition)
         }
         // blb chunk 09: "You may cast instant and sorcery spells from your graveyard by paying 1 life in addition to their other
         // costs." (CR 601.2a, 601.2f)
@@ -13715,7 +13721,7 @@ internal class Sentences(
         val PLAYERS_MILL = Regex("""([A-Za-z ]+?) mills? (that many|\w+) cards?\.""")
         val LOOK_PUT_BACK = Regex("""Look at the top (\w+) cards of your library, then put them back in any order\.""")
         val TARGET_GETS_UNTIL_EOT = Regex("""Target (.+) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) until end of turn\.""")
-        val RETURN_UP_TO_FROM_GRAVEYARD_TO_HAND = Regex("""Return up to (\w+) target (.+) from your graveyard to your hand\.""")
+        val RETURN_UP_TO_FROM_GRAVEYARD_TO_HAND = Regex("""Return (?:up to (\w+)|(X)) target (.+) from your graveyard to your hand\.""")
         val YOU_LOSE_LIFE = Regex("""You lose (\d+) life\.""")
         val ANY_COMBINATION = Regex("""(\w+) mana in any combination of colors""")
         // dsk chunk 01

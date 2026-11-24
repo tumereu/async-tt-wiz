@@ -426,7 +426,7 @@ object OracleParser {
         // tdm chunk 02: "exile … until this creature leaves the battlefield" and a later "the exiled card": the exile keeps the card as card memory
         // (linked abilities, CR 607.2a)
         val linked = (if (sentences.exiledCard == arcanum.api.Objects.Remembered(EXILED_WITH)) result.map(::rememberUntilLeaves) else result)
-            .let { if (linkedExile) it.map(::rememberLinkedExiles) else it }
+            .let { abilities -> if (linkedExile && abilities.any { it.toString().contains("Remembered(key=$EXILED_WITH)") }) abilities.map(::rememberLinkedExiles) else abilities }
         return dftCostTargetYouControl(dftSacrificedCost(finCostTargets(linked))).mapIndexed { index, ability -> stillA(ability.withText(raws[index]), raws[index]) }
     }
 
@@ -521,7 +521,8 @@ object OracleParser {
     /** vow sweep: on a card that refers to cards "exiled with" it, every activated or triggered ability that exiles cards is linked to that
      * reference (CR 607.2a): an exile (other than of this object) in an ability that keeps nothing as card memory yet keeps the cards it
      * exiled ("Exile target player's graveyard.", "Exile the top card of each player's library.", "Each opponent exiles a card from their
-     * hand."), whichever sentence rule read it. */
+     * hand."), whichever sentence rule read it. Only when the card's abilities read that card memory; an ability that keeps its cards some
+     * other way (imprint) is left as it is. */
     private fun rememberLinkedExiles(ability: Ability): Ability {
         val instructions = when (ability) {
             is Ability.Activated -> ability.instructions
@@ -530,7 +531,7 @@ object OracleParser {
         }
         fun keeps(steps: List<arcanum.api.Step>): Boolean = steps.any { step ->
             when (step) {
-                is arcanum.api.Step.Do -> (step.effect as? arcanum.api.Effect.Remember)?.key == EXILED_WITH
+                is arcanum.api.Step.Do -> step.effect is arcanum.api.Effect.Remember
                 is arcanum.api.Step.May -> keeps(step.steps)
                 is arcanum.api.Step.If -> keeps(step.then) || keeps(step.otherwise)
                 is arcanum.api.Step.ForEach -> keeps(step.steps)

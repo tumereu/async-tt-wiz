@@ -377,6 +377,9 @@ sealed interface SharedQuality {
     @Serializable @SerialName("card-type") data object CardType : SharedQuality
     @Serializable @SerialName("creature-type") data object CreatureType : SharedQuality
     @Serializable @SerialName("name") data object Name : SharedQuality
+    // snc
+    /** Its controller ("any number of target creatures controlled by different players", CR 601.2c). */
+    @Serializable @SerialName("controller") data object Controller : SharedQuality
     /** Basic land types (domain: "the number of basic land types among lands you control"). */
     @Serializable @SerialName("basic-land-type") data object BasicLandType : SharedQuality
     // fra

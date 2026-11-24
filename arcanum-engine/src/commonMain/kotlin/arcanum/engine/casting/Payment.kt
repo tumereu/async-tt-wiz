@@ -396,6 +396,12 @@ internal object Payment {
                 ids.forEach { if (recorder.state.obj(it)?.tapped != false) refuse("$it is tapped"); recorder.record(Changes.tap(recorder.state, it, meanings = paidFor)) }
                 part.bind?.let { bound[it] = NamedValue.Objects(ids) }
             }
+            // snc: "Untap two tapped creatures you control"
+            is CostPart.UntapObjects -> {
+                val ids = objects(part.what)
+                check(ids, Zone.Battlefield)
+                ids.forEach { if (recorder.state.obj(it)?.tapped != true) refuse("$it isn't tapped"); recorder.record(Changes.tap(recorder.state, it, tapped = false)) }
+            }
             is CostPart.Sacrifice -> {
                 val ids = objects(part.what)
                 check(ids, Zone.Battlefield)

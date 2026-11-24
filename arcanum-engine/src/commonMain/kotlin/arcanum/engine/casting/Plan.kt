@@ -934,6 +934,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     private fun distinctGroup(part: CostPart): Int? = when (part) {
         is CostPart.Sacrifice, is CostPart.Exile, is CostPart.Discard, is CostPart.ReturnToHand -> 0
         is CostPart.TapObjects -> 1
+        is CostPart.UntapObjects -> 2
         else -> null
     }
 

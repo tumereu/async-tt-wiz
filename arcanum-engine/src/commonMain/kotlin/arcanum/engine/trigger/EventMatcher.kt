@@ -49,7 +49,12 @@ internal object EventMatcher {
         else -> filter
     }
 
-    fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false, door: Int? = null, history: Boolean = false): List<TriggerEvent> = when (pattern) {
+    fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false, door: Int? = null, history: Boolean = false): List<TriggerEvent> =
+        // snc: counters put on several objects at once (one event, CR 122.6): every part's occurrences (CR 603.2c)
+        if (change is Change.Simultaneous) change.parts.flatMap { instances(e, pattern, it, proposed, door, history) }
+        else partInstances(e, pattern, change, proposed, door, history)
+
+    private fun partInstances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean, door: Int?, history: Boolean): List<TriggerEvent> = when (pattern) {
         is EventPattern.ZoneChange -> {
             // tmt backfill: an object that left its zone is tested as it last existed, its controller too (CR 603.10a,
             // 608.2h), whichever board asks: "if a permanent left the battlefield under your control this turn" in a

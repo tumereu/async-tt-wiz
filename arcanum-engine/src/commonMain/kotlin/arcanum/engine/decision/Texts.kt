@@ -160,6 +160,7 @@ internal object Texts {
         CostPart.TapSelf -> "TapSelf"
         CostPart.UntapSelf -> "UntapSelf"
         is CostPart.TapObjects -> "TapObjects"
+        is CostPart.UntapObjects -> "UntapObjects"
         is CostPart.Sacrifice -> "Sacrifice"
         is CostPart.Discard -> "Discard"
         is CostPart.Exile -> "Exile"

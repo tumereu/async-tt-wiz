@@ -428,6 +428,11 @@ sealed interface Trigger {
         /** With [oneOrMore]: only a batch of at most this many objects; with [atLeast] the same number, exactly that many ("when you
          * attack with exactly two creatures": the creatures declared as attackers, CR 508.1, 603.2c). */
         val atMost: Int? = null,
+        // snc
+        /** With [oneOrMore]: counters put on several objects or players at once are one batch ("on one or more other Heroes you
+         * control", CR 603.2c); without it, each object or player they are put on has its own ("one or more counters are put on a
+         * creature you control": once for each creature, CR 122.6). */
+        val acrossHolders: Boolean = false,
     ) : Trigger {
         constructor(event: EventPattern, oneOrMore: Boolean = false) : this(listOf(event), oneOrMore)
     }

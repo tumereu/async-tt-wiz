@@ -240,6 +240,7 @@ internal object Costs {
         val what: CostObjects = when (part) {
             is CostPart.Sacrifice -> part.what
             is CostPart.TapObjects -> part.what
+            is CostPart.UntapObjects -> part.what
             is CostPart.Discard -> part.what
             is CostPart.Exile -> part.what
             is CostPart.ReturnToHand -> part.what
@@ -260,7 +261,7 @@ internal object Costs {
         if (part is CostPart.Discard && part.random) return null
         val s = snap.state
         val candidates: List<ObjectId> = when (part) {
-            is CostPart.Sacrifice, is CostPart.ReturnToHand, is CostPart.TapObjects, is CostPart.RemoveCounters, is CostPart.PutCounters ->
+            is CostPart.Sacrifice, is CostPart.ReturnToHand, is CostPart.TapObjects, is CostPart.UntapObjects, is CostPart.RemoveCounters, is CostPart.PutCounters ->
                 s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
             is CostPart.Discard, is CostPart.Reveal -> s.player(player).hand
             is CostPart.Action -> (if (part.action is arcanum.api.KeywordAction.Blight) emptyList() else s.player(player).hand) +
@@ -281,6 +282,7 @@ internal object Costs {
         val options = candidates.filter { id ->
             id != self && eval.matches(choose.filter, id) && when (part) {
                 is CostPart.TapObjects -> s.obj(id)?.tapped == false
+                is CostPart.UntapObjects -> s.obj(id)?.tapped == true
                 is CostPart.Sacrifice -> snap.view[id]?.has { it is Mechanic.CantBeSacrificed } != true
                 is CostPart.RemoveCounters -> (part.kind?.let { k -> s.obj(id)?.counters(k) ?: 0 } ?: s.obj(id)?.counters?.sumOf { it.count } ?: 0) > 0
                 else -> true
@@ -314,6 +316,7 @@ internal object Costs {
     fun describe(part: CostPart): String = when (part) {
         is CostPart.Sacrifice -> "Sacrifice"
         is CostPart.TapObjects -> "Tap"
+        is CostPart.UntapObjects -> "Untap"
         is CostPart.Discard -> "Discard"
         is CostPart.Exile -> "Exile from ${part.from}"
         is CostPart.ReturnToHand -> "Return to hand"

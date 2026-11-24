@@ -375,6 +375,8 @@ object DefinitionChecks {
                 is JsonArray -> element.forEach { visit(it, inMechanics = inMechanics) }
                 is JsonObject -> {
                     nameKeys.forEach { key -> element.string(key)?.let { named += it } }
+                    // snc: a move's whenReturned names the returned objects (Effect.Move.whenReturned)
+                    if (element.typeName() == "move" && "whenReturned" in element) named += "returned"
                     if (element.typeName() == null && "what" in element) element.string("name")?.let {
                         slots += it
                         if (element["divided"] != null) dividedSlots += it

@@ -684,6 +684,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                     (cb.allCreatureTypes && ta.isNotEmpty()) || ta.any { it in creatureTypes(cb) }
             }
             SharedQuality.Name -> ca.name != null && ca.name == cb.name
+            SharedQuality.Controller -> board.controller(a) != null && board.controller(a) == board.controller(b) // snc
             SharedQuality.BasicLandType -> ca.subtypes.any { it in Subtypes.basicLandTypes && it in cb.subtypes }
             SharedQuality.PlaneswalkerType -> planeswalkerTypes(ca).any { it in planeswalkerTypes(cb) }
             is SharedQuality.Number -> property(quality.property, a) == property(quality.property, b)
@@ -712,6 +713,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 SharedQuality.CounterKind -> counterKinds(id) // tdm
                 SharedQuality.ColorPair -> listOfNotNull(colorPair(c)) // mkm
                 SharedQuality.PermanentType -> permanentTypes(c) // rvr, lci
+                SharedQuality.Controller -> listOfNotNull(board.controller(id)) // snc
             }
         }
         val holder = mutableMapOf<Any, Int>()
@@ -1006,6 +1008,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.CounterKind -> ids.map { counterKinds(it) } // tdm
             SharedQuality.ColorPair -> cs.map { listOfNotNull(colorPair(it)) } // mkm
             SharedQuality.PermanentType -> cs.map { permanentTypes(it) } // rvr, lci
+            SharedQuality.Controller -> ids.map { listOfNotNull(board.controller(it)) } // snc
             SharedQuality.CreatureType -> emptyList()
         }
         return values.flatMap { it.distinct() }.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
@@ -1025,6 +1028,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.CounterKind -> ids.flatMap { counterKinds(it) }.distinct().size // tdm
             SharedQuality.ColorPair -> cs.mapNotNull { colorPair(it) }.distinct().size // mkm
             SharedQuality.PermanentType -> cs.flatMap { permanentTypes(it) }.distinct().size // rvr, lci
+            SharedQuality.Controller -> ids.mapNotNull { board.controller(it) }.distinct().size // snc
         }
     }
 

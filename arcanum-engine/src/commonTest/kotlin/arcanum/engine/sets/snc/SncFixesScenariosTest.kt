@@ -9,6 +9,7 @@ import arcanum.engine.decision.Decision
 import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
 import arcanum.engine.sets.blb.resolveAll
+import arcanum.engine.sets.dft.targets
 import kotlin.test.Test
 
 /** Streets of New Capenna fixes in play: shield counters beside regeneration, damage marked and state-based actions. */
@@ -193,5 +194,119 @@ class SncFixesScenariosTest {
             walkers.count { state.obj(it)!!.token } shouldBe 1
             walkers.count { id -> arcanum.engine.Engine.view(state)[id]?.characteristics?.supertypes.orEmpty().contains(arcanum.api.Supertype.Legendary) } shouldBe 1
         }
+    }
+
+    private val patron = Cards.invent("SncFix Gang Patron", "{4}{W}", "Legendary Creature — Human Hero",
+        "Whenever you put one or more +1/+1 counters on one or more other Heroes you control, you gain 1 life.", "2/5")
+    private val watcher = Cards.invent("SncFix Scale Watcher", "{1}{G}", "Creature — Human Druid",
+        "Whenever one or more counters are put on a creature you control, you gain 1 life.", "1/1")
+    private val hero = Cards.invent("SncFix Street Hero", "{1}{W}", "Creature — Human Hero", "", "2/2")
+    private val rally = Cards.invent("SncFix Rally the Family", "{1}{G}", "Sorcery", "Put a +1/+1 counter on each creature you control.")
+    private val supremacy = Cards.invent("SncFix Dealers Supremacy", "{G}{W}{U}", "Enchantment",
+        "At the beginning of your end step, put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control.")
+
+    // CR 122.6, 603.2c, 608.2c: one instruction puts its counters on every creature at once, one event: "on one or more other Heroes"
+    // triggers once for it
+    @Test
+    fun countersOnSeveralHeroesAtOnceTriggerOneOrMoreOnce() = scenario {
+        alice.battlefield(patron, hero, hero, "Forest", "Forest")
+        alice.hand(rally)
+        alice.casts(rally)
+        resolveAll()
+        expect {
+            alice.life shouldBe 21
+            card(hero).counters(CounterKind.PowerToughness(1, 1)) shouldBe 1
+        }
+    }
+
+    // CR 122.6, 603.2c: the counters of "put a +1/+1 counter on each creature … and a loyalty counter on each planeswalker" are one
+    // event, so the Heroes' trigger is once
+    @Test
+    fun brokersCountersAreOneEventForOneOrMoreHeroes() = scenario {
+        alice.battlefield(supremacy, patron, hero, hero)
+        advanceTo(TurnStep.End)
+        resolveAll()
+        expect { alice.life shouldBe 21 }
+    }
+
+    // CR 603.2c: one event with counters put on three creatures holds three occurrences of "counters are put on a creature you
+    // control": once for each creature
+    @Test
+    fun countersOnSeveralCreaturesAtOnceTriggerOncePerCreature() = scenario(players = 3) {
+        alice.battlefield(watcher, hero, hero, "Forest", "Forest")
+        bob.battlefield(hero)
+        alice.hand(rally)
+        alice.casts(rally)
+        resolveAll()
+        expect { alice.life shouldBe 23 }
+    }
+
+    private val fountain = Cards.invent("SncFix Aureole Wellspring", "{2}{W}", "Artifact", """
+        {W}, {T}, Untap a tapped creature you control: Create a 1/1 green and white Citizen creature token.
+        {W}{W}, {T}, Untap two tapped creatures you control: Draw a card.
+    """)
+    private val magpie = Cards.invent("SncFix Lavinia, the Pilferer", "{G}{W}{U}", "Legendary Creature — Human Soldier",
+        "When SncFix Lavinia, the Pilferer enters, exile any number of other target creatures controlled by different players until SncFix Lavinia, the Pilferer leaves the battlefield. When an exiled card enters under your control this way, put two +1/+1 counters on it.", "2/3")
+
+    // CR 118.3, 701.26a: untapping two tapped creatures you control is part of the cost; they are untapped as it is paid
+    @Test
+    fun untappingTappedCreaturesPaysTheCost() = scenario {
+        alice.battlefield(fountain, "Plains", "Plains")
+        alice.battlefield(bear, cub, tapped = true)
+        alice.library("Island")
+        alice.activates(fountain, ability = 1, choosing = listOf(bear, cub))
+        resolveAll()
+        expect {
+            bear.tapped shouldBe false
+            cub.tapped shouldBe false
+            alice.hand has "Island"
+        }
+    }
+
+    // CR 118.3: an untapped creature can't be untapped to pay the cost, so with one tapped creature it can't be paid
+    @Test
+    fun untapCostNeedsTappedCreatures() = scenario {
+        alice.battlefield(fountain, "Plains", "Plains", bear)
+        alice.battlefield(cub, tapped = true)
+        kotlin.test.assertFailsWith<Throwable> { alice.activates(fountain, ability = 1, choosing = listOf(bear, cub)) }
+    }
+
+    // CR 601.2c: the targets must be controlled by different players (any number of players); CR 610.3: they return when it leaves; CR 603.12:
+    // only the card returning under its controller's control gets the counters
+    @Test
+    fun magpieExilesOnePerPlayerAndCountersWhatReturnsToYou() = scenario(players = 3) {
+        alice.battlefield("Forest", "Plains", "Island", "Swamp", hero)
+        alice.hand(magpie, doom)
+        bob.battlefield(bear)
+        carol.battlefield(cub)
+        alice.casts(magpie)
+        resolveAll()
+        targets(hero, bear, cub)
+        resolveAll()
+        expect {
+            alice.exile has hero
+            bob.exile has bear
+            carol.exile has cub
+        }
+        alice.casts(doom, target = magpie)
+        resolveAll()
+        expect {
+            alice.battlefield has hero
+            bob.battlefield has bear
+            carol.battlefield has cub
+            card(hero).counters(CounterKind.PowerToughness(1, 1)) shouldBe 2
+            card(bear).counters(CounterKind.PowerToughness(1, 1)) shouldBe 0
+        }
+    }
+
+    // CR 601.2c: two creatures of the same player can't both be targets
+    @Test
+    fun magpieRefusesTwoTargetsOfOnePlayer() = scenario(players = 3) {
+        alice.battlefield("Forest", "Plains", "Island")
+        alice.hand(magpie)
+        bob.battlefield(bear, cub)
+        alice.casts(magpie)
+        resolveAll()
+        kotlin.test.assertFailsWith<Throwable> { targets(bear, cub) }
     }
 }

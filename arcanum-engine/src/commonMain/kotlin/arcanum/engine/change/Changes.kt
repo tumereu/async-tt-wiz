@@ -252,9 +252,35 @@ internal class Recorder(val state: GameState, view: arcanum.engine.view.View? = 
         changes += change
         // Library places some player knows (CR 401.2), kept with the change that made them known
         arcanum.engine.action.LibraryPlaces.follow(this, change)
-        if (change.isEvent) arcanum.engine.trigger.Triggers.detect(this, change, before, viewBefore)
+        val deferred = together
+        if (deferred != null && change is Change.Counters) deferred += change
+        else if (change.isEvent) arcanum.engine.trigger.Triggers.detect(this, change, before, viewBefore)
         // CR 506.4: what an event takes out of combat leaves it at once (combat changes set combat as they mean it)
         if (change.isEvent && change !is Change.Combat) arcanum.engine.combat.Combat.removeWhatLeft(this)
+    }
+
+    /** The counter changes of the instruction being run, while [countersTogether] runs it. */
+    private var together: MutableList<Change.Counters>? = null
+
+    /**
+     * Runs [block], one instruction (CR 608.2c), with the counters it puts on or removes from objects and players kept and logged
+     * one by one, but their triggers looked for once, in the whole they make ([Change.Simultaneous]): counters put on several
+     * objects at once are one event (CR 122.6, 603.2c). Nested calls join the outer one. A block that stops for a decision
+     * finds nothing: it is run again once answered (D29).
+     */
+    fun <T> countersTogether(block: () -> T): T {
+        if (together != null) return block()
+        val parts = mutableListOf<Change.Counters>()
+        together = parts
+        val result = try { block() } finally { together = null }
+        // only the parts still made (a rollback inside the block took the others back)
+        val kept = parts.filter { p -> changes.any { it === p } }
+        when (kept.size) {
+            0 -> {}
+            1 -> arcanum.engine.trigger.Triggers.detect(this, kept.single(), null)
+            else -> arcanum.engine.trigger.Triggers.detect(this, Change.Simultaneous(kept), null)
+        }
+        return result
     }
 
     /** Applies and keeps [change] as it is, finding no triggers: for bookkeeping that follows a change

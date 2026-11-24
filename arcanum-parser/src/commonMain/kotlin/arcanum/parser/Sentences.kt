@@ -3410,13 +3410,16 @@ internal class Sentences(
         }
         // "Tap two untapped Elves you control": tapping as a cost can only tap untapped permanents you control
         // (CR 602.2b, 701.26a), so the canonical form names only the kind (as crew does).
-        TAP_UNTAPPED.matchEntire(text)?.let { m ->
+        // snc chunk 07: "Untap a tapped creature you control", "Untap fifteen tapped creatures you control": untapping as a cost untaps only tapped
+        // permanents you control (CR 118.3, 701.26a)
+        TAP_UNTAPPED.matchEntire(text)?.takeIf { (it.groupValues[1] == "Tap") == (it.groupValues[3] == "untapped") }?.let { m ->
             // dsk chunk 12: "Tap another untapped creature you control"
-            val another = m.groupValues[1] == "another"
-            val count = if (another) 1 else Numbers.count(m.groupValues[1]) ?: return null
-            val noun = Filters.noun(m.groupValues[2].removeSuffix(" you control")) ?: return null
+            val another = m.groupValues[2] == "another"
+            val count = if (another) 1 else Numbers.count(m.groupValues[2]) ?: return null
+            val noun = Filters.noun(m.groupValues[4].removeSuffix(" you control")) ?: return null
             val filter = if (another) Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun) else noun
-            return listOf(CostPart.TapObjects(CostObjects.Choose(filter, count = Value.Fixed(count))))
+            val what = CostObjects.Choose(filter, count = Value.Fixed(count))
+            return listOf(if (m.groupValues[1] == "Untap") CostPart.UntapObjects(what) else CostPart.TapObjects(what))
         }
         PUT_COUNTER_ON_SELF.matchEntire(text)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
             val kind = Counters.kind(m.groupValues[2]) ?: return null
@@ -13818,7 +13821,8 @@ internal class Sentences(
         val UNTAP = Regex("""Untap (.+)\.""")
         val YOU_MAY_EXILE_FROM_HAND = Regex("""You may exile an? (.+) from your hand\.""")
         val ACTIVATE_ONLY_IF = Regex("""Activate only if (.+?)\.""")
-        val TAP_UNTAPPED = Regex("""Tap (an|another|two|three|four|five|six|seven|eight|nine|ten) untapped (.+)""")
+        // snc chunk 07: also "Untap two tapped creatures you control" (Halo Fountain)
+        val TAP_UNTAPPED = Regex("""(Tap|Untap) (an?|another|\w+) (untapped|tapped) (.+)""")
         val PUT_COUNTER_ON_SELF = Regex("""Put (a|an|one|two|three) (\S+) counters? on (.+)""")
         val OTHERS_GET = Regex("""Other (.+) get ([+-]\d+)/([+-]\d+)\.""")
         val ANY_COLOR = Regex("""(one) mana of any color|(\w+) mana of any one color""")
@@ -17939,7 +17943,7 @@ internal class Sentences(
         Msh.YOU_PUT_ONE_OR_MORE_ON_ONE_OR_MORE.matchEntire(events)?.let { m ->
             val kind = Counters.kind(m.groupValues[1]) ?: return null
             val filter = Filters.noun(m.groupValues[2]) ?: return null
-            return arcanum.api.Trigger.On(EventPattern.CountersPut(filter, kind, causedBy = ObjectFilter.ControlledBy(PlayerFilter.You)), oneOrMore = true)
+            return arcanum.api.Trigger.On(listOf(EventPattern.CountersPut(filter, kind, causedBy = ObjectFilter.ControlledBy(PlayerFilter.You))), oneOrMore = true, acrossHolders = true)
         }
         // msh chunk 05: "you put a +1/+1 counter on another creature" (one event per counter put, CR 122.6)
         Msh.YOU_PUT_A_COUNTER_ON.matchEntire(events)?.let { m ->
@@ -23470,6 +23474,24 @@ internal class Sentences(
 
     /** snc: whole multi-sentence effects. */
     private fun sncWhole(text: String, context: Context): List<Step>? {
+        // snc fixes: Lagrella: targets each controlled by a different player (CR 601.2c), exiled until it leaves (CR 610.3); the cards that return
+        // under your control get the reflexive trigger's counters, one trigger each (CR 603.12)
+        Snc.EXILE_DIFFERENT_PLAYERS_UNTIL_LEAVES_WHEN_RETURNS.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val noun = m.groupValues[1].removeSuffix("s")
+            val kind = Filters.noun(noun) ?: return null
+            val name = spmNewSlotName(context, Filters.slotName(noun))
+            val before = context.it
+            context.it = Objects.Bound("it")
+            val then = effect(m.groupValues[3].replaceFirstChar { it.uppercase() }, context)
+            context.it = before
+            if (then == null) return null
+            context.targets += spmSlot(name, Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), kind), min = 0, max = null)
+                .copy(distinct = arcanum.api.SharedQuality.Controller)
+            val returned = Objects.Each(Filters.all(ObjectFilter.Is(Objects.Bound("returned")), ObjectFilter.ControlledBy(PlayerFilter.You)))
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Exile), untilLeaves = Objects.Self,
+                whenReturned = Instructions(steps = listOf(Step.ForEach(arcanum.api.Each.Objects(returned), bind = "it",
+                    steps = listOf(Step.Do(Effect.ReflexiveTrigger(Instructions(steps = then))))))))))
+        }
         // snc chunk 09: "exile an instant or sorcery card at random from your graveyard. Then copy each card exiled with this enchantment. You may
         // cast any number of the copies without paying their mana costs." (every card exiled with it so far, CR 607.2a; copies of cards, CR 707.12)
         Snc.EXILE_RANDOM_COPY_EACH_EXILED_WITH_CAST.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->

@@ -78,7 +78,7 @@ data class DraftSettings(
     val initialRares: Int = 1,
     /**
      * Bot seats (owner 2026-11-21): seats the server fills with draft bots ([DraftBotSeats]), 0 up to the engine's
-     * [DraftMode.maxBots]: a pod still needs two humans, its creator and one more.
+     * [DraftMode.maxBots]: a pod needs its creator, who may draft alone with bots (owner 2026-11-23).
      */
     val bots: Int = 0,
 ) {

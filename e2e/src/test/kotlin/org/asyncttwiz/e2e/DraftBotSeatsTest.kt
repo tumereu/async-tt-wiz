@@ -1,6 +1,10 @@
 package org.asyncttwiz.e2e
 
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.isEnabled
+import kotlinx.coroutines.runBlocking
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -110,5 +114,45 @@ class DraftBotSeatsTest : E2e() {
             alice.pods.state.tab == PodTab.GAMES && alice.showsText(bob.account.identity.username) && alice.showsText("Members")
         }
         assertTrue(!alice.showsText("Bot 1") && !alice.showsText("Bot 2"), alice.screen())
+    }
+
+    // DRF-035, DRF-296, DRF-301 (owner, 2026-11-23): a solo draft: Alice, alone in her Booster pod, adds a bot; setup warns that there
+    // is no one to play against; she starts the draft alone with the bot, drafts it to its end and submits her deck, which tells
+    // nobody "Decks ready"; her Games tab lists only her, with nobody to challenge, and the pod's standings
+    @Test fun theCreatorDraftsAloneWithABotAfterTheWarning() {
+        launchPlayers()
+        val name = "E2E solo ${UUID.randomUUID().toString().take(6)}"
+        val pod = ServerSetup.setupPod(alice.account, name, settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 3))
+        alice.auth.navigate(ShellDestination.PODS)
+        alice.pods.open(pod)
+        waitUntil("Alice's pod setup with Add bot") { alice.shows(hasTestTag("pod-add-bot")) }
+        assertTrue(!alice.shows(hasTestTag("pod-solo-warning")), "no warning without bots: ${alice.screen()}")
+        alice.tagged("pod-add-bot").performScrollTo().performClick()
+        val warning = "No one to play against: bots only draft, so this pod plays no games."
+        val start = hasClickAction() and hasAnyDescendant(hasText("Start draft"))
+        waitUntil("the bot saved, the warning under the members and Start enabled") {
+            alice.pods.state.setup == null && alice.pods.state.pending == 0 && ServerSetup.pod(alice.account, pod).settings.bots == 1 &&
+                alice.shows(hasTestTag("pod-solo-warning") and hasText(warning)) && alice.shows(start and isEnabled())
+        }
+        alice.node(start).performScrollTo().performClick()
+        waitUntil("the solo draft started") { ServerSetup.pod(alice.account, pod).phase == PodPhase.DRAFTING }
+        ServerSetup.pickUntil(listOf(alice.account), pod) { ServerSetup.pod(alice.account, pod).phase != PodPhase.DRAFTING }
+        val done = ServerSetup.pod(alice.account, pod)
+        assertEquals(PodPhase.DRAFTED, done.phase)
+        assertEquals(listOf(alice.id, "bot:1"), done.members.map { it.account.accountId })
+        runBlocking {
+            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+                api.basics(alice.account.token, pod, SetPodBasics(UUID.randomUUID().toString(), done.draftAttemptId!!, PodDeckBasics(plains = 40)))
+            }
+        }
+        ServerSetup.submitPodDeck(alice.account, pod)
+        assertEquals(emptyList(), ServerSetup.notices(alice.account, pod).filter { it == "POD_DECKS_READY" }, "nobody to tell")
+        alice.pods.refresh()
+        alice.pods.open(pod, PodTab.GAMES)
+        waitUntil("the Games tab with Alice alone and the standings") {
+            alice.pods.state.tab == PodTab.GAMES && alice.pods.state.detail?.submitted == true &&
+                alice.shows(hasTestTag("pod-standings")) && alice.showsText("No matches yet.")
+        }
+        assertTrue(!alice.shows(hasContentDescription("Challenge")) && !alice.showsText("Bot 1"), alice.screen())
     }
 }

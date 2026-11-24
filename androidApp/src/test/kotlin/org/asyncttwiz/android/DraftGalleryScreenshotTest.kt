@@ -239,14 +239,25 @@ class DraftGalleryScreenshotTest {
         } finally { lobby.close() }
     }
 
-    // DRF-296: Sealed and Arena take no bots, so their setup has no Add bot; Grid's greys at two
+    // DRF-296 (owner, 2026-11-23): Sealed and Arena take no bots, so their setup has no Add bot; Grid's greys at three
     @Test fun addBotFollowsTheMode() {
         show(opened(detail(PodPhase.SETUP, DraftSettings.arena(), listOf(PodMember(alice), PodMember(bob)))))
         compose.onNodeWithTag("pod-add-bot").assertDoesNotExist()
-        compose.runOnIdle { pods.seed(opened(detail(PodPhase.SETUP, DraftSettings.grid().copy(bots = 2), listOf(PodMember(alice), PodMember(bob))))) }
+        compose.runOnIdle { pods.seed(opened(detail(PodPhase.SETUP, DraftSettings.grid().copy(bots = 3), listOf(PodMember(alice))))) }
         settle()
         compose.onNodeWithTag("pod-add-bot").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Remove Bot 2").assertIsEnabled()
+        compose.onNodeWithContentDescription("Remove Bot 3").assertIsEnabled()
+    }
+
+    // DRF-296, DRF-301, DRF-035 (owner, 2026-11-23): a solo draft: the creator alone with two bots and no invitation pending; under
+    // the members setup warns there is no one to play against, and Start draft is enabled
+    @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun soloDraftSetupWarns() {
+        show(opened(detail(PodPhase.SETUP, DraftSettings(bots = 2), listOf(PodMember(alice)), name = "Solo night")))
+        compose.onNodeWithTag("pod-solo-warning").performScrollTo()
+            .assertTextEquals("No one to play against: bots only draft, so this pod plays no games.")
+        compose.onNode(hasClickAction() and hasAnyDescendant(hasText("Start draft")), useUnmergedTree = true).performScrollTo().assertIsEnabled()
+        shot("setup-solo", "The creator's setup of a Booster pod she is alone in with two bot seats: under the members (Alice, Bot 1 " +
+            "and Bot 2) a red line says \"No one to play against: bots only draft, so this pod plays no games.\", and Start draft is enabled.")
     }
 
     // DRF-297, DRF-298: a started Booster pod with three bot seats: they are in the header's avatars after the people, ready (✓)

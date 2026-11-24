@@ -23,8 +23,9 @@ object PodBots {
  * draft, and in Arena each player drafts alone, so a bot there would touch nobody: neither has bot seats.
  */
 val DraftMode.botSeats: Boolean get() = this != DraftMode.SEALED && this != DraftMode.ARENA
-/** The most bot seats a pod of this mode takes: its engine's player limit less the two humans every pod needs. */
-val DraftMode.maxBots: Int get() = if (botSeats) players.last - 2 else 0
+/** The most bot seats a pod of this mode takes: its engine's player limit less its creator (DRF-296, owner 2026-11-23: a
+ * solo draft is its creator alone with bots). */
+val DraftMode.maxBots: Int get() = if (botSeats) players.last - 1 else 0
 
 /** A bot's move, with [text] saying what it was offered (each card's score) and what it chose, for the server's log. */
 data class DraftBotMove<T>(val move: T, val text: String)

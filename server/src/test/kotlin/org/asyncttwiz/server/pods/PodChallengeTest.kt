@@ -495,6 +495,97 @@ class PodChallengeTest {
         assertTrue(rematch.preparation!!.players.all { !it.ready })
     }
 
+    // DRF-039, DRF-042, DRF-235, DRF-236 (owner, 2026-11-22): a three-member Arena pod; Alice and Bob finish their own picks
+    // early, submit and play while Carol still drafts: one match finished, one in play, one game accepted in its lobby. Alice
+    // cancels the draft: those games carry on, orphaned from the pod: its Matches and Standings no longer count them (nor the
+    // match the one in play finishes later), and the next draft's deck name doesn't reach the one in its lobby
+    @Test fun `games carrying on past a cancelled draft are orphaned from the pod's standings and matches`() = fixture { f ->
+        val pod = json.decodeFromString<PodDetail>(f.pods.create(f.a, CreatePod(id(), "Cancelled pod", f.cube.cube.id, DraftMode.ARENA)).body).id
+        for (member in listOf(f.b, f.c)) {
+            assertEquals(200, f.pods.invite(f.a, pod, InviteToPod(id(), member.account.accountId)).status)
+            assertEquals(200, f.pods.invitation(member, pod, PodRequest(id()), true).status)
+        }
+        assertEquals(200, f.pods.update(f.a, pod, UpdatePod(id(), settings = DraftSettings.arena().copy(packsPerPlayer = 3, cardsPerPack = 2,
+            keep = 1, ignoreRarity = true, reuseCards = true, sideboardLimit = null))).status)
+        assertEquals(200, f.pods.start(f.a, pod, PodRequest(id())).status)
+        fun picks(who: AccountService.Principal) = repeat(3) {
+            val detail = f.detail(who, pod); val head = detail.draft!!.head!!
+            assertEquals(200, f.pods.pick(who, pod, PickPod(id(), detail.draftAttemptId!!, head.id,
+                head.cards.take(detail.settings.keepAt(head.pick - 1)).map { it.id })).status)
+        }
+        fun submit(who: AccountService.Principal) {
+            val attempt = f.detail(who, pod).draftAttemptId!!
+            assertEquals(200, f.pods.basics(who, pod, SetPodBasics(id(), attempt, PodDeckBasics(plains = 40))).status)
+            assertEquals(200, f.pods.submit(who, pod, SubmitPodDeck(id(), attempt)).status)
+        }
+        picks(f.a); picks(f.b); submit(f.a); submit(f.b)
+        assertEquals(PodPhase.DRAFTING, f.detail(f.a, pod).phase, "Carol still drafts")
+        fun started(): Pair<GameSummary, Stream> {
+            val game = f.challenge(pod); val bob = f.stream(f.b, game)
+            bob.execute(GameAction.AcceptInvitation)
+            f.stream(f.a, game).execute(GameAction.Ready); assertEquals("accepted", bob.execute(GameAction.Ready).outcome)
+            assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, game.id).summary.lifecycle)
+            return game to bob
+        }
+        val (finished, finishedBob) = started()
+        assertEquals("accepted", finishedBob.execute(f.games.concession(f.b, finished.id)).outcome)
+        val (playing, playingBob) = started()
+        val lobbyGame = f.challenge(pod); f.stream(f.b, lobbyGame).execute(GameAction.AcceptInvitation)
+        val podId = UUID.fromString(pod)
+        fun matches() = f.sql { org.asyncttwiz.server.history.MatchRecords.forPod(it, UUID.fromString(f.c.account.accountId), podId) }!!
+        assertEquals(listOf(finished.id), matches().records.map { it.gameId })
+        assertEquals(listOf(playing.id), matches().playing.map { it.gameId })
+
+        assertEquals(200, f.pods.cancel(f.a, pod, PodDraftRequest(id(), f.detail(f.a, pod).draftAttemptId!!)).status)
+        assertEquals(PodPhase.SETUP, f.detail(f.a, pod).phase)
+        assertEquals(PodMatches(emptyList(), emptyList()), matches(), "no standings or matches from the cancelled draft")
+        // They carry on as ordinary games, still named after the pod they came from
+        assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, playing.id).summary.lifecycle)
+        assertEquals(GameLifecycle.LOBBY, f.games.head(f.b, lobbyGame.id).summary.lifecycle)
+        assertEquals("Cancelled pod", f.games.head(f.b, lobbyGame.id).summary.podName)
+        // (owner, 2026-11-23) marked orphaned for both players' apps (out of the pod's Games tab, no Pod chat); the game in its
+        // lobby is told at once with a revision
+        for (game in listOf(finished, playing, lobbyGame)) assertTrue(f.games.head(f.b, game.id).summary.podOrphaned)
+        assertTrue(f.games.revisions(f.a, lobbyGame.id, "0").revisions.last().summary.podOrphaned)
+        assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, false).body).games.filter { it.podId == pod }.all { it.podOrphaned })
+        assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.a, null, false).body).games.map { it.id }
+            .containsAll(listOf(finished.id, playing.id, lobbyGame.id)), "still in the Games list")
+        // DRF-039: the deck of an orphaned game in play stays as it is (Prepare deck is the lobby's)
+        assertEquals(409, f.pods.gameDeck(f.a, pod, playing.id, SetPodGameDeck(id(), name = "In play")).status)
+        // The match in play ends after the cancel: its record is the players' own, not the pod's
+        assertEquals("accepted", playingBob.execute(f.games.concession(f.b, playing.id)).outcome)
+        assertEquals(PodMatches(emptyList(), emptyList()), matches())
+        val history = f.sql { org.asyncttwiz.server.history.MatchRecords.forAccount(it, UUID.fromString(f.a.account.accountId)) }
+        assertEquals(setOf(finished.id, playing.id), history.map { it.gameId }.toSet())
+        assertTrue(history.all { it.podName == "Cancelled pod" })
+
+        // DRF-105, DRF-166 (owner, 2026-11-23): Prepare deck in the orphaned game's lobby renames and covers that game's deck
+        // alone; not a game in play, nor someone else's
+        fun gameDeck(who: AccountService.Principal, game: GameSummary, input: SetPodGameDeck) = f.pods.gameDeck(who, pod, game.id, input).status
+        assertEquals(200, gameDeck(f.a, lobbyGame, SetPodGameDeck(id(), name = "  The cancelled draft's deck ")))
+        assertEquals("The cancelled draft's deck", f.games.head(f.a, lobbyGame.id).ownPodDeckName)
+        assertNotEquals("The cancelled draft's deck", f.games.head(f.b, lobbyGame.id).ownPodDeckName)
+        fun aDeck() = f.games.head(f.a, lobbyGame.id).preparation!!.players.single { it.accountId == f.a.account.accountId }.deck!!
+        val plains = aDeck().entries.first { it.suppliedBasic == BasicLand.PLAINS }.definition
+        assertEquals(400, gameDeck(f.a, lobbyGame, SetPodGameDeck(id(), cover = plains)), "a supplied basic is no cover")
+        val card = aDeck().entries.first { it.suppliedBasic == null && it.section == SavedDeckSection.MAINBOARD }.definition
+        assertEquals(200, gameDeck(f.a, lobbyGame, SetPodGameDeck(id(), cover = card)))
+        assertEquals(card, aDeck().cover)
+        assertEquals(404, gameDeck(f.c, lobbyGame, SetPodGameDeck(id(), name = "Not mine")))
+        // The next draft: Alice's new deck name stays out of the orphaned game's lobby
+        val before = f.games.head(f.a, lobbyGame.id).ownPodDeckName
+        assertEquals(200, f.pods.start(f.a, pod, PodRequest(id())).status)
+        picks(f.a)
+        assertEquals(200, f.pods.deckName(f.a, pod, SetPodDeckName(id(), f.detail(f.a, pod).draftAttemptId!!, "The next draft's deck")).status)
+        assertEquals(before, f.games.head(f.a, lobbyGame.id).ownPodDeckName)
+        // Its games number on from the cancelled draft's
+        submit(f.a); picks(f.b); submit(f.b)
+        val next = json.decodeFromString<GameSummary>(f.pods.challenge(f.a, pod, ChallengeFromPod(id(), f.b.account.accountId)).body)
+        assertEquals("Cancelled pod #4", next.gameName)
+        // A game of the pod's own draft changes the pod deck instead (its own requests)
+        assertEquals(409, gameDeck(f.a, next, SetPodGameDeck(id(), name = "Not orphaned")))
+    }
+
     // DRF-041
     @Test fun `leave withdraws only departed members unaccepted challenges and final leave destroys pod`() = fixture { f ->
         val pod = f.pod(three = true)
@@ -697,5 +788,32 @@ class PodChallengeTest {
         assertEquals("accepted", f.stream(f.b, game).execute(GameAction.DeclineInvitation).outcome)
         f.submit(f.b, pod)
         assertEquals(emptySet<String>(), f.open(f.b), "answered and built: nothing waits")
+    }
+
+    // DRF-135, DRF-138, LOB-242, LOB-243 (owner, 2026-11-22): Bob still builds when Alice's challenge replaces his "Draft
+    // complete: build your deck"; he declines it on one device: the pod's notification no longer waits and the server clears it
+    // on his other devices at once (a clear push to his phone), though his deck is still unsubmitted. A newer pod notice waits
+    // on its own again
+    @Test fun `a pod challenge declined on one device clears the pod's notification on every device`() = fixture { f ->
+        val pod = f.pod(three = true)
+        val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+        val phone = activity.register(f.b, RegisterInstallation(id(), id(), "synthetic-android-token"))
+        val cursor = activity.page(f.b, null).nextCursor
+        f.submit(f.a, pod)
+        val game = f.challenge(pod)
+        val key = "pod:$pod"
+        // His phone's poll shows the challenge (remembered until it waits no more)
+        assertEquals(ActivityKind.INVITATION, activity.page(f.b, cursor).readyNotices!!.last { it.podId == pod }.kind)
+        assertEquals(setOf(key), f.open(f.b))
+        f.sql { it.execute("DELETE FROM activity_push") }
+        assertEquals("accepted", f.stream(f.b, game).execute(GameAction.DeclineInvitation).outcome)
+        assertEquals(emptySet<String>(), f.open(f.b), "declined: nothing waits, his build included")
+        f.sql { org.asyncttwiz.server.activity.ActivityNotices.sweep(it, java.time.OffsetDateTime.now()) }
+        assertEquals(1, f.sql { it.fetch("SELECT 1 FROM activity_push WHERE generation = '${phone.generation}' " +
+            "AND kind = 'CLEAR_POD' AND game_id = '$pod'").size }, "a clear for his phone")
+        assertFalse(activity.page(f.b, null).openNotices!!.contains(key), "the phone's refresh clears it")
+        // Alice destroys the pod: its notice is newer than the declined challenge and waits for Bob until he sees it
+        assertEquals(200, f.pods.destroy(f.a, pod, PodRequest(id())).status)
+        assertEquals(setOf(key), f.open(f.b))
     }
 }

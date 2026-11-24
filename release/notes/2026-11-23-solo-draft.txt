@@ -1,0 +1,1 @@
+add: You can now draft a pod alone with bots; setup reminds you that bots don't play games.

@@ -69,7 +69,8 @@ object ActivityNotices {
      * The notification keys of [owner] that still wait for them, so that a notice of them may stay:
      * a game with an event they haven't seen on any device, an unanswered waiting reminder, or their move (or an engine
      * stop waiting for them) in a game in play; a cleanup warning they haven't opened the game since; a pending invitation
-     * to them (a pod challenge's key is its pod's); a pod whose latest notice still waits (their pick: packs in their queue;
+     * to them (a pod challenge's key is its pod's); a pod whose latest notice, newer than any challenge of the pod to them,
+     * still waits (their pick: packs in their queue;
      * their build: not submitted; the other pod notices tell something: until the player opened the pod on any device, or
      * for a destroyed pod the Pods list, [ActivityService.podSeen]); a pending pod invitation.
      */
@@ -95,11 +96,18 @@ object ActivityNotices {
         val newer = SUMMARY.`as`("newer")
         val unsubmitted = DSL.exists(DSL.selectOne().from(POD_MEMBER).where(POD_MEMBER.POD_ID.eq(SUMMARY.GAME_ID))
             .and(POD_MEMBER.ACCOUNT_ID.eq(owner)).and(POD_MEMBER.SUBMITTED_DECK.isNull))
+        // DRF-135, DRF-138, LOB-242 (owner, 2026-11-22): a pod challenge newer than the pod's notice replaced it in the pod's
+        // one notification, which waits on the challenge alone (the invitations above): declined on any device, it clears on
+        // all, though the notice it replaced (their build) would still wait
+        val challenge = SUMMARY.`as`("challenge"); val challengeGame = GAME.`as`("challenge_game")
         val pods = DSL.select(DSL.inline("pod:").concat(SUMMARY.GAME_ID.cast(String::class.java))).from(SUMMARY)
             .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(podNotice)
             .andNotExists(DSL.selectOne().from(newer).where(newer.ACCOUNT_ID.eq(owner)).and(newer.GAME_ID.eq(SUMMARY.GAME_ID))
                 .and(newer.KIND.like("POD\\_%")).and(newer.KIND.notIn("POD_INVITATION", "POD_MESSAGE"))
                 .and(newer.ACTIVITY_ID.gt(SUMMARY.ACTIVITY_ID)))
+            .andNotExists(DSL.selectOne().from(challenge).join(challengeGame).on(challengeGame.ID.eq(challenge.GAME_ID))
+                .where(challenge.ACCOUNT_ID.eq(owner)).and(challenge.KIND.eq(ActivityKind.INVITATION.name))
+                .and(challengeGame.POD_ID.eq(SUMMARY.GAME_ID)).and(challenge.ACTIVITY_ID.gt(SUMMARY.ACTIVITY_ID)))
             .and(ActivityService.podVisible(DSL.`val`(owner), SUMMARY.KIND, SUMMARY.GAME_ID, SUMMARY.IDENTITY))
             .and(SUMMARY.KIND.ne(ActivityKind.POD_DRAFT_COMPLETE.name).or(unsubmitted))
             // LOB-243: news waits until the pod was opened on any device

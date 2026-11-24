@@ -539,7 +539,7 @@ internal class Sentences(
             val objects = attachedSubject(subject) ?: Objects.Each(if (subject.startsWith("Other ")) Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
                 Filters.noun(subject.removePrefix("Other ")) ?: return@let) else Filters.noun(subject.replaceFirstChar { it.lowercase() }) ?: return@let)
             val x = Values.value(m.groupValues[3]) ?: return@let
-            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(x, Value.Fixed(m.groupValues[2].toInt()))), affects = Affected.Objects(objects))
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(x, if (m.groupValues[2] == "X") x else Value.Fixed(m.groupValues[2].toInt()))), affects = Affected.Objects(objects))
         }
         // dft chunk 07: "Noncreature spells you cast cost {X} less to cast, where X is your speed." (the reduction as {1} X times, CR 601.2f)
         Dft.COST_X_LESS_WHERE.matchEntire(line)?.let { m ->
@@ -2158,6 +2158,10 @@ internal class Sentences(
                 arcanum.api.Condition.Compare(Value.Count(Objects.AttachmentsOf(Objects.AttachedTo(Objects.Self), Filters.noun(m.groupValues[2]) ?: return@let null)),
                     arcanum.api.Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return@let null))
             }
+                // vow chunk 03: "This creature can't be blocked as long as it's attacking alone.", "Enchanted creature can't be blocked as long as
+                // it's attacking alone.": "it" is the subject of the ability
+                ?: Vow.ITS_AT_START.matchEntire(text)?.let { i -> Vow.SUBJECT_AT_START.find(rest)?.let { s ->
+                    Conditions.condition(s.groupValues[1].replaceFirstChar { c -> c.lowercase() } + " is " + i.groupValues[1], self) } }
             // dsk chunk 04: "As long as …, it gets +3/+3 and has hexproof.": "it" is this object
             // dsk chunk 13: "he's a 3/4 Ninja creature": this object
             val pronoun = LazyRegexes.PRONOUN_IS_AT_START.find(rest)
@@ -5128,6 +5132,8 @@ internal class Sentences(
             return listOf(Step.Do(step))
         }
         if (sentence == "You lose the game.") return listOf(Step.Do(Effect.LoseGame(Players.You)))
+        // vow chunk 03: "Enchanted player loses the game." (the player a Curse is attached to, CR 303.4e, 104.3a)
+        if (sentence == "Enchanted player loses the game.") return listOf(Step.Do(Effect.LoseGame(Players.AttachedTo(Objects.Self))))
         // dsk chunk 09: "If an opponent controls that creature, put a stun counter on it."
         IF_OPPONENT_CONTROLS_THAT.matchEntire(sentence)?.let { m ->
             val that = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
@@ -20928,7 +20934,8 @@ internal class Sentences(
         // graveyard." (the "gets" part may hold " and ", so it is read whole after the keywords; both apply to the same object, CR 613.1f, 613.4c)
         Isd.HAS_KEYWORDS_AND_GETS_X_WHERE.matchEntire(line)?.let { m ->
             val keywords = keywords(m.groupValues[2]) ?: return@let
-            val inner = static("${m.groupValues[1]} ${m.groupValues[3]}") as? Ability.Static ?: return@let
+            // vow chunk 03: the whole-line rules too ("Enchanted creature gets +X/+X, where X is the number of permanents you control …")
+            val inner = line("${m.groupValues[1]} ${m.groupValues[3]}") as? Ability.Static ?: return@let
             if (inner.condition != null) return@let
             return inner.copy(mechanics = listOf(Mechanic.GainAbilities(keywords)) + inner.mechanics)
         }
@@ -23091,9 +23098,10 @@ internal class Sentences(
         }
         // inr chunk 07: "create a token that's a copy of that creature" (the creature the trigger or an earlier sentence named, CR 707.2) and
         // "…, except it's 1/1, it's a Spirit in addition to its other types, and it has flying" (CR 707.9b)
+        // vow chunk 03: "create a token that's a copy of enchanted creature, except it's a Spirit in addition to its other types." (CR 707.2, 707.9b)
         Inr.CREATE_COPY_OF_THAT.matchEntire(sentence)?.let { m ->
-            val of = context.it ?: return null
-            val except = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { copyExceptions(it) ?: return null }.orEmpty()
+            val of = if (m.groupValues[1].isNotEmpty()) Objects.AttachedTo(Objects.Self) else context.it ?: return null
+            val except = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { copyExceptions(it) ?: return null }.orEmpty()
             return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(of, except), count = Value.Fixed(1), controller = Players.You)))
         }
         // inr chunk 07: "Create a black Zombie creature token with power equal to that card's power and toughness equal to that card's toughness."

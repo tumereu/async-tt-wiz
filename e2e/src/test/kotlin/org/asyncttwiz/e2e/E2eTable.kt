@@ -2,6 +2,7 @@ package org.asyncttwiz.e2e
 
 import org.asyncttwiz.android.await
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -20,7 +21,10 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.android.EngineGame
 import org.asyncttwiz.android.EngineWorker
+import org.asyncttwiz.android.TableProbes
 import org.asyncttwiz.protocol.game.GameDevice
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /*
  * What a player does on their table and what it shows, through the app's own UI (the table's semantics nodes: every
@@ -89,6 +93,51 @@ private fun byId(node: SemanticsNode) = SemanticsMatcher("node #${node.id}") { i
 /** The bounds of [owner]'s battlefield on this player's table. */
 internal fun E2ePlayer.battlefieldBounds(owner: E2ePlayer = this): Rect =
     nodes(hasContentDescription("${owner.name} Battlefield,", substring = true)).fetchSemanticsNodes().single().boundsInRoot
+
+/** The bounds of each node of [owner]'s battlefield on this player's table (none while it is out of view). */
+internal fun E2ePlayer.battlefieldNodes(owner: E2ePlayer): List<Rect> =
+    nodes(hasContentDescription("${owner.name} Battlefield,", substring = true)).fetchSemanticsNodes().map { it.boundsInRoot }
+
+/** This player's table's own camera step [label] ("Zoom in", "Pan down", "Fit table"), as its accessibility action takes it
+ * (the wheel, the middle button, a pinch and a double tap make the same camera changes). */
+internal fun E2ePlayer.tableStep(label: String) {
+    described("Shared table").fetchSemanticsNode().config[SemanticsActions.CustomActions].first { it.label == label }.action()
+}
+
+/**
+ * TBL-010, TBL-011, TBL-012 (found 2026-11-24 by the desktop battlefield worker): [viewer]'s table's semantics nodes (what
+ * screen readers and these tests read) follow its camera, which only redraws the table: zoomed in and panned until [other]'s
+ * battlefield leaves the view, that battlefield's node goes with it, and Fit table brings it back at once, all without
+ * composing the whole table again for each step. Before, the battlefields' nodes were made only as the table composed: the
+ * node of a battlefield out of view stayed, and one that left the view while the table composed stayed away after Fit table.
+ */
+internal fun E2e.battlefieldNodesFollowTheCamera(viewer: E2ePlayer, other: E2ePlayer) {
+    waitUntil("${viewer.name}'s game settled") { viewer.settled(this) }
+    var composed = 0
+    TableProbes.composed = { me -> if (me == viewer.id) composed++ }
+    try {
+        frameByFrame {
+            fun step(label: String) { viewer.tableStep(label); frame(); frame() }
+            fun shown() = viewer.battlefieldNodes(other)
+            assertTrue(shown().singleOrNull()?.let { it.height > 0f } == true, "${other.name}'s battlefield in view: ${shown()}")
+            // Zoomed in to the most, then panned on until that battlefield is out of view (or its node is left with nothing
+            // in view: stale)
+            var steps = 0
+            while (steps < 40 && shown().any { it.height > 0f && it.width > 0f }) {
+                step(if (steps < 5) "Zoom in" else "Pan down")
+                steps++
+            }
+            assertEquals(emptyList(), shown(), "${other.name}'s battlefield out of view after $steps steps, its node gone with it")
+            assertTrue(viewer.battlefieldNodes(viewer).singleOrNull()?.let { it.height > 0f } == true,
+                "${viewer.name}'s own battlefield still in view: ${viewer.battlefieldNodes(viewer)}")
+            step("Fit table")
+            steps++
+            assertTrue(shown().singleOrNull()?.let { it.height > 0f } == true,
+                "${other.name}'s battlefield back in view after Fit table, its node with it: ${shown()}")
+            assertTrue(composed < steps / 2.0, "the table recomposed $composed times for $steps camera steps")
+        }
+    } finally { TableProbes.composed = null }
+}
 
 /** This player's card nodes named [name] owned by [owner] (each card the table draws: hand, battlefield, Stack). */
 private fun E2ePlayer.cardNodes(name: String, owner: E2ePlayer): List<SemanticsNode> =

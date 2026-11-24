@@ -196,6 +196,14 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
+    // TBL-010, TBL-012, WEB-029 (found 2026-11-24 by the desktop battlefield worker): on Alice's desktop table, zoomed in and
+    // panned until Bob's battlefield leaves the view, its node goes too, and Fit table brings it back at once (before, it
+    // stayed away until something else composed the table)
+    @Test fun theBattlefieldNodesFollowTheCamera() {
+        start()
+        battlefieldNodesFollowTheCamera(alice, bob)
+    }
+
     // WEB-084, TBL-121, TBL-010, TBL-012 (owner 2026-11-24: desktop battlefield cards 4× the phone's, the least zoom lower so
     // the rows fit): in a 1440 × 900 window, with Alice's Mountain and Ember Cub out, her table opens with both battlefields' three
     // rows whole in view and her Mountain above her seat box; zoomed out as far as it goes (0.325×) the Cub is 0.325 × 4 × 28 dp

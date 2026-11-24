@@ -15,16 +15,10 @@ inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scene: TableS
     crossinline currentRuntime: () -> TableRuntimeHooks, coordinator: TableGestureCoordinator, writable: Boolean,
     toolkit: TableToolkitController?, crossinline preview: () -> TableGesturePreview,
     layoutState: MutableState<TableLayoutState>, groupTaps: Map<String, GroupTap> = emptyMap(),
-    /** The battlefields as laid out now (with the camera): where their nodes are, read in layout (web frame rate, 2026-11-15:
-     * a pan or zoom step recomposes nothing). */
+    /** The battlefields as laid out now (with the camera): which have nodes and where, read in a scope of their own and in
+     * layout (web frame rate, 2026-11-15: a pan or zoom step recomposes none of the table, [TableFieldNodes]). */
     noinline fieldsNow: () -> List<TableField> = { scene.fields }) {
-    for (field in scene.fields.filter { it.bounds.width > 0 && it.bounds.height > 0 }) Box(Modifier.tableFrameBounds {
-            fieldsNow().firstOrNull { it.owner == field.owner && it.containerId == field.containerId }?.bounds
-        }.semantics {
-            val player = if (field.owner == game.inviter.accountId) game.inviter else game.recipient
-            contentDescription = "${player.username} Battlefield, ${play.board.containers.firstOrNull { it.id == field.containerId }?.cards?.size ?: 0} cards"
-            stateDescription = if (field.holdsAttention) "${player.username}'s move" else "Waiting for move"
-        })
+    TableFieldNodes(game, play, fieldsNow)
     // Semantics-only children do not install a second pointer detector. Dock piles expose
     // the same minimum touch rectangle used by the scene's pointer hit testing.
     // TBL-117, STK-047, ZON-079: what the table draws on a card and doesn't say, for accessibility services and tests: the
@@ -56,6 +50,40 @@ inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scene: TableS
                 } else null,
             port = scene.viewports.firstOrNull { it.id == item.viewport && it.maxScroll > 0 })
         key(item.id) { TableItemNode(facts, rendered, coordinator, layoutState) }
+    }
+}
+
+/**
+ * A semantics node for each battlefield with any of it in view, laid out where it is now ([fieldsNow]: the scene as laid out
+ * with the camera). Found 2026-11-24 by the desktop battlefield worker: the camera only redraws the table (web frame rate,
+ * 2026-11-15), so which battlefields have a node is worked out from the camera too, here in a scope of its own: it composes
+ * again only when a battlefield enters or leaves the view (a pan, a zoom, Fit table, the opening fit), never for the other
+ * camera steps, and never the whole table. Before, the nodes were made from the scene the table last composed with: a
+ * battlefield panned out of view kept its node, and one out of view then had none after Fit table brought it back.
+ */
+@Composable
+fun TableFieldNodes(game: GameSummary, play: TableBoard, fieldsNow: () -> List<TableField>) {
+    val current = rememberUpdatedState(fieldsNow)
+    val shown by remember { derivedStateOf(structuralEqualityPolicy()) { TableFieldNode.shown(current.value()) } }
+    for (field in shown) key(field.owner, field.containerId) {
+        Box(Modifier.tableFrameBounds {
+            current.value().firstOrNull { it.owner == field.owner && it.containerId == field.containerId }?.bounds
+        }.semantics {
+            val player = if (field.owner == game.inviter.accountId) game.inviter else game.recipient
+            contentDescription = "${player.username} Battlefield, ${play.board.containers.firstOrNull { it.id == field.containerId }?.cards?.size ?: 0} cards"
+            stateDescription = if (field.holdsAttention) "${player.username}'s move" else "Waiting for move"
+        })
+    }
+}
+
+/** A battlefield's semantics node ([TableFieldNodes]): what it says, without where it is (equal for every camera step that
+ * keeps the battlefield in view). */
+@Immutable
+data class TableFieldNode(val owner: String, val containerId: String, val holdsAttention: Boolean) {
+    companion object {
+        /** The nodes of [fields] (laid out with the camera): one for each battlefield with any of it in view. */
+        fun shown(fields: List<TableField>): List<TableFieldNode> = fields.filter { it.bounds.width > 0 && it.bounds.height > 0 }
+            .map { TableFieldNode(it.owner, it.containerId, it.holdsAttention) }
     }
 }
 

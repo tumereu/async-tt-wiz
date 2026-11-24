@@ -464,6 +464,9 @@ internal object Effects {
                 }
                 act.record(Changes.step(act.state, act.state.turn.copy(endingTurn = true)))
             }
+            // vow: CR 732.1: it becomes day or night (from the other one, an event, CR 732.1a); daybound and nightbound permanents transform as
+            // the state-based actions are next checked (arcanum.engine.turn.DayNight.check)
+            is Effect.BecomeDayOrNight -> arcanum.engine.turn.DayNight.set(act.recorder, if (effect.night) Evaluator.NIGHT else Evaluator.DAY)
             // sos: each skip passes over one more of that player's turns (CR 614.10)
             is Effect.SkipNextTurn -> scope.players(effect.players).forEach { p ->
                 act.record(Changes.step(act.state, act.state.turn.copy(skippedTurns = act.state.turn.skippedTurns + p)))

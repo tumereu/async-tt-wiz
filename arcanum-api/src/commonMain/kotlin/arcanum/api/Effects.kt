@@ -301,6 +301,10 @@ sealed interface Effect {
     /** "End the turn" (CR 725.1): every spell and ability on the Stack is exiled (this one included), then the turn goes on from its cleanup
      * step (CR 514), with no other phases or steps in between. */
     @Serializable @SerialName("end-turn") data object EndTurn : Effect
+    // vow
+    /** "It becomes night" ([night]) or "It becomes day" (CR 732.1): the game gets that designation; from the other one this is "day becomes
+     * night" or "night becomes day" (CR 732.1a), and daybound and nightbound permanents transform to match (CR 702.145c, f). */
+    @Serializable @SerialName("day-night") data class BecomeDayOrNight(val night: Boolean) : Effect
     /** "There is an additional [step] after this step" (CR 500.9): the step happens again right after the current one. */
     @Serializable @SerialName("additional-step") data class AdditionalStep(
         val step: TurnStep,

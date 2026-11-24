@@ -41,7 +41,7 @@ internal object Fra {
     // sentences changing the steps before them
     val IF_PUT_INTO_GRAVEYARD_THIS_WAY = Regex("""If you put (.+?) into your graveyard this way, put that card into your hand\.""")
     val IF_INSTEAD = Regex("""If (.+?), (put .+? on that creature) instead\.""")
-    val IF_THAT_PERMANENT_WAS = Regex("""If that permanent was an? (.+?), (.+)\.""")
+    val IF_THAT_PERMANENT_WAS = Regex("""If that permanent (was|is) an? (.+?), (.+)\.""") // vow chunk 07: "is" after damage
     val IF_MANA_VALUE_WAS_RETURN = Regex("""If that permanent's mana value was (\d+) or (less|greater), return it to the battlefield tapped under your control\.""")
     val IF_CAST_FROM_GRAVEYARD_COUNTERS_EVERY = Regex("""If this spell was cast from a graveyard, put a \+1/\+1 counter on each of them for every (\w+) cards in your graveyard\.""")
     val IF_YOU_SACRIFICED_THIS_WAY = Regex("""If you sacrificed an? (.+?) this way, (.+)\.""")

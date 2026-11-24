@@ -38,7 +38,7 @@ internal object CardStates {
                 is ObjectStatus.HeldPhasedOutWhile,
                 is ObjectStatus.MarksGained, ObjectStatus.TurnedFaceUp, is ObjectStatus.PairedWith, ObjectStatus.RevealedCompanion,
                 // ZON-079: shown by the card's place in its player's hand row
-                is ObjectStatus.Playable, is ObjectStatus.CreatedBy -> Unit
+                is ObjectStatus.Playable, is ObjectStatus.CreatedBy, is ObjectStatus.ExiledBy -> Unit
             }
         }
     }

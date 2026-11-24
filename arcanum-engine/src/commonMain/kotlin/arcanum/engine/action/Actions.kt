@@ -385,6 +385,8 @@ internal object Actions {
                 if (toBattlefield && before.zone == Zone.Stack && arcanum.engine.room.Rooms.isRoom(before.definition))
                     after = after.copy(marks = after.marks + arcanum.api.ObjectMark.Unlocked(arcanum.engine.room.Rooms.door(before.face)))
                 if (!toBattlefield && m.to != Zone.Stack) after = after.copy(controller = null)
+                // snc fixes: who controlled the spell or ability that exiled it ("if it was exiled by an ability you controlled", CR 113.8)
+                if (m.to == Zone.Exile && cause != null) exiledBy(scratch, cause).let { after = after.withStatus(it.key, it) }
                 // Marks it gets as it goes elsewhere than the battlefield (foretold: exiled face down, CR 702.143a)
                 if (!toBattlefield && m.marks.isNotEmpty()) {
                     after = after.copy(marks = (after.marks + m.marks).distinct())
@@ -435,6 +437,15 @@ internal object Actions {
     }
 
     private const val COPIED = "\$copied"
+
+    /** snc fixes: the [arcanum.engine.state.ObjectStatus.ExiledBy] of a card [cause] exiles: its controller, and whether it is a spell (its
+     * stack item, or its source on the Stack as a spell) rather than an ability (an activated or triggered ability, a cost of one, a
+     * static ability's effect; CR 113.8, 109.5). */
+    private fun exiledBy(state: arcanum.engine.state.GameState, cause: Cause): arcanum.engine.state.ObjectStatus.ExiledBy {
+        fun isSpell(kind: arcanum.engine.state.StackItemKind?) = kind == arcanum.engine.state.StackItemKind.Spell || kind is arcanum.engine.state.StackItemKind.SpellCopy
+        val spell = cause.item?.let { isSpell(it.kind) } ?: cause.source?.let { isSpell(state.stackItems[it]?.kind) } ?: false
+        return arcanum.engine.state.ObjectStatus.ExiledBy(cause.controller, spell)
+    }
 
     /**
      * CR 122.6, 614.1c: the counters a permanent enters with (its own "enters with", printed loyalty or defense, an effect's

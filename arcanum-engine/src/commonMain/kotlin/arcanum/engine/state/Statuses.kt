@@ -63,6 +63,12 @@ sealed interface ObjectStatus {
         override val key: String get() = "fixed-copies"
     }
 
+    /** snc fixes: put into exile by a spell or ability [player] controlled ([spell]: a spell, else an ability); kept while it stays
+     * there ([arcanum.api.ObjectFilter.ExiledBy], CR 113.8). */
+    @Serializable @SerialName("exiled-by") data class ExiledBy(val player: PlayerId, val spell: Boolean) : ObjectStatus {
+        override val key: String get() = "exiled-by"
+    }
+
     /** It has dealt combat damage since it became this object ("as long as they haven't dealt combat damage yet"). */
     @Serializable @SerialName("dealt-combat-damage") data object DealtCombatDamage : ObjectStatus { override val key: String get() = "dealt-combat-damage" }
 

@@ -91,6 +91,7 @@ internal object Costs {
             CostPart.TapSelf -> scope.self?.let { state.obj(it) }?.let { it.zone == Zone.Battlefield && !it.tapped } ?: false
             CostPart.UntapSelf -> scope.self?.let { state.obj(it) }?.let { it.zone == Zone.Battlefield && it.tapped } ?: false
             is CostPart.TapObjects -> candidates(scope, payer, part.what, Zone.Battlefield) { !(state.obj(it)?.tapped ?: true) }.size >= count(scope, part.what)
+            is CostPart.UntapObjects -> candidates(scope, payer, part.what, Zone.Battlefield) { state.obj(it)?.tapped == true }.size >= count(scope, part.what)
             is CostPart.Sacrifice -> candidates(scope, payer, part.what, Zone.Battlefield).size >= count(scope, part.what)
             is CostPart.Discard -> candidates(scope, payer, part.what, Zone.Hand).size >= count(scope, part.what)
             is CostPart.Exile -> candidates(scope, payer, part.what, part.from).size >= count(scope, part.what)
@@ -221,6 +222,10 @@ internal object Costs {
                 val chosen = choose(scope, payer, part.what, Zone.Battlefield, "tap") { !(act.state.obj(it)?.tapped ?: true) }
                 Actions.tap(act, chosen, true, listOf(Meaning.Paid), cause)
                 scope.bind(part.bind, NamedValue.Objects(chosen))
+            }
+            is CostPart.UntapObjects -> {
+                val chosen = choose(scope, payer, part.what, Zone.Battlefield, "untap") { act.state.obj(it)?.tapped == true }
+                Actions.tap(act, chosen, false, listOf(Meaning.Paid))
             }
             is CostPart.Sacrifice -> {
                 val chosen = choose(scope, payer, part.what, Zone.Battlefield, "sacrifice")

@@ -100,7 +100,7 @@ class Mh3Chunk09ManifestMillReplicateTransformTest {
     )
 
     // CR 603.4, 404.2: an intervening if on this or another creature you control entering: it entered from your graveyard, or you cast it from there; CR 118.12 "you may pay … If you do";
-    // CR 701.27a; CR 701.17a: "if a black card was milled this way" is any one of the milled cards; CR 707.9b: the copies are 1/1 black and green
+    // CR 701.27a; CR 701.17a, 701.17c: "if a black card was milled this way" is any one of the milled cards, wherever it went; CR 707.9b: the copies are 1/1 black and green
     // Insects
     @Test
     fun grindleRavenousGrub() = cardFaces(Layout.Transform,
@@ -141,7 +141,7 @@ class Mh3Chunk09ManifestMillReplicateTransformTest {
             loyalty(1,
                 create(creatureToken("Insect", listOf(Color.Black, Color.Green), 1, 1), bind = "token"),
                 mill(2, postBind = "milled"),
-                ifThen(Condition.Compare(Value.Count(Objects.Where(Objects.Bound("milled"), and(ObjectFilter.OfColor(Color.Black), inZone(Zone.Graveyard)))),
+                ifThen(Condition.Compare(Value.Count(Objects.Where(Objects.Bound("milled"), ObjectFilter.OfColor(Color.Black))),
                     Comparison.AtLeast, n(1)), counters(Objects.Bound("token"), 1, CounterKind.Keyword(Keyword.Deathtouch)))),
             loyalty(-2, destroy(target("permanent")), targets = listOf(slot("permanent", or(artifact, enchantment)))),
             loyalty(-6, Step.ForEach(Each.Objects(Objects.Each(inYourGraveyard(creature))), "card", listOf(

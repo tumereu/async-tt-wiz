@@ -267,8 +267,9 @@ sealed interface EventPattern {
     @Serializable @SerialName("ability-triggers") data class AbilityTriggers(val source: ObjectFilter, val cause: EventPattern) : EventPattern
     // mh2
     /** A creature matching [exploiter] exploits a creature: the controller of its exploit ability sacrifices a creature as that ability
-     * resolves (CR 702.110b). Roles object (the sacrificed creature, as it last existed) and source (the exploiting creature). */
-    @Serializable @SerialName("exploits") data class Exploits(val exploiter: ObjectFilter) : EventPattern
+     * resolves (CR 702.110b). Roles object (the sacrificed creature, as it last existed) and source (the exploiting creature).
+     * vow: [exploited], when given, is what the sacrificed creature must have been, as it last existed ("exploits a nontoken creature"). */
+    @Serializable @SerialName("exploits") data class Exploits(val exploiter: ObjectFilter, val exploited: ObjectFilter? = null) : EventPattern
     /** A player matching [players] (null: any) does the keyword action [action], with an object matching [objects] (null: with or
      * without one): "Whenever you proliferate", "Whenever a creature you control explores", "Whenever you exert a creature". One pattern
      * for every verb, so a new verb is a new [KeywordActionKind], not a new event type. When an action counts as done is its own rule: for
@@ -428,6 +429,11 @@ sealed interface Trigger {
         /** With [oneOrMore]: only a batch of at most this many objects; with [atLeast] the same number, exactly that many ("when you
          * attack with exactly two creatures": the creatures declared as attackers, CR 508.1, 603.2c). */
         val atMost: Int? = null,
+        // snc
+        /** With [oneOrMore]: counters put on several objects or players at once are one batch ("on one or more other Heroes you
+         * control", CR 603.2c); without it, each object or player they are put on has its own ("one or more counters are put on a
+         * creature you control": once for each creature, CR 122.6). */
+        val acrossHolders: Boolean = false,
     ) : Trigger {
         constructor(event: EventPattern, oneOrMore: Boolean = false) : this(listOf(event), oneOrMore)
     }

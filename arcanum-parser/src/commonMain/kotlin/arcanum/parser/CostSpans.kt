@@ -100,6 +100,7 @@ internal object CostSpans {
             is CostPart.Loyalty -> LOYALTY.find(window, from)?.let { TextSpan(it.range.first, it.range.last + 1) }
             is CostPart.Sacrifice -> objects(window, from, "sacrifice", part.what)
             is CostPart.TapObjects -> objects(window, from, "tap", part.what)
+            is CostPart.UntapObjects -> objects(window, from, "untap", part.what)
             is CostPart.Discard -> objects(window, from, "discard", part.what)
             is CostPart.Exile -> objects(window, from, "exile", part.what)
             is CostPart.PutOnBottomOfLibrary -> objects(window, from, "put", part.what)

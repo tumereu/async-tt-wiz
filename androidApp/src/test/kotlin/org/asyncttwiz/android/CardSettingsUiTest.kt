@@ -125,5 +125,61 @@ class CardSettingsUiTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeSizeExtremes() { screenshots(true) }
 
+    // TBL-238 (owner 2026-11-24): in landscape with hand cards taller than the bar the battlefield is seen under them, the hand
+    // cards drawn over it and the hand row white only in the bar; the rows may be panned there
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
+    fun landscapeBattlefieldUnderLargeHandCards() {
+        // Alice's side with six Forests (two of them tapped) besides her creatures, so her land row reaches under her hand
+        val initial = LiveTableFixture.play()
+        val forests = initial.board.cards.filter { it.containerId == "a/LIBRARY" && it.faceId == "land" }.take(4).map { it.id }
+        val play = initial.copy(board = initial.board.copy(
+            cards = initial.board.cards.map { c -> if (c.id !in forests) c else c.copy(containerId = "a/BATTLEFIELD", covered = false,
+                tapped = c.id == forests.first(), placement = PlayPlacement(BoardPosition(0, 0), c.id)) },
+            containers = initial.board.containers.map { when (it.id) {
+                "a/LIBRARY" -> it.copy(cards = it.cards - forests.toSet())
+                "a/BATTLEFIELD" -> it.copy(cards = it.cards + forests)
+                else -> it
+            } }))
+        val preferences = CardAppearancePreferences(AppPlatform.current)
+        preferences.customizeAreas(true)
+        preferences.setSize(2.5f, CardArea.HAND)
+        try {
+            val board = engineTableBoard(play, "a")
+            val toolkit = TableToolkitController("a", { board }, { true }, { _, _ -> true })
+            // At 2x, panned right and up until her Forests lie in her hand's cards' height, their bottoms just above the bar
+            val bar = 412f - TableControlsHeight
+            val zoom = 2f
+            val home = TablePresentation.scene(LiveTableFixture.game, board, "a", 892f, 412f, true, TableLayoutState(TableCamera(zoom = zoom)),
+                appearance = preferences.read())
+            val landIds = play.board.cards.filter { it.containerId == "a/BATTLEFIELD" && it.faceId == "land" }.map { it.id }.toSet()
+            val lands = home.items.filter { it.battlefieldCard && it.cardId in landIds }
+            assertTrue(lands.size >= 2)
+            val dx = 140f - lands.minOf { it.bounds.x }
+            val dy = (bar - 6f) - lands.maxOf { it.bounds.bottom }
+            val camera = TableCamera(-dx / zoom, -dy / zoom, zoom)
+            assertEquals(camera, home.world!!.clamp(camera), "within the pan limits")
+            toolkit.layoutState.value = TableLayoutState(camera = camera)
+            compose.setContent { MaterialTheme { EngineFixtureTable(play, "a") {
+                TableSurface(LiveTableFixture.game, board, "a", true, Modifier.fillMaxSize(), connected = true,
+                    onIntent = toolkit::handle, toolkit = toolkit, runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {}))
+            } } }
+            compose.waitForIdle()
+            compose.mainClock.advanceTimeBy(1000)
+            compose.waitForIdle()
+            val scene = TablePresentation.scene(LiveTableFixture.game, board, "a", 892f, 412f, true, TableLayoutState(camera),
+                appearance = preferences.read())
+            val hand = scene.items.single { it.kind == TableItemKind.HAND && it.owner == "a" }
+            val handCards = scene.items.filter { it.kind == TableItemKind.CARD && it.viewport == hand.viewport }
+            assertTrue(handCards.all { it.bounds.y < bar - 20f }, "the 2.5x hand cards stand above the bar")
+            val under = scene.items.filter { it.battlefieldCard && it.bounds.intersection(hand.bounds) != null }
+            assertTrue(under.isNotEmpty(), "battlefield cards lie under the hand")
+            assertTrue(under.all { card -> card.visible.none { part -> handCards.any { part.intersection(it.bounds)?.let { i -> i.width > .01f && i.height > .01f } == true } } })
+            captureShot("$SCREENSHOTS/battlefield/under-large-hand-landscape.png",
+                "Landscape table with hand cards at 2.5x, zoomed to 2x and panned until Alice's Forests lie at her hand cards' height: " +
+                    "the battlefield shows beside, between and under her hand cards, which are drawn over it, and her hand row is " +
+                    "white only in the bottom bar.")
+        } finally { preferences.setSize(1f, CardArea.HAND); preferences.customizeAreas(false) }
+    }
+
 
 }

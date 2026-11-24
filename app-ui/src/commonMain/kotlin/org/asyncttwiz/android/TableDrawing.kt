@@ -99,7 +99,9 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     // HUD surfaces cover world drawings and link lines, including the screen-pinned Stack gutter; a row in a bar (landscape,
     // TBL-009) sits on the bar's own colour.
     for (port in scene.viewports.filter { it.hand || !it.bar && (it.id.startsWith("dock/") || it.id.startsWith("counters/")) }) {
-        val b = port.bounds
+        // TBL-238: a landscape hand row with large cards only in its bar; the battlefields show above it
+        val band = if (port.hand) scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.viewport == port.id }?.handBand else null
+        val b = band?.let { port.bounds.intersection(it) } ?: if (band != null) continue else port.bounds
         drawRect(Color.White, xy(b.x, b.y), size(b.width, b.height))
     }
     // WEB-015 (owner playtest 2026-11-15): on the desktop table the battlefields fill their room down to the window's bottom:
@@ -130,7 +132,9 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
         drawLine(edge, xy(b.right, b.y), xy(b.right, b.bottom), density)
     }
     for (hand in scene.items.filter { it.kind == TableItemKind.HAND }) {
-        val b = hand.bounds
+        // TBL-238: a landscape hand row with large cards is drawn only in its bar (its count there too); its cards stand over
+        // the battlefields beyond it
+        val b = hand.handBand ?: hand.bounds
         // ZON-001: the other player's fanned hand in portrait shows only its count at its right, on their row
         if (hand.handFan) { text(hand.value, b.right - 18f, b.center.y + 4f, 4); continue }
         val border = if (hand.owner == viewer) OwnTableColor else OpponentTableColor

@@ -57,7 +57,7 @@ internal object Mh2 {
     val CHOOSE_EXILED_CARD_OPPONENT_OWNS_WITH_COUNTER_MAY_PLAY_FREE = Regex("""Choose an exiled card an opponent owns with an? (\S+) counter on it\. You may play it this turn without paying its mana cost\.""")
     val RETURN_TARGET_AND_ALL_SAME_NAME = Regex("""Return target (.+? card) and all other cards with the same name as that card from your graveyard to your hand\.""")
     val THAT_IS_SNOW_OR_COULD_PRODUCE = Regex("""(.+?) that is snow or could produce (\{[A-Z]\})""")
-    val EXPLOITS_A_CREATURE = Regex("""(.+) exploits a creature""")
+    val EXPLOITS_A_CREATURE = Regex("""(.+) exploits an? (.*creature)""") // vow chunk 06: "a creature you control exploits a nontoken creature"
     // mh2 chunk 06
     val TARGET_OPPONENT_DISCARDS_AT_RANDOM = Regex("""[Tt]arget opponent discards (\w+) cards? at random\.""")
     val REVEALS_HAND_CHOOSE_CARD_DISCARDS_THEN_AT_RANDOM = Regex("""Target opponent reveals their hand\. You choose a card from it\. That player discards that card, then discards a card at random\.""")

@@ -14,8 +14,8 @@ class SncChunk05EnchantEquipTest {
     private fun equip(cost: String) = Keyword.Equip(manaCost(cost))
     private val citizen = creatureToken("Citizen", listOf(Color.Green, Color.White), 1, 1)
 
-    // CR 508.1c, 509.1a (can't attack or block), 301.5c/113.10 (a granted activated ability names the Aura: Granter; the Aura's
-    // controller sacrifices, so only what they control, CR 701.21a), 602.5d (sorcery timing)
+    // CR 508.1c, 509.1a (can't attack or block), 301.5c/113.10 (a granted activated ability names the Aura: Granter; "it" is the Aura,
+    // which its controller sacrifices, CR 701.21a), 602.5d (sorcery timing)
     @Test
     fun kidnappersLeash() = card(
         name = "Kidnapper's Leash",
@@ -31,7 +31,7 @@ class SncChunk05EnchantEquipTest {
             Mechanic.CantAttack(),
             Mechanic.CantBlock(ObjectFilter.Any),
             has(activated(cost(mana("{7}")),
-                Step.Do(Effect.Sacrifice(Objects.Self, by = Players.ControllerOf(Objects.Granter))),
+                Step.Do(Effect.Sacrifice(Objects.Granter, by = Players.ControllerOf(Objects.Granter))),
                 Step.Do(Effect.Draw(Players.ControllerOf(Objects.Granter), n(1))),
                 rules = asSorcery)),
             affects = enchanted,

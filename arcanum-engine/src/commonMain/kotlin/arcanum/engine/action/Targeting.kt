@@ -123,8 +123,11 @@ internal object Targeting {
 
     /** The zone a filter looks in (the battlefield unless it names one, the Stack for spells, CR 115.4). */
     private fun zoneOk(act: Act, filter: ObjectFilter, id: ObjectId): Boolean {
-        val zones = Evaluator.zonesIn(filter)
         val zone = act.state.obj(id)?.zone ?: Zone.Stack
+        // snc fixes: "target spell, nonland permanent, or card in a graveyard": each alternative in its own zone, as when choosing (CR 115.4,
+        // 608.2b), not only the one zone some alternative names
+        Evaluator.mixedZones(filter)?.let { return zone in it }
+        val zones = Evaluator.zonesIn(filter)
         return if (zones.isNotEmpty()) zone in zones else zone == Zone.Battlefield || zone == Zone.Stack
     }
 

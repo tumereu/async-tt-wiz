@@ -722,6 +722,10 @@ sealed interface CopyException {
     /** "… and its power and toughness are equal to this creature's power and toughness": the entering object's own power and
      * toughness (its prototype's when cast prototyped, CR 719.3b), fixed as it enters as a copy (CR 707.9b, 614.12). */
     @Serializable @SerialName("own-pt") data object OwnPowerToughness : CopyException
+    // snc fixes
+    /** "… and has starting loyalty X": the copy's printed loyalty (CR 707.9b, 306.5b), [loyalty] worked out as the copy is made and kept
+     * fixed. */
+    @Serializable @SerialName("loyalty") data class Loyalty(val loyalty: Value) : CopyException
 }
 
 /** Other ways to pay a spell's mana. */
@@ -857,7 +861,8 @@ sealed interface Modification {
     // snc
     /** As [CreateInstead], with the token one of [tokens] that the replacement's controller chooses as it applies ("you may instead create
      * that many 2/2 green Cat creature tokens with haste or that many 3/1 green Dog creature tokens with vigilance"): one replacement effect,
-     * applied once to the event (CR 614.1a, 614.5). */
+     * applied once to the event (CR 614.1a, 614.5). In an optional replacement ("you may instead") not replacing is one more option of
+     * the same choice, not a separate question. */
     @Serializable @SerialName("create-instead-chosen") data class CreateInsteadChosen(val tokens: List<TokenSpec>) : Modification
     // msh
     /** The damage is dealt, but all other damage already marked on the permanent it is dealt to is healed first ("instead that

@@ -46,11 +46,11 @@ fun parseCardScale(value: String): Float? = value.trim().toFloatOrNull()
 /** WEB-022 (owner, desktop playtest 2026-11-14: "Battlefield cards can be at least twice as big, hand cards can be maybe 30%
  * bigger"): the desktop layout draws hand cards 2.6× the phone's (2× before), the piles 1.6× (twice the 32 dp a landscape
  * bar row fits, filling the taller seat header, [DesktopTable.PILE_HEIGHT]) and the Stack's and panels' cards 2× (1.5×
- * before), with every slider at 1×. Battlefield cards stay 2× for now: at 4× the six battlefield rows don't fit a 1440 × 900
- * or 1920 × 1080 window even at the opening's least zoom (TBL-121), so the land rows open out of view; the Card size slider
- * at 2× gives 4× until the owner decides. WEB-015 (owner playtest 2026-11-15, an Arena-style fan partly below the window's
- * bottom): hand cards 5.2×, the part of them in view at rest as tall as the action area. */
-val DesktopCardScale = LayoutCardScale(battlefield = 2f,
+ * before), with every slider at 1×. Battlefield cards 4× (owner 2026-11-24; 2× before): where the six battlefield rows don't
+ * fit the window even at the phone's least zoom, the desktop table zooms out further ([DesktopTable.MIN_ZOOM]), so the
+ * opening view (TBL-121) and Fit table still show them all. WEB-015 (owner playtest 2026-11-15, an Arena-style fan partly
+ * below the window's bottom): hand cards 5.2×, the part of them in view at rest as tall as the action area. */
+val DesktopCardScale = LayoutCardScale(battlefield = 4f,
     areas = mapOf(CardArea.HAND to 5.2f, CardArea.PILES to 1.6f, CardArea.STACK to 2f, CardArea.PANELS to 2f))
 
 /** The desktop layout's card sizes before the player changes them (WEB-022, WEB-084): every slider at

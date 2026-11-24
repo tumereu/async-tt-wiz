@@ -333,7 +333,7 @@ fun DivisionContent(draft: DivisionDraft, play: TableBoard, names: Map<String, S
 @Composable
 fun BandAttached(scene: TableScene?, content: @Composable () -> Unit) {
     androidx.compose.ui.layout.Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
-        val table = scene?.world?.visibleViewport
+        val table = scene?.world?.clearOfHands // TBL-238: never under the hands' large cards
         val band = scene?.combatPanel ?: table?.let { TableBounds(it.x, it.center.y, it.width, 0f) }
         val width = minOf(BAND_PANEL_WIDTH.roundToPx(), constraints.maxWidth)
         val top = (table?.y ?: 0f).dp.roundToPx().coerceIn(0, constraints.maxHeight)

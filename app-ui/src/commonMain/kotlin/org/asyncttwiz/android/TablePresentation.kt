@@ -41,10 +41,16 @@ data class TableCamera(val x: Float = 0f, val y: Float = 0f, val zoom: Float = 1
  * cover: the opening view ([landscapeHome]) puts column 0 right of it and [fit] fits the table into the rest, while the
  * world still pans under it freely (only how far right it may be panned grows by as much, so those views are in bounds).
  * [clipViewport] (TBL-238, WEB-015): where the world is seen, drawn and touched, around [viewport] (which places, opens, fits
- * and limits it): the table's whole width and the margins next to it. */
+ * and limits it): the table's whole width and the margins next to it (in landscape with large hand cards also the room under
+ * them). [clearViewport] (TBL-238): the part of it clear of the hands' large cards, which what lies centred or docked on the
+ * battlefields keeps to; null: all of it. [panViewport] (TBL-238): a taller room (only its top and bottom count) the
+ * battlefields may also be panned in besides [viewport] (in landscape under the large hand cards); null: none. */
 data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val panBounds: TableBounds = bounds,
-    val clipViewport: TableBounds? = null, val bottomInset: Float = 0f, val leftInset: Float = 0f) {
+    val clipViewport: TableBounds? = null, val bottomInset: Float = 0f, val leftInset: Float = 0f,
+    val clearViewport: TableBounds? = null, val panViewport: TableBounds? = null) {
     val visibleViewport get() = clipViewport ?: viewport
+    /** TBL-238: where the battlefields are seen clear of the hands' large cards ([clearViewport], else [visibleViewport]). */
+    val clearOfHands get() = clearViewport ?: visibleViewport
     private val home get() = TablePoint(viewport.width / 2, viewport.height / 2)
     fun screen(p: TablePoint, camera: TableCamera) = TablePoint(
         viewport.center.x + (p.x - home.x - camera.x) * camera.zoom,
@@ -67,7 +73,15 @@ data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val pa
         val b = panBounds.right - home.x - viewport.width / (2 * c.zoom)
         val least = a - leftInset / c.zoom
         val x = if (least <= b) c.x.coerceIn(least, b) else c.x.coerceIn(b, a)
-        return c.copy(x = x, y = offset(c.y, panBounds.y, panBounds.bottom, home.y, viewport.height, bottomInset / c.zoom))
+        val room = panViewport ?: return c.copy(x = x,
+            y = offset(c.y, panBounds.y, panBounds.bottom, home.y, viewport.height, bottomInset / c.zoom))
+        // TBL-238: anywhere the viewport's limits allow, and also anywhere the taller room's would: small content may then lie
+        // under the hands' large cards; content taller than both keeps the viewport's limits (it covers the room anyway)
+        fun align(world: Float, screen: Float) = world - home.y - (screen - viewport.center.y) / c.zoom
+        val top = align(panBounds.y, viewport.y); val bottom = align(panBounds.bottom, viewport.bottom)
+        val roomTop = align(panBounds.y, room.y); val roomBottom = align(panBounds.bottom, room.bottom)
+        return c.copy(x = x, y = c.y.coerceIn(minOf(top, bottom, roomTop, roomBottom),
+            maxOf(top, bottom, roomTop, roomBottom, bottom + bottomInset / c.zoom)))
     }
     /** This world with [inset] dp more room to pan up (D2: an open panel's height). */
     fun withBottomInset(inset: Float) = if (inset == bottomInset) this else copy(bottomInset = inset.coerceAtLeast(0f))
@@ -180,6 +194,9 @@ data class TableItem(
     val faceId: String? = null, val changedPowerToughness: Boolean = false, val frontTypeLine: String = typeLine,
     val damage: String = "",
     val touchBounds: TableBounds? = null,
+    /** HAND only (TBL-238): in landscape with hand cards taller than the bar, the part of the hand row in its bar: only it is
+     * drawn as the row and takes touches as the row; above it the battlefields are seen and touched between the cards. */
+    val handBand: TableBounds? = null,
     /** A player's Temp pile: a LIBRARY-zone pile that is never that player's Library. */
     val temp: Boolean = false,
     /** The Temp pile's number 1..4 (0 for every other item); an empty pile may not exist yet (placeholder). */
@@ -342,8 +359,9 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     fun glowScale(item: TableItem): Float =
         if (!desktop) 1f else (minOf(item.bounds.width, item.bounds.height) / 28f).coerceAtLeast(1f)
     /** The battlefields' part of the screen that centred things lie in (the review dim, a play shown, the centre texts): on
-     * the desktop table above what floats over their bottom (WEB-015), elsewhere all they show. */
-    val boardArea: TableBounds? get() = world?.let { if (desktop) it.viewport else it.visibleViewport }
+     * the desktop table above what floats over their bottom (WEB-015), elsewhere all they show clear of the hands' large cards
+     * (TBL-238). */
+    val boardArea: TableBounds? get() = world?.let { if (desktop) it.viewport else it.clearOfHands }
     /** TBL-053: the group of the battlefield card [cardId], null for a card in no group. */
     fun groupOf(cardId: String?): BattlefieldGroup? = cardId?.let { id -> battlefieldGroups.firstOrNull { id in it.members } }
     fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
@@ -361,8 +379,16 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
             return items.lastOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD &&
                 it.viewport == stack.viewport && it.visible.any { bounds -> bounds.contains(point) } } ?: stack
         }
-        return items.asReversed().firstOrNull { item -> !item.leaving && (item.visible.any { it.contains(point) } || item.touchBounds?.contains(point) == true) }
+        // TBL-238: a landscape hand row with large cards is touched only in its bar: above it a touch between the cards reaches
+        // the battlefield under them
+        return items.asReversed().firstOrNull { item -> !item.leaving && item.ownsTouch(point) &&
+            (item.visible.any { it.contains(point) } || item.touchBounds?.contains(point) == true) }
     }
+    /** TBL-238: the hand row whose own room holds [point] (the row in its bar, [TableItem.handBand]), or whose card is drawn
+     * there; null elsewhere. */
+    fun handAt(point: TablePoint): TableItem? = items.firstOrNull { hand -> hand.kind == TableItemKind.HAND && hand.bounds.contains(point) &&
+        (hand.ownsTouch(point) || items.any { it.kind == TableItemKind.CARD && it.viewport == hand.viewport && !it.leaving &&
+            it.visible.any { part -> part.contains(point) } }) }
     fun rectangle(bounds: TableBounds): Set<String> = items.filter { it.kind == TableItemKind.CARD &&
         it.visible.any { part -> part.intersection(bounds) != null } }.mapNotNull { it.cardId }.toSet()
     fun viewport(point: TablePoint) = viewports.firstOrNull { it.bounds.contains(point) }
@@ -371,7 +397,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
         cardPanels.firstOrNull { it.bounds.contains(point) }?.let { return it.viewport.id }
         if (stackRegion?.contains(point) == true || items.any { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) })
             return items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.viewport
-        items.firstOrNull { it.kind == TableItemKind.HAND && it.bounds.contains(point) }?.let { return it.viewport }
+        handAt(point)?.let { return it.viewport }
         if (worldInput(point)) return WORLD_PAN_REGION
         return viewports.firstOrNull { it.bounds.contains(point) && (it.maxScroll > 0 || it.maxScrollY > 0) }?.id
             ?: viewport(point)?.id
@@ -383,6 +409,8 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
 }
 
 val TableItem.stackBadge get() = countBadge ?: TableBounds(bounds.x, bounds.y, 20f, 20f)
+/** TBL-238: whether a touch at [point] may be this item's: a hand row with a [TableItem.handBand] only there. */
+fun TableItem.ownsTouch(point: TablePoint) = handBand?.contains(point) ?: true
 /** The smaller special-pile bubble straddles the card's top-left corner in either layout. */
 val TableItem.pileCountBubble get() = pileCountBubble(1f)
 /** [pileCountBubble] [scale] times as large (a desktop seat header's, [DesktopTable.PILE_BADGE]). */
@@ -612,11 +640,22 @@ object TablePresentation {
         // width, with no margin at its sides, and in landscape up to both bars; the battlefields are still laid out, opened on,
         // fitted and pan-limited in [worldViewport], so nothing lies anywhere else. WEB-015: on the desktop table from the top
         // row down to the window's bottom (the timeline strip)
-        val shownViewport = when {
+        val clearViewport = when {
             desktop != null -> TableBounds(0f, 0f, tableRight, floorY.coerceAtLeast(worldViewport.bottom))
             landscape -> TableBounds(0f, worldTop - BOARD_MARGIN, tableRight, worldViewport.height + 2 * BOARD_MARGIN)
             else -> worldViewport.copy(x = 0f, width = tableRight)
         }
+        // TBL-238 (owner 2026-11-24): in landscape with hand cards taller than the bar the battlefields are seen under them too,
+        // from the top bar down to the bottom bar, the hands' cards drawn over them; only a hand row's part in its bar stays the
+        // row ([TableItem.handBand]). They are laid out, opened on and fitted where they were ([worldViewport]); what is centred
+        // or docked on them keeps to [clearViewport], and they may also be panned under the hand cards, up to [BOARD_MARGIN] from
+        // the bars ([TableWorld.panViewport])
+        val largeHands = landscape && desktop == null && handHeight > hudHeight
+        val barTop = height - controlsHeight
+        val shownViewport = if (!largeHands) clearViewport
+            else TableBounds(0f, HEADER, tableRight, (barTop - HEADER).coerceAtLeast(clearViewport.height))
+        val panViewport = if (!largeHands) null else TableBounds(worldViewport.x, HEADER + BOARD_MARGIN, worldViewport.width,
+            (barTop - HEADER - 2 * BOARD_MARGIN).coerceAtLeast(worldViewport.height))
         // WEB-016: how much of the battlefields' left the seat boxes take, and the battlefields' width right of them (at 1×)
         val boxInset = (boxesRight - worldViewport.x).coerceIn(0f, (worldViewport.width - 1f).coerceAtLeast(0f))
         val boardWidth = worldViewport.width - boxInset
@@ -673,7 +712,8 @@ object TablePresentation {
         // Empty columns are navigable without making Fit table zoom out to include unused space.
         val world = TableWorld(worldViewport, contentBounds,
             contentBounds.copy(x = worldLeft - 3 * columnPitch, width = contentBounds.width + 6 * columnPitch),
-            clipViewport = shownViewport, leftInset = boxInset)
+            clipViewport = shownViewport, leftInset = boxInset, clearViewport = clearViewport.takeIf { largeHands },
+            panViewport = panViewport)
         // Gestures own resistance/settling. Do not hard-clamp away their overscroll animation here.
         // TBL-121: [landscapeHome] (the table screen): an untouched camera in landscape opens on the whole height
         val camera = if (opening) world.landscapeHome() else world.normalize(ui.camera)
@@ -821,6 +861,11 @@ object TablePresentation {
                 TableBounds(left, height - 4f - ownHandHeight, (width - Landscape.controls(width) - left).coerceAtLeast(handWidth), ownHandHeight)
             } else TableBounds(8f, ownDockY - railHeight, (width - 16f).coerceAtLeast(28f), railHeight)
             val handBounds = normalHandBounds
+            // TBL-238: with large hand cards in landscape only the row's part in its bar is the row; its cards stand over the
+            // battlefields above (the other player's below) it
+            val handBand = if (!largeHands) null
+                else if (ownSide) handBounds.copy(y = barTop, height = (handBounds.bottom - barTop).coerceAtLeast(0f))
+                else handBounds.copy(height = (HEADER - handBounds.y).coerceAtLeast(0f))
             val handLabel = "${name(player.accountId)} Hand, ${hand.cards.size} cards"
             if (desktop != null && ownSide) {
                 // WEB-015 (owner playtest 2026-11-15: "in a fan shape with hovered card rendering always over others"): your hand
@@ -900,7 +945,8 @@ object TablePresentation {
             val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll - pulled
             items += TableItem(hand.id, handBounds, handLabel, hand.cards.size.toString(),
                 player.accountId, PlayZone.HAND, hand.cards, TableItemKind.HAND, hp.id,
-                handDivider = if (dividerGap > 0f) start + hand.cards.size * (handWidth + 4f) - 4f + HAND_ROW_DIVIDER / 2 else null)
+                handDivider = if (dividerGap > 0f) start + hand.cards.size * (handWidth + 4f) - 4f + HAND_ROW_DIVIDER / 2 else null,
+                handBand = handBand)
             hand.cards.forEachIndexed { n, id -> byId[id]?.let { c ->
                 // ZON-079: the raised card sits a quarter of its height higher
                 val raised = ownSide && !reviewing && id == ui.raised

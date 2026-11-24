@@ -154,7 +154,7 @@ fun DeclaringChip(scene: TableScene, declaring: CombatDeclaring?, level: State<F
     val shown = declaring ?: last ?: return
     val on by remember(level) { derivedStateOf { level.value > 0f } }
     if (!on) return
-    val world = scene.world?.visibleViewport ?: return
+    val world = scene.world?.clearOfHands ?: return // TBL-238: clear of the hands' large cards
     // WEB-015: on the desktop table the battlefields end where the bottom band (your seat, hand and action area) begins
     val area = desktop?.let { g -> world.copy(height = (minOf(world.bottom, g.seatTop) - world.y).coerceAtLeast(0f)) } ?: world
     // On the desktop table the event text sits at the battlefields' top centre (WEB-020): the chip goes under it

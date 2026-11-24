@@ -108,8 +108,10 @@ class EngineWorkCountTest {
         }
         // Problem report WGEG3N (CR 700.13): the Spark at Bob's Brute is a crime, decided as it goes on the Stack from the controller
         // its target has then (layer 2): the layer runs for that view (747 to 749), and the
-        // stored crime marker, 17 bytes in its event and in the checkpoint's log (26,754 to 26,771 and 172,631 to 172,648)
-        assertWork(Work(layers = 749, copies = 1_008, searches = 12, eventBytes = 26_771, checkpointBytes = 172_648), work)
+        // stored crime marker, 17 bytes in its event and in the checkpoint's log (26,754 to 26,771 and 172,631 to 172,648).
+        // CR 106.3 (SNC fixes 4): each mana keeps its source as it was when it made the mana (ManaUnit.sourceThen, the cast's
+        // CastFacts.manaSourcesThen), the Mountain's characteristics in its events and checkpoint (26,771 to 27,805, 172,648 to 173,551)
+        assertWork(Work(layers = 749, copies = 1_008, searches = 12, eventBytes = 27_805, checkpointBytes = 173_551), work)
     }
 
     // MassDeathTriggersScenariosTest's 30-creature board wipe: Alice with four Plains, a Ledger of Debts and 15 creatures,
@@ -144,6 +146,8 @@ class EngineWorkCountTest {
             assertEquals(10, s.player(PlayerId(board.b)).life)
             assertEquals(70, s.player(a).life)
         }
-        assertWork(Work(layers = 599, copies = 728, searches = 67, eventBytes = 362_348, checkpointBytes = 298_518), work)
+        // CR 106.3 (SNC fixes 4): the four Plains' characteristics kept with their mana and in the wipe's cast facts
+        // (ManaUnit.sourceThen, CastFacts.manaSourcesThen): 362,348 to 366,092 and 298,518 to 301,814
+        assertWork(Work(layers = 599, copies = 728, searches = 67, eventBytes = 366_092, checkpointBytes = 301_814), work)
     }
 }

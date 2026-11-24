@@ -63,6 +63,14 @@ internal class Sentences(
 
     /** Lines that are more than one ability. */
     fun multi(line: String): List<Ability>? {
+        // snc fixes: "Casualty X. The copy isn't legendary and has starting loyalty X." (CR 702.153a, 107.3, 707.9b): X is the power of the
+        // creature sacrificed
+        Snc.CASUALTY_X.matchEntire(line)?.let { m ->
+            val x = Value.Of(arcanum.api.NumericProperty.Power, Objects.Bound(arcanum.api.KeywordExpansions.CASUALTY_SACRIFICED), arcanum.api.Combine.Single)
+            return listOf(arcanum.api.Keyword.CasualtyX(listOfNotNull(
+                arcanum.api.CopyException.Types(removeSupertypes = listOf(Supertype.Legendary)).takeIf { m.groupValues[1].isNotEmpty() },
+                arcanum.api.CopyException.Loyalty(x).takeIf { m.groupValues[2].isNotEmpty() })))
+        }
         mh2Multi(line)?.let { return it } // mh2
         mh3Multi(line)?.let { return it } // mh3
         tdmMulti(line)?.let { return it } // tdm

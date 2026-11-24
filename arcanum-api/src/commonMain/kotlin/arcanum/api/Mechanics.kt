@@ -722,6 +722,10 @@ sealed interface CopyException {
     /** "… and its power and toughness are equal to this creature's power and toughness": the entering object's own power and
      * toughness (its prototype's when cast prototyped, CR 719.3b), fixed as it enters as a copy (CR 707.9b, 614.12). */
     @Serializable @SerialName("own-pt") data object OwnPowerToughness : CopyException
+    // snc fixes
+    /** "… and has starting loyalty X": the copy's printed loyalty (CR 707.9b, 306.5b), [loyalty] worked out as the copy is made and kept
+     * fixed. */
+    @Serializable @SerialName("loyalty") data class Loyalty(val loyalty: Value) : CopyException
 }
 
 /** Other ways to pay a spell's mana. */

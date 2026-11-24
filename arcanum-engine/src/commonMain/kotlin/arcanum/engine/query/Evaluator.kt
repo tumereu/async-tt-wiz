@@ -181,7 +181,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ?: ctx.self?.let { s -> state.stackItems[s]?.targets?.get(objects.slot)?.filterIsInstance<TargetRef.Object>()?.map { it.id } }.orEmpty()
         // spm: a name a keyword's cost made for the spell is kept by the permanent it became ("the returned creature")
         is Objects.Bound -> boundObjects(ctx.names[objects.name]
-            ?: selfMemory(objects.name).takeIf { objects.name in arcanum.api.KeywordExpansions.COST_NAMES })
+            ?: selfMemory(objects.name).takeIf { objects.name in arcanum.api.KeywordExpansions.COST_NAMES }
+            // snc fixes: and, for a spell's own triggered ability while it is on the Stack ("When you cast this spell"), the spell's
+            ?: ctx.self?.takeIf { objects.name in arcanum.api.KeywordExpansions.COST_NAMES }?.let { state.stackItems[it]?.names?.get(objects.name) })
         is Objects.Remembered -> boundObjects(selfMemory(objects.key))
         // inr chunk 05: an effect that outlasts its trigger finds the event's objects by name ("it doesn't untap during its controller's
         // next untap step" after an attack trigger)

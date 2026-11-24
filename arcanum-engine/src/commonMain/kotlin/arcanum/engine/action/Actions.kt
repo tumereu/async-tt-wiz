@@ -1192,7 +1192,15 @@ internal object Actions {
             val enters = Replacements.candidates(act, cause).filter { r ->
                 Replacements.matches(act, r, Change.Created(listOf(Placed(t, 0))), proposedBoard()).isNotEmpty()
             }
-            var o = t.copy(counters = withCounters.filter { it.second > 0 }.map { (kind, n) -> CounterEntry(kind, n, t.timestamp) })
+            // snc fixes: a planeswalker or battle token enters with its printed loyalty or defense too (CR 306.5b, 310.4b, 111.10: the copy
+            // of a planeswalker spell becoming a token)
+            val printed = t.definition.faces.getOrNull(t.face)?.let { f ->
+                listOfNotNull(
+                    (f.loyalty as? arcanum.api.PrintedNumber.Fixed)?.value?.takeIf { CardType.Planeswalker in f.types && it > 0 }?.let { CounterKind.Loyalty to it },
+                    (f.defense as? arcanum.api.PrintedNumber.Fixed)?.value?.takeIf { CardType.Battle in f.types && it > 0 }?.let { CounterKind.Defense to it })
+            }.orEmpty()
+            var o = t.copy(counters = (printed + withCounters).filter { it.second > 0 }.groupBy({ it.first }, { it.second })
+                .map { (kind, ns) -> CounterEntry(kind, ns.sum(), t.timestamp) })
             // mh3 sweep: and the token's own "enters with" replacements, as it will exist (a copy of a creature with "This creature enters with
             // two +1/+1 counters on it", CR 614.12, 111.10)
             val own = t.definition.faces.getOrNull(t.face)?.let { ownEntering(it) }.orEmpty().filter { !it.optional }.map { r ->

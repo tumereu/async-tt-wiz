@@ -1,0 +1,1 @@
+fix: A spell that can target a spell, a permanent or a card in a graveyard now works when it targets a spell.

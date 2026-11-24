@@ -22,6 +22,10 @@ class SncFixesScenariosTest {
     private val wither = Cards.invent("SncFix Withering Whisper", "{B}", "Instant", "Target creature gets -1/-1 until end of turn.")
     private val bear = Cards.invent("SncFix Alley Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val cub = Cards.invent("SncFix Alley Cub", "{G}", "Creature — Bear", "", "1/1")
+    private val adversary = Cards.invent("SncFix Ob Vexilis, the Contrarian", "{1}{B}{R}", "Legendary Planeswalker — Nixilis", """
+        Casualty X. The copy isn't legendary and has starting loyalty X. (As you cast this spell, you may sacrifice a creature with power X. When you do, copy this spell. The copy becomes a token.)
+        [+1]: You gain 2 life.
+    """, loyalty = "3")
     private val goad = Cards.invent("SncFix Taunting Heckle", "{R}", "Instant", "Target creature attacks during its controller's next combat phase if able.")
     private val detour = Cards.invent("SncFix Endless Roundabout", "{G}{W}{U}", "Instant",
         "The owner of target spell, nonland permanent, or card in a graveyard puts it on their choice of the top or bottom of their library.")
@@ -171,5 +175,23 @@ class SncFixesScenariosTest {
         bob.attacks(bear, defender = "carol")
         advanceTo(TurnStep.EndOfCombat)
         expect { bear lacksMechanic { it is arcanum.api.Mechanic.MustAttack } }
+    }
+
+    // CR 702.153a, 107.3, 707.9b, 707.10c, 306.5b: sacrificing a 2/2 for casualty X makes X 2; the copy becomes a token that isn't legendary
+    // (no legend rule, CR 704.5j) and enters with two loyalty counters, the original with its printed three
+    @Test
+    fun casualtyXCopyIsANonlegendaryTokenWithLoyaltyX() = scenario {
+        alice.battlefield(bear, "Swamp", "Mountain", "Mountain")
+        alice.hand(adversary)
+        alice.casts(adversary, kicked = 1, choosing = listOf(bear))
+        resolveAll()
+        val walkers = state.battlefield.filter { state.obj(it)?.definition?.faces?.first()?.name == adversary }
+        expect {
+            alice.graveyard has bear
+            walkers.size shouldBe 2
+            walkers.map { state.obj(it)!!.counters(CounterKind.Loyalty) }.sorted() shouldBe listOf(2, 3)
+            walkers.count { state.obj(it)!!.token } shouldBe 1
+            walkers.count { id -> arcanum.engine.Engine.view(state)[id]?.characteristics?.supertypes.orEmpty().contains(arcanum.api.Supertype.Legendary) } shouldBe 1
+        }
     }
 }

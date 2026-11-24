@@ -636,6 +636,13 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "casualty"; override val text: String get() = "Casualty"; override val rule: String get() = "702.153" }
     }
+    // snc fixes
+    /** Casualty X (CR 702.153a, 107.3): "As an additional cost to cast this spell, you may sacrifice a creature with power X", X being the
+     * sacrificed creature's power, and the casualty copy with [copyExcept] ("The copy isn't legendary and has starting loyalty X", CR 707.9b,
+     * 707.10); in them X is the power of the creature sacrificed ([KeywordExpansions.CASUALTY_SACRIFICED]). Its kind is [Casualty]'s. */
+    @Serializable @SerialName("casualty-x") data class CasualtyX(val copyExcept: List<CopyException> = emptyList()) : Keyword {
+        override val kind: KeywordKind get() = Casualty.Kind
+    }
     /** Toxic (CR 702.164) */
     @Serializable @SerialName("toxic") data class Toxic(override val amount: Int) : Keyword, HasAmount {
         init { requireAmount(amount) }

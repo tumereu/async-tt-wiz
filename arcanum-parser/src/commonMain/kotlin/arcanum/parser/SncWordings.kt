@@ -64,6 +64,8 @@ internal object Snc {
     val NEXT_DRAW_INSTEAD_EXILE_TOP_MAY_PLAY = Regex("""The next time they would draw a card this turn, instead they exile the top card of their library\. They may play (?:it|that card) this turn\.""")
     // snc chunk 09: "Creatures you control also get +1/+0 and have trample as long as you control six or more creatures."
     val ALSO_GET_AS_LONG_AS = Regex("""(.+? you control) also (get .+ as long as .+\.)""")
+    // snc fixes: "Casualty X. The copy isn't legendary and has starting loyalty X."
+    val CASUALTY_X = Regex("""Casualty X\.(?: The copy (isn't legendary)?(?: and )?(has starting loyalty X)?\.)?""")
     // snc chunk 09: "Put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control."
     val PUT_COUNTERS_ON_EACH_AND_EACH = Regex("""[Pp]ut (an? \S+ counter on each .+?) and (an? \S+ counter on each .+)\.""")
     // snc chunk 09: "When it deals excess damage this way, destroy target artifact or enchantment an opponent controls with mana value less than or

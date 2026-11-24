@@ -116,7 +116,8 @@ internal object Steps {
         val act = scope.act
         when (step) {
             is Step.Do -> {
-                Effects.perform(scope, step.effect)
+                // snc: the counters one instruction puts on several objects are one event (CR 122.6, 603.2c)
+                act.recorder.countersTogether { Effects.perform(scope, step.effect) }
                 // hob: names the spell's own replacement bound as this effect's event was replaced (CR 614.15)
                 if (act.ownInsteadBinds.isNotEmpty()) {
                     act.ownInsteadBinds.forEach { (name, value) -> scope.bind(name, value) }
@@ -124,7 +125,7 @@ internal object Steps {
                 }
             }
             // CR 608.2c: the steps' zone changes happen at once
-            is Step.Simultaneously -> together(scope) { run(scope, step.steps) }
+            is Step.Simultaneously -> act.recorder.countersTogether { together(scope) { run(scope, step.steps) } }
             is Step.Bind -> scope.bind(step.bind, NamedValue.Objects(scope.objects(step.objects)))
             is Step.Pay -> pay(scope, step)
             is Step.Modify -> modify(scope, step.modification)

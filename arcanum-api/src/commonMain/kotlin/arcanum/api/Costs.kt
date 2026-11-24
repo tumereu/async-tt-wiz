@@ -68,6 +68,9 @@ sealed interface CostPart {
     /** Tap untapped objects you control: [what] chooses them (crew: any number with total power N or more, through
      * [CostObjects.Choose.total]; crew taps other creatures, so its filter excludes the source, CR 702.122a). */
     @Serializable @SerialName("tap-objects") data class TapObjects(val what: CostObjects, val bind: String? = null) : CostPart
+    // snc
+    /** Untap tapped objects you control: [what] chooses them ("Untap two tapped creatures you control", CR 118.3, 701.26). */
+    @Serializable @SerialName("untap-objects") data class UntapObjects(val what: CostObjects) : CostPart
     @Serializable @SerialName("sacrifice") data class Sacrifice(val what: CostObjects, val preBind: String? = null, val postBind: String? = null) : CostPart
     @Serializable @SerialName("discard") data class Discard(
         val what: CostObjects, val random: Boolean = false, val preBind: String? = null, val postBind: String? = null,

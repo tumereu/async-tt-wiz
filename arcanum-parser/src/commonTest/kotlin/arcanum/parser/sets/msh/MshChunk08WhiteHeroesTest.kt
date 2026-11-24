@@ -163,7 +163,7 @@ class MshChunk08WhiteHeroesTest {
         pt = "2/5",
     ) parsesTo abilities(
         Keyword.Lifelink,
-        triggered(arcanum.api.Trigger.On(EventPattern.CountersPut(and(another, hero, you), p1p1, causedBy = byYou), oneOrMore = true),
+        triggered(arcanum.api.Trigger.On(listOf(EventPattern.CountersPut(and(another, hero, you), p1p1, causedBy = byYou)), oneOrMore = true, acrossHolders = true),
             Step.May(listOf(create(creatureToken("Wall", emptyList(), 0, 4, abilities = listOf(Keyword.Defender)))), player = Players.You)),
     )
 

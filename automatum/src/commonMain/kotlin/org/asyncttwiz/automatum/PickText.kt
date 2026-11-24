@@ -117,6 +117,7 @@ data class PickText(val parts: List<Part>, val roles: List<Pair<TargetRef, Strin
         fun costRole(part: CostPart): String = when (part) {
             is CostPart.Sacrifice -> "Sacrificed"
             is CostPart.TapObjects -> "Tapped"
+            is CostPart.UntapObjects -> "Untapped"
             is CostPart.ReturnToHand -> "Returned"
             is CostPart.Exile -> "Exiled"
             is CostPart.Discard -> "Discarded"

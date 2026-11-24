@@ -70,6 +70,7 @@ internal object Applier {
                 check(o.face == change.before) { "Face of ${change.id} isn't ${change.before}" }
                 o.copy(face = change.after)
             }
+            is Change.Simultaneous -> change.parts.forEach { applyState(state, it) }
             is Change.Counters -> {
                 change.after?.let { stamp(state, it.timestamp) }
                 when (val holder = change.holder) {

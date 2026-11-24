@@ -2,6 +2,9 @@ package arcanum.parser
 
 /** Regular expressions of Streets of New Capenna (snc) wordings read in [Sentences]. */
 internal object Snc {
+    // snc fixes: "exile any number of other target creatures controlled by different players until Lagrella leaves the battlefield. When an
+    // exiled card enters under your control this way, put two +1/+1 counters on it."
+    val EXILE_DIFFERENT_PLAYERS_UNTIL_LEAVES_WHEN_RETURNS = Regex("""[Ee]xile any number of other target (.+?) controlled by different players until (.+?) leaves the battlefield\. When an exiled card enters under your control this way, (.+\.)""")
     // snc chunk 01: "Look at the top card of your library. You may play a land from the top of your library or cast a spell with mana value
     // less than or equal to the damage dealt from the top of your library without paying its mana cost. If you don't, put that card into your hand."
     val LOOK_PLAY_OR_CAST_UP_TO_DAMAGE_ELSE_HAND = Regex("""[Ll]ook at the top card of your library\. You may play a land from the top of your library or cast a spell with mana value less than or equal to the damage dealt from the top of your library without paying its mana cost\. If you don't, put that card into your hand\.""")
@@ -77,4 +80,7 @@ internal object Snc {
     // snc chunk 09: "Exile an instant or sorcery card at random from your graveyard. Then copy each card exiled with this enchantment. You may cast any
     // number of the copies without paying their mana costs."
     val EXILE_RANDOM_COPY_EACH_EXILED_WITH_CAST = Regex("""Exile an? (.+?) card at random from your graveyard\. Then copy each card exiled with (.+?)\. You may cast any number of the copies without paying their mana costs\.""")
+    // snc fixes: "Once each turn, you may play a card from exile with a collection counter on it if it was exiled by an ability you controlled, and you
+    // may spend mana as though it were mana of any color to cast it."
+    val ONCE_PLAY_FROM_EXILE_WITH_COUNTER = Regex("""Once (during each of your turns|each turn), you may (play|cast) (an? .+?) from exile(?: with an? (\S+) counter on it)?( if it was exiled by an ability you controlled)?(, and you may spend mana as though it were mana of any (?:color|type) to cast (?:it|that spell))?\.""")
 }

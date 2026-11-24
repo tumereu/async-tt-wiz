@@ -1830,7 +1830,9 @@ internal class Sentences(
                 "it's not your turn" -> arcanum.api.Condition.Not(arcanum.api.Condition.YourTurn)
                 else -> Conditions.condition(c, self) ?: return null
             }
-            return Ability.Static(listOf(Mechanic.AlternativeCost(cost = Cost(parts))), condition = condition, affects = Affected.Objects(Objects.Self))
+            // snc fixes: "Spend only mana produced by Treasures to cast it this way." (the source of the mana, CR 106.3)
+            val manaFrom = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null }
+            return Ability.Static(listOf(Mechanic.AlternativeCost(cost = Cost(parts), manaFrom = manaFrom)), condition = condition, affects = Affected.Objects(Objects.Self))
         }
         if (line == "This spell can't be countered.") return Ability.Static(listOf(Mechanic.CantBeCountered), affects = Affected.Objects(Objects.Self))
         // "If X is 5 or more, this spell can't be countered and the damage can't be prevented." (CR 107.3m, 615.12); rvr chunk 02: any condition
@@ -6556,6 +6558,11 @@ internal class Sentences(
             }
             return listOf(Step.Do(Effect.DealDamage(to, amount, source = source)))
         }
+        return effectRulesRest(sentence, context)
+    }
+
+    /** The second half of [effectRules], in the same order (split for the JVM's method size limit): its returns are [effectRules]'s. */
+    private fun effectRulesRest(sentence: String, context: Context): List<Step>? {
         // chunk 35: "Return to your hand target artifact card in your graveyard with lesser mana value." (lesser than the
         // object of the trigger event, as it last existed, CR 603.10a)
         RETURN_TO_HAND_WITH_LESSER_MANA_VALUE.matchEntire(sentence)?.let { m ->
@@ -13823,7 +13830,7 @@ internal class Sentences(
             "power-up" to arcanum.api.AbilityLabel.PowerUp,
             // mh2 chunk 02: CR 702.57
             "forecast" to arcanum.api.AbilityLabel.Forecast)
-        val ALTERNATIVE_COST = Regex("""(?:If (.+?), )?[Yy]ou may (.+?) rather than pay this spell's mana cost(?: if (.+?))?\.""")
+        val ALTERNATIVE_COST = Regex("""(?:If (.+?), )?[Yy]ou may (.+?) rather than pay this spell's mana cost(?: if (.+?))?\.(?: Spend only mana produced by (.+?) to cast it this way\.)?""")
         val IF_UNCOUNTERABLE_AND_UNPREVENTABLE = Regex("""If (.+), this spell can't be countered and the damage can't be prevented\.""")
         val X_AT_LEAST = Regex("""X is (\d+) or more""")
         val ADDITIONAL_COST = Regex("""As an additional cost to cast this spell, (.+)\.""")

@@ -148,7 +148,7 @@ internal object Payment {
                     ?: refuse("$id can't pay that way")
             }
         }
-        val payers = Mana.poolPayers(board, player, plan.itemId, funds, plan.manaAsAnyColor, xCost = plan.total.hasX) + specialPayers
+        val payers = Mana.poolPayers(board, player, plan.itemId, funds, plan.manaAsAnyColor, xCost = plan.total.hasX, manaFrom = plan.manaFrom) + specialPayers
         if (Mana.leastMana(cost, lifeFor) > payers.size) refuse("That doesn't pay $cost")
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         // CR 107.4f, 119.4: 2 life for each Phyrexian symbol paid with life, only with that much life
@@ -201,7 +201,7 @@ internal object Payment {
         val funds = activateAll(act, player, uses, chosenPool, Mana.needs(cost, lifeFor))
         val poolNow = recorder.state.player(player).manaPool
         val board = spell?.let { Plan(recorder.state, it.c).snap } ?: recorder.snapshot()
-        val payers = Mana.poolPayers(board, player, spell?.itemId, funds, xCost = xCost)
+        val payers = Mana.poolPayers(board, player, spell?.itemId, funds, xCost = xCost, manaFrom = spell?.manaFrom)
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         if (lifeFor.isNotEmpty()) {
             val life = 2 * lifeFor.size
@@ -268,7 +268,7 @@ internal object Payment {
             val plan = Plan(recorder.state, c)
             val q = plan.next() ?: return Readied(c, null)
             plan.blocker(q)?.let { refuse(it) }
-            if (q is Question.Pay) return if (Mana.assign(Mana.needs(q.cost), Mana.poolPayers(plan.snap, player, plan.itemId, funds, plan.manaAsAnyColor, xCost = plan.total.hasX)) != null) Readied(c, q.cost) else null
+            if (q is Question.Pay) return if (Mana.assign(Mana.needs(q.cost), Mana.poolPayers(plan.snap, player, plan.itemId, funds, plan.manaAsAnyColor, xCost = plan.total.hasX, manaFrom = plan.manaFrom)) != null) Readied(c, q.cost) else null
             val answer = next(queue, q) ?: Answers.automatic(plan, q) ?: (q as? Question.ManaColor)?.let { _ -> use.color?.let { Answer.ColorChoice(it) } }
                 ?: refuse("Say what ${use.source}'s mana ability asks: ${q.kind}")
             c = c.copy(choices = Answers.apply(plan, q, answer))

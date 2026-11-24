@@ -62,4 +62,16 @@ class SncFixesTest {
                     doing(Effect.ReflexiveTrigger(Instructions(steps = listOf(counters(Objects.Bound("it"), 2))))))))))),
             targets = listOf(slot("creature", and(another, creature), min = 0, max = null).copy(distinct = SharedQuality.Controller))),
     )
+
+    // CR 118.9 (an alternative cost), 106.3 (the source of mana): only mana produced by Treasures may pay it
+    @Test
+    fun securityRhox() = card(
+        name = "Vault Rhino",
+        cost = "{2}{R}{G}",
+        type = "Creature — Rhino Warrior",
+        pt = "5/4",
+        text = "You may pay {R}{G} rather than pay this spell's mana cost. Spend only mana produced by Treasures to cast it this way.",
+    ) parsesTo abilities(
+        static(Mechanic.AlternativeCost(cost = manaCost("{R}{G}"), manaFrom = sub("Treasure"))),
+    )
 }

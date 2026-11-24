@@ -10,6 +10,11 @@ import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
 import arcanum.engine.sets.blb.resolveAll
 import arcanum.engine.sets.dft.targets
+import arcanum.engine.sets.hob.ownAlternative
+import kotlin.test.assertFails
+import kotlin.test.assertTrue
+import arcanum.engine.Engine
+import arcanum.engine.input.Input
 import kotlin.test.Test
 
 /** Streets of New Capenna fixes in play: shield counters beside regeneration, damage marked and state-based actions. */
@@ -308,5 +313,49 @@ class SncFixesScenariosTest {
         alice.casts(magpie)
         resolveAll()
         kotlin.test.assertFailsWith<Throwable> { targets(bear, cub) }
+    }
+
+    private val rhox = Cards.invent("SncFix Vault Rhino", "{2}{R}{G}", "Creature — Rhino Warrior",
+        "You may pay {R}{G} rather than pay this spell's mana cost. Spend only mana produced by Treasures to cast it this way.", "5/4")
+    private val haul = Cards.invent("SncFix Vault Haul", "{B}", "Sorcery", "Create two Treasure tokens.")
+
+    /** Alice with a Mountain and a Forest, two Treasures made with a Swamp, and the Rhino in hand. */
+    private fun Scenario.landsAndTreasures() {
+        alice.battlefield("Mountain", "Forest", "Swamp")
+        alice.hand(haul, rhox)
+        alice.casts(haul, paying = listOf("Swamp"))
+        resolveAll()
+    }
+
+    // CR 106.3, 118.9, 601.2h: cast for its alternative cost, only mana whose source is a Treasure pays it; the suggestion uses the
+    // Treasures, leaving the lands untapped
+    @Test
+    fun securityRhoxAlternativeCostPaidWithTreasureMana() = scenario {
+        landsAndTreasures()
+        alice.casts(rhox, way = ownAlternative(rhox))
+        resolveAll()
+        expect {
+            alice.battlefield has rhox
+            alice.battlefield.names.count { it == "Treasure Token" } shouldBe 0
+            "Mountain".tapped shouldBe false
+            "Forest".tapped shouldBe false
+        }
+    }
+
+    // CR 106.3, 118.3: mana from a land can't pay the alternative cost, not even part of it
+    @Test
+    fun securityRhoxAlternativeCostRefusesOtherMana() = scenario {
+        landsAndTreasures()
+        assertFails { alice.casts(rhox, way = ownAlternative(rhox), paying = listOf("Treasure Token:R", "Forest")) }
+    }
+
+    // CR 118.3, 601.2h: with lands only, it can be cast for its mana cost but not for the alternative cost
+    @Test
+    fun securityRhoxAlternativeCostNeedsTreasures() = scenario {
+        alice.battlefield("Mountain", "Forest", "Forest", "Forest")
+        alice.hand(rhox)
+        val casts = Engine.options(state, alice.id).filterIsInstance<Input.Cast>().filter { it.card == card(rhox) }
+        assertTrue(casts.any { it.way.alternative == null })
+        assertTrue(casts.none { it.way == ownAlternative(rhox) })
     }
 }

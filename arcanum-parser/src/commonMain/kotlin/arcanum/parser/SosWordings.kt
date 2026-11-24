@@ -130,7 +130,7 @@ internal object Sos {
     val SACRIFICE_LANDS_SEARCH_BASICS = Regex("""Sacrifice (\w+) lands\. Search your library for (\w+) basic land cards, put them onto the battlefield tapped, then shuffle\.""")
     val TARGET_GETS_IF_CAST_ANOTHER_THEN_DEALS = Regex("""Target (.+?) gets ([+-]\d+)/([+-]\d+) until end of turn if you've cast another (.+?) spell this turn\. Then it deals damage equal to its power to up to one target (.+)\.""")
     val TARGET_PLAYER_DISCARDS_X = Regex("""Target player discards X cards\.""")
-    val ANOTHER_TARGET_COUNTER = Regex("""[Pp]ut an? (\S+) counter on another target (.+)\.""")
+    val ANOTHER_TARGET_COUNTER = Regex("""[Pp]ut (an?|\w+) (\S+) counters? on another target (.+)\.""")
     val THAT_PLAYER_MILLS = Regex("""[Tt]hat player mills (\w+) cards\.""")
     val PUT_COUNTER_ON_EACH_OF_THEM = Regex("""Put an? (\S+) counter on each of them\.""")
     val THAT_CREATURES_CONTROLLER_LOSES = Regex("""[Tt]hat creature's controller loses (\d+) life\.""")

@@ -74,7 +74,7 @@ internal object Otj {
     // choose new targets for the copy. When you lose the flip, Breeches deals damage equal to that spell's mana value to any target."
     val FLIP_WHEN_WIN_WHEN_LOSE = Regex("""(?:(You may .+?)\. If you do, f|F)lip a coin\. When you win the flip, (.+?) When you lose the flip, (.+)""")
     // otj chunk 06: Bonny Pall: "Create Beau, a legendary blue Ox creature token with "…"." (CR 111.4)
-    val CREATE_NAMED_LEGENDARY = Regex("""Create ([A-Z][a-z]+), a legendary (.+? token)( with .+)?\.""")
+    val CREATE_NAMED_LEGENDARY = Regex("""Create ([A-Z][a-z]+(?:'s [A-Z][a-z]+)?), a legendary (.+? token)( with .+)?\.""") // neo chunk 09: "Tamiyo's Notebook"
     // otj chunk 11: Laughing Jasper Flint, after exiling the top X cards of target opponent's library
     const val CAST_FROM_AMONG_THOSE_UNTIL_EOT_ANY_MANA =
         "Until end of turn, you may cast spells from among those cards, and mana of any type can be spent to cast those spells."

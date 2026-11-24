@@ -415,8 +415,9 @@ sealed interface Effect {
     // msh
     /** For each kind of counter on each of [recipients], give it another counter of that kind ("For each kind of counter on
      * target permanent or player, give that permanent or player another counter of that kind"; as proliferate does for
-     * each permanent and player chosen, CR 701.34a). */
-    @Serializable @SerialName("one-more-of-each-kind") data class OneMoreCounterOfEachKind(val recipients: Recipients) : Effect
+     * each permanent and player chosen, CR 701.34a). [orRemove] (neo chunk 09): for each kind, the controller chooses instead whether to put
+     * another counter of that kind or remove one ("put another counter of that kind on it or remove one from it", CR 122.1, 608.2d). */
+    @Serializable @SerialName("one-more-of-each-kind") data class OneMoreCounterOfEachKind(val recipients: Recipients, val orRemove: Boolean = false) : Effect
     // one
     /** The controller chooses a kind of counter on each of [recipients] and gives it another counter of that kind ("choose a counter on
      * target permanent. Put an additional counter of that kind on that permanent", CR 122.1, 122.6); one with no counters gets none. */

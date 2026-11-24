@@ -478,8 +478,9 @@ internal object Filters {
         }
         // gtc chunk 04: "creature with power less than or equal to the number of +1/+1 counters removed this way"
         // one chunk 10: also "with mana value less than or equal to the mana value of the discarded card"; mh3 chunk 12: "… to your devotion to black"
+        // neo chunk 09: "creature with mana value less than X" (X announced, CR 107.3a)
         GTC_WITH_POWER_AT_MOST_VALUE.matchEntire(phrase)?.let { m ->
-            val value = Values.value(m.groupValues[4]) ?: return null
+            val value = (if (m.groupValues[4] == "X") Value.Announced(name = "X") else Values.value(m.groupValues[4])) ?: return null
             val comparison = if (m.groupValues[3].isEmpty()) Comparison.Less else Comparison.AtMost
             return all(noun(m.groupValues[1]) ?: return null, when (m.groupValues[2]) {
                 "power" -> ObjectFilter.Power(comparison, value)

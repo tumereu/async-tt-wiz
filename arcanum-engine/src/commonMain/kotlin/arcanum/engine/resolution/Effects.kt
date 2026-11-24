@@ -569,7 +569,13 @@ internal object Effects {
                     is TargetRef.Object -> act.state.obj(ref.id)?.takeIf { it.zone == Zone.Battlefield }?.counters?.map { it.kind }.orEmpty()
                     is TargetRef.Player -> act.state.player(ref.id).counters.map { it.kind }
                 }
-                kinds.distinct().forEach { Actions.putCounters(act, cause, ref, it, 1) }
+                if (!effect.orRemove) kinds.distinct().forEach { Actions.putCounters(act, cause, ref, it, 1) }
+                // neo chunk 09: each kind on it as this resolves, its controller choosing for each: one more, or one fewer (CR 608.2d)
+                else kinds.distinct().forEach { k ->
+                    val put = "Put a ${counterLabel(k)} counter"
+                    val chosen = act.chooseOption(cause?.controller ?: act.state.turn.active, scope.self, listOf(put, "Remove a ${counterLabel(k)} counter"))
+                    if (chosen == put) Actions.putCounters(act, cause, ref, k, 1) else Actions.removeCounters(act, ref, k, 1)
+                }
             }
             // one: "choose a counter on target permanent. Put an additional counter of that kind on that permanent" (CR 122.1, 122.6)
             is Effect.OneMoreCounterOfChosenKind -> Actions.recipientsOf(scope.eval(), effect.recipients).forEach { ref ->

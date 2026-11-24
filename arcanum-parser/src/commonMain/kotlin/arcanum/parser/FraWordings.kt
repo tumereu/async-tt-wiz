@@ -83,7 +83,8 @@ internal object Fra {
     // effects
     val HE_SHE = Regex("""(?:He|She) ((?:gains|gets|has) .+)""")
     // otj chunk 06: "a tapped …", several quoted abilities ("… with "A" and "B".")
-    val CREATE_NAMED_NONCREATURE_TOKEN = Regex("""Create an? (tapped )?(colorless|\w+(?: and \w+)?) ([a-z]+(?: [a-z]+)?) token named ([A-Z][A-Za-z' ]+) with "(.+)"\.""")
+    // neo chunk 09: also subtypes and no name ('a colorless Book artifact token with "…" and "…"')
+    val CREATE_NAMED_NONCREATURE_TOKEN = Regex("""Create an? (tapped )?(colorless|\w+(?: and \w+)?) ((?:[A-Z][a-z]+ )*)([a-z]+(?: [a-z]+)?) token(?: named ([A-Z][A-Za-z' ]+))? with "(.+)"\.""")
     val THEY_CREATE = Regex("""They create (.+? tokens?)\.""")
     val COUNTER_ON_EACH_OF_TARGETS = Regex("""Put an? (\S+) counter on each of (\w+) or (\w+) target (.+)\.""")
     val PUT_COUNTER_ON_IT_IF = Regex("""Put an? (\S+) counter on it if it's an? (.+)\.""")
@@ -97,7 +98,7 @@ internal object Fra {
     val HAS_KEYWORD_AND_QUOTED = Regex("""it has (\w+) and "(.+)"""")
     val REVEAL_UNTIL = Regex("""Reveal cards from the top of your library until you reveal an? (.+?) card\.""")
     // otj chunk 11: "each of two other target creatures"; mom chunk 12: "another target creature, planeswalker, or battle"
-    val TARGET_DEALS_DAMAGE_EQUAL_TO_ITS = Regex("""Target (.+?) deals damage equal to its (power|loyalty) to (that permanent|(?:another )?target .+?|each of (\w+) other target (.+?))\.""")
+    val TARGET_DEALS_DAMAGE_EQUAL_TO_ITS = Regex("""Target (.+?) deals damage equal to its (power|loyalty) to (that permanent|(?:another )?target .+?|each of (\w+) (other )?target (.+?))\.""") // neo chunk 09: X, not other
     val TARGET_LOSES_ALL_ABILITIES = Regex("""Target (.+?) loses all abilities until end of turn\.""")
     val SEARCH_UP_TO_THAT_MANY = Regex("""(You may )?[Ss]earch your library for up to that many (.+?), put them onto the battlefield( tapped)?, then shuffle\.""")
     // bro chunk 06: also "gets -1/-1 and gains your choice of …"

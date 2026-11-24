@@ -60,6 +60,24 @@ internal object Neo {
     val CAST_UP_TO_TOTAL_MV_FROM_ZONES_FREE = Regex("""You may cast up to (\w+) (.+?) spells with total mana value (\d+) or less from your (graveyard|hand)(?: and/or (graveyard|hand))? without paying their mana costs\.""")
     val SPELLS_COST_FOR_EACH_TARGET = Regex("""Spells (you|your opponents) cast cost (\{\d+\}) (less|more) to cast for each target\.""")
     val WITH_MANA_VALUE_AT_MOST_THAT = Regex("""(.+?) with mana value less than or equal to that (?:[A-Z]\w+|creature|artifact|enchantment|permanent|card)(?: and (with .+))?""")
+    // neo chunk 09: "Whenever a Vehicle you control attacks" (the subtype a later "that Vehicle" names)
+    val WHENEVER_A_SUBTYPE = Regex("""^(?:(?:When|Whenever) )?an? ([A-Z][a-z]+) """)
+    // neo chunk 09: "If this spell's additional cost was paid, Voltage Surge deals 4 damage instead."
+    val IF_DEALS_AMOUNT_INSTEAD = Regex("""If (.+?), (.+?) deals (.+?) damage instead\.""")
+    // neo chunk 09: "X plus 2", "X minus one"
+    val PLUS_OR_MINUS = Regex("""(.+) (plus|minus) (\w+)""")
+    // neo chunk 09: "X minus one 2/2 white Samurai creature tokens with vigilance" (a count that isn't a plain number)
+    val COUNTED_TOKENS = Regex("""(X(?: (?:plus|minus) \w+)?) (.+ tokens(?: with .+)?)""")
+    // neo chunk 09: "Seismic Wave deals 2 damage to any target and 1 damage to each nonartifact creature target opponent controls."
+    val DEALS_N_TO_AND_M_TO = Regex("""(.+?) deals (\w+) damage to (.+?) and (\w+) damage to (.+)\.""")
+    // neo chunk 09: "It deals damage equal to … to target player and that much damage to up to one target creature."
+    val DEALS_EQUAL_TO_AND_THAT_MUCH_TO = Regex("""(.+? deals damage equal to .+? to .+?) and that much damage to (.+)\.""")
+    // neo chunk 09: "distribute four +1/+1 counters among any number of creatures and/or Vehicles target player controls"
+    val DISTRIBUTE_AMONG_TARGET_PLAYER_CONTROLS = Regex("""[Dd]istribute (\w+) (\S+) counters among any number of (.+?) target (player|opponent) controls\.""")
+    // neo chunk 09: "for each kind of counter on target permanent, put another counter of that kind on it or remove one from it."
+    val EACH_KIND_PUT_OR_REMOVE = Regex("""[Ff]or each kind of counter on target (.+?), put another counter of that kind on it or remove one from it\.""")
+    // neo chunk 09: "permanent that shares a card type with the chosen card"
+    val SHARES_CARD_TYPE_WITH_CHOSEN = Regex("""(.+?) that shares a card type with the chosen card""")
     val NEXT_SPELL_COSTS_LESS = Regex("""[Tt]he next (?:(.+?) )?spell you cast this turn costs ((?:\{[^}]+\})+) less to cast\.""")
 }
 

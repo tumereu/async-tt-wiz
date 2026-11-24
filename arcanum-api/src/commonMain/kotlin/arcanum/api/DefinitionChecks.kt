@@ -374,6 +374,9 @@ object DefinitionChecks {
                 is JsonArray -> element.forEach { visit(it, inMechanics = inMechanics) }
                 is JsonObject -> {
                     nameKeys.forEach { key -> element.string(key)?.let { named += it } }
+                    // neo chunk 05: an exile cost's kept cards are named by its key for the ability too, several exile parts adding up there
+                    // ("Exile this Vehicle and four other …", CR 607.2a)
+                    if (element.typeName() == "exile" && "what" in element && "from" in element) element.string("remember")?.let { named += it }
                     if (element.typeName() == null && "what" in element) element.string("name")?.let {
                         slots += it
                         if (element["divided"] != null) dividedSlots += it

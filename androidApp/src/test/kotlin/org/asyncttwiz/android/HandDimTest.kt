@@ -97,12 +97,20 @@ class HandDimTest {
         assertTrue(shake?.id == card && shake.reason.isNotBlank(), "the tap is taken: the card shakes, saying why: $shake")
     }
 
-    // ZON-095 (owner notes 2026-11-14): Alice's discard at her cleanup step is a choice about her hand cards: her hand stays lit
-    @Test fun aChoiceAboutHandCardsLeavesTheHandLit() {
+    // ZON-095, ZON-137 (owner notes 2026-11-14; report 8KK2M6, owner 2026-11-23): Alice's discard at her cleanup step is a
+    // choice about her hand cards, but nobody holds priority there: her hand row is dimmed and a tap on it does nothing (no
+    // shake); Bob's, waiting for her choice, too
+    @Test fun aDiscardWhileNobodyHoldsPriorityDimsTheHand() {
         val kit = EngineTableKit()
         kit.toAliceDiscard()
         render(kit)
         assertTrue(kit.toolkit.flows.answering != null, "Alice's discard open on her table")
-        assertFalse(kit.toolkit.handDimmed(kit.alice.play()), "a discard is about the hand: it stays lit")
+        assertTrue(kit.toolkit.nobodyHoldsPriority(kit.alice.play()), "nobody holds priority at the cleanup's discard")
+        assertTrue(kit.toolkit.handDimmed(kit.alice.play()), "her hand row dimmed")
+        val card = kit.atw(kit.state().player(kit.me).hand.first())
+        kit.tap(kit.item(card, PlayZone.HAND))
+        assertNull(kit.toolkit.shaking, "a tap does nothing")
+        kit.settle()
+        assertTrue(kit.bobToolkit.handDimmed(kit.bob.play()), "Bob's hand row dimmed while she chooses")
     }
 }

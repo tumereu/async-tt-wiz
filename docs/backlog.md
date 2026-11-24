@@ -10,12 +10,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-Owner's 0.3.2 review and playtest (2026-11-23), after the release:
-- Hand cards while nobody holds priority (report 8KK2M6): during a choice while something resolves, or any other point where nobody holds priority, your hand row is dimmed and a tap does nothing (no shake, no "Nobody holds priority now." bubble), as CMB-096 already does while you declare; holding still inspects (TBL-128, TBL-212, CMB-096).
-- A challenge from inside the pod you have open doesn't light that pod's hamburger (it shows in the pod's own Games list) (LOB-268, DRF-306).
-- Your own undo's fading "Undid: …" and its "library reshuffled" line go too, as the other player's did (HIS-168, HIS-236).
-- Reopening a game whose result waits for an OK: when its final board can't be loaded and the old result-over-the-lobby view shows instead, that's a fault: logged as an error with an automatic report (TRN-142), then fixed.
-- A real "Table changed: cast it again." refusal of your own cast is a fault: logged as an error with an automatic report, then its causes fixed.
 ### Earlier
 
 Desktop playtest notes (owner, 2026-11-14): high priority.

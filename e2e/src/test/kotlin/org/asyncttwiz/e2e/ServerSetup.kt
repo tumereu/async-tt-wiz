@@ -396,11 +396,20 @@ object ServerSetup {
         return Prepared(a, b, invitation, mapOf(a to aDeck, b to bDeck), starter, deal)
     }
 
+    /** A pod [name] of [a] and [b] whose draft has finished and both decks are submitted, and [a]'s challenge to [b] from it,
+     * not accepted yet (LOB-268). Returns the pod and the challenge. */
+    fun podChallenge(a: TestAccount, b: TestAccount, name: String): Pair<String, GameSummary> = runBlocking {
+        val pod = draftedPod(a, b, "$name pod")
+        for (who in listOf(a, b)) submitPodDeck(who, pod)
+        pod to lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name)) }
+    }
+
     /**
      * A pod game of [a] (the pod's creator, who challenges) and [b] from a finished draft of [draftingPod]: each picks the
      * first card of every pack, adds [mainPlains] Plains to Main (an unlimited sideboard: 17 of each basic in Side, DRF-104)
      * and submits; [a] challenges [b], who accepts. Returns the game, in its lobby (decks prepared from the pod decks).
      */
+
     fun podGame(a: TestAccount, b: TestAccount, name: String, mainPlains: Int = 40): GameSummary = runBlocking {
         val pod = draftedPod(a, b, "$name pod", mainPlains)
         for (who in listOf(a, b)) submitPodDeck(who, pod)

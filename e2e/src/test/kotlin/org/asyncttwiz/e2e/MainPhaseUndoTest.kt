@@ -71,7 +71,9 @@ class MainPhaseUndoTest : E2e() {
         alice.tap("Undo")
         aliceBackInHerMain(hand, turn)
         assertFalse(alice.shows(hasTestTag("rewind-confirm")), "free: no dialog")
-        assertTrue(alice.told("Undid: went to combat"), alice.shownTexts.toString())
+        // HIS-168 (owner 2026-11-23): her own undo shows no text at the top; her device logs what it took back
+        waitUntil("her undo logged") { ownUndoLogged("Undid: went to combat") }
+        assertFalse(alice.toldOwnUndo(), alice.shownTexts.toString())
 
         bob.back()
         waitUntil("Bob back, waiting for Alice") { bob.game?.shown?.let { !it.behind && it.status is GameDevice.Status.Waiting } == true && !bob.showsWatch() }
@@ -140,7 +142,9 @@ class MainPhaseUndoTest : E2e() {
         assertEquals("You went to combat", timeline.single { it.id == pass }.description, timeline.map { it.description }.toString())
         alice.tap("Undo")
         aliceBackInHerMain(hand, turn)
-        assertTrue(alice.told("Undid: went to combat"), alice.shownTexts.toString())
+        // HIS-168 (owner 2026-11-23): her own undo shows no text at the top; her device logs what it took back
+        waitUntil("her undo logged") { ownUndoLogged("Undid: went to combat") }
+        assertFalse(alice.toldOwnUndo(), alice.shownTexts.toString())
     }
 
     // HIS-101, HIS-119, HIS-120, HIS-084, HIS-099, TRN-057 (owner, 2026-11-08): the same for End turn: after the app starts again it is one
@@ -164,6 +168,8 @@ class MainPhaseUndoTest : E2e() {
         assertEquals(1, timeline.count { it.description == "You ended the turn" }, timeline.map { it.description }.toString())
         alice.tap("Undo")
         aliceBackInHerMain(hand, turn)
-        assertTrue(alice.told("Undid: End turn"), alice.shownTexts.toString())
+        // HIS-168 (owner 2026-11-23): her own undo shows no text at the top; her device logs what it took back
+        waitUntil("her undo logged") { ownUndoLogged("Undid: End turn") }
+        assertFalse(alice.toldOwnUndo(), alice.shownTexts.toString())
     }
 }

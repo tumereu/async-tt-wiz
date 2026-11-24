@@ -114,7 +114,7 @@ class QuickUndoTest : E2e() {
         val from = alice.shownTexts.size
         alice.tap("Undo")
         waitUntil("the undo shown") { alice.game?.shown?.transition?.undone != null && where(alice.shown.board, herald) == "HAND" }
-        waitUntil("\"Undid: cast Ember Herald\" shown") { alice.told("Undid: cast Ember Herald") }
+        waitUntil("\"Undid: cast Ember Herald\" logged (HIS-168: no text at the top, owner 2026-11-23)") { ownUndoLogged("Undid: cast Ember Herald") }
         repeat(5) { run(java.time.Duration.ofMillis(300)) }
         val t = assertNotNull(alice.shown.transition)
         assertFalse(t.jump, "an undo animates")

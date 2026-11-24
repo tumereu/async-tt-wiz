@@ -1,0 +1,1 @@
+mod: Your own undo no longer shows a fading line at the top of the table, as the other player's already did not

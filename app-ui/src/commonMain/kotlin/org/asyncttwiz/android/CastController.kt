@@ -103,14 +103,18 @@ class CastController(
      * rewind, a branch, an own event refused), and the last one's words ([EngineGame.takeBacks]). */
     private val takeBacks: () -> Long = { 0L },
     private val lastTakeBack: () -> String = { "" },
+    /** Of [takeBacks], those where the game itself went back (an undo or rewind, a branch; [EngineGame.rewinds]). */
+    private val rewinds: () -> Long = { 0L },
     /** Where the cast's flow session runs: in-process on [work] unless said otherwise ([TableCastPort]: the
      * browser's engine worker when the game's device is there). */
     private val port: CastPort = LocalCastPort(viewer) { w, d -> work.run(w, d) },
     /** TBL-130: the stacks of identical battlefield cards on a board as the table lays them out (Autotap takes the topmost). */
     private val stacks: (TableBoard) -> List<List<String>> = { TopmostSources.stacks(BattlefieldLayout.groups(it, viewer)) },
 ) : FlowQuestions {
-    /** The take-backs counted when the open cast began ([takeBacks]): a later one took the table back behind it. */
+    /** The take-backs counted when the open cast began, or it was last worked out again after one ([takeBacks]). */
     private var startedAt = 0L
+    /** The rewinds counted when the open cast began ([rewinds]): a later one took the game back behind it. */
+    private var startedRewinds = 0L
     /** The open cast's session where the flow runs. */
     private var session = 0L
     /** The open cast as the panel draws it, null when none. */
@@ -283,7 +287,7 @@ class CastController(
     /** A new session for a cast about to begin ([starting] set with it). */
     private fun opening(cardId: String, text: String?) {
         session = nextSession()
-        starting = cardId; startedAt = takeBacks()
+        starting = cardId; startedAt = takeBacks(); startedRewinds = rewinds()
         hidden = false
         abilityText = text
     }
@@ -693,11 +697,19 @@ class CastController(
         // STK-025, HIS-099 (owner problem report RC3J4K): an undo or rewind (the other player's accepted, a branch) took the
         // table back behind where the cast began: it is dropped at once, as Back or Undo drop it, even where the card could
         // be cast again
-        if (takeBacks() != startedAt) {
+        if (rewinds() != startedRewinds) {
             AppLog.info("undo", "Open cast of ${current()?.let { cardName(it, f.cardId) } ?: f.cardId} dropped: the table went back " +
                 "behind where it began (${lastTakeBack()})")
             drop(TABLE_CHANGED)
             return
+        }
+        // Owner, 2026-11-23 (a "The table changed: cast it again." of your own cast is a fault): a board only corrected (the
+        // device's own events losing a race to the other player's same moves, the game loaded again, an own event refused)
+        // took nothing back in the game: the cast is worked out again on the board now, as when the other player acted (D32)
+        if (takeBacks() != startedAt) {
+            AppLog.info("cast", "Open cast of ${current()?.let { cardName(it, f.cardId) } ?: f.cardId}: a shown board was corrected " +
+                "without the game going back (${lastTakeBack()}): the cast is worked out again on the board now")
+            startedAt = takeBacks()
         }
         // Checked again once the step being worked out is done
         if (busy) return
@@ -725,6 +737,13 @@ class CastController(
                 "on version ${request.version} (session $session, shown ${flow?.version}) ${if (answer is CastAnswer.Drop) "dropped the cast" else "refused"}: " +
                 ((answer as? CastAnswer.Refuse)?.message ?: (answer as CastAnswer.Drop).message) + if (run != generation) " (replaced meanwhile)" else "")
             if (run != generation) return@ask
+            // Owner, 2026-11-23: "The table changed: cast it again." told of the player's own cast is a fault
+            ((answer as? CastAnswer.Refuse)?.message ?: (answer as? CastAnswer.Drop)?.message)?.takeIf { it == TABLE_CHANGED }?.let {
+                Faults.report("CastController", "own cast refused: the table changed", mapOf("step" to (op::class.simpleName ?: "step"),
+                    "answer" to (answer::class.simpleName ?: "answer"), "session" to "$session", "version" to "${request.version}",
+                    "shown" to "${flow?.version}", "board" to "${request.board}", "now" to "${current()?.values?.number}",
+                    "card" to (flow?.cardId ?: starting ?: "-"), "lastTakeBack" to lastTakeBack().take(300)))
+            }
             busy = false
             result = apply(answer, play, base)
             nextTap()

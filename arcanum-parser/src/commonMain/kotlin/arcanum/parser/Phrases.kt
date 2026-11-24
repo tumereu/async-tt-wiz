@@ -169,6 +169,11 @@ internal object Filters {
                 ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(noun(m.groupValues[2].removePrefix("another ")) ?: return null), other = true)))
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(noun(m.groupValues[2].removeArticle()) ?: return null))))
         }
+        // vow chunk 09: "basic land card that doesn't share a land type with a land you control" (with none of them, CR 205.3i)
+        NOT_SHARING_LAND_TYPE.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.Not(ObjectFilter.Shares(arcanum.api.SharedQuality.LandType, Objects.Each(noun(m.groupValues[2].removeArticle()) ?: return null))))
+        }
         // mkm chunk 08: "creatures that don't have a name" (a face-down permanent has none, CR 708.2a)
         WITHOUT_A_NAME.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.HasName)) }
         // dsk chunk 08: "an instant or sorcery spell that targets only a single creature you control" (CR 115.7)
@@ -608,6 +613,7 @@ internal object Filters {
     private val PLURAL_SUBTYPES_AND = Regex("""([A-Z][a-z]+s) and ([A-Z][a-z]+s)""")
     // dsk chunk 01
     private val WITHOUT_A_NAME = Regex("""(.+) that (?:don't|doesn't) have a name""")
+    private val NOT_SHARING_LAND_TYPE = Regex("""(.+) that doesn't share a land type with (.+)""")
     private val NOT_SAME_NAME_AS = Regex("""(.+) that doesn't have the same name as (.+)""")
     // (also "Kithkin or Soldier spells you cast": "you cast" belongs to every alternative, CR 601.2f)
     private val SPELLS_YOU_CAST_FROM = Regex("""(.+ spells you cast) from (exile|your hand|your graveyard)""")
@@ -1698,6 +1704,11 @@ internal object Conditions {
             return Condition.Compare(Value.CountDistinct(Objects.Each(filter), quality), Comparison.AtLeast, Value.Fixed(n))
         }
         // chunk 56: "you control five or more Blood tokens"
+        // vow chunk 09: "you control exactly thirteen permanents" (counted as it is checked)
+        CONTROL_EXACTLY_N.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.Compare(Value.Count(Objects.Each(Filters.noun(m.groupValues[2] + " you control") ?: return null)), Comparison.Equal, Value.Fixed(n))
+        }
         CONTROL_N_OR_MORE_PHRASE.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             return Condition.Exists(Filters.noun(m.groupValues[2] + " you control") ?: return null, atLeast = n)
@@ -1981,6 +1992,7 @@ internal object Conditions {
     private val N_LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""(\w+) or more (.+) left your graveyard this turn""")
     private val SACRIFICED_THIS_TURN = Regex("""you've sacrificed an? (.+) this turn""")
     // chunk 56
+    private val CONTROL_EXACTLY_N = Regex("""you control exactly (\w+) (.+)""")
     private val CONTROL_N_OR_MORE_PHRASE = Regex("""you control (\w+) or more (.+)""")
 }
 

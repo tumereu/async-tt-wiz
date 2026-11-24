@@ -21,7 +21,8 @@ internal object Fdn {
     // fdn chunk 01: a state trigger's condition (CR 603.8)
     // inr chunk 01: also "When Garruk has two or fewer loyalty counters on him, transform him."
     // dmr chunk 07: also "When this land has no ice counters on it, …", "When this creature has flying, …"
-    val WHEN_THERE_ARE = Regex("""When (there are .+?|.+? has (?:\w+ or (?:fewer|more)|no) \S+ counters on (?:it|him|her)|this \w+ has [a-z]+), (.+)""")
+    // vow chunk 09: also "When you don't control a legendary Vampire" / "When you control no Islands" (CR 603.8)
+    val WHEN_THERE_ARE = Regex("""When (there are .+?|.+? has (?:\w+ or (?:fewer|more)|no) \S+ counters on (?:it|him|her)|this \w+ has [a-z]+|you control no [^,]+|you don't control an? [^,]+), (.+)""")
     // fdn chunk 01: "If you do" after a mandatory exile (CR 118.12)
     val EXILE_IT_IF_YOU_DO = Regex("""Exile it\. If you do, ([^.]+\.)""")
     // fdn chunk 02: the counter and the count on the same object, named by the ability

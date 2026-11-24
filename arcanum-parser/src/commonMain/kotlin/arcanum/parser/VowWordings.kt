@@ -79,6 +79,12 @@ internal object Vow {
     val EFFECT_WHEN_YOU_DO_CHOOSE = Regex("""([^.]+\.) When you do, (choose .+)""")
     // vow chunk 08: Cemetery Desecrator: "Remove X counters from target permanent, where X is …" (any kinds, the remover's choice)
     val REMOVE_N_COUNTERS_FROM_TARGET = Regex("""Remove (X|\w+) counters from target (.+)\.""")
+    // vow chunk 09: a verb phrase of "you" without its subject, after "You …," in a list ("You draw two cards, lose 2 life, then …")
+    val BASE_VERB_PHRASE = Regex("""(?:lose|gain|draw|discard|mill|sacrifice|exile|get) .+""")
+    // vow chunk 09: Cemetery Protector, Gatekeeper: "it shares a card type with the exiled card" (an intervening if about the event's object)
+    val IT_SHARES_WITH_EXILED = Regex("""it shares a (card type|color) with (?:the exiled card|a card exiled with (.+))""")
+    // vow chunk 09: Circle of Confinement: "an opponent casts a Vampire spell with the same name as a card exiled with this enchantment"
+    val CASTS_SAME_NAME_AS_EXILED_WITH = Regex("""(you|an opponent|a player) casts? an? (.+?) with the same name as a card exiled with (.+)""")
     // vow chunk 08: Creepy Puppeteer
     val ATTACKS_IF_EXACTLY_ONE_OTHER_BASE_PT = Regex("""Whenever (.+?) attacks, if you attacked with exactly one other creature this combat, you may have that creature's base power and toughness become (\d+)/(\d+) until end of turn\.""")
 }

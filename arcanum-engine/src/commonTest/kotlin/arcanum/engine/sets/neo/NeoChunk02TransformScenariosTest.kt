@@ -1,5 +1,6 @@
 package arcanum.engine.sets.neo
 
+import arcanum.api.CounterKind
 import arcanum.api.Duration
 import arcanum.api.Mechanic
 import arcanum.api.Players
@@ -17,6 +18,7 @@ import arcanum.engine.sets.blb.resolveAll
 import arcanum.engine.sets.spm.loreChapter
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** Chunk 2 of NEO: transforming Sagas (CR 714) whose chapters and back faces give the engine something new. */
 class NeoChunk02TransformScenariosTest {
@@ -27,6 +29,12 @@ class NeoChunk02TransformScenariosTest {
             face(name, cost, "Enchantment — Saga", "$sagaReminder\n$chapters\n$chapterThree", null, null, null),
             face(back, null, backType, backText, pt, null, "B"))
 
+    private val wyrmKami = saga("The Wyrm-Kami Reborn", "{2}{G}",
+        "I, II — You gain 2 life. Look at the top three cards of your library. Exile one of them face down with a hatching counter on it, then put the rest on the bottom of your library in any order.",
+        "Wyrm-Kami's Egg", "Enchantment Creature — Egg", "Whenever this creature or a Dragon you control dies, you may cast a creature spell from among cards you own in exile with hatching counters on them without paying its mana cost.", "0/1")
+    private val egg = Cards.invent("Neo Hatchling Egg", "{G}", "Enchantment Creature — Egg",
+        "Whenever this creature or a Dragon you control dies, you may cast a creature spell from among cards you own in exile with hatching counters on them without paying its mana cost.", "0/1")
+    private val idol = Cards.invent("Neo Saga Idol", "{3}", "Artifact", "")
     private val bear = Cards.invent("Neo Saga Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val cub = Cards.invent("Neo Saga Cub", "{G}", "Creature — Bear", "", "1/1")
     private val ogre = Cards.invent("Neo Saga Ogre", "{4}{R}", "Creature — Ogre", "", "5/5")
@@ -101,6 +109,51 @@ class NeoChunk02TransformScenariosTest {
             alice.hand has bear
             alice.hand.size shouldBe 3 // the bear and the two drawn
         }
+    }
+
+    private fun Scenario.hatch(chosen: String) {
+        resolveAll()
+        alice.chooses(chosen)
+        while (pending is Decision.ChooseObjects) answer(Answer.Objects((pending as Decision.ChooseObjects).options))
+        resolveAll()
+    }
+
+    // CR 406.3 (she looked at it, so she may go on looking at it), 406.3b (judged as the creature spell it would be), 406.3a (turned face up as
+    // it is cast), 714.2b, 122.1
+    @Test
+    fun wyrmKamiEggCastsTheHatchingCreature() = scenario {
+        alice.battlefield(egg)
+        alice.hand(zap)
+        alice.battlefield("Mountain")
+        loreChapter(wyrmKami, 1, ogre, idol, cub)
+        hatch(ogre)
+        val exiled = card(ogre, zone = Zone.Exile)
+        assertTrue(state.obj(exiled)!!.faceDown)
+        expect {
+            alice.life shouldBe 22
+            ogre.counters(CounterKind.Named("hatching")) shouldBe 1
+        }
+        alice.casts(zap, target = egg)
+        resolveAll()
+        val offered = (pending as Decision.ChooseObjects).options
+        assertEquals(listOf(exiled), offered)
+        alice.chooses(ogre)
+        resolveAll()
+        expect { alice.battlefield has ogre }
+    }
+
+    // CR 406.3b: a face-down card that wouldn't be a creature spell isn't offered
+    @Test
+    fun wyrmKamiEggOffersNoNoncreatureCard() = scenario {
+        alice.battlefield(egg)
+        alice.hand(zap)
+        alice.battlefield("Mountain")
+        loreChapter(wyrmKami, 1, idol, ogre, cub)
+        hatch(idol)
+        alice.casts(zap, target = egg)
+        resolveAll()
+        assertTrue(pending !is Decision.ChooseObjects)
+        expect { alice.exile has idol }
     }
 
     // CR 603.4 (an intervening "if" checked as it triggers and resolves), 104.3e; only this creature's damage to that player counts (CR 120.1)

@@ -72,6 +72,24 @@ class NeoChunk05CrewScenariosTest {
         }
     }
 
+    private val crewChant = Cards.invent("Neo Crew Chant", "{1}{W}", "Enchantment", "Whenever a Vehicle you control becomes crewed, you gain 1 life.")
+    private val blank = Cards.invent("Neo Crew Blanking", "{0}", "Instant", "Target artifact loses all abilities until end of turn.")
+
+    // CR 702.122e: a crew ability of it resolving makes it become crewed; CR 113.7a: on the Stack the ability is still a crew ability after the
+    // Vehicle loses crew, and it still makes the Vehicle a creature
+    @Test
+    fun becomesCrewedAfterTheVehicleLostCrew() = scenario {
+        alice.battlefield(crewChant, cart, ogre, golem)
+        alice.hand(blank)
+        alice.activates(cart, ability = 0, choosing = listOf(ogre, golem))
+        alice.casts(blank, target = cart)
+        resolveAll()
+        expect {
+            alice.life shouldBe 21
+            cart.types shouldBe listOf(CardType.Artifact, CardType.Creature)
+        }
+    }
+
     // CR 707.2, 707.9b: a copy of the creature that crewed it, except 4/3, a Vehicle artifact and flying; CR 611.2a: until end of turn
     @Test
     fun mirrorlinkRigCopiesTheCreatureThatCrewedIt() = scenario {

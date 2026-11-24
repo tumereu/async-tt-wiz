@@ -309,7 +309,7 @@ internal object Effects {
             is Effect.CopyNamedCard -> copyNamedCard(scope, effect)
             is Effect.Counter -> counter(scope, scope.objects(effect.objects))
             is Effect.AddMana -> scope.players(effect.players).forEach { p -> addMana(scope, p, effect.mana) }
-            is Effect.ApplyMechanics -> applyMechanics(scope, effect.mechanics, effect.affects, effect.duration, effect.uses)
+            is Effect.ApplyMechanics -> applyMechanics(scope, effect.mechanics, effect.affects, effect.duration, effect.uses, perEvent = effect.perEvent)
             is Effect.PreventDamage -> preventDamage(scope, effect)
             is Effect.RemoveFromCombat -> removeFromCombat(scope, onBattlefield(scope, effect.objects))
             is Effect.RemoveAllDamage -> onBattlefield(scope, effect.objects).forEach { id ->
@@ -1454,7 +1454,7 @@ internal object Effects {
      */
     fun applyMechanics(
         scope: Scope, mechanics: List<Mechanic>, affects: Affected?, duration: Duration, uses: Int?,
-        locked: List<ObjectId>? = null, amountLeft: Int? = null, extra: Map<String, NamedValue> = emptyMap(),
+        locked: List<ObjectId>? = null, amountLeft: Int? = null, extra: Map<String, NamedValue> = emptyMap(), perEvent: Boolean = false,
     ) {
         val act = scope.act
         val e = scope.eval()
@@ -1499,7 +1499,7 @@ internal object Effects {
             EffectObject(
                 id = EffectId("E$ts"), mechanics = fixed, affects = affected, locked = lockedObjects, lockedPlayers = lockedPlayers,
                 source = scope.self, controller = scope.you, timestamp = ts, createdTurn = act.state.turn.number, duration = duration,
-                usesLeft = uses, amountLeft = amountLeft, names = names, copiedValues = copiedValues,
+                usesLeft = uses, amountLeft = amountLeft, names = names, copiedValues = copiedValues, usesPerEvent = perEvent && uses != null,
             )
         })
     }

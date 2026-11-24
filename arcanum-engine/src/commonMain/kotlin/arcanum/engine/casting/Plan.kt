@@ -265,6 +265,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 optionalTimes(inst)?.takeIf { it > 0 }?.let { arcanum.engine.state.PaidCost(m.keyword, it) }
             }
         }.takeIf { it.isNotEmpty() }?.let { arcanum.engine.state.CastFacts(paid = it) },
+        // neo fixes: the keyword this ability expands, as the source has it now (CR 702.122e, 113.7a)
+        keyword = if (isSpell) null else (origin as? AbilityOrigin.Expansion)?.let { x ->
+            plain.view[sourceId]?.characteristics?.abilities?.firstOrNull { it.origin == x.keyword }?.ability as? Keyword },
     )
 
     /** The board with the provisional item on the Stack. Its view is worked out once while [base] stays as it is

@@ -1302,6 +1302,10 @@ internal object Events {
             return ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self),
                 Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), other)))
         }
+        // neo fixes: "this creature or a Dragon you control" (itself, or any such permanent, itself included)
+        SELF_OR_A.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let { m ->
+            return ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self), Filters.noun(m.groupValues[2]) ?: return null))
+        }
         // one chunk 10: "an equipped creature you control other than Rhuk" (any but this object)
         OTHER_THAN.matchEntire(text)?.takeIf { it.groupValues[2] in self }?.let { m ->
             return Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), subject(m.groupValues[1], self) ?: return null)
@@ -1363,6 +1367,7 @@ internal object Events {
     // also "into exile"
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) (?:is|are) put into (a graveyard|exile) from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
+    private val SELF_OR_A = Regex("""(.+?) or an? (.+)""")
     private val SELF_OR_ATTACHED = Regex("""(.+) or (?:equipped|enchanted) creature""")
     private val DIES = Regex("""(.+) dies""")
     private val SELF_DIE = Regex("""(.+) die""")

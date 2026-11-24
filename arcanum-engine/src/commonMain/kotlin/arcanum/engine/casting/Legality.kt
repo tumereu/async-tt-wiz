@@ -143,7 +143,7 @@ internal object Legality {
         if (!fromHand && permission == null) return "no permission to cast it from ${o.zone}"
         // A permission for some spells only ("it may not be cast as an Adventure this way", CR 716.4): the face cast; a filter
         // the face alone can't answer ("a spell with mana value less than or equal to …", ecl) is checked on the card
-        (permission?.second?.mechanic as? Mechanic.MayPlay)?.resultingSpell?.let { filter ->
+        (permission?.second?.mechanic as? Mechanic.MayPlay)?.resultingSpell?.let(::asResultingSpell)?.let { filter ->
             val applied = permission.second
             val matches = faceMatches(filter, face)
                 ?: snap.evaluator(applied.controller, self = applied.source, names = applied.names, holder = player).matches(filter, card)
@@ -224,6 +224,16 @@ internal object Legality {
     }
 
     /** Whether the printed [face] matches a type filter, or null when the filter asks more than types and subtypes. */
+    /** A filter on the spell a card will become ("if it's an instant spell with mana value 2 or less"), judged on the card before it is
+     * cast: the object being cast becomes a spell (CR 601.2a), so the filter's "spell" part holds for it. */
+    internal fun asResultingSpell(filter: ObjectFilter): ObjectFilter = when (filter) {
+        is ObjectFilter.Category -> if (filter.category == arcanum.api.ObjectCategory.Spell) ObjectFilter.Any else filter
+        is ObjectFilter.And -> ObjectFilter.And(filter.all.map(::asResultingSpell))
+        is ObjectFilter.Or -> ObjectFilter.Or(filter.any.map(::asResultingSpell))
+        is ObjectFilter.Not -> ObjectFilter.Not(asResultingSpell(filter.filter))
+        else -> filter
+    }
+
     private fun faceMatches(filter: ObjectFilter, face: arcanum.api.FaceDefinition): Boolean? = when (filter) {
         is ObjectFilter.Not -> faceMatches(filter.filter, face)?.not()
         is ObjectFilter.Sub -> (filter.subtype as? arcanum.api.SubtypeRef.Literal)?.let { it.subtype in face.subtypes }

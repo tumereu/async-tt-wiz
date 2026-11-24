@@ -67,6 +67,55 @@ class NeoChunk09ChooseCounterCreateDamageScenariosTest {
     private val shrine = Cards.invent("Neo Nine Shrine", "{1}", "Artifact", "")
     private val doom = Cards.invent("Neo Nine Doom", "{0}", "Instant", "Destroy target creature.")
 
+    private val weave = Cards.invent("Talespinner's Weave", "{0}", "Instant", """
+        Choose one —
+        • Put two +1/+1 counters on target creature you control.
+        • Put two lore counters on target Saga you control. The next time one or more enchantment creatures you control enter this turn, each enters with two additional +1/+1 counters on it.
+    """)
+    private val tale = Cards.invent("Neo Nine Tale", "{1}{G}", "Enchantment — Saga",
+        "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after V.)\nI, II, III, IV, V — You gain 1 life.")
+    private val spirits = Cards.invent("Neo Nine Spirit Call", "{0}", "Sorcery", "Create two 1/1 white Spirit enchantment creature tokens.")
+    private val raise = Cards.invent("Neo Nine Raising", "{0}", "Sorcery",
+        "Return up to two target enchantment creature cards from your graveyard to the battlefield.")
+    private val dryad = Cards.invent("Neo Nine Dryad", "{1}{G}", "Enchantment Creature — Dryad", "", "1/1")
+    private val nymph = Cards.invent("Neo Nine Nymph", "{1}{W}", "Enchantment Creature — Nymph", "", "2/2")
+
+    private fun Scenario.p1p1On(id: arcanum.engine.state.ObjectId): Int = state.obj(id)!!.counters.filter { it.kind == p1p1 }.sumOf { it.count }
+
+    // CR 614.1c, 616.1: the next time enchantment creatures enter, each of them gets the counters (both tokens of one event); the effect is
+    // then used up, so the creatures of a later event get none
+    @Test
+    fun weaveGivesEachTokenOfTheNextEventCounters() = scenario {
+        alice.battlefield(tale)
+        alice.hand(weave, spirits, raise)
+        alice.graveyard(dryad)
+        alice.casts(weave, target = tale, modes = listOf(1))
+        resolveAll()
+        alice.casts(spirits)
+        resolveAll()
+        alice.casts(raise, targets = listOf(dryad))
+        resolveAll()
+        val made = tokens("Spirit Token")
+        assertEquals(listOf(2, 2), made.map { p1p1On(it) })
+        expect { dryad.counters(p1p1) shouldBe 0 }
+    }
+
+    // CR 614.1c, 616.1, 614.12: two cards returned together both enter with the counters
+    @Test
+    fun weaveGivesEachCardReturnedTogetherCounters() = scenario {
+        alice.battlefield(tale)
+        alice.hand(weave, raise)
+        alice.graveyard(dryad, nymph)
+        alice.casts(weave, target = tale, modes = listOf(1))
+        resolveAll()
+        alice.casts(raise, targets = listOf(dryad, nymph))
+        resolveAll()
+        expect {
+            dryad.counters(p1p1) shouldBe 2
+            nymph.counters(p1p1) shouldBe 2
+        }
+    }
+
     // CR 508.1a, 700.2: the Vehicle crewed by the Wingrider attacks; the first mode gives that Vehicle first strike
     @Test
     fun wingriderGivesTheAttackingVehicleFirstStrike() = scenario {

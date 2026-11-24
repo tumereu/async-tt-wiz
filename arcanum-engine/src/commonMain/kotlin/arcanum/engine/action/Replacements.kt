@@ -147,6 +147,8 @@ internal object Replacements {
         skip: (Replacement, T) -> Boolean = { _, _ -> false },
         extra: List<Replacement> = emptyList(),
         more: (T) -> List<Replacement> = { emptyList() },
+        // neo fixes: per-event shields used in this event, used up once when the whole event has been replaced ([endEvent])
+        eventUses: MutableSet<arcanum.engine.state.EffectId>? = null,
     ): T? {
         val all = candidates(act, cause) + extra
         if (all.isEmpty() && more(initial).isEmpty()) return initial
@@ -168,12 +170,12 @@ internal object Replacements {
             if (declinable) {
                 val next = modify(current, r, instance)
                 if (next === current) continue
-                useUp(act, r)
+                useUp(act, r, eventUses)
                 r.mechanic.whenApplied?.let { linked += linkedTrigger(r, it, instance) }
                 current = next ?: return null
                 continue
             }
-            useUp(act, r)
+            useUp(act, r, eventUses)
             // spm: an entering copy's linked trigger is made when the copied object is chosen (it names it), and only if one is
             r.mechanic.whenApplied?.takeIf { r.mechanic.modify.none { m -> m is arcanum.api.Modification.EntersAsCopy && m.bind != null } }
                 ?.let { linked += linkedTrigger(r, it, instance) }
@@ -250,8 +252,18 @@ internal object Replacements {
     private fun describe(r: Replacement): String = r.text ?: if (r.prevention != null) "Prevent damage" else "A replacement effect"
 
     /** A shield with a count ("the next time …", regeneration) is used once more (D26). */
-    private fun useUp(act: Act, r: Replacement) {
+    fun useUp(act: Act, r: Replacement, eventUses: MutableSet<arcanum.engine.state.EffectId>? = null) {
         val id = r.effect ?: return
+        val effect = act.state.effects[id] ?: return
+        // neo fixes: a per-event shield covers every object of the event (CR 614.1, 616.1); it is used once, after the event's replacements
+        if (effect.usesPerEvent && eventUses != null) { eventUses += id; return }
+        useUpEffect(act, id)
+    }
+
+    /** neo fixes: uses up each per-event shield applied in the event just replaced once ([apply]'s eventUses). */
+    fun endEvent(act: Act, used: Set<arcanum.engine.state.EffectId>) = used.forEach { useUpEffect(act, it) }
+
+    private fun useUpEffect(act: Act, id: arcanum.engine.state.EffectId) {
         val effect = act.state.effects[id] ?: return
         val left = effect.usesLeft ?: return
         if (left <= 1) act.record(Change.EffectRemoved(effect, listOf(Meaning.ShieldUsed)))

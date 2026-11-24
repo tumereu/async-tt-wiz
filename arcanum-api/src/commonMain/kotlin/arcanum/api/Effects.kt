@@ -210,6 +210,10 @@ sealed interface Effect {
         /** Null for mechanics with their own scope (prevention, replacement, cost change, "damage can't be prevented":
          * Fog, "spells cost {1} more this turn"); they change the rules of the game (CR 611.2c). */
         val mechanics: List<Mechanic>, val affects: Affected?, val duration: Duration, val uses: Int? = null,
+        // neo fixes
+        /** With [uses]: each use is one event, covering every object of the event it applies to ("the next time one or more enchantment
+         * creatures you control enter this turn, each enters with two additional +1/+1 counters on it": all of them, CR 614.1, 616.1). */
+        val perEvent: Boolean = false,
     ) : Effect
     /** "Prevent the next [amount] damage that would be dealt to [to] this turn" (CR 615.7): a shield effect object
      * whose amount goes down by the damage it prevents. [from] limits the sources ("by a source of your choice"). */
@@ -363,6 +367,11 @@ sealed interface Effect {
         // fin
         /** "and mana of any type can be spent to cast that spell" (CR 601.2h). */
         val manaAsAnyType: Boolean = false,
+        // neo fixes
+        /** "You may cast a creature spell from among …": [caster] chooses up to this many of [objects] to cast, among those that would
+         * become a spell matching [resultingSpell]; a card exiled face down is judged as the spell it would be, and is among them only
+         * if [caster] may look at it (CR 406.3b). Null: each of [objects] is cast. */
+        val upTo: Int? = null,
     ) : Effect
     /** "When you do, …" (CR 603.12): a reflexive triggered ability, put on the Stack as its own item, targets chosen
      * then. Placed inside a [Step.If] on what was done. It triggers once per time the action is taken, but only once

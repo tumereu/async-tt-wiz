@@ -240,3 +240,7 @@ fun delayed(trigger: Trigger, vararg steps: Step): Step = Step.Do(Effect.CreateD
 fun doesntUntapNext(objects: Objects): Step = Step.Do(Effect.ApplyMechanics(listOf(Mechanic.DoesntUntap), Affected.Objects(objects),
     Duration.ThroughNextStep(TurnStep.Untap, Players.ControllerOf(objects))))
 val yourEndStep: Trigger = stepBegins(TurnStep.End, PlayerFilter.You)
+/** A transforming Saga's "III — Exile this Saga, then return it to the battlefield transformed under your control." (CR 714.3b, 712.10) */
+val exileAndReturnTransformed: Ability = chapter(3, move(Objects.Self, Zone.Exile, postBind = "exiled"),
+    Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.You, transformed = true))))
+val thatSpell: Objects = Objects.EventObject(arcanum.api.EventRole.Object)

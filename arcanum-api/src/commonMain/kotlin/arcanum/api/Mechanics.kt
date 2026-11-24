@@ -253,6 +253,12 @@ sealed interface Mechanic {
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
+    // neo
+    /** Can't be tapped to pay [keyword]'s cost ("Enchanted permanent can't attack, block, or crew Vehicles": never among the
+     * creatures tapped for crew, CR 702.122a; saddle alike, CR 702.171a). */
+    @Serializable @SerialName("cant-tap-for") data class CantTapFor(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
+    ) : Mechanic
 
     // ---- Permissions, costs and casting (CR 601, 117, 118) ----
     /** May be cast (or activated) at any time it could cast an instant (flash, CR 702.8): the affected objects. */

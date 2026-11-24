@@ -34,6 +34,11 @@ internal object Neo {
     val RETURN_ALL_EXILED_WITH_EXCEPT_TAPPED_UNDER_OWNERS = Regex("""Return all cards exiled with (.+?) except (.+?) to the battlefield tapped under their owners' control\.""")
     val UNTIL_EOT_BECOMES_COPY_OF_TARGET_EXCEPT = Regex("""[Uu]ntil end of turn, (.+?) becomes a copy of target (.+?), except (.+)\.""")
     val CREATE_TOKEN_AND_TOKEN = Regex("""Create (an? [^"]+? tokens?) and (an? .+ tokens? with ".+"\.?)""")
+    // neo chunk 06: "Enchanted land is a 3/3 red Spirit creature with haste. It's still a land." (for as long as it's attached)
+    val ATTACHED_IS_CREATURE = Regex("""((?:Enchanted|Equipped) (?:creature|land|permanent|artifact)) is (an? [^.]+? creature(?: with [^.]+)?)\.(?: It's still an? [a-z]+\.)?""")
+    // neo chunk 06: "If enchanted land would be destroyed, instead sacrifice this Aura and that land gains indestructible until end of turn."
+    val AND_THAT_NOUN = Regex(""" and that (?:creature|land|permanent|artifact) """)
+    val IF_WOULD_BE_DESTROYED_INSTEAD = Regex("""If ((?:enchanted|equipped) (?:creature|land|permanent|artifact)) would be destroyed, instead (.+)\.""")
 }
 
 /** neo: nouns and conditions of Kamigawa: Neon Dynasty wordings, tried by [Filters] and [Conditions]. */
@@ -47,6 +52,8 @@ internal object NeoPhrases {
 
     private val SUBTYPE_AND_SUBTYPE = Regex("""([A-Z][\w-]*) and ([A-Z][\w-]*) ((?:creatures|permanents)\b.*)""")
     private val SELF_IS_ATTACHED_TO_A_CREATURE = Regex("""(.+?) is attached to a creature""")
+    // neo chunk 06: "creature with the greatest power among creatures on the battlefield" (ties count, CR 208.1)
+    private val WITH_THE_GREATEST_AMONG = Regex("""(.+?) with the greatest (power|toughness|mana value) among (.+)""")
     private val WITHOUT_A_COUNTER = Regex("""(.+?) that (?:doesn't|don't) have an? (\S+) counters? on (?:it|them)""")
 
     fun noun(phrase: String): ObjectFilter? {
@@ -57,6 +64,19 @@ internal object NeoPhrases {
         WITHOUT_A_COUNTER.matchEntire(phrase)?.let { m ->
             val kind = Counters.kind(m.groupValues[2]) ?: return null
             return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.HasCounter(kind, atLeast = 1)))
+        }
+        // (only "among ... on the battlefield": "among creatures they control" depends on the sentence's player, and a sentence rule that cuts
+        // "they control" off reads the rest itself)
+        WITH_THE_GREATEST_AMONG.matchEntire(phrase)?.takeIf { it.groupValues[3].endsWith(" on the battlefield") }?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val among = Filters.objects(m.groupValues[3]) ?: return null
+            fun greatest(p: arcanum.api.NumericProperty) = arcanum.api.Value.Of(p, among, arcanum.api.Combine.Greatest)
+            val at = arcanum.api.Comparison.AtLeast
+            return Filters.all(noun, when (m.groupValues[2]) {
+                "power" -> ObjectFilter.Power(at, greatest(arcanum.api.NumericProperty.Power))
+                "toughness" -> ObjectFilter.Toughness(at, greatest(arcanum.api.NumericProperty.Toughness))
+                else -> ObjectFilter.ManaValue(at, greatest(arcanum.api.NumericProperty.ManaValue))
+            })
         }
         DEALT_DAMAGE_THIS_TURN_BY.matchEntire(phrase)?.let { m ->
             val dealtTo = Filters.noun(m.groupValues[1]) ?: return null

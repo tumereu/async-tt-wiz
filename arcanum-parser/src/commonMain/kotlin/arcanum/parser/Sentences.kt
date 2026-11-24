@@ -1597,6 +1597,7 @@ internal class Sentences(
         isdStatic(line)?.let { return it } // isd
         dmrStatic(line)?.let { return it } // dmr
         broStatic(line)?.let { return it } // bro
+        neoStatic(line)?.let { return it } // neo
         // dsk chunk 02: "You have no maximum hand size[ and don't lose the game for having 0 or less life]." (CR 402.2, 704.5a)
         NO_MAXIMUM_HAND_SIZE.matchEntire(line)?.let { m ->
             val noMax = line.startsWith("You have")
@@ -11431,7 +11432,9 @@ internal class Sentences(
         Rtr.CANT_ATTACK_OR_BLOCK_OR_ACTIVATE.matchEntire(line)?.let { m ->
             val affects = rtrSubject(m.groupValues[1]) ?: return@let
             // rvr chunk 01: "… can't be activated unless they're mana abilities." keeps mana abilities (CR 605)
-            return Ability.Static(listOf(Mechanic.CantAttack(), Mechanic.CantBlock(ObjectFilter.Any), Mechanic.CantBeActivated(manaAbilities = m.groupValues[2].isEmpty())),
+            // neo chunk 06: "or crew Vehicles": never tapped for crew (CR 702.122a)
+            val crew = listOfNotNull(Mechanic.CantTapFor(arcanum.api.Keyword.Crew.Kind).takeIf { m.groupValues[2].isNotEmpty() })
+            return Ability.Static(listOf(Mechanic.CantAttack(), Mechanic.CantBlock(ObjectFilter.Any)) + crew + Mechanic.CantBeActivated(manaAbilities = m.groupValues[3].isEmpty()),
                 affects = affects)
         }
         // rtr chunk 02: 'Enchanted land has "{T}: …"', 'Enchanted creature gets +2/+1 and has "{R}: …"' (layers 6, 7c; the granted
@@ -13611,7 +13614,8 @@ internal class Sentences(
         val UNTAP_IT = "Untap it."
         val SACRIFICE_A_AND_A = Regex("""Sacrifice (an? \w+) and (an? \w+)""")
         // rtr chunk 01
-        val CANT_ATTACK_OR_BLOCK_OR_ACTIVATE = Regex("""(.+) can't attack or block, and its activated abilities can't be activated( unless they're mana abilities)?\.""")
+        // neo chunk 06: also "can't attack, block, or crew Vehicles. Its activated abilities can't be activated unless they're mana abilities."
+        val CANT_ATTACK_OR_BLOCK_OR_ACTIVATE = Regex("""(.+) can't attack(?: or block|, block, or (crew Vehicles))(?:, and its|\. Its) activated abilities can't be activated( unless they're mana abilities)?\.""")
         val ATTACHED_SUBJECT = Regex("""(?:Enchanted|Equipped) (?:creature|land|permanent|artifact)""")
         val DETAIN = Regex("""Detain (?:(up to \w+) )?target (.+)\.""")
         val THEN_POPULATE = Regex("""(.+), then populate\.""")
@@ -24181,6 +24185,29 @@ internal class Sentences(
         return null
     }
 
+    /** neo: static abilities. */
+    private fun neoStatic(line: String): Ability? {
+        val attached = Objects.AttachedTo(Objects.Self)
+        // neo chunk 06: "Enchanted land is a 3/3 red Spirit creature with haste. It's still a land." (layers 4, 5, 6, 7b; "still a land" keeps its
+        // other types, CR 205.1b, [OracleParser.stillA]; without it the creature type replaces them, CR 205.1a)
+        Neo.ATTACHED_IS_CREATURE.matchEntire(line)?.let { m ->
+            if (!Rtr.ATTACHED_SUBJECT.matches(m.groupValues[1])) return@let
+            return Ability.Static(gtcBecomes(m.groupValues[2], attached) ?: return@let, affects = Affected.Objects(attached))
+        }
+        // neo chunk 06: "If enchanted land would be destroyed, instead sacrifice this Aura and that land gains indestructible until end of turn." (a
+        // replacement of the destruction, CR 614.1a, 614.6; "that land" is the one that would have been destroyed)
+        Neo.IF_WOULD_BE_DESTROYED_INSTEAD.matchEntire(line)?.let { m ->
+            val text = m.groupValues[2].replaceFirstChar { it.uppercase() }
+            val that = Objects.EventObject(EventRole.Before)
+            // "that land": the one that would have been destroyed, read as "it" in a sentence of its own
+            val split = Neo.AND_THAT_NOUN.replaceFirst(text, ". It ")
+            val instead = instructions("$text.", that = that, it = that) ?: instructions("$split.", that = that, it = that) ?: return null
+            if (instead.targets.isNotEmpty()) return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Destroyed(ObjectFilter.Is(attached)), instead = instead)), affects = Affected.Objects(Objects.Self))
+        }
+        return null
+    }
+
     private fun neoWhole(text: String, context: Context): List<Step>? {
         // neo chunk 02: "You may discard up to two cards. If you do, draw that many cards." (that many: the number discarded, CR 608.2c; none
         // discarded draws none)
@@ -24232,6 +24259,8 @@ internal class Sentences(
 
     /** neo: single sentences. */
     private fun neoEffect(sentence: String, context: Context): List<Step>? {
+        // neo chunk 06: "unattach it" (an Equipment or Aura it names becomes unattached, CR 701.3d)
+        if (sentence == "Unattach it.") return listOf(Step.Do(Effect.Unattach(context.it ?: return null)))
         // neo chunk 02: "your opponents can't cast spells with the same mana value as that spell until your next turn." (that spell: the one cast;
         // its mana value as the ability resolves, CR 608.2h)
         Neo.OPPONENTS_CANT_CAST_SAME_MANA_VALUE_UNTIL_NEXT_TURN.matchEntire(sentence)?.let { m ->
@@ -32483,9 +32512,12 @@ internal class Sentences(
         // as the spell resolves (CR 608.2h)
         // mom chunk 04: also after "any target" ("If it's a creature, it can't block this turn.": a player target isn't one)
         Mh2.IF_ITS_A_THEN.matchEntire(sentence)?.let { m ->
-            val slot = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects || it.what is TargetKind.Either } ?: return@let
+            val slot = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects || it.what is TargetKind.Either }
+            // neo chunk 06: "tap enchanted permanent. If it's an Equipment, unattach it." (no target: the permanent just tapped, as it resolves)
+            val tapped = if (slot == null && context.targets.isEmpty()) ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Tap)?.objects
+                ?.takeIf { it == Objects.AttachedTo(Objects.Self) } else null
             val noun = Filters.noun(m.groupValues[1]) ?: return@let
-            val target = Objects.Target(slot.name)
+            val target = tapped ?: Objects.Target((slot ?: return@let).name)
             // mom chunk 10: "If it's a creature, put a +1/+1 counter on it.": "it" is that target when nothing since named another object
             if (!m.groupValues[2].startsWith("it ") && context.it != null && context.it != target) return@let
             val outerIt = context.it

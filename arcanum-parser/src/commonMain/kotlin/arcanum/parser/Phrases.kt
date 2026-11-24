@@ -285,6 +285,13 @@ internal object Filters {
         // chunk 20: "artifact and/or enchantment" is either of them
         if (phrase.contains(" and/or ")) return noun(phrase.replace(" and/or ", " or "))
         // chunk 31: "card from a graveyard"
+        // snc chunk 14: "spell, nonland permanent, or card in a graveyard": the zone belongs to the last alternative only when the
+        // alternatives before it are complete nouns of their own (a spell and a permanent are never in a graveyard, CR 110.1, 405.1)
+        FROM_A_GRAVEYARD_LAST_ALTERNATIVE.matchEntire(phrase)?.let { m ->
+            val earlier = m.groupValues[1].split(", ").map { noun(it) ?: return null }
+            val last = noun(m.groupValues[2]) ?: return null
+            return ObjectFilter.Or(earlier + all(last, ObjectFilter.InZone(Zone.Graveyard)))
+        }
         FROM_A_GRAVEYARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard)) }
         // chunk 32: "creature card with power 2 or less", "… with toughness 2 or less"
         // bro chunk 05: not "a Plains card or a creature card with mana value 3 or less": an alternative after " or a" has its own noun and
@@ -496,11 +503,14 @@ internal object Filters {
     fun objects(phrase: String, self: Set<String> = emptySet()): Objects? = MomPhrases.objects(phrase) ?: noun(phrase)?.let { Objects.Each(it) }
 
     /** The name of a target slot: its noun ("nonbasic land" → "land"), "permanent" for a list of permanent types. */
+    // neo chunk 03: "creature you control that doesn't have a +1/+1 counter on it" is named "creature" (not "… the same name as …": woe's names stay)
+    private val WITHOUT_A_COUNTER_SUFFIX = Regex(""" that (?:doesn't|don't) have an? \S+ counters? on (?:it|them)""")
+
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
         // blb chunk 06: "… that was dealt damage this turn" is not part of the name; blb chunk 10: nor statuses as alternatives
         // mom chunk 05: "planeswalker that was activated this turn or tapped creature" names both kinds ("permanent")
-        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).replace(" that was activated this turn", "").substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ").substringBefore(" that saddled ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that isn't exactly ").substringBefore(" that's exactly ") /* mom chunk 01 */.substringBefore(" that entered ").substringBefore(" that has ") /* rvr chunk 05 */.substringBefore(" without ").substringBefore(" with ").substringBefore(" other than ") /* lci chunk 04 */
+        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).replace(" that was activated this turn", "").substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ").substringBefore(" that saddled ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that isn't exactly ").substringBefore(" that's exactly ") /* mom chunk 01 */.substringBefore(" that entered ").substringBefore(" that has ") /* rvr chunk 05 */.replace(WITHOUT_A_COUNTER_SUFFIX, "") /* neo chunk 03 */.substringBefore(" without ").substringBefore(" with ").substringBefore(" other than ") /* lci chunk 04 */
             .let { Mkm.OWNED_NOT_CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it } // mkm chunk 01
             .let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard").substringBefore(" from your graveyard").substringBefore(" in a graveyard") // chunk 31, otj chunk 04, mkm chunk 09
@@ -637,6 +647,7 @@ internal object Filters {
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) (?:in|from) your graveyard""") // otj chunk 04: "from"
     private val IN_GRAVEYARDS = Regex("""(.+) in graveyards""")
+    private val FROM_A_GRAVEYARD_LAST_ALTERNATIVE = Regex("""(.+(?: spell| permanent| ability)), (?:or )?((?:\w+ )?card) (?:from|in) a graveyard""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) (?:from|in) a graveyard""") // mkm chunk 09: "nonland card in a graveyard"
     // chunk 32
     // dmu chunk 06
@@ -2069,6 +2080,8 @@ internal object Values {
                 arcanum.api.Measure.Objects)
         }
         RvrPhrases.value(text)?.let { return it } // rvr
+        // neo chunk 03: "mana value less than or equal to that damage" (the amount of the damage event that triggered, CR 603.2c)
+        if (text == "that damage") return Value.EventAmount
         OnePhrases.value(text, exiled)?.let { return it } // one
         LciPhrases.value(text)?.let { return it } // lci
         IsdPhrases.value(text)?.let { return it } // isd

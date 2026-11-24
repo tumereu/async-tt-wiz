@@ -3965,6 +3965,7 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        neoModify(sentence, steps)?.let { return it } // neo
         momModify(sentence, steps, context)?.let { return it } // mom
         otjModify(sentence, steps, context)?.let { return it } // otj
         lciModify(sentence, steps, context)?.let { return it } // lci
@@ -6953,13 +6954,20 @@ internal class Sentences(
                     arcanum.api.Affected.Objects(what), arcanum.api.Duration.Indefinitely)))
         }
         // chunk 56: "Exile the top two cards of your library." ("those cards")
-        EXILE_TOP_N.matchEntire(sentence)?.let { m ->
+        // "the top card" of a single library is EXILE_TOP_CARD's (one card, "it")
+        EXILE_TOP_N.matchEntire(sentence)?.takeUnless { it.groupValues[1].isEmpty() && it.groupValues[2].isEmpty() && !it.groupValues[3].startsWith("each ") }?.let { m ->
             // blb gaps: "the top X cards", X defined by the ability ("where X is …", CR 107.3c)
             // woe chunk 09: "exile that many cards from the top of your library" (the damage the trigger event dealt)
             val n = if (m.groupValues[2].isNotEmpty()) (context.thatMuch ?: Value.EventAmount.takeIf { context.event != null } ?: return null)
-                else if (m.groupValues[1] == "X") Value.Announced(name = "X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+                else if (m.groupValues[1] == "X") Value.Announced(name = "X") else if (m.groupValues[1].isEmpty()) Value.Fixed(1)
+                else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
             // woe chunk 07: "of target opponent's library face down" (CR 406.3)
-            val whose = if (m.groupValues[3] == "your") Players.You else playersIn(m.groupValues[3].removeSuffix("'s"), context) ?: return null
+            val whose = when (m.groupValues[3]) {
+                "your" -> Players.You
+                "each player's" -> Players.Each(PlayerFilter.Any)
+                "each opponent's" -> Players.Each(PlayerFilter.Opponent)
+                else -> playersIn(m.groupValues[3].removeSuffix("'s"), context) ?: return null
+            }
             context.them = Objects.Bound("exiled")
             return listOf(Step.Do(Effect.Move(Objects.LibraryCards(whose, n, fromTop = true), Destination(Zone.Exile, faceDown = m.groupValues[4].isNotEmpty()), postBind = "exiled")))
         }
@@ -7271,12 +7279,12 @@ internal class Sentences(
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayLookAt(card)), arcanum.api.Affected.Players(Players.You), arcanum.api.Duration.Indefinitely)))
         }
         // chunk 47: "You may play that card this turn." / "… until your next end step." (the exiled card)
-        YOU_MAY_PLAY_THAT_CARD.matchEntire(sentence)?.let { m ->
+        YOU_MAY_PLAY_THAT_CARD.matchEntire(sentence)?.takeIf { (it.groupValues[2].isEmpty()) == sentence.startsWith("Until end of turn, ") }?.let { m ->
             // blb gaps: "You may play those cards until your next end step." (the cards exiled before)
             // snc chunk 07: "You may play one of those cards until your next end step." (one card in all, CR 611.2a)
             val one = m.groupValues[1] == "one of those cards"
             val exiled = (if (m.groupValues[1] != "that card") context.them else context.it) as? Objects.Bound ?: return null
-            val duration = if (m.groupValues[2] == "this turn") arcanum.api.Duration.EndOfTurn
+            val duration = if (m.groupValues[2] != "until your next end step") arcanum.api.Duration.EndOfTurn
                 else arcanum.api.Duration.UntilStep(arcanum.api.TurnStep.End, PlayerFilter.You)
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, arcanum.api.PlayKind.Play, holder = PlayerFilter.You,
                 total = if (one) 1 else null)), arcanum.api.Affected.Objects(exiled), duration)))
@@ -9656,8 +9664,10 @@ internal class Sentences(
             return listOf(Step.Do(Effect.LookAt(Objects.Each(handOf(context.targetOpponent())), players = Players.You)))
         }
         TARGET_REVEALS_HAND_YOU_CHOOSE.matchEntire(sentence)?.let { m ->
-            val opponent = context.targetOpponent()
-            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, handOf(opponent))
+            // "That player": the target player named before, else the trigger's player (a reflexive trigger's instructions see no event)
+            val opponent = if (m.groupValues[1] == "That player") context.targets.lastOrNull { it.what is TargetKind.Players }?.let { Players.Target(it.name) } ?: Players.EventPlayer
+                else context.targetOpponent()
+            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, handOf(opponent))
             context.it = Objects.Bound("chosen")
             return listOf(
                 Step.Do(Effect.Reveal(Objects.Each(handOf(opponent)))),
@@ -14189,7 +14199,8 @@ internal class Sentences(
         val CREATE_COPY_OF_TARGET = Regex("""Create a (tapped and attacking )?token that's a copy of (another )?target (.+?)(?:, except (.+))?\.""")
         // chunk 33
         val EACH_SACRIFICES = Regex("""Each (player|opponent|other player) sacrifices (an?|X|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty) (.+?)(?: of their choice)?\.""")
-        val TARGET_REVEALS_HAND_YOU_CHOOSE = Regex("""Target opponent reveals their hand and you choose an? (.+) from it\.""")
+        // neo chunk 03: also "that player" (the player a trigger's event names: "deals combat damage to a player, … When you do, that player reveals …")
+        val TARGET_REVEALS_HAND_YOU_CHOOSE = Regex("""(Target opponent|That player) reveals their hand and you choose an? (.+) from it\.""")
         val MAY_EXILE_FROM_IT_UNTIL_LEAVES = Regex("""You may exile an? (.+) from it until (.+) leaves the battlefield\.""")
         val YOU_MAY_PLAY_EXILED_FREE = Regex("""[Yy]ou may (play|cast) the exiled card without paying its mana cost\.""")
         val EXILED_TO_HAND = Regex("""(?:Return|Put) the exiled card (?:to|into) its owner's hand\.""")
@@ -14302,7 +14313,8 @@ internal class Sentences(
         val CONNIVES = Regex("""(.+) connives\.""")
         val PUT_THAT_MANY_COUNTERS = Regex("""Put that many (\S+) counters on (.+)\.""")
         val YOU_LOSE_LIFE_EQUAL_TO_ITS = Regex("""You lose life equal to its (mana value|power)\.""")
-        val YOU_MAY_PLAY_THAT_CARD = Regex("""You may play (that card|those cards|one of those cards) (this turn|until your next end step)\.""") // blb gaps: those cards
+        // neo chunk 03: also "Until end of turn, you may play one of those cards."
+        val YOU_MAY_PLAY_THAT_CARD = Regex("""(?:You|Until end of turn, you) may play (that card|those cards|one of those cards)(?: (this turn|until your next end step))?\.""") // blb gaps: those cards
         val IF_YOU_WIN_THE_FLIP = Regex("""If you win the flip, (.+)""")
         val RETURN_THAT_TO_OWNERS_HAND = Regex("""Return that (?:spell|card|creature|permanent) to its owner's hand\.""")
         val COPY_THAT_SPELL = Regex("""Copy that spell(?:, and you may choose new targets for the copy)?\.""")
@@ -14338,7 +14350,8 @@ internal class Sentences(
         val LABEL_TWICE_DURING_YOUR_TURNS = Regex("""(.+) can (\w+) twice during each of your turns rather than once\.""")
         val YOU_CREATE_A = Regex("""you create an? (.+) token""")
         // woe chunk 07: also "of target opponent's library", "face down"
-        val EXILE_TOP_N = Regex("""Exile (?:the top (\w+)|(that many)) cards (?:of|from the top of) (your|target opponent's|target player's) library( face down)?\.""")
+        // neo chunk 03: also "the top card of each player's library" (one card from every library, CR 401.1)
+        val EXILE_TOP_N = Regex("""Exile (?:the top (\w+) cards|the top card|(that many) cards) (?:of|from the top of) (your|target opponent's|target player's|each player's|each opponent's) library( face down)?\.""")
         val TARGET_OPPONENT_MILLS = Regex("""Target opponent mills (\w+) cards?\.""")
         val UP_TO_ONE_TARGET_GETS = Regex("""(?:Up to one target|(T)arget) (.+) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) until (end of turn|your next turn)\.""")
         val TARGET_GETS_FOR_EACH_UNTIL_EOT = Regex("""Target (.+) gets ([+-]\d+)/([+-]\d+) until end of turn for each (.+)\.""")
@@ -24068,6 +24081,21 @@ internal class Sentences(
         return null
     }
 
+    /** neo: sentences that change the steps before them. */
+    private fun neoModify(sentence: String, steps: List<Step>): List<Step>? {
+        // neo chunk 03: "If you cast a spell this way, pay life equal to its mana value rather than paying its mana cost." after a permission to play
+        // the exiled cards: the permission's alternative cost (CR 118.9; a land is played, not paid for, CR 305.1)
+        if (Neo.PAY_LIFE_RATHER_THAN_MANA_COST.matches(sentence)) {
+            val last = steps.lastOrNull() as? Step.Do ?: return null
+            val apply = last.effect as? Effect.ApplyMechanics ?: return null
+            val play = apply.mechanics.singleOrNull() as? Mechanic.MayPlay ?: return null
+            if (play.cost != null) return null
+            val life = Cost(listOf(CostPart.PayLife(Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Affected, arcanum.api.Combine.Single))))
+            return steps.dropLast(1) + Step.Do(apply.copy(mechanics = listOf(play.copy(cost = life))))
+        }
+        return null
+    }
+
     /** neo: single sentences. */
     private fun neoEffect(sentence: String, context: Context): List<Step>? {
         // neo chunk 02: "your opponents can't cast spells with the same mana value as that spell until your next turn." (that spell: the one cast;
@@ -32808,9 +32836,11 @@ internal class Sentences(
         // ltr chunk 01: "Equip abilities you activate cost {1} less to activate." (CR 601.2f, 602.2b)
         Ltr.EQUIP_ABILITIES_COST_LESS.matchEntire(line)?.let { m ->
             // one chunk 04: "of other Equipment": the ability's source is not this Equipment
-            val abilities = if (m.groupValues[1].isEmpty()) ltrEquipAbilities else ObjectFilter.AbilityOf(keyword = arcanum.api.Keyword.Equip.Kind, source = ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
+            val kind = if (m.groupValues[1] == "Equip") arcanum.api.Keyword.Equip.Kind else arcanum.api.Keyword.Ninjutsu.Kind
+            val abilities = if (m.groupValues[2].isEmpty()) ObjectFilter.AbilityOf(keyword = kind)
+                else ObjectFilter.AbilityOf(keyword = kind, source = ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
             return ltrSelfStatic(Mechanic.CostChange(Filters.all(abilities, ObjectFilter.ControlledBy(PlayerFilter.You)),
-                arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return@let, Value.Fixed(1))))
+                arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[3]) ?: return@let, Value.Fixed(1))))
         }
         // ltr chunk 01: "During your turn, you may activate equip abilities any time you could cast an instant." (CR 602.5d)
         Ltr.DURING_YOUR_TURN_ACTIVATE_AT_INSTANT_SPEED.matchEntire(line)?.takeIf { it.groupValues[1] == "equip" }?.let {

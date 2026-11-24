@@ -5,11 +5,11 @@ import kotlin.test.*
 
 /** Pod setup's members, invitations and bots (owner, 2026-11-22): Add bot and the creator's ✕s. */
 class PodSetupMembersTest {
-    // DRF-296: Add bot greys at the mode's most (its player limit less two) with the reason on hold
+    // DRF-296 (owner, 2026-11-23): Add bot greys at the mode's most (its player limit less one) with the reason on hold
     @Test fun addBotSaysWhyItIsGreyed() {
-        assertNull(podAddBotBlocked(DraftSettings.booster().copy(bots = 5)))
-        assertEquals("Booster takes at most 6 bots", podAddBotBlocked(DraftSettings.booster().copy(bots = 6)))
-        assertEquals("Winston takes at most 2 bots", podAddBotBlocked(DraftSettings.winston().copy(bots = 2)))
+        assertNull(podAddBotBlocked(DraftSettings.booster().copy(bots = 6)))
+        assertEquals("Booster takes at most 7 bots", podAddBotBlocked(DraftSettings.booster().copy(bots = 7)))
+        assertEquals("Winston takes at most 3 bots", podAddBotBlocked(DraftSettings.winston().copy(bots = 3)))
     }
 
     // DRF-307, DRF-308: a refused cancel of an invitation or removal of a member says why in plain words

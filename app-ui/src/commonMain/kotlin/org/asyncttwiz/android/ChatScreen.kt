@@ -84,7 +84,7 @@ fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier
     val game = state.detail ?: return
     // LOB-145: a pod game's chat has the pod's beside it, while the viewer is still in that pod
     val podChat = LocalPodChat.current
-    val podView = podChat?.let { chat -> game.podId?.let { id -> chat.views[id] ?: PodChatView(id) } }?.takeIf { !it.unavailable }
+    val podView = podChat?.let { chat -> game.chatPodId?.let { id -> chat.views[id] ?: PodChatView(id) } }?.takeIf { !it.unavailable }
     val tab = if (podView == null) ChatTab.GAME else state.chatTab
     val chat = state.chat
     val deliveryFailure = chat.outgoing.lastOrNull { it.failure != null }?.failure

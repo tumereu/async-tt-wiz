@@ -77,8 +77,11 @@ internal object MatchRecords {
         val record = MatchRecord(UUID.randomUUID().toString(), summary.id, summary.gameName, summary.podId, summary.podName,
             started.toInstant().toString(), at.toInstant().toString(), turns,
             listOf(summary.inviter, summary.recipient).map { player(it).copy(deck = deck(it.accountId)) }, ending)
+        // DRF-039, DRF-235: a game orphaned by its pod's cancelled draft counts in the pod's standings no more (the record still
+        // names the pod it came from)
+        val orphaned = sql.select(GAME.POD_ORPHANED).from(GAME).where(GAME.ID.eq(game)).fetchOne(GAME.POD_ORPHANED) == true
         sql.insertInto(MATCH_RECORD).set(MATCH_RECORD.ID, UUID.fromString(record.id)).set(MATCH_RECORD.PLAY_ID, play)
-            .set(MATCH_RECORD.GAME_ID, game).set(MATCH_RECORD.POD_ID, summary.podId?.let(UUID::fromString))
+            .set(MATCH_RECORD.GAME_ID, game).set(MATCH_RECORD.POD_ID, summary.podId?.takeUnless { orphaned }?.let(UUID::fromString))
             .set(MATCH_RECORD.INVITER_ID, UUID.fromString(summary.inviter.accountId))
             .set(MATCH_RECORD.RECIPIENT_ID, UUID.fromString(summary.recipient.accountId))
             .set(MATCH_RECORD.STARTED_AT, started).set(MATCH_RECORD.ENDED_AT, at).set(MATCH_RECORD.FINISHED, ending !is MatchEnding.Unfinished)
@@ -102,7 +105,7 @@ internal object MatchRecords {
         val turn = DSL.field("(SELECT max(((s.resume_at)::jsonb ->> 'turn')::int) FROM engine_seat s WHERE s.play_id = {0})",
             Int::class.java, GAME.CURRENT_PLAY)
         val games = sql.select(GAME.ID, GAME.GAME_NAME, GAME.INVITER_ID, GAME.RECIPIENT_ID, turn).from(GAME)
-            .where(GAME.POD_ID.eq(pod)).and(GAME.LIFECYCLE.eq("ACTIVE")).orderBy(GAME.ACTIVITY_AT.desc(), GAME.ID).fetch()
+            .where(GAME.POD_ID.eq(pod)).and(GAME.POD_ORPHANED.isFalse).and(GAME.LIFECYCLE.eq("ACTIVE")).orderBy(GAME.ACTIVITY_AT.desc(), GAME.ID).fetch()
         val names = accounts(sql, games.flatMap { listOf(it.value3()!!, it.value4()!!) })
         val playing = games.map { row -> PodMatchInPlay(row.value1().toString(), row.value2()!!,
             listOf(row.value3()!!, row.value4()!!).map { names.getValue(it) }, row.value5() ?: 0) }

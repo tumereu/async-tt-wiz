@@ -1152,8 +1152,15 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     override fun close() { closed = true; clear(); worker.execute { api.close(); cubes.close() }; worker.shutdown(); filters.close() }
 }
 
-fun podCanStart(detail: PodDetail) = detail.phase == PodPhase.SETUP && detail.members.size >= 2 &&
+/** DRF-035 (owner, 2026-11-23): two seats at least, the creator alone with bots too ([podSoloWarning]). */
+fun podCanStart(detail: PodDetail) = detail.phase == PodPhase.SETUP && detail.settings.seats(detail.members.size) >= 2 &&
     detail.settings.validate(detail.settings.seats(detail.members.size)).isEmpty() && detail.supply.sufficient
+
+/** DRF-296 (owner, 2026-11-23): setup's warning under its members while the creator is the only member, with bots and no
+ * invitation pending: bots play no games (DRF-301). Null otherwise. [settings]: as setup shows them. */
+fun podSoloWarning(detail: PodDetail, settings: DraftSettings = detail.settings): String? =
+    if (detail.phase == PodPhase.SETUP && detail.members.size == 1 && detail.pendingInvitations.isEmpty() && settings.bots > 0)
+        "No one to play against: bots only draft, so this pod plays no games." else null
 
 /**
  * Why Start (too many members) or auto-start (too many members plus invitations) is not offered for this engine's

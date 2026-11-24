@@ -279,17 +279,17 @@ class PodScreensTest {
         compose.onNodeWithText("drafting").assertIsDisplayed()
     }
 
-    // DRF-296 (owner, 2026-11-22): Add bot adds one bot seat a tap up to the mode's most (Booster 6), where it greys with the
-    // reason on hold
+    // DRF-296 (owner, 2026-11-22 and 2026-11-23): Add bot adds one bot seat a tap up to the mode's most (Booster 7), where it greys
+    // with the reason on hold
     @Test fun addBotAddsSeatsUpToTheModesMost() {
-        var settings by mutableStateOf(DraftSettings.booster().copy(bots = 5))
+        var settings by mutableStateOf(DraftSettings.booster().copy(bots = 6))
         compose.setContent { ScreenTheme { PodAddBotButton(settings, true, { settings = settings.withBots(settings.bots + 1) }) } }
         compose.onNodeWithTag("pod-add-bot").assertIsEnabled().assertTextEquals("Add bot").performClick()
-        compose.runOnIdle { assertEquals(6, settings.bots) }
+        compose.runOnIdle { assertEquals(7, settings.bots) }
         compose.onNodeWithTag("pod-add-bot").assertIsNotEnabled()
-        assertEquals("Booster takes at most 6 bots", podAddBotBlocked(settings))
-        assertEquals("Grid takes at most 2 bots", podAddBotBlocked(DraftSettings.grid().copy(bots = 2)))
-        assertNull(podAddBotBlocked(DraftSettings.grid().copy(bots = 1)))
+        assertEquals("Booster takes at most 7 bots", podAddBotBlocked(settings))
+        assertEquals("Grid takes at most 3 bots", podAddBotBlocked(DraftSettings.grid().copy(bots = 3)))
+        assertNull(podAddBotBlocked(DraftSettings.grid().copy(bots = 2)))
     }
 
     // SYS-024

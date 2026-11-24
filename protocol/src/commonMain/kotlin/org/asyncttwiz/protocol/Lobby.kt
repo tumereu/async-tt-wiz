@@ -25,7 +25,10 @@ import kotlinx.serialization.Serializable
     /** TRN-065: the last match's result while a player still has to tap OK on it. Omitted when nobody has to. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val resultNotice: ResultNotice? = null,
     /** The game's deck settings (LOB-247), set by its creator ([inviter]). Omitted when the defaults. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val deckSettings: DeckSettings = DeckSettings())
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val deckSettings: DeckSettings = DeckSettings(),
+    /** DRF-039 (owner, 2026-11-23): a pod game that carried on past its pod's cancelled draft: it keeps [podId], [podName]
+     * and its pod deck, but no longer belongs to the pod (not in its Games tab, no Pod chat, its deck its own). Omitted when false. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val podOrphaned: Boolean = false)
 
 /**
  * TRN-065 (owner 2026-11-09): how the last match ended, after a concession or an accepted suggestion, kept from its end until

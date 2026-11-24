@@ -29,17 +29,19 @@ class LobbyPodDeck(private val scope: LobbyScope, private val pods: Pods?, priva
     fun rename(name: String) {
         val trimmed = name.trim().take(120)
         if (trimmed.isEmpty()) return
-        send("name \"$trimmed\"", done = { game -> session?.podDeckNamed(game, trimmed) }) { api, token, pod, attempt ->
+        send("name \"$trimmed\"", SetPodGameDeck(randomUuid(), name = trimmed), done = { game -> session?.podDeckNamed(game, trimmed) }) { api, token, pod, attempt ->
             api.deckName(token, pod, SetPodDeckName(randomUuid(), attempt, trimmed))
         }
     }
 
     /** Makes the card [definition] (a digest among the deck's Main and Side cards) the open pod game's deck cover. */
-    fun cover(definition: String) = send("cover $definition") { api, token, pod, attempt ->
+    fun cover(definition: String) = send("cover $definition", SetPodGameDeck(randomUuid(), cover = definition)) { api, token, pod, attempt ->
         api.deckCover(token, pod, SetPodDeckCover(randomUuid(), attempt, definition))
     }
 
-    private fun send(what: String, done: (gameId: String) -> Unit = {},
+    /** DRF-039 (owner, 2026-11-23): in a game a cancelled draft orphaned from its pod, [orphaned] changes that game's deck alone
+     * (the pod's current draft deck is another one); else [request] changes the pod deck and with it its games in the lobby. */
+    private fun send(what: String, orphaned: SetPodGameDeck, done: (gameId: String) -> Unit = {},
         request: suspend (Pods, String, String, String) -> PodDetail) {
         val game = state.detail ?: return
         val pod = game.podId ?: return
@@ -48,9 +50,11 @@ class LobbyPodDeck(private val scope: LobbyScope, private val pods: Pods?, priva
         if (saving || game.lifecycle != GameLifecycle.LOBBY) return
         saving = true
         val generation = scope.epoch
-        AppLog.info("lobby", "Pod deck $what from game ${game.id.take(8)}'s lobby (pod ${pod.take(8)})")
+        AppLog.info("lobby", "Pod deck $what from game ${game.id.take(8)}'s lobby (pod ${pod.take(8)}" +
+            if (game.podOrphaned) ", orphaned by a cancelled draft: this game's deck alone)" else ")")
         worker.executeSuspending {
             val result = runCatching { run {
+                if (game.podOrphaned) { api.gameDeck(token, pod, game.id, orphaned); return@run }
                 // The pod's current draft attempt, which its requests name
                 val attempt = api.detail(token, pod).draftAttemptId ?: throw PodFailure("not_drafting")
                 request(api, token, pod, attempt)

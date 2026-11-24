@@ -410,6 +410,17 @@ class PodHttpTest {
         assertEquals(input.name, f.get(f.a, pod).deckName)
     }
 
+    // DRF-039 (owner, 2026-11-23): the route of an orphaned game's own deck name and cover; what it changes is in PodChallengeTest
+    @Test fun `an orphaned game's deck endpoint is PUT only and refuses a game not of the caller's`() = fixture { f ->
+        val pod = f.create().id
+        val game = id()
+        f.send(f.a, "PUT", "/v1/pods/$pod/games/$game/deck", SetPodGameDeck(id(), name = "Old deck"), 404)
+        f.send(f.a, "PUT", "/v1/pods/$pod/games/$game/deck", SetPodGameDeck(id()), 400)
+        f.send(f.a, "PUT", "/v1/pods/$pod/games/$game/deck", SetPodGameDeck(id(), name = " "), 400)
+        assertEquals(405, f.request(f.a, "GET", "/v1/pods/$pod/games/$game/deck").statusCode())
+        assertEquals(401, f.request(null, "PUT", "/v1/pods/$pod/games/$game/deck", "{}").statusCode())
+    }
+
     // DRF-166: the route, its scope and its fence; the rules of what may be chosen are in DraftDeckTest
     @Test fun `deck cover endpoint is owner scoped validated and attempt fenced`() = fixture { f ->
         val pod = f.create().id

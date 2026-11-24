@@ -40,7 +40,7 @@ class NeoChunk14AffinityCostsScenariosTest {
         {1}, {T}, Tap another untapped artifact you control: Draw a card, then discard a card.
     """.trimIndent())
     private val gadget = Cards.invent("Tin Gadget", "{1}", "Artifact", "")
-    private val gear = Cards.invent("Brass Gear", "{2}", "Artifact", "")
+    private val gear = Cards.invent("Copper Cogwheel", "{2}", "Artifact", "")
     private val cog = Cards.invent("Iron Cog", "{3}", "Artifact", "")
     private val charm = Cards.invent("Dull Charm", "{2}", "Enchantment", "")
     private val ward = Cards.invent("Quiet Ward", "{1}{W}", "Enchantment", "")

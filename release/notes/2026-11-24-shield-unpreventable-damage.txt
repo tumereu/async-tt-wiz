@@ -1,0 +1,1 @@
+fix: Damage that can't be prevented now also removes a shield counter, as the rules say.

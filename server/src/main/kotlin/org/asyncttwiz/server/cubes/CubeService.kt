@@ -35,7 +35,7 @@ class CubeService(private val runtime: ServiceRuntime) {
             val row = sql.insertInto(SAVED_CUBE).set(SAVED_CUBE.ID, UUID.randomUUID())
                 .set(SAVED_CUBE.ACCOUNT_ID, owner).set(SAVED_CUBE.NAME, input.name)
                 .set(SAVED_CUBE.CUBE_COBRA_ID, input.cubeCobraId).returning().fetchSingle()
-            replace(sql, owner, row.id!!, entries)
+            replace(sql, owner, row.id, entries)
             Result(201, json.encodeToString(SavedCube(summary(row, entries), entries)))
         }
     }
@@ -49,17 +49,17 @@ class CubeService(private val runtime: ServiceRuntime) {
             if ((input.name == null && input.entries == null && input.cubeCobraId == null) ||
                 input.name?.let { !CubeValidation.name(it) } == true || !CubeValidation.provenance(input.cubeCobraId) ||
                 !validEntries) return@business error(400, "invalid_cube")
-            val previous = entries(sql, row.id!!)
+            val previous = entries(sql, row.id)
             val next = if (built == null) previous else {
                 // A card without a printing is kept only while the cube holds it.
                 if (!previous.filter { it.printingId == null }.map { it.name }.containsAll(built.kept))
                     return@business error(400, "definitions_unavailable")
                 cubeEntries(built)
             }
-            val name = input.name ?: row.name!!
+            val name = input.name ?: row.name
             val provenance = input.cubeCobraId ?: row.cubeCobraId
             if (next != previous || name != row.name || provenance != row.cubeCobraId) {
-                if (next != previous) replace(sql, owner, row.id!!, next)
+                if (next != previous) replace(sql, owner, row.id, next)
                 row.name = name; row.cubeCobraId = provenance; row.revision = row.revision!! + 1
                 row.updatedAt = sql.update(SAVED_CUBE).set(SAVED_CUBE.NAME, row.name).set(SAVED_CUBE.CUBE_COBRA_ID, provenance)
                     .set(SAVED_CUBE.REVISION, row.revision).set(SAVED_CUBE.UPDATED_AT, DSL.currentOffsetDateTime())
@@ -85,7 +85,7 @@ class CubeService(private val runtime: ServiceRuntime) {
             val rows = sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId)))
                 .and(if (after == null) DSL.trueCondition() else SAVED_CUBE.ID.gt(UUID.fromString(after)))
                 .orderBy(SAVED_CUBE.ID).limit(101).forShare().fetch()
-            val cubes = rows.take(100).map { summary(it, entries(sql, it.id!!)) }
+            val cubes = rows.take(100).map { summary(it, entries(sql, it.id)) }
             Result(200, json.encodeToString(CubeList(cubes, if (rows.size > 100) cubes.last().id else null)))
         }
     }
@@ -97,7 +97,7 @@ class CubeService(private val runtime: ServiceRuntime) {
             val row = sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ID.eq(UUID.fromString(id)))
                 .and(SAVED_CUBE.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId))).forShare().fetchOne()
                 ?: return@transaction error(404, "not_found")
-            val entries = entries(sql, row.id!!)
+            val entries = entries(sql, row.id)
             Result(200, json.encodeToString(SavedCube(summary(row, entries), entries)))
         }
     }
@@ -106,7 +106,7 @@ class CubeService(private val runtime: ServiceRuntime) {
         if (!DeckValidation.uuid(id)) null else sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ID.eq(UUID.fromString(id)))
             .and(SAVED_CUBE.ACCOUNT_ID.eq(owner)).forUpdate().fetchOne()
     private fun entries(sql: DSLContext, id: UUID) = sql.selectFrom(CUBE_ENTRY).where(CUBE_ENTRY.CUBE_ID.eq(id))
-        .orderBy(CUBE_ENTRY.POSITION).fetch().map { SavedCubeEntry(it.printingId, it.name!!, it.quantity!!, SavedDeckSection.valueOf(it.section!!)) }
+        .orderBy(CUBE_ENTRY.POSITION).fetch().map { SavedCubeEntry(it.printingId, it.name, it.quantity, SavedDeckSection.valueOf(it.section)) }
     /** [entries] as cube [id]'s rows, in order, replacing its old ones; the new rows in one statement (SYS-025). */
     private fun replace(sql: DSLContext, owner: UUID, id: UUID, entries: List<SavedCubeEntry>) {
         sql.deleteFrom(CUBE_ENTRY).where(CUBE_ENTRY.CUBE_ID.eq(id)).execute()
@@ -117,7 +117,7 @@ class CubeService(private val runtime: ServiceRuntime) {
         insert.execute()
     }
     /** LOB-124, DRF-161: its Automatum support worked out from its cards' printings by the catalog's marks. */
-    private fun summary(row: SavedCubeRecord, entries: List<SavedCubeEntry>) = CubeSummary(row.id.toString(), row.name!!,
+    private fun summary(row: SavedCubeRecord, entries: List<SavedCubeEntry>) = CubeSummary(row.id.toString(), row.name,
         row.revision.toString(), row.createdAt!!.toInstant().toString(), row.updatedAt!!.toInstant().toString(),
         entries.filter { it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity.toLong() }, row.cubeCobraId,
         entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.sumOf { it.quantity.toLong() },
@@ -141,7 +141,7 @@ class CubeService(private val runtime: ServiceRuntime) {
                 if (original.accountId != owner || original.kind != kind || original.scope != "account" || original.intentDigest != intent)
                     return@transaction error(409, "request_conflict")
                 val outcome = sql.selectFrom(ACCOUNT_REQUEST).where(ACCOUNT_REQUEST.REQUEST_ID.eq(id)).fetchSingle()
-                return@transaction Result(outcome.status!!, outcome.response!!)
+                return@transaction Result(outcome.status, outcome.response)
             }
             val outcome = action(sql, owner)
             sql.insertInto(ACCOUNT_REQUEST).set(ACCOUNT_REQUEST.REQUEST_ID, id)

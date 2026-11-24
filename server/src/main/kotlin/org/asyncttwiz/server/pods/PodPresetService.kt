@@ -50,7 +50,7 @@ class PodPresetService(private val runtime: ServiceRuntime) {
                 sql.update(POD_PRESET).set(POD_PRESET.NAME, input.name).set(POD_PRESET.SETTINGS, encoded)
                     .set(POD_PRESET.CUBE_ID, cube).set(POD_PRESET.SET_CODE, input.setCode).set(POD_PRESET.SET_NAME, input.setName)
                     .set(POD_PRESET.PACK_SETS, packSets).set(POD_PRESET.UPDATED_AT, DSL.currentOffsetDateTime()).where(POD_PRESET.ID.eq(existing.id)).execute()
-                existing.id!!
+                existing.id
             } else {
                 if (sql.fetchCount(POD_PRESET, POD_PRESET.ACCOUNT_ID.eq(owner)) >= PodPresetValidation.MAX_PRESETS)
                     return@transaction error(409, "too_many_presets")

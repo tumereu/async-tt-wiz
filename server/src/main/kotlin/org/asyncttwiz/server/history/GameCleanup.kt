@@ -112,8 +112,8 @@ class GameCleanup(private val runtime: ServiceRuntime, private val clock: Clock 
             .and(unwarned(GAME.REMOVAL_WARNED_AT, GAME.ACTIVITY_AT))
             .orderBy(GAME.ID).limit(BATCH).forUpdate().skipLocked().fetch()
         for (game in games) {
-            for (player in listOf(game.inviterId!!, game.recipientId!!))
-                ActivityService.record(sql, player, ActivityKind.GAME_REMOVAL, game.id!!, UUID.randomUUID(), time = now)
+            for (player in listOf(game.inviterId, game.recipientId))
+                ActivityService.record(sql, player, ActivityKind.GAME_REMOVAL, game.id, UUID.randomUUID(), time = now)
             sql.update(GAME).set(GAME.REMOVAL_WARNED_AT, now).where(GAME.ID.eq(game.id)).execute()
         }
         return games.size
@@ -147,8 +147,8 @@ class GameCleanup(private val runtime: ServiceRuntime, private val clock: Clock 
         if (games.isEmpty()) return 0 to 0
         val lobby = LobbyService(runtime)
         val active = games.filter { it.lifecycle == "ACTIVE" }
-        for (game in active) MatchRecords.unfinished(sql, lobby.summary(sql, game.id!!), now)
-        GameRemoval.delete(sql, games.map { it.id!! })
+        for (game in active) MatchRecords.unfinished(sql, lobby.summary(sql, game.id), now)
+        GameRemoval.delete(sql, games.map { it.id })
         return games.size to active.size
     }
 

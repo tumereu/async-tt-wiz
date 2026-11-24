@@ -81,7 +81,7 @@ internal object DeckVisibilityStore {
         // The finished game's lock is held. Every other game is locked in identity order; a lobby game's own command
         // never waits for another game, and a game finishing concurrently is not in the lobby yet.
         val games = sql.selectFrom(GAME).where(pair).and(GAME.LIFECYCLE.eq("LOBBY")).orderBy(GAME.ID).forUpdate().fetch()
-            .associateBy { it.id!! }
+            .associateBy { it.id }
         val revealed = mutableMapOf<UUID, UUID>()
         for (player in preparation.players) {
             val account = UUID.fromString(player.accountId)

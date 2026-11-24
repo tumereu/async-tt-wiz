@@ -32,6 +32,47 @@ class TimelineStripInteractionTest {
         assertTrue(pauses > 0)
     }
 
+    // HIS-011, WEB-028: on the desktop layout the mouse resting on an event half a second shows its text, as holding it does
+    // on the phone, without moving the cursor; it goes once the mouse leaves; a right-click shows it too, and holding it with
+    // the mouse still shows it while held, a click still moves the cursor
+    @Test fun onTheDesktopHoveringAnEventShowsItsText() {
+        var selected by mutableStateOf("1")
+        compose.setContent { MaterialTheme { CompositionLocalProvider(LocalAppLayout provides AppLayout.Desktop) {
+            HistoryTimeline((0..2).map { event(it) }, selected, "me", {}, { selected = it })
+        } } }
+        fun chip() = compose.onNode(hasContentDescription("Event 0") and hasClickAction(), useUnmergedTree = true)
+        fun text() = compose.onAllNodes(hasText("Event 0"), useUnmergedTree = true)
+        fun away() = compose.onAllNodes(isRoot()).onFirst().performMouseInput { moveTo(androidx.compose.ui.geometry.Offset(400f, 800f)) }
+        compose.mainClock.autoAdvance = false
+        chip().performMouseInput { moveTo(center) }
+        compose.mainClock.advanceTimeBy(300)
+        text().assertCountEquals(0)
+        compose.mainClock.advanceTimeBy(400)
+        text().assertCountEquals(1)
+        assertEquals("1", selected, "hovering never moves the cursor")
+        away()
+        compose.mainClock.advanceTimeBy(400)
+        text().assertCountEquals(0)
+        chip().performMouseInput { moveTo(center); press(androidx.compose.ui.test.MouseButton.Secondary); release(androidx.compose.ui.test.MouseButton.Secondary) }
+        compose.mainClock.advanceTimeBy(200)
+        text().assertCountEquals(1)
+        assertEquals("1", selected, "a right-click never moves the cursor")
+        away()
+        compose.mainClock.advanceTimeBy(400)
+        text().assertCountEquals(0)
+        chip().performMouseInput { moveTo(center); press(); advanceEventTime(1000) }
+        compose.mainClock.advanceTimeBy(1200)
+        text().assertCountEquals(1)
+        chip().performMouseInput { release() }
+        compose.mainClock.advanceTimeBy(400)
+        text().assertCountEquals(0)
+        assertEquals("1", selected, "a hold never moves the cursor")
+        compose.mainClock.autoAdvance = true
+        chip().performMouseInput { click(center) }
+        compose.waitForIdle()
+        assertEquals("0", selected)
+    }
+
     // HIS-005, HIS-170: a turn or step change shows as a labelled line in the gap before the event made after it; there are no
     // branch lines
     @Test fun aSeparatorSitsInTheGapBeforeTheEventAfterTheChange() {

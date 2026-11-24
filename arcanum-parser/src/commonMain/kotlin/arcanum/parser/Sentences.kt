@@ -116,6 +116,13 @@ internal class Sentences(
             val second = line("This spell costs ${m.groupValues[3]} less to cast if ${m.groupValues[4]}.")?.takeIf { it !is Ability.Unparsed } ?: return@let
             return listOf(first, second)
         }
+        // neo chunk 08: "This spell costs {1} less to cast if you control an artifact and {1} less to cast if you control an enchantment." (the same,
+        // each reduction on its own condition, CR 601.2f)
+        Neo.COSTS_LESS_IF_AND_LESS_IF.matchEntire(line)?.let { m ->
+            val first = line("This spell costs ${m.groupValues[1]} less to cast if ${m.groupValues[2]}.")?.takeIf { it !is Ability.Unparsed } ?: return@let
+            val second = line("This spell costs ${m.groupValues[3]} less to cast if ${m.groupValues[4]}.")?.takeIf { it !is Ability.Unparsed } ?: return@let
+            return listOf(first, second)
+        }
         // fdn chunk 07: "During each of your turns, you may play a land and cast a permanent spell of each permanent type from your graveyard.": one
         // permission each turn for a land and for each permanent type (CR 110.4); a card of several types uses the one its player picks
         if (Fdn.PLAY_LAND_AND_EACH_PERMANENT_TYPE_FROM_GRAVEYARD.matches(line)) {
@@ -6090,7 +6097,9 @@ internal class Sentences(
                     from = Objects.Union(slots.map { Objects.Target(it.name) })), bind = "toCast", chooser = Players.You),
                 Step.Do(Effect.Cast(Objects.Bound("toCast"), withoutPaying = true, bind = "cast", how = PlayKind.Cast, caster = Players.You)))
         }
-        if (sentence == "If a spell cast this way would be put into your graveyard, exile it instead.") {
+        // neo chunk 08: "If those spells would be put into your graveyard, exile them instead." (the spells just cast)
+        if (sentence == "If a spell cast this way would be put into your graveyard, exile it instead." ||
+            sentence == "If those spells would be put into your graveyard, exile them instead.") {
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(
                 EventPattern.ZoneChange(ObjectFilter.Is(Objects.Bound("cast")), to = Zone.Graveyard),
                 modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), affects = null, duration = arcanum.api.Duration.Indefinitely)))
@@ -6208,7 +6217,15 @@ internal class Sentences(
         SEARCH_PUT_SHUFFLE.matchEntire(sentence)?.let { m ->
             // dsk chunk 07: "for any card" is "for a card"; rvr chunk 02: "a card with the same name as that card" (the card "that card" names)
             val sameName = SAME_NAME_AS_THAT_CARD.matchEntire(m.groupValues[1])
-            val filter = if (sameName != null) Filters.all(Filters.noun(sameName.groupValues[1].removeArticle().removeSuffix(" card")) ?: return null,
+            // neo chunk 08: "an Aura card with mana value less than or equal to that Aura and with a different name than each Aura you control" ("that
+            // Aura": the trigger's, CR 608.2h)
+            val atMostThat = Neo.WITH_MANA_VALUE_AT_MOST_THAT.matchEntire(m.groupValues[1])
+            val filter = if (atMostThat != null) {
+                val that = context.it ?: return null
+                val rest = (atMostThat.groupValues[1] + atMostThat.groupValues[2].takeIf { it.isNotEmpty() }?.let { " $it" }.orEmpty()).removeArticle()
+                Filters.all(Filters.noun(rest) ?: return null,
+                    ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.Of(arcanum.api.NumericProperty.ManaValue, that, arcanum.api.Combine.Single)))
+            } else if (sameName != null) Filters.all(Filters.noun(sameName.groupValues[1].removeArticle().removeSuffix(" card")) ?: return null,
                     ObjectFilter.SameNameAs(context.it ?: return null))
                 else Filters.noun(m.groupValues[1].let { if (it == "any card") "a card" else it }.removeArticle().removeSuffix(" card")) ?: return null
             // chunks 32, 42: "reveal it, ", "into your graveyard", "onto the battlefield tapped"
@@ -6217,7 +6234,11 @@ internal class Sentences(
                 "into your graveyard" -> Destination(Zone.Graveyard)
                 // isd chunk 07: "onto the battlefield attached to target player" (a Curse; not cast, so it doesn't target, CR 303.4f)
                 "onto the battlefield attached to target player" -> Destination(Zone.Battlefield, attachedTo = Recipients(players = context.targetPlayer()))
-                else -> Destination(Zone.Battlefield, tapped = m.groupValues[3].endsWith(" tapped"))
+                // neo chunk 08: "onto the battlefield attached to Light-Paws" (put there attached, not cast: no target, CR 303.4f)
+                else -> if (m.groupValues[3].startsWith("onto the battlefield attached to ")) {
+                    if (!isSelf(m.groupValues[3].removePrefix("onto the battlefield attached to "))) return null
+                    Destination(Zone.Battlefield, attachedTo = Recipients(objects = Objects.Self))
+                } else Destination(Zone.Battlefield, tapped = m.groupValues[3].endsWith(" tapped"))
             }.let { to ->
                 // trk chunk 11: "put it onto the battlefield with seven charge counters on it" (it enters with them, CR 122.6)
                 if (m.groupValues[5].isEmpty()) to else if (to.zone != Zone.Battlefield) return null
@@ -13973,7 +13994,7 @@ internal class Sentences(
         val DESTROY_TARGET = Regex("""Destroy target (.+)\.""")
         val REVEAL_FROM_YOUR_HAND = Regex("""Reveal an? (.+?) from your hand\.""")
         val SAME_NAME_AS_THAT_CARD = Regex("""(.+?) with the same name as that card""")
-        val SEARCH_PUT_SHUFFLE = Regex("""Search your library for (.+?)(, reveal (?:it|that card))?, put (?:it|that card) (onto the battlefield(?: tapped)?(?: attached to target player)?|into your hand|into your graveyard)(, discard a card at random)?(?: with (\w+) (\S+) counters? on it)?, then shuffle\.""") // isd chunk 07: attached to
+        val SEARCH_PUT_SHUFFLE = Regex("""Search your library for (.+?)(, reveal (?:it|that card))?, put (?:it|that card) (onto the battlefield(?: tapped)?(?: attached to (?:target player|[A-Z][^,]+))?|into your hand|into your graveyard)(, discard a card at random)?(?: with (\w+) (\S+) counters? on it)?, then shuffle\.""") // isd chunk 07: attached to
         val SEARCH_TO_TOP = Regex("""Search your library for (.+?), (reveal it, )?then shuffle and put (?:it|that card|the card) on top\.""")
         // dmr chunk 07: also "… on the bottom of your library" (CR 401.4: in an order of their choice)
         val PUT_FROM_HAND_ON_TOP = Regex("""Put (\w+) cards? from your hand on (top|the bottom) of your library(?: in any order)?\.""")
@@ -14514,12 +14535,18 @@ internal class Sentences(
     private fun blbGapsStatic(line: String): Ability? {
         // "As an additional cost to cast this spell, you may sacrifice any number of nonland permanents. This spell costs {1}
         // less to cast for each permanent sacrificed this way." (CR 601.2b, 601.2f: the reduction counts the chosen permanents)
+        // neo chunk 08: "… you may tap any number of untapped creatures you control. This spell costs {1} less to cast for each creature tapped this
+        // way." (untapped and yours: what a tap cost can tap, CR 118.3)
         BlbGaps.ADDITIONAL_SACRIFICE_ANY_NUMBER_REDUCTION.matchEntire(line)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
-            val per = ManaCost.parse(m.groupValues[2]) ?: return null
+            val tap = m.groupValues[1] == "tap"
+            val filter = Filters.noun(if (tap) m.groupValues[2].removePrefix("untapped ").removeSuffix(" you control") else m.groupValues[2]) ?: return null
+            val per = ManaCost.parse(m.groupValues[3]) ?: return null
+            val bind = if (tap) "tapped" else BlbGaps.SACRIFICED
+            val part = if (tap) CostPart.TapObjects(CostObjects.Choose(filter, count = null), bind = bind)
+                else CostPart.Sacrifice(CostObjects.Choose(filter, count = null), preBind = bind)
             return Ability.Static(listOf(
-                Mechanic.AdditionalCost(cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(filter, count = null), preBind = BlbGaps.SACRIFICED)))),
-                Mechanic.CostChange(ObjectFilter.Is(Objects.Self), change = arcanum.api.CostChange.Less(per, Value.Count(Objects.Bound(BlbGaps.SACRIFICED))))),
+                Mechanic.AdditionalCost(cost = Cost(listOf(part))),
+                Mechanic.CostChange(ObjectFilter.Is(Objects.Self), change = arcanum.api.CostChange.Less(per, Value.Count(Objects.Bound(bind))))),
                 affects = Affected.Objects(Objects.Self))
         }
         // "The first instant or sorcery spell you cast each turn costs {U} less to cast for each land you control with a flood
@@ -14868,7 +14895,7 @@ internal class Sentences(
         const val CHOSEN = "chosen"
         const val EXILED = "exiled"
         const val CAST = "cast"
-        val ADDITIONAL_SACRIFICE_ANY_NUMBER_REDUCTION = Regex("""As an additional cost to cast this spell, you may sacrifice any number of (.+?)\. This spell costs ((?:\{[^}]+\})+) less to cast for each (?:permanent|creature|artifact) sacrificed this way\.""")
+        val ADDITIONAL_SACRIFICE_ANY_NUMBER_REDUCTION = Regex("""As an additional cost to cast this spell, you may (sacrifice|tap) any number of (.+?)\. This spell costs ((?:\{[^}]+\})+) less to cast for each (?:permanent|creature|artifact) (?:sacrificed|tapped) this way\.""") // neo chunk 08: tap
         val FIRST_SPELL_EACH_TURN_COSTS_LESS = Regex("""The first (.+?) spell you cast each turn costs ((?:\{[^}]+\})+) less to cast(?: for each (.+))?\.""")
         val ENTER_AS_COPY = Regex("""You may have (.+?) enter as a copy of any (.+?)(?:, except (.+))?\.""")
         val ON_THE_BATTLEFIELD_WITH = Regex("""(.+?) on the battlefield(?: with (.+))?""")
@@ -18303,7 +18330,9 @@ internal class Sentences(
         Trk.IF_INSTEAD.matchEntire(sentence)?.takeIf { " would " !in it.groupValues[1] }?.let { m ->
             val (_, stepsFrom) = context.previous ?: return null
             val previous = steps.drop(stepsFrom).takeIf { it.isNotEmpty() } ?: return null
-            val condition = conditionWithAnd(m.groupValues[1]) ?: return null
+            // neo chunk 08: "Target creature gets +2/+2 until end of turn. If it's an enchantment creature or legendary creature, instead …" (the
+            // target as the spell resolves, CR 608.2h)
+            val condition = conditionWithAnd(m.groupValues[1]) ?: itCondition(m.groupValues[1], context) ?: return null
             val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
             return steps.take(stepsFrom) + Step.If(condition, then = then, otherwise = previous)
         }
@@ -24246,9 +24275,30 @@ internal class Sentences(
     /** neo chunk 04: "As long as The Reality Chip is attached to a creature, you may play lands and cast spells from the top of your library.":
      * a condition on a line read as several static abilities, each of them under it (CR 611.3a) */
     private fun neoMulti(line: String): List<Ability>? {
+        // neo chunk 08: "As long as The Wandering Emperor entered this turn, you may activate her loyalty abilities any time you could cast an
+        // instant." (CR 606.3: otherwise only as a sorcery; still once each turn)
+        Neo.AS_LONG_AS_ENTERED_THIS_TURN_LOYALTY_INSTANT.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Ability.Static(listOf(Mechanic.LoyaltyAtInstantSpeed), affects = Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)))))
+        }
+        // neo chunk 08: "As long as this creature is modified, it has "{T}: Add {G}{G}."" (a granted ability under the condition, CR 611.3a)
+        Neo.AS_LONG_AS_HAS_QUOTED.matchEntire(line)?.takeIf { it.groupValues[2] == "it" || isSelf(it.groupValues[2]) }?.let { m ->
+            val condition = conditionWithAnd(m.groupValues[1]) ?: return@let
+            val granted = Sentences(self + setOf("this creature")).line(m.groupValues[3])?.takeIf { it !is Ability.Unparsed } ?: return@let
+            return listOf(Ability.Static(listOf(Mechanic.GainAbilities(listOf(granted))), affects = Affected.Objects(Objects.Self), condition = condition))
+        }
         AS_LONG_AS_FIRST.matchEntire(line)?.let { m ->
             val condition = conditionWithAnd(m.groupValues[1]) ?: return null
             val rest = m.groupValues[2].replaceFirstChar { it.uppercase() }
+            // neo chunk 08: "As long as this creature is tapped, it's a Human Citizen with base power and toughness 1/1 and can't be blocked." (its
+            // creature types replaced, layer 4, CR 205.1b; base power and toughness, layer 7b)
+            Neo.ITS_A_SUBTYPES_WITH_BASE_PT.matchEntire(rest)?.let { t ->
+                val subtypes = t.groupValues[1].split(' ').map { arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { s -> s in RulesWords.subtypes } ?: return null)) }
+                val more = t.groupValues[4].takeIf { it.isNotEmpty() }?.let { predicates(it) ?: return null }.orEmpty()
+                return listOf(Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = subtypes, replaceSubtypes = true),
+                    Mechanic.SetPowerToughness(Value.Fixed(t.groupValues[2].toInt()), Value.Fixed(t.groupValues[3].toInt()))) + more,
+                    affects = Affected.Objects(Objects.Self), condition = condition))
+            }
             val inner = multi(rest) ?: finMulti(rest) ?: return null
             return inner.map { (it as? Ability.Static)?.takeIf { s -> s.condition == null }?.copy(condition = condition, functionsIn = zoneOf(condition)) ?: return null }
         }
@@ -24258,6 +24308,17 @@ internal class Sentences(
     /** neo: static abilities. */
     private fun neoStatic(line: String): Ability? {
         val attached = Objects.AttachedTo(Objects.Self)
+        // neo chunk 08: "Spells you cast cost {1} less to cast for each target.", "Spells your opponents cast cost {1} more to cast for each target." (every
+        // target of the spell, an object or player targeted by several instances of "target" counted for each, read after targets are chosen,
+        // CR 601.2c, 601.2f)
+        Neo.SPELLS_COST_FOR_EACH_TARGET.matchEntire(line)?.let { m ->
+            val who = if (m.groupValues[1] == "you") PlayerFilter.You else PlayerFilter.Opponent
+            val mana = ManaCost.parse(m.groupValues[2]) ?: return null
+            val per = Value.TargetsOf(Objects.Tested)
+            val change = if (m.groupValues[3] == "less") arcanum.api.CostChange.Less(mana, per) else arcanum.api.CostChange.More(mana, per)
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.ControlledBy(who)), change)),
+                affects = Affected.Objects(Objects.Self))
+        }
         // neo chunk 06: "Enchanted land is a 3/3 red Spirit creature with haste. It's still a land." (layers 4, 5, 6, 7b; "still a land" keeps its
         // other types, CR 205.1b, [OracleParser.stillA]; without it the creature type replaces them, CR 205.1a)
         Neo.ATTACHED_IS_CREATURE.matchEntire(line)?.let { m ->
@@ -24296,6 +24357,23 @@ internal class Sentences(
     }
 
     private fun neoWhole(text: String, context: Context): List<Step>? {
+        // neo chunk 08: "Target opponent sacrifices a creature of their choice. If they can't, they lose 2 life and you draw a card. Then repeat this
+        // process for an enchantment and a planeswalker." (each sacrifice in turn; "can't": they sacrificed nothing, CR 701.21a, 609.3)
+        Neo.SACRIFICES_IF_THEY_CANT_REPEAT_FOR.matchEntire(text)?.let { m ->
+            val first = effect("${m.groupValues[1]} sacrifices ${m.groupValues[2]} of their choice.", context) ?: return@let
+            val choose = first.getOrNull(0) as? Step.Choose ?: return@let
+            val choice = choose.choice as? arcanum.api.Choice.Objects ?: return@let
+            val sacrifice = ((first.getOrNull(1) as? Step.Do)?.effect as? Effect.Sacrifice)?.takeIf { first.size == 2 && it.objects == Objects.Bound(choose.bind) } ?: return@let
+            val controlled = (choice.filter as? ObjectFilter.And)?.all?.lastOrNull() as? ObjectFilter.ControlledBy ?: return@let
+            val otherwise = effect(m.groupValues[3].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            val nouns = listOf(m.groupValues[2]) + m.groupValues[4].removePrefix("and ").split(LazyRegexes.AND_LIST)
+            return nouns.flatMapIndexed { i, noun ->
+                val bind = if (i == 0) choose.bind else "${choose.bind} ${i + 1}"
+                val filter = Filters.all(Filters.noun(noun.removePrefix("a ").removePrefix("an ")) ?: return null, controlled)
+                listOf(choose.copy(choice = choice.copy(filter = filter), bind = bind), Step.Do(sacrifice.copy(objects = Objects.Bound(bind))),
+                    Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.NonEmpty(bind)), then = otherwise))
+            }
+        }
         // neo chunk 02: "You may discard up to two cards. If you do, draw that many cards." (that many: the number discarded, CR 608.2c; none
         // discarded draws none)
         Neo.MAY_DISCARD_UP_TO_IF_YOU_DO_DRAW_THAT_MANY.matchEntire(text)?.let { m ->
@@ -24362,6 +24440,27 @@ internal class Sentences(
 
     /** neo: single sentences. */
     private fun neoEffect(sentence: String, context: Context): List<Step>? {
+        // neo chunk 08: "You may cast up to two instant and/or sorcery spells with total mana value 6 or less from your graveyard and/or hand without
+        // paying their mana costs." (chosen and cast as this resolves, CR 608.2g, 601.2; "may": none chosen casts none)
+        Neo.CAST_UP_TO_TOTAL_MV_FROM_ZONES_FREE.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val kinds = Filters.noun(m.groupValues[2].replace(" and/or ", " or ") + " card") ?: return null
+            val zones = listOfNotNull(m.groupValues[4], m.groupValues[5].takeIf { it.isNotEmpty() })
+                .map { ObjectFilter.InZone(if (it == "hand") Zone.Hand else Zone.Graveyard) }
+            val cards = Filters.all(kinds, if (zones.size == 1) zones[0] else ObjectFilter.Or(zones), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(cards, Value.Fixed(0), Value.Fixed(n),
+                    totalAtMost = arcanum.api.Choice.TotalLimit(arcanum.api.NumericProperty.ManaValue, Value.Fixed(m.groupValues[3].toInt()))),
+                    bind = "toCast", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("toCast"), withoutPaying = true, bind = "cast", how = PlayKind.Cast, caster = Players.You)))
+        }
+        // neo chunk 08: "the next spell you cast this turn costs {1} less to cast." (CR 611.2f: it applies to that spell as it is cast, CR 601.2f)
+        Neo.NEXT_SPELL_COSTS_LESS.matchEntire(sentence)?.let { m ->
+            // (a spell: an activated ability's cost isn't changed, CR 601.2f, 602.2b)
+            val spells = if (m.groupValues[1].isEmpty()) Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.ControlledBy(PlayerFilter.You))
+                else Filters.all(Filters.noun(m.groupValues[1] + " spell") ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CostChange(spells, arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return null,
+                Value.Fixed(1)))), Affected.NextSpells(spells, 1), arcanum.api.Duration.EndOfTurn)))
+        }
         // neo chunk 06: "unattach it" (an Equipment or Aura it names becomes unattached, CR 701.3d)
         if (sentence == "Unattach it.") return listOf(Step.Do(Effect.Unattach(context.it ?: return null)))
         // neo chunk 07: "Equipped creature gets +X/+0 until end of turn, where X is the number of times this ability has resolved this turn." (the

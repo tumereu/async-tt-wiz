@@ -811,6 +811,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         Value.ModesChosen -> ctx.stackItem?.modes?.size ?: 0
         // otj: that spell's modes, each time chosen (CR 700.2)
         is Value.ModesChosenFor -> objects(value.of).firstNotNullOfOrNull { id -> (state.stackItems[id] ?: ctx.stackItem?.takeIf { it.id == id })?.modes?.size } ?: 0
+        // neo: every target of the spell or ability, each instance counted (CR 115.1, 601.2f)
+        is Value.TargetsOf -> objects(value.of).sumOf { id -> (state.stackItems[id] ?: ctx.stackItem?.takeIf { it.id == id })?.targets?.values?.sumOf { it.size } ?: 0 }
         Value.EventAmount -> ctx.event?.amount ?: 0
         is Value.Quotient -> if (value.divisor <= 0) 0 else value(value.value) / value.divisor
         // sos: "2ˣ" (2⁰ = 1), held to an Int (a game never needs more)

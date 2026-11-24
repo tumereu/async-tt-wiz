@@ -558,6 +558,8 @@ internal object Filters {
             // chunk 41: "a tapped land"
             "tapped" -> return ObjectFilter.HasStatus(arcanum.api.Status.Tapped)
             "blocking" -> return ObjectFilter.HasStatus(arcanum.api.Status.Blocking) // blb chunk 10
+            // neo chunk 08: "attacking modified creature" (CR 700.9)
+            "modified" -> return ObjectFilter.Modified
             // dsk chunk 06: "a face-down permanent" (CR 708)
             "face-down" -> return ObjectFilter.HasStatus(arcanum.api.Status.FaceDown)
             // mkm chunk 07: "face-up creatures you control with disguise" (CR 708)
@@ -608,7 +610,8 @@ internal object Filters {
     private val PLURAL_SUBTYPES_AND = Regex("""([A-Z][a-z]+s) and ([A-Z][a-z]+s)""")
     // dsk chunk 01
     private val WITHOUT_A_NAME = Regex("""(.+) that (?:don't|doesn't) have a name""")
-    private val NOT_SAME_NAME_AS = Regex("""(.+) that doesn't have the same name as (.+)""")
+    // neo chunk 08: "Aura card with a different name than each Aura you control" (no name shared with any of them, CR 201.2)
+    private val NOT_SAME_NAME_AS = Regex("""(.+) (?:that doesn't have the same name as|with a different name than each) (.+)""")
     // (also "Kithkin or Soldier spells you cast": "you cast" belongs to every alternative, CR 601.2f)
     private val SPELLS_YOU_CAST_FROM = Regex("""(.+ spells you cast) from (exile|your hand|your graveyard)""")
     private val SPELLS_YOU_CAST = Regex("""([\w-]+(?:(?:,| or|, or) [\w-]+)*) spells you cast""")

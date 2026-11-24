@@ -28,7 +28,7 @@ class NeoChunk10EffectsAndTriggersTest {
         doing(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
         doing(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))),
         Step.Pay(steps = listOf(doing(Effect.Cast(exiled, PlayKind.Cast, withoutPaying = true, caster = Players.You,
-            resultingSpell = and(instant, manaValue(Comparison.AtMost, 2))))), payer = Players.You, bind = "cast"),
+            resultingSpell = and(instant, ObjectFilter.Category(ObjectCategory.Spell), manaValue(Comparison.AtMost, 2))))), payer = Players.You, bind = "cast"),
         ifThen(Condition.Not(Condition.Did("cast")), move(exiled, Zone.Hand)),
     ))
 

@@ -57,6 +57,10 @@ data class StackItem(
     /** For a copy of a spell or ability (CR 707.10): the spell or ability it was copied from (for a copy of a copy, that copy);
      * null for anything that isn't a copy. A copied ability keeps the original's [source] (CR 707.10, 113.7). */
     val copyOf: ObjectId? = null,
+    /** neo fixes: for an activated ability that is a keyword's expansion (crew), that keyword as its source had it when activated; the
+     * ability keeps being that keyword's ability on the Stack whatever later happens to its source ("becomes crewed" is a crew
+     * ability of it resolving, CR 702.122e, 113.7a). */
+    val keyword: arcanum.api.Keyword? = null,
 )
 
 /** What kind of Stack object a [StackItem] is (CR 112, 113.7, 707.10). */

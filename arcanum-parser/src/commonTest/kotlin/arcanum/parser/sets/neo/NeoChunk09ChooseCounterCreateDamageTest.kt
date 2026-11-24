@@ -47,6 +47,29 @@ class NeoChunk09ChooseCounterCreateDamageTest {
             min = 1, max = 1, chooser = Players.You, maxIf = controlArtifactAndEnchantment, maxIfCount = 2, upToMaxIf = true))),
     )
 
+    // CR 700.2 (modes), 614.1c, 616.1 (the next event in which such creatures enter: each of them enters with the counters, once)
+    @Test
+    fun storyweave() = card(
+        name = "Talespinner's Weave",
+        cost = "{2}{G}",
+        type = "Instant",
+        text = """
+            Choose one —
+            • Put two +1/+1 counters on target creature you control.
+            • Put two lore counters on target Saga you control. The next time one or more enchantment creatures you control enter this turn, each enters with two additional +1/+1 counters on it.
+        """,
+    ) parsesTo abilities(
+        Ability.Spell(Instructions(modes = modes(
+            mode(counters(target("creature"), 2), targets = listOf(slot("creature", and(creature, you)))),
+            mode(
+                counters(target("Saga"), 2, CounterKind.Lore),
+                doing(Effect.ApplyMechanics(listOf(Mechanic.Replacement(EventPattern.ZoneChange(and(enchantment, creature, you), to = Zone.Battlefield),
+                    modify = listOf(Modification.EntersWithCounters(p1p1, n(2))))), null, Duration.EndOfTurn, uses = 1, perEvent = true)),
+                targets = listOf(slot("Saga", and(sub("Saga"), you))),
+            ),
+        ))),
+    )
+
     // CR 700.2 (a modal triggered ability), 608.2c ("any number": none to all seven), 401.4 (the rest on the bottom in a random order)
     @Test
     fun reiTheMorningSky() = card(

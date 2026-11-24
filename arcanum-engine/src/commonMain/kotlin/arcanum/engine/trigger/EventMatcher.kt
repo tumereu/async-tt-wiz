@@ -299,13 +299,12 @@ internal object EventMatcher {
             Meaning.Cycled in it.meanings && e.matches(pattern.players, it.before.owner) &&
                 (e.matches(pattern.cards, it.before.id) || e.matches(pattern.cards, it.after.id))
         }.map { m -> moveEvent(e, m, proposed, Zone.Hand, EventRole.Before).copy(x = m.meanings.filterIsInstance<Meaning.CostX>().firstOrNull()?.x) }
-        // CR 702.122e: "becomes crewed" is a crew ability of it resolving
+        // CR 702.122e: "becomes crewed" is a crew ability of it resolving; it is a crew ability as it was activated, even if the Vehicle
+        // has since lost crew (CR 113.7a)
         is EventPattern.Crewed -> (change as? Change.StackItemRemoved)?.takeIf { Meaning.Resolved in it.meanings }?.item
             ?.takeIf { it.kind == arcanum.engine.state.StackItemKind.Activated }?.let { item ->
                 val vehicle = item.source ?: return@let null
-                val expansion = item.origin as? arcanum.engine.view.AbilityOrigin.Expansion ?: return@let null
-                val keyword = e.characteristics(vehicle)?.abilities?.firstOrNull { it.origin == expansion.keyword }?.ability
-                if (keyword is arcanum.api.Keyword.Crew && e.matches(pattern.objects, vehicle))
+                if (item.keyword is arcanum.api.Keyword.Crew && e.matches(pattern.objects, vehicle))
                     listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(vehicle))), listOf(item.controller))) else null
             }.orEmpty()
         // CR 702.171b: it becomes saddled (the saddle ability resolving marks it)

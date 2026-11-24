@@ -17,6 +17,11 @@ internal object Neo {
     val EXILE_SEARCH_SAME_NAME_PLAY_ONE = Regex("""[Ee]xile target (.+?) from an opponent's graveyard\. Search that player's graveyard, hand, and library for any number of cards with the same name as that card and exile them\. Then that player shuffles\. For as long as you control (.+?), you may play one of the exiled cards, and you may spend mana as though it were mana of any color to cast it\.""")
     // neo chunk 10: Discover the Impossible
     val LOOK_EXILE_FACE_DOWN_CAST_IF_ELSE_HAND = Regex("""Look at the top (\w+) cards of your library\. Exile one of them face down and put the rest on the bottom of your library in a random order\. You may cast the exiled card without paying its mana cost if it's an? (.+? spell with mana value \d+ or less)\. If you don't, put that card into your hand\.""")
+    // neo fixes: Storyweave ("The next time one or more enchantment creatures you control enter this turn, each enters with two additional
+    // +1/+1 counters on it.")
+    val NEXT_TIME_ONE_OR_MORE_ENTER_EACH_WITH_COUNTERS = Regex("""The next time one or more (.+?) enter(?: the battlefield)? this turn, each enters with (\w+) additional (\S+) counters? on it\.""")
+    // neo fixes: The Dragon-Kami Reborn, after "Look at the top three cards of your library."
+    val EXILE_ONE_FACE_DOWN_WITH_COUNTER_REST_BOTTOM = Regex("""Exile one of them face down with an? (\S+) counter on it, then put the rest on the bottom of your library in any order\.""")
     // neo chunk 10: "Up to X target creatures phase out."
     val UP_TO_N_TARGET_PHASE_OUT = Regex("""Up to (\w+) target (.+) phase out\.""")
     // neo chunk 10: "For each of them, put your choice of a reach counter, a vigilance counter, or a trample counter on it."

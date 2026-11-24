@@ -112,6 +112,8 @@ internal object Actions {
                 act.record(Change.StackItemRemoved(copy, act.state.stack.indexOf(pm.id), pm.meanings + Meaning.CeasedToExist))
             }
         }
+        // neo fixes: per-event shields applied to any object of this event, used up once when all are replaced (CR 614.1, 616.1)
+        val eventUses = mutableSetOf<arcanum.engine.state.EffectId>()
         val replaced = planned.mapNotNull { pm ->
             val o = act.obj(pm.id) ?: return@mapNotNull null
             // mh3 chunk 09: entering transformed, it is checked as it will exist, back face up (CR 614.12, 712.11a): the back face's own "enters
@@ -140,8 +142,10 @@ internal object Actions {
                     !r.key.startsWith("copy:") && selfEntering(r.mechanic.event) },
                 extra = backOwn + shieldCounterReplacement(act, pm),
                 more = { m -> copiedOwn(act, o, m) },
+                eventUses = eventUses,
             )
         }
+        Replacements.endEvent(act, eventUses)
         // CR 303.4f, g, i: what each Aura put onto the battlefield (not resolving as an Aura spell) will enchant
         // one: "Permanent cards in graveyards can't enter the battlefield": such a card stays where it is (CR 101.2)
         val final = replaced.filterNot { it.to == Zone.Battlefield && act.view()[it.id]?.has { m -> m == Mechanic.CantEnterBattlefield } == true }
@@ -1195,6 +1199,10 @@ internal object Actions {
             instead = { r, instance -> runInstead(act, r, instance) },
             linked = linked,
             board = { s -> ProposedBoard(act.board(), planned(s).associateBy { it.id }) },
+            // neo fixes: a plain "enters with/tapped" replacement is applied by the entering pass below, as the tokens will exist (CR 614.12);
+            // applied here too it changed nothing and used up a "next time" shield before it could add its counters
+            skip = { r, _ -> r.mechanic.event is arcanum.api.EventPattern.ZoneChange && r.mechanic.instead == null && r.mechanic.whenApplied == null &&
+                !r.mechanic.optional },
         ) ?: return null
         var tokens = planned(specs)
         // Replacements on entering (CR 614.12): "enters tapped", "with counters", tested on the tokens as they would be
@@ -1202,6 +1210,7 @@ internal object Actions {
         // gtc: "enters … as a Mutant in addition to its other types" (CR 614.1c): an effect from as it enters
         val entersAs = LinkedHashMap<ObjectId, List<Mechanic>>()
         val entersAttacking = LinkedHashSet<ObjectId>()
+        val eventUses = mutableSetOf<arcanum.engine.state.EffectId>()
         tokens = tokens.mapNotNull { t ->
             val enters = Replacements.candidates(act, cause).filter { r ->
                 Replacements.matches(act, r, Change.Created(listOf(Placed(t, 0))), proposedBoard()).isNotEmpty()
@@ -1220,6 +1229,8 @@ internal object Actions {
             val own = t.definition.faces.getOrNull(t.face)?.let { ownEntering(it) }.orEmpty().filter { !it.optional }.map { r ->
                 Replacement(r, t.controller ?: controller, t.id, arcanum.engine.state.Bindings.EMPTY, null, own = true, key = "token:${t.id}/${r.hashCode()}")
             }
+            // neo fixes: a shield ("the next time …") is used by each token it applies to, a per-event one once for all of them (CR 614.1, 616.1)
+            enters.forEach { r -> Replacements.useUp(act, r, eventUses) }
             (enters + own).forEach { r ->
                 // gtc: "this creature" of another permanent's replacement is that permanent (Master Biomancer's power)
                 val e = Evaluator(proposedBoard(), Context(you = r.controller, self = r.source ?: t.id, names = r.names))
@@ -1239,6 +1250,7 @@ internal object Actions {
             if (o.counters.isEmpty()) o else o.copy(counters = countersAsPut(act, cause, o.copy(counters = emptyList()),
                 o.counters.map { it.kind to it.count }, linked).map { (kind, n) -> CounterEntry(kind, n, o.timestamp) })
         }
+        Replacements.endEvent(act, eventUses)
         // CR 303.4f–i, 303.4h, 301.5e: what each token is attached to as it is created; an Aura with nothing to enchant isn't created
         tokens = tokens.mapNotNull { t ->
             val face = t.definition.faces.getOrNull(t.face) ?: return@mapNotNull t

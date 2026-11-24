@@ -24825,9 +24825,8 @@ internal class Sentences(
         // into your hand." (the looker may go on looking at it, CR 406.3; the qualities are the resulting spell's, CR 406.3b)
         Neo.LOOK_EXILE_FACE_DOWN_CAST_IF_ELSE_HAND.matchEntire(text)?.let { m ->
             val seen = Numbers.count(m.groupValues[1]) ?: return null
-            // judged on the card about to be cast (CR 601.2a), so without "spell", which only the Stack has
-            val spell = (Filters.noun(m.groupValues[2]) as? ObjectFilter.And)?.let { f ->
-                Filters.all(*(f.all - ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)).toTypedArray()) } ?: return null
+            // the qualities of the resulting spell (CR 601.2a, 406.3b)
+            val spell = Filters.noun(m.groupValues[2]) ?: return null
             return listOf(
                 Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(seen), fromTop = true), bind = "seen", players = Players.You)),
                 Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = Objects.Bound("seen")), bind = "chosen", chooser = Players.You),
@@ -24967,6 +24966,22 @@ internal class Sentences(
             val life = Cost(listOf(CostPart.PayLife(Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Affected, arcanum.api.Combine.Single))))
             return steps.dropLast(1) + Step.Do(apply.copy(mechanics = listOf(play.copy(cost = life))))
         }
+        // neo fixes: "Exile one of them face down with a hatching counter on it, then put the rest on the bottom of your library in any order." after a
+        // look at the top cards: the looker may go on looking at the exiled card (CR 406.3); the rest in the order of their choice (CR 401.4)
+        Neo.EXILE_ONE_FACE_DOWN_WITH_COUNTER_REST_BOTTOM.matchEntire(sentence)?.let { m ->
+            val last = steps.lastOrNull() as? Step.Do ?: return null
+            val look = last.effect as? Effect.LookAt ?: return null
+            if (look.objects !is Objects.LibraryCards) return null
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val seen = look.bind ?: "seen"
+            val exiled = Objects.Bound("exiled")
+            return steps.dropLast(1) + Step.Do(look.copy(bind = seen)) +
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = Objects.Bound(seen)), bind = "chosen", chooser = Players.You) +
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")) +
+                Step.Do(Effect.PutCounters(exiled, kind, Value.Fixed(1))) +
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayLookAt(exiled)), Affected.Players(Players.You), arcanum.api.Duration.Indefinitely)) +
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound(seen), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1)))
+        }
         // neo chunk 10: "For each of them, put your choice of a reach counter, a vigilance counter, or a trample counter on it." after creating tokens
         // (a choice for each token, CR 122.1b)
         Neo.FOR_EACH_OF_THEM_CHOICE_OF_COUNTERS.matchEntire(sentence)?.let { m ->
@@ -24990,6 +25005,15 @@ internal class Sentences(
 
     /** neo: single sentences. */
     private fun neoEffect(sentence: String, context: Context): List<Step>? {
+        // neo fixes: a one-time replacement of the next event in which such objects enter, covering each of them (CR 614.1c, 614.12, 616.1)
+        Neo.NEXT_TIME_ONE_OR_MORE_ENTER_EACH_WITH_COUNTERS.matchEntire(sentence)?.let { m ->
+            val entering = Filters.noun(m.groupValues[1]) ?: return null
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            val kind = Counters.kind(m.groupValues[3]) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(EventPattern.ZoneChange(entering, to = Zone.Battlefield),
+                modify = listOf(arcanum.api.Modification.EntersWithCounters(kind, Value.Fixed(n))))), null, arcanum.api.Duration.EndOfTurn,
+                uses = 1, perEvent = true)))
+        }
         // neo chunk 10: "Up to X target creatures phase out." (X announced as the spell is cast, CR 601.2b; phasing, CR 702.26)
         Neo.UP_TO_N_TARGET_PHASE_OUT.matchEntire(sentence)?.let { m ->
             val max = if (m.groupValues[1] == "X") (if (isSpell || announcedX) Value.Announced(name = "X") else return null)
@@ -28713,8 +28737,14 @@ internal class Sentences(
         }
         // ecl chunk 13: "you may cast a spell from among cards you own in exile with dream counters on them without paying its mana cost."
         Ecl.MAY_CAST_FROM_EXILE_WITH_COUNTERS.matchEntire(sentence)?.let { m ->
-            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
             val cards = Filters.all(ObjectFilter.InZone(Zone.Exile), ObjectFilter.OwnedBy(PlayerFilter.You), ObjectFilter.HasCounter(kind, atLeast = 1))
+            // neo fixes: "a creature spell from among" them: up to one of those that would be such a spell, face-down ones judged as that spell if
+            // the caster may look at them (CR 406.3b)
+            if (m.groupValues[1].isNotEmpty()) {
+                val spell = Filters.noun(m.groupValues[1] + " spell") ?: return null
+                return listOf(Step.Do(Effect.Cast(Objects.Each(cards), PlayKind.Cast, withoutPaying = true, caster = Players.You, resultingSpell = spell, upTo = 1)))
+            }
             return listOf(Step.Choose(arcanum.api.Choice.Objects(cards, Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Cast(Objects.Bound("chosen"), PlayKind.Cast, withoutPaying = true, caster = Players.You)))
         }

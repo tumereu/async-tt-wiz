@@ -39,7 +39,15 @@ internal object Casts {
         val act = scope.act
         val caster = scope.players(effect.caster).firstOrNull() ?: scope.actor
         val cast = mutableListOf<ObjectId>()
-        val candidates = scope.objects(effect.objects).filter { act.state.obj(it) != null }
+        val all = scope.objects(effect.objects).filter { act.state.obj(it) != null }
+        // neo fixes: "a creature spell from among …": the caster chooses among the cards that would make such a spell, a face-down card only if
+        // they may look at it (CR 406.3b)
+        val candidates = effect.upTo?.let { n ->
+            val seen = arcanum.engine.action.Knowledge.visible(act.state, act.view(), caster)
+            val castable = all.filter { id -> (act.state.obj(id)?.faceDown != true || id in seen) &&
+                (effect.resultingSpell == null || resultingSpellMatches(scope, effect.resultingSpell!!, id)) }
+            act.chooseObjects(caster, scope.self, castable, 0, n, "Choose a card to cast")
+        } ?: all
         // CR 608.2g: a player told or allowed to cast more than one spell during a resolution casts them in the order of their choice
         val ordered = if (candidates.size > 1) act.order(caster, scope.self, candidates, "Order to cast, first cast first") else candidates
         for (id in ordered) {
@@ -78,9 +86,10 @@ internal object Casts {
 
     /** Whether casting [id] would make a spell matching [filter] ("if that spell's mana value is 4 or less"): a card exiled face down is cast
      * face up (CR 601.2a, 708.2: face down it has no mana cost), so it is judged face up. */
-    private fun resultingSpellMatches(scope: Scope, filter: arcanum.api.ObjectFilter, id: ObjectId): Boolean {
+    private fun resultingSpellMatches(scope: Scope, given: arcanum.api.ObjectFilter, id: ObjectId): Boolean {
         val act = scope.act
         val e = scope.eval()
+        val filter = arcanum.engine.casting.Legality.asResultingSpell(given)
         if (act.state.obj(id)?.faceDown != true) return e.matches(filter, id)
         val faceUp = act.state.deepCopy().also { it.apply(Change.Status(id, arcanum.engine.state.StatusFlag.FaceDown, before = true, after = false)) }
         return arcanum.engine.query.Evaluator(arcanum.engine.query.ViewBoard(faceUp, arcanum.engine.Engine.view(faceUp)), e.ctx).matches(filter, id)

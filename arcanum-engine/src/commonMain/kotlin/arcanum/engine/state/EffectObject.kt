@@ -38,6 +38,8 @@ data class EffectObject(
     val duration: Duration,
     /** A replacement shield's uses left ("the next time …", regeneration, D26); null: unlimited. */
     val usesLeft: Int? = null,
+    /** neo fixes: [usesLeft] counts events, a use covering every object of one event ([arcanum.api.Effect.ApplyMechanics.perEvent]). */
+    val usesPerEvent: Boolean = false,
     /** A prevention shield's damage left ("prevent the next 3 damage", CR 615.7, D26); null: not a shield. */
     val amountLeft: Int? = null,
     /** Names fixed when it was created: targets, choices, bound objects (D37). */

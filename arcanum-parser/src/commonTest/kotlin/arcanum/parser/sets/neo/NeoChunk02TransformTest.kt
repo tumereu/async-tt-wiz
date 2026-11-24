@@ -42,6 +42,33 @@ class NeoChunk02TransformTest {
         ),
     )
 
+    // CR 714.2b (chapters I and II), 406.3 (the looker may go on looking at the card exiled face down), 401.4 (the rest in any order), 122.1;
+    // CR 406.3b (a creature spell from among face-down cards: only those it may look at, judged as the spell), 603.6c (dies)
+    @Test
+    fun wyrmKamiReborn() = cardFaces(Layout.Transform,
+        front("The Wyrm-Kami Reborn", "{2}{G}",
+            "I, II — You gain 2 life. Look at the top three cards of your library. Exile one of them face down with a hatching counter on it, then put the rest on the bottom of your library in any order.",
+        ) to abilities(
+            chapters(listOf(1, 2),
+                gainLife(2),
+                doing(Effect.LookAt(Objects.LibraryCards(Players.You, n(3), fromTop = true), Players.You, bind = "seen")),
+                Step.Choose(Choice.Objects(ObjectFilter.Any, n(1), n(1), from = Objects.Bound("seen")), bind = "chosen", chooser = Players.You),
+                doing(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
+                doing(Effect.PutCounters(Objects.Bound("exiled"), CounterKind.Named("hatching"), n(1))),
+                doing(Effect.ApplyMechanics(listOf(Mechanic.MayLookAt(Objects.Bound("exiled"))), Affected.Players(Players.You), Duration.Indefinitely)),
+                doing(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1))),
+            ),
+            exileAndReturnTransformed,
+        ),
+        back("Wyrm-Kami's Egg", "Enchantment Creature — Egg", "0/1", "G",
+            "Whenever this creature or a Dragon you control dies, you may cast a creature spell from among cards you own in exile with hatching counters on them without paying its mana cost.",
+        ) to abilities(
+            triggered(on(EventPattern.ZoneChange(or(ObjectFilter.Is(Objects.Self), and(sub("Dragon"), you)), from = Zone.Battlefield, to = Zone.Graveyard)),
+                doing(Effect.Cast(Objects.Each(and(inZone(Zone.Exile), ObjectFilter.OwnedBy(PlayerFilter.You), ObjectFilter.HasCounter(CounterKind.Named("hatching"), atLeast = 1))),
+                    PlayKind.Cast, withoutPaying = true, caster = Players.You, resultingSpell = and(creature, spellFilter), upTo = 1))),
+        ),
+    )
+
     // CR 120.3, 104.3e (lose the game), 603.4 (an intervening "if": damage this creature dealt that player this turn, added up)
     @Test
     fun gorebellyConsumesAll() = cardFaces(Layout.Transform,

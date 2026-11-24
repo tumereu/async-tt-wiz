@@ -153,7 +153,8 @@ internal object Ecl {
     // otj chunk 01: also "exile that spell instead of … as it resolves. If you do, it becomes plotted." (Lilah)
     val EXILE_WITH_DREAM_COUNTER_INSTEAD = Regex(
         """[Ee]xile that (?:card|spell)(?: with an? (\w+) counter on it)? instead of putting it into your graveyard as it resolves\.(?: If you do, it becomes (plotted)\.)?$""")
-    val MAY_CAST_FROM_EXILE_WITH_COUNTERS = Regex("""[Yy]ou may cast a spell from among cards you own in exile with (\w+) counters on them without paying its mana cost\.""")
+    // neo fixes: also "a creature spell" (The Dragon-Kami Reborn's hatching counters)
+    val MAY_CAST_FROM_EXILE_WITH_COUNTERS = Regex("""[Yy]ou may cast an? (?:(.+?) )?spell from among cards you own in exile with (\w+) counters on them without paying its mana cost\.""")
     val OPPONENTS_EXILE_UNTIL_TOTAL_MV = Regex("""Each opponent exiles cards from the top of their library until they have exiled cards with total mana value (\d+) or greater this way\. Until end of turn, you may cast cards exiled this way without paying their mana costs\.""")
     val REVEAL_UNTIL_X_NONLAND_EXILE_EACH_COLOR = Regex("""Reveal cards from the top of your library until you reveal X nonland cards\. For each of those colors, you may exile a card of that color from among the revealed cards\. Then shuffle\. You may cast the exiled cards this turn\.""")
     val CREATE_COPY_OF_TARGET_EXCEPT = Regex("""Create a token that's a copy of target (.+?), except (it has .+)\.""")

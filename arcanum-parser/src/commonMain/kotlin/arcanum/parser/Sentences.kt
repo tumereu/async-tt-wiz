@@ -4268,6 +4268,12 @@ internal class Sentences(
                 return steps.dropLast(1) + Step.If(arcanum.api.Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = 1, of = Objects.Self),
                     then = listOf(Step.Do(effect.copy(amount = Value.Fixed(m.groupValues[1].toInt())))), otherwise = listOf(last))
             }
+            // vow chunk 02: "A creature dealt damage this way can't block this turn." (the damaged creature, CR 509.1b)
+            if (sentence == "A creature dealt damage this way can't block this turn.") {
+                val damaged = effect.to.target?.let { Objects.Target(it) } ?: effect.to.objects ?: return null
+                return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBlock(ObjectFilter.Any)),
+                    arcanum.api.Affected.Objects(Objects.Where(damaged, ObjectFilter.Type(arcanum.api.CardType.Creature))), arcanum.api.Duration.EndOfTurn))
+            }
             if (sentence == "A creature dealt damage this way can't be regenerated this turn.") {
                 val damaged = effect.to.target?.let { Objects.Target(it) } ?: effect.to.objects ?: return null
                 return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBeRegenerated),
@@ -23172,6 +23178,17 @@ internal class Sentences(
         }
         // inr chunk 01: "it deals 2 damage to target opponent or planeswalker and 2 damage to up to one target creature that player or that
         // planeswalker's controller controls." (CR 115.1: the second target depends on the first)
+        // vow chunk 02: "it deals 1 damage to each of up to one target creature, up to one target player, and/or up to one target planeswalker."
+        // (CR 115.1, 120.2: one damage event to every chosen recipient, each target chosen independently, possibly none)
+        Vow.DEALS_TO_EACH_OF_UP_TO_ONE_CREATURE_PLAYER_PLANESWALKER.matchEntire(sentence)?.let { m ->
+            if (!isSelf(m.groupValues[1]) && m.groupValues[1] != "it") return null
+            context.targets += TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(0), max = Value.Fixed(1))
+            context.targets += TargetSlot("player", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(0), max = Value.Fixed(1))
+            context.targets += TargetSlot("planeswalker", TargetKind.Objects(ObjectFilter.Type(CardType.Planeswalker)), min = Value.Fixed(0), max = Value.Fixed(1))
+            return listOf(Step.Do(Effect.DealDamage(
+                Recipients(objects = Objects.Union(listOf(Objects.Target("creature"), Objects.Target("planeswalker"))), players = Players.Target("player")),
+                Value.Fixed(m.groupValues[2].toInt()), Objects.Self)))
+        }
         Inr.DEALS_TO_OPPONENT_OR_PW_AND_UP_TO_ONE_CREATURE_THAT_PLAYER_CONTROLS.matchEntire(sentence)?.let { m ->
             if (!isSelf(m.groupValues[1]) && m.groupValues[1] != "it") return null
             val first = rtrTarget(m.groupValues[3], context) ?: return null
@@ -25869,11 +25886,12 @@ internal class Sentences(
             return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(1), Players.You, bind = "token")),
                 Step.Do(Effect.PutCounters(Objects.Bound("token"), kind, amount)))
         }
-        // sos chunk 01: "put a +1/+1 counter on another target creature you control"
+        // sos chunk 01: "put a +1/+1 counter on another target creature you control"; vow chunk 02: also a number ("put two +1/+1 counters")
         Sos.ANOTHER_TARGET_COUNTER.matchEntire(sentence)?.let { m ->
-            val kind = Counters.kind(m.groupValues[1]) ?: return null
-            val target = context.target(Filters.slotName(m.groupValues[2]), Filters.all(context.another(), Filters.noun(m.groupValues[2]) ?: return null))
-            return listOf(Step.Do(Effect.PutCounters(target, kind, Value.Fixed(1))))
+            val amount = if (m.groupValues[1] in setOf("a", "an")) 1 else Numbers.count(m.groupValues[1]) ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val target = context.target(Filters.slotName(m.groupValues[3]), Filters.all(context.another(), Filters.noun(m.groupValues[3]) ?: return null))
+            return listOf(Step.Do(Effect.PutCounters(target, kind, Value.Fixed(amount))))
         }
         // sos chunk 02: "that player mills ten cards" (the target player)
         Sos.THAT_PLAYER_MILLS.matchEntire(sentence)?.let { m ->

@@ -46,7 +46,7 @@ class VowChunk11CreateTokenScenariosTest {
         Whenever this creature deals damage, create that many Blood tokens.
         {2}{R}: This creature deals 1 damage to any target.
     """.trimIndent(), "6/6")
-    private val boar = Cards.invent("Dusk Boar", "{2}{G}", "Creature — Boar", "", "4/4")
+    private val boar = Cards.invent("Quillback Boar", "{2}{G}", "Creature — Boar", "", "4/4")
     private val whisper = Cards.invent("Idle Whisper", "{U}", "Instant", "Draw a card.")
 
     private fun Scenario.count(player: arcanum.engine.scenario.ScenarioPlayer, name: String) = player.battlefield.names.count { it == name }

@@ -21,12 +21,12 @@ class VowChunk11CreateTokenTest {
     // CR 603.2 and 603.2c (and/or one or more: one trigger for a batch), 603.4 (once each turn), 111.10g; CR 602.2 (sacrifice as a cost)
     @Test
     fun anjeMaidOfDishonor() = card(
-        name = "Anje, Maid of Dishonor",
+        name = "Verra, Maid of Disgrace",
         cost = "{2}{B}{R}",
         type = "Legendary Creature — Vampire",
         pt = "4/5",
         text = """
-            Whenever Anje and/or one or more other Vampires you control enter, create a Blood token. This ability triggers only once each turn. (It's an artifact with "{1}, {T}, Discard a card, Sacrifice this token: Draw a card.")
+            Whenever Verra and/or one or more other Vampires you control enter, create a Blood token. This ability triggers only once each turn. (It's an artifact with "{1}, {T}, Discard a card, Sacrifice this token: Draw a card.")
             {2}, Sacrifice another creature or a Blood token: Each opponent loses 2 life and you gain 2 life.
         """,
     ) parsesTo abilities(
@@ -45,7 +45,7 @@ class VowChunk11CreateTokenTest {
     // CR 510.2 and 603.2 (combat damage to a player), 111.10g
     @Test
     fun belligerentGuest() = card(
-        name = "Belligerent Guest",
+        name = "Truculent Visitor",
         cost = "{2}{R}",
         type = "Creature — Vampire",
         pt = "3/2",
@@ -58,7 +58,7 @@ class VowChunk11CreateTokenTest {
     // CR 111.10g; CR 602.2 (cost: tap and sacrifice this artifact), 115.1 ("up to two target" creature cards in your graveyard)
     @Test
     fun bloodFountain() = card(
-        name = "Blood Fountain",
+        name = "Crimson Cistern",
         cost = "{B}",
         type = "Artifact",
         text = """
@@ -75,7 +75,7 @@ class VowChunk11CreateTokenTest {
     // CR 608.2c and 117.12 ("you may sacrifice ... if you do": an optional payment), 111.10g
     @Test
     fun bloodcrazedSocialite() = card(
-        name = "Bloodcrazed Socialite",
+        name = "Gorecrazed Courtier",
         cost = "{3}{B}",
         type = "Creature — Vampire",
         pt = "3/3",
@@ -95,7 +95,7 @@ class VowChunk11CreateTokenTest {
     // CR 602.5d (only as a sorcery), 107.3 (X is twice the number of Blood tokens you control, counted on resolution), 613.4c
     @Test
     fun bloodtitheHarvester() = card(
-        name = "Bloodtithe Harvester",
+        name = "Gorelevy Reaper",
         cost = "{B}{R}",
         type = "Creature — Vampire",
         pt = "3/2",
@@ -116,7 +116,7 @@ class VowChunk11CreateTokenTest {
     // CR 603.2 (an opponent casts a spell), 111.2 ("that player creates": the token's owner and controller), 508.1 (attacks), 506.2 (defending player)
     @Test
     fun bloodvialPurveyor() = card(
-        name = "Bloodvial Purveyor",
+        name = "Veinflask Dealer",
         cost = "{2}{B}{B}",
         type = "Creature — Vampire",
         pt = "5/6",
@@ -138,7 +138,7 @@ class VowChunk11CreateTokenTest {
     // CR 700.4 (dies), 111.1
     @Test
     fun doomedDissenter() = card(
-        name = "Doomed Dissenter",
+        name = "Fated Objector",
         cost = "{1}{B}",
         type = "Creature — Human",
         pt = "1/1",
@@ -148,7 +148,7 @@ class VowChunk11CreateTokenTest {
     // CR 603.2c (one or more cards discarded: one trigger), 603.4 (once each turn), 111.5 (a token that enters tapped)
     @Test
     fun dyingToServe() = card(
-        name = "Dying to Serve",
+        name = "Dying to Obey",
         cost = "{2}{B}",
         type = "Enchantment",
         text = "Whenever you discard one or more cards, create a tapped 2/2 black Zombie creature token. This ability triggers only once each turn.",
@@ -163,7 +163,7 @@ class VowChunk11CreateTokenTest {
     // CR 111.10g: two Blood tokens
     @Test
     fun falkenrathCelebrants() = card(
-        name = "Falkenrath Celebrants",
+        name = "Ravenmoor Revelers",
         cost = "{4}{R}",
         type = "Creature — Vampire",
         pt = "4/4",
@@ -176,7 +176,7 @@ class VowChunk11CreateTokenTest {
     // CR 602.5d (sorcery), 602.5b (activate only if you control an enchantment), 118.8 (exiling itself is a cost)
     @Test
     fun heronBlessedGeist() = card(
-        name = "Heron-Blessed Geist",
+        name = "Egret-Touched Wraith",
         cost = "{4}{W}",
         type = "Creature — Spirit",
         pt = "3/3",
@@ -194,7 +194,7 @@ class VowChunk11CreateTokenTest {
     // CR 118.8 and 602.2 (costs: tap, exile three cards from your own graveyard), 111.1
     @Test
     fun kessigWolfrider() = card(
-        name = "Kessig Wolfrider",
+        name = "Moorfen Houndrider",
         cost = "{R}",
         type = "Creature — Human Knight",
         pt = "1/2",
@@ -211,7 +211,7 @@ class VowChunk11CreateTokenTest {
     // CR 107.3 and 202.1 (X: the mana spent to cast that spell), 603.7 (the delayed trigger exiles that token at the next end step)
     @Test
     fun manaformHellkite() = card(
-        name = "Manaform Hellkite",
+        name = "Spellshaped Drake",
         cost = "{2}{R}{R}",
         type = "Creature — Dragon",
         pt = "4/4",
@@ -236,7 +236,7 @@ class VowChunk11CreateTokenTest {
     // CR 707.2 and 111.10 (a token that's a copy), 603.2 (a nontoken Zombie you control enters)
     @Test
     fun necroduality() = card(
-        name = "Necroduality",
+        name = "Corpse Duplicity",
         cost = "{3}{U}",
         type = "Enchantment",
         text = "Whenever a nontoken Zombie you control enters, create a token that's a copy of that creature.",
@@ -247,7 +247,7 @@ class VowChunk11CreateTokenTest {
     // CR 120.3 and 603.2 (deals damage), 603.10 (that many: the damage dealt), 111.10g
     @Test
     fun oliviasAttendants() = card(
-        name = "Olivia's Attendants",
+        name = "Odalys's Retinue",
         cost = "{4}{R}{R}",
         type = "Creature — Vampire",
         pt = "6/6",
@@ -266,7 +266,7 @@ class VowChunk11CreateTokenTest {
     // CR 701.21 (sacrifice), 603.2, 205.1b and 613.1d (becomes a 3/3 Vampire artifact creature with haste), 608.2d (may)
     @Test
     fun sanguineStatuette() = card(
-        name = "Sanguine Statuette",
+        name = "Scarlet Figurine",
         cost = "{1}{R}",
         type = "Artifact",
         text = """
@@ -285,7 +285,7 @@ class VowChunk11CreateTokenTest {
     // CR 603.2 (cast a noncreature spell), 603.4 (once each turn), 111.1
     @Test
     fun whisperingWizard() = card(
-        name = "Whispering Wizard",
+        name = "Murmuring Mage",
         cost = "{3}{U}",
         type = "Creature — Human Wizard",
         pt = "3/2",

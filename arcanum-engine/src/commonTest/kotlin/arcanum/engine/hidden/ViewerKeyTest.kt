@@ -240,6 +240,8 @@ class ViewerKeyTest {
             val samples = listOf(
                 s to Change.Counters(arcanum.engine.state.TargetRef.Object(creature), arcanum.api.CounterKind.PowerToughness(1, 1), null,
                     arcanum.engine.state.CounterEntry(arcanum.api.CounterKind.PowerToughness(1, 1), 1, 50)),
+                s to Change.Simultaneous(listOf(Change.Counters(arcanum.engine.state.TargetRef.Object(creature), arcanum.api.CounterKind.PowerToughness(1, 1), null,
+                    arcanum.engine.state.CounterEntry(arcanum.api.CounterKind.PowerToughness(1, 1), 1, 50)))),
                 s to Change.Lost(bob.id, null, arcanum.engine.setup.LossReason.ZeroLife),
                 s to Change.EmptyLibraryDraw(alice.id, false, true),
                 s to Change.GameStatusChanged(null, arcanum.engine.state.GameStatus.DayNight(true)),

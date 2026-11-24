@@ -103,6 +103,9 @@ internal object ChangeSamples {
             on(base, Change.Face(druid, 0, 1, listOf(Meaning.Transformed))),
             on(base, Changes.counters(base, TargetRef.Object(druid), CounterKind.PowerToughness(1, 1), 2)),
             on(base, Changes.counters(base, TargetRef.Player(alice), CounterKind.Poison, 2)),
+            // snc: counters put at once on an object and a player (one event, CR 122.6)
+            on(base, Change.Simultaneous(listOf(Changes.counters(base, TargetRef.Object(druid), CounterKind.PowerToughness(1, 1), 1),
+                Changes.counters(base, TargetRef.Player(alice), CounterKind.Poison, 1)))),
             on(base, Change.Damage(listOf(DamageDealt(druid, TargetRef.Object(elves), 2)))),
             on(base, Changes.damageMarked(base, elves, 2, deathtouch = true)),
             on(base, Changes.life(base, bob, -3, listOf(Meaning.LifeLost))),

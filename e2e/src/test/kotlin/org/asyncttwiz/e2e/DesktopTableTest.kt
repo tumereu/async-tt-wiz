@@ -1,5 +1,6 @@
 package org.asyncttwiz.e2e
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.click
@@ -201,6 +202,56 @@ class DesktopTableTest : E2e() {
     @Test fun theBattlefieldNodesFollowTheCamera() {
         start()
         battlefieldNodesFollowTheCamera(alice, bob)
+    }
+
+    // WEB-084, TBL-121, TBL-010, TBL-012 (owner 2026-11-24: desktop battlefield cards 4× the phone's, the least zoom lower so
+    // the rows fit): in a 1440 × 900 window, with Alice's Mountain and Ember Cub out, her table opens with both battlefields' three
+    // rows whole in view and her Mountain above her seat box; zoomed out as far as it goes (0.325×) the Cub is 0.325 × 4 × 28 dp
+    // wide and both battlefields are whole in view, as they are again when the table is fitted from there
+    @Test fun theFourTimesBattlefieldFitsAt1440() = battlefieldFits(1440f to 900f)
+
+    // WEB-084, TBL-121, TBL-010, TBL-012: the same in a 1920 × 1080 window, where the Cub also opens wider than the 2× cards before
+    // could (56 dp at most: the opening zooms out, never in past 1×)
+    @Config(qualifiers = "w1920dp-h1080dp-land-mdpi")
+    @Test fun theFourTimesBattlefieldFitsAt1920() = battlefieldFits(1920f to 1080f, openedWiderThan = 2f * 28f)
+
+    private fun battlefieldFits(window: Pair<Float, Float>, openedWiderThan: Float = 0f) {
+        start()
+        keep()
+        clickFromHand("Mountain")
+        waitUntil("the Mountain on Alice's battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
+        clickFromHand("Ember Cub")
+        waitUntil("the Cub on Alice's battlefield", along = listOf(bob)) {
+            alice.field("Ember Cub").isNotEmpty() && alice.showsOnBattlefield("Ember Cub") && alice.inOwnMain() && alice.settled(this)
+        }
+        run()
+        val (width, height) = window
+        val boxes = alice.nodes(hasTestTag(DESKTOP_SEAT_BOX_TAG)).fetchSemanticsNodes().map { it.boundsInRoot }.sortedBy { it.top }
+        val (bobsBox, alicesBox) = boxes
+        fun cub() = alice.battlefieldCard("Ember Cub").fetchSemanticsNode().boundsInRoot
+        /** Both battlefields whole in view: neither cut by the table's edges (as tall as each other), Bob's from below the
+         * table's top, Alice's Mountain above what floats at the bottom. */
+        fun assertBothWhole(what: String) {
+            val fields = listOf(alice.battlefieldBounds(bob), alice.battlefieldBounds())
+            val mountain = alice.battlefieldCard("Mountain").fetchSemanticsNode().boundsInRoot
+            assertTrue(fields[0].top >= bobsBox.top + 2f && kotlin.math.abs(fields[0].height - fields[1].height) < 1f && fields[1].bottom <= height,
+                "$what in ${width}x$height: both battlefields whole in view: $fields")
+            assertTrue(mountain.bottom <= alicesBox.top + 1f && mountain.top >= fields[1].top, "$what: her Mountain above her seat box: $mountain, box $alicesBox")
+        }
+        assertBothWhole("the opening")
+        assertTrue(cub().width > openedWiderThan + 4f, "the Cub opened wider than $openedWiderThan: ${cub()}")
+        /** The table's own step [label] ("Zoom in", "Fit table"), as its accessibility action takes it. */
+        fun step(label: String) {
+            alice.described("Shared table").fetchSemanticsNode().config[SemanticsActions.CustomActions].first { it.label == label }.action()
+            run()
+        }
+        repeat(16) { step("Zoom out") }
+        assertEquals(.325f * 4f * 28f, cub().width, 1f, "zoomed out as far as it goes (0.325×), the Cub 4× the phone's 28 dp")
+        assertBothWhole("the least zoom")
+        step("Fit table")
+        assertTrue(cub().width > .325f * 4f * 28f + 4f, "fitted: zoomed in from the least zoom as far as the rows allow: ${cub()}")
+        assertBothWhole("fitted")
+        assertEquals(emptyList(), alice.leaks.leaks)
     }
 
     // WEB-017, WEB-078, LOB-066, LOB-162, LOB-163, WEB-031, WEB-089 (owner, desktop playtest 2026-11-14: "Two different ways of showing chat, do we need those?"):

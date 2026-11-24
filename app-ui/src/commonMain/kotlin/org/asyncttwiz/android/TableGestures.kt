@@ -351,7 +351,7 @@ class TableGestureCoordinator(
         }
         val old = navigationCamera ?: scene.camera
         if (world == null) return
-        val zoom = (old.zoom * scale).coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM)
+        val zoom = (old.zoom * scale).coerceIn(requireNotNull(world).minZoom, TablePresentation.MAX_ZOOM)
         val center = requireNotNull(world).viewport.center
         val anchorX = centroid.x - center.x
         val anchorY = centroid.y - center.y

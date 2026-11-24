@@ -281,6 +281,13 @@ internal object Filters {
         // chunk 20: "artifact and/or enchantment" is either of them
         if (phrase.contains(" and/or ")) return noun(phrase.replace(" and/or ", " or "))
         // chunk 31: "card from a graveyard"
+        // snc chunk 14: "spell, nonland permanent, or card in a graveyard": the zone belongs to the last alternative only when the
+        // alternatives before it are complete nouns of their own (a spell and a permanent are never in a graveyard, CR 110.1, 405.1)
+        FROM_A_GRAVEYARD_LAST_ALTERNATIVE.matchEntire(phrase)?.let { m ->
+            val earlier = m.groupValues[1].split(", ").map { noun(it) ?: return null }
+            val last = noun(m.groupValues[2]) ?: return null
+            return ObjectFilter.Or(earlier + all(last, ObjectFilter.InZone(Zone.Graveyard)))
+        }
         FROM_A_GRAVEYARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard)) }
         // chunk 32: "creature card with power 2 or less", "… with toughness 2 or less"
         // bro chunk 05: not "a Plains card or a creature card with mana value 3 or less": an alternative after " or a" has its own noun and
@@ -633,6 +640,7 @@ internal object Filters {
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) (?:in|from) your graveyard""") // otj chunk 04: "from"
     private val IN_GRAVEYARDS = Regex("""(.+) in graveyards""")
+    private val FROM_A_GRAVEYARD_LAST_ALTERNATIVE = Regex("""(.+(?: spell| permanent| ability)), (?:or )?((?:\w+ )?card) (?:from|in) a graveyard""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) (?:from|in) a graveyard""") // mkm chunk 09: "nonland card in a graveyard"
     // chunk 32
     // dmu chunk 06

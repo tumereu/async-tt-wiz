@@ -1236,6 +1236,10 @@ internal object Events {
         // gtc chunk 08
         // rvr chunk 01: "enchanted Forest" (an Aura with "Enchant Forest")
         if (text == "enchanted land" || ENCHANTED_SUBTYPE.matches(text)) return ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))
+        // neo chunk 04: "this creature or equipped creature" (a reconfigure Equipment: itself, or the creature it is attached to)
+        SELF_OR_ATTACHED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self), ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))))
+        }
         SELF_OR_ANOTHER.matchEntire(text)?.let { m ->
             if (m.groupValues[1] !in self) return null
             val other = Filters.noun(m.groupValues[2]) ?: return null
@@ -1302,6 +1306,7 @@ internal object Events {
     // also "into exile"
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) (?:is|are) put into (a graveyard|exile) from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
+    private val SELF_OR_ATTACHED = Regex("""(.+) or (?:equipped|enchanted) creature""")
     private val DIES = Regex("""(.+) dies""")
     private val SELF_DIE = Regex("""(.+) die""")
     private val CASTS_OR_ACTIVATES_ABILITY_OF = Regex("""(an opponent|a player) casts (an? .+?) or activates an ability of (an? .+)""")
@@ -1444,7 +1449,7 @@ internal object Conditions {
         }
         RvrPhrases.condition(text, self)?.let { return it } // rvr
         OnePhrases.condition(text, self)?.let { return it } // one
-        NeoPhrases.condition(text)?.let { return it } // neo
+        NeoPhrases.condition(text, self)?.let { return it } // neo
         // trk chunk 09: "you control five or more differently named lands" (CR 201.2)
         Trk.CONTROL_N_DIFFERENTLY_NAMED.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null

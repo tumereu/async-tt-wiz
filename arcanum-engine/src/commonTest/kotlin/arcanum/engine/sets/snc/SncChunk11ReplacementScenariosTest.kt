@@ -105,7 +105,7 @@ class SncChunk11ReplacementScenariosTest {
         expect { alice.graveyard has shieldmate }
     }
 
-    // CR 122.1c: destruction by an effect removes a shield counter and the damage marked instead; the second one destroys
+    // CR 122.1c: destruction by an effect removes a shield counter instead; the second one destroys
     @Test
     fun shieldReplacesDestructionOnce() = scenario {
         alice.battlefield("Swamp", "Swamp", shieldmate, counters = listOf(shield to 1))

@@ -857,7 +857,8 @@ sealed interface Modification {
     // snc
     /** As [CreateInstead], with the token one of [tokens] that the replacement's controller chooses as it applies ("you may instead create
      * that many 2/2 green Cat creature tokens with haste or that many 3/1 green Dog creature tokens with vigilance"): one replacement effect,
-     * applied once to the event (CR 614.1a, 614.5). */
+     * applied once to the event (CR 614.1a, 614.5). In an optional replacement ("you may instead") not replacing is one more option of
+     * the same choice, not a separate question. */
     @Serializable @SerialName("create-instead-chosen") data class CreateInsteadChosen(val tokens: List<TokenSpec>) : Modification
     // msh
     /** The damage is dealt, but all other damage already marked on the permanent it is dealt to is healed first ("instead that

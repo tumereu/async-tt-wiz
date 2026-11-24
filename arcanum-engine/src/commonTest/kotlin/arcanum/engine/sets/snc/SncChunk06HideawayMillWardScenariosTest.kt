@@ -213,18 +213,19 @@ class SncChunk06HideawayMillWardScenariosTest {
         expect { alice.battlefield.names.count { it == "Citizen Token" } shouldBe 2 }
     }
 
-    private fun jinnieMakes(choice: String?, expected: String) = scenario {
+    // owner 2026-11-23: one question, "don't replace" among the results
+    private fun jinnieMakes(choice: String, expected: String) = scenario {
         alice.battlefield(jinnie, "Plains")
         alice.hand(stash)
         alice.casts(stash)
         resolveAll()
-        answer(Answer.YesNo(choice != null))
-        if (choice != null) {
-            assertEquals(listOf("Cat Token", "Dog Token"), (pending as Decision.ChooseOption).options)
-            answer(Answer.Option(choice))
-        }
+        assertEquals(listOf("Keep the original tokens", "Cat Token", "Dog Token"), (pending as Decision.ChooseOption).options)
+        answer(Answer.Option(choice))
         resolveAll()
-        expect { alice.battlefield.names.count { it == expected } shouldBe 2 }
+        expect {
+            alice.battlefield.names.count { it == expected } shouldBe 2
+            alice.battlefield.names.count { it?.endsWith("Token") == true } shouldBe 2
+        }
     }
 
     // CR 614.1a: two Treasures become two 2/2 Cats with haste
@@ -235,7 +236,7 @@ class SncChunk06HideawayMillWardScenariosTest {
     @Test
     fun jinnieTurnsTokensIntoDogs() = jinnieMakes("Dog Token", "Dog Token")
 
-    // CR 614.1a ("you may"): declined, the Treasures are created
+    // CR 614.1a ("you may"): declined in the same question, the Treasures are created
     @Test
-    fun jinnieMayLeaveTheTokens() = jinnieMakes(null, "Treasure Token")
+    fun jinnieMayLeaveTheTokens() = jinnieMakes("Keep the original tokens", "Treasure Token")
 }

@@ -103,7 +103,8 @@ internal object Effects {
                 val batch = scope.batch
                 if (batch != null) {
                     val view = act.view()
-                    val ok = Actions.withoutShielded(act, ids.filter { id -> view[id]?.has { it == Mechanic.Indestructible } != true })
+                    // CR 122.1c: shield counters replace the destruction as the batch moves (Actions.move)
+                    val ok = ids.filter { id -> view[id]?.has { it == Mechanic.Indestructible } != true }
                     batch += Batched(scope, ok.map { PlannedMove(it, Zone.Graveyard, meanings = listOf(Meaning.Destroyed)) }, effect.postBind, effect.noRegeneration)
                 } else {
                     val moved = Actions.destroy(act, cause, ids, effect.noRegeneration)

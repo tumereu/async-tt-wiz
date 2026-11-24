@@ -6585,11 +6585,11 @@ internal class Sentences(
             return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = players), context.thatMuch ?: return@let, source = Objects.Self)))
         }
         // snc chunk 09: "Put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control." (each part
-        // as its own sentence)
+        // read as its own sentence); snc fixes: one instruction with one verb, so all the counters are put at once, one event (CR 608.2c)
         Snc.PUT_COUNTERS_ON_EACH_AND_EACH.matchEntire(sentence)?.let { m ->
             val first = effect("Put ${m.groupValues[1]}.", context) ?: return@let
             val second = effect("Put ${m.groupValues[2]}.", context) ?: return@let
-            return first + second
+            return listOf(Step.Simultaneously(first + second))
         }
         // chunk 26: "Put a loyalty counter on each red planeswalker you control."
         PUT_COUNTERS_ON_EACH.matchEntire(sentence)?.let { m ->
@@ -8408,10 +8408,12 @@ internal class Sentences(
             Step.Do(Effect.Move(Objects.Except(Objects.Bound("found"), Objects.Bound("picked")), Destination(Zone.Library))),
             Step.Do(Effect.Shuffle(Players.You)))
         // gtc chunk 11: "This Aura's controller sacrifices it, then draws two cards." (the activating opponent isn't "you")
-        // snc chunk 05: in an ability the Aura grants, "it" is the enchanted creature and its controller is the Aura's (CR 113.10, 701.21a)
+        // snc fixes: in an ability the Aura grants, "<Aura>'s controller sacrifices it" sacrifices the Aura itself, the nearest object the
+        // sentence names (CR 113.10, 701.21a); the creature it enchants isn't named
         Gtc.AURAS_CONTROLLER_SACRIFICES_DRAWS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || (granterName != null && it.groupValues[1] == granterName) }?.let { m ->
-            val controller = Players.ControllerOf(if (isSelf(m.groupValues[1])) Objects.Self else Objects.Granter)
-            return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = controller)), Step.Do(Effect.Draw(controller, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
+            val aura = if (isSelf(m.groupValues[1])) Objects.Self else Objects.Granter
+            val controller = Players.ControllerOf(aura)
+            return listOf(Step.Do(Effect.Sacrifice(aura, by = controller)), Step.Do(Effect.Draw(controller, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
         }
         // gtc chunk 14: "Shuffle your library, then reveal the top card. If it's a nonland card, you may cast it without paying its
         // mana cost. If it's a land card, you may put it onto the battlefield and return Unexpected Results to its owner's hand."

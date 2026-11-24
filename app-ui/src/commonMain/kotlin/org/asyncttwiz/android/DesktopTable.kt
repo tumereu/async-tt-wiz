@@ -62,6 +62,10 @@ object DesktopTable {
      * phone's the desktop table draws its controls: the action area's quick actions, Undo and main button, the panels
      * (WEB-019) and the top row. */
     const val UI_SCALE = 1.3f
+    /** TBL-010, WEB-084 (owner 2026-11-24): the desktop table's least zoom, half the phone's: its battlefield cards, 4× the
+     * phone's, then as small as the 2× ones before were at the phone's least zoom, so the six battlefield rows fit a 1440 × 900
+     * or 1920 × 1080 window (the opening view, TBL-121, and Fit table, TBL-012, zoom out as far as they need). */
+    const val MIN_ZOOM = TablePresentation.MIN_ZOOM / 2
     /** The right dock's width (WEB-017). */
     const val DOCK = 320f
     /** The action area's width at the bottom right (WEB-018), under the dock, whether the dock is open or not. */

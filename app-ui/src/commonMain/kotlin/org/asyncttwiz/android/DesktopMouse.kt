@@ -299,7 +299,7 @@ const val HOVER_CHIPS_KEEP_MILLIS = 180L
 /** WEB-028: how long the pointer rests on a control before its tooltip shows. */
 const val HOVER_TOOLTIP_MILLIS = 500L
 
-/** WEB-029: the zoom of one wheel notch (zoom around the pointer, within the table's 0.65–2×). */
+/** WEB-029: the zoom of one wheel notch (zoom around the pointer, within the table's zoom limits, TBL-010). */
 fun wheelZoom(delta: Float): Float = exp(-delta.coerceIn(-4f, 4f) * .1f)
 
 /** WEB-029: how far (dp) a sideways wheel notch (Shift+wheel, or a trackpad's sideways swipe) pans the table. */

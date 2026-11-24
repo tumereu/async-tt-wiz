@@ -36,7 +36,7 @@ Nothing on the table can be changed by hand: no notes, dice or hand-made tokens.
 
 ## Pan and zoom
 
-- **TBL-010** Pinch zooms the battlefield between 0.65× and 2×; a two-finger drag pans it. (r2)
+- **TBL-010** Pinch zooms the battlefield between 0.65× and 2× (on the desktop table between 0.325× and 2×, WEB-084); a two-finger drag pans it. (r2)
 - **TBL-011** A one-finger drag that starts on empty battlefield pans it, as does a double-tap with the finger kept down; there is no selection rectangle. (r45)
 - **TBL-012** A double tap on empty battlefield without dragging zooms to fit the whole table: both battlefields' rows and every card on them (on the desktop table into the room right of both seat headers and above what floats at the bottom, WEB-015, WEB-016). (r53)
 - **TBL-121** In landscape the table opens zoomed out (never below the smallest zoom, TBL-010) so both battlefields' rows fit between the hands, their left ends still at the left edge (on the desktop table just right of both seat headers, the rows from under the top row to above what floats at the bottom, WEB-015, WEB-016); when they don't fit even at the smallest zoom it opens there, centred on the battlefields. Your first pan or zoom takes over from there. (r59)

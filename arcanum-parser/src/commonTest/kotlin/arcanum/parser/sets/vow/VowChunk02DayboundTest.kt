@@ -59,8 +59,10 @@ class VowChunk02DayboundTest {
     private val werewolf = or(sub("Wolf"), sub("Werewolf"))
     private val insect = creatureToken("Insect", listOf(Color.Green), 1, 1)
     private val damageToAny = damage(1, toAny)
+    // vow fixes: the creature this damage was actually dealt to (CR 120.1, 615.1a)
+    private val damageToAnyNamed = Step.Do(Effect.DealDamage(toAny, n(1), Objects.Self, postBind = "damaged"))
     private val damagedCantBlock = doing(Effect.ApplyMechanics(listOf(Mechanic.CantBlock(ObjectFilter.Any)),
-        Affected.Objects(Objects.Where(target("any"), ObjectFilter.Type(CardType.Creature))), Duration.EndOfTurn))
+        Affected.Objects(Objects.Where(Objects.Bound("damaged"), ObjectFilter.Type(CardType.Creature))), Duration.EndOfTurn))
 
     // CR 702.145b, 702.145e: the two keywords; CR 115.3: "another target creature" is another creature you control
     @Test
@@ -103,7 +105,7 @@ class VowChunk02DayboundTest {
         ),
     )
 
-    // CR 509.1b: a creature dealt damage this way can't block this turn (only the creature dealt damage by this ability)
+    // CR 509.1b, 615.1a: a creature dealt damage this way can't block this turn (only a creature this ability actually dealt damage to)
     @Test
     fun ballistaWatcher() = cardFaces(Layout.Transform,
         card(
@@ -130,7 +132,7 @@ class VowChunk02DayboundTest {
             pt = "5/5",
             colorIndicator = "R",
         ) to abilities(
-            activated(manaCost("{2}{R}"), damageToAny, damagedCantBlock, targets = listOf(anyTarget)),
+            activated(manaCost("{2}{R}"), damageToAnyNamed, damagedCantBlock, targets = listOf(anyTarget)),
             Keyword.Nightbound,
         ),
     )

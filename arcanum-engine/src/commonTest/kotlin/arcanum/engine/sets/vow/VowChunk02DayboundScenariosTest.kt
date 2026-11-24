@@ -39,6 +39,7 @@ class VowChunk02DayboundScenariosTest {
     private val ox = Cards.invent("Vowfield Ox", "{3}{G}", "Creature — Ox", "", "2/4")
     private val wall = Cards.invent("Vowfield Wall", "{1}{G}", "Creature — Wall", "", "1/4")
     private val scout = Cards.invent("Vowfield Scout", "{1}{G}", "Creature — Elf", "", "2/2")
+    private val warden = Cards.invent("Vowfield Warden", "{2}{W}", "Creature — Spirit", "Prevent all damage that would be dealt to this creature.", "1/3")
 
     /** No planeswalker is in play, so that slot has no legal target and isn't asked (CR 115.1); if it is asked, none is chosen. */
     private fun arcanum.engine.scenario.Scenario.noPlaneswalkerToChoose() {
@@ -117,5 +118,20 @@ class VowChunk02DayboundScenariosTest {
         assertFailsWith<IllegalArgumentException> { bob.blocks(wall to scout) }
         bob.blocks(ox to scout)
         expect { ox.zone shouldBe Zone.Battlefield }
+    }
+
+    // vow fixes: CR 615.1a, 120.1, 509.1b: damage that was prevented wasn't dealt, so the creature it would have been dealt to can still block
+    @Test
+    fun creatureWhoseDamageWasPreventedCanStillBlock() = scenario {
+        alice.battlefield(marksman, scout, "Mountain", "Mountain", "Mountain")
+        backFaceUp(marksman)
+        bob.battlefield(warden)
+        advanceTo(TurnStep.DeclareAttackers)
+        alice.attacks(scout)
+        alice.activates(marksman, target = warden)
+        resolveAll()
+        advanceTo(TurnStep.DeclareBlockers)
+        bob.blocks(warden to scout)
+        expect { warden.view.obj!!.damage shouldBe 0 }
     }
 }

@@ -107,4 +107,29 @@ class MshMoreScenariosTest {
         assertEquals(alice.id, state.turn.active)
         assertFailsWith<IllegalArgumentException> { alice.activates(scrapper) }
     }
+
+    /** vow fixes: power-up abilities can't be activated anywhere in that extra turn: not in its upkeep either, where its player gets priority
+     * (before, a trigger at that upkeep made the rule, leaving a window while it was on the Stack). */
+    // CR 500.7, 611.2a, 503.1, 603.3b, 702.193a (power-up has no timing restriction)
+    @Test
+    fun noPowerUpInTheExtraTurnsUpkeep() = scenario {
+        alice.battlefield(scrapper)
+        alice.battlefield("Island", "Island", "Island", "Island", "Island", "Island", "Island", "Island", "Plains", "Plains")
+        alice.hand(chronarch)
+        alice.library(bear, bear, bear)
+        bob.library(bear, bear)
+        alice.casts(chronarch)
+        resolveAll()
+        alice.activates(chronarch)
+        resolveAll()
+        advanceTo(TurnStep.Upkeep, turn = 2)
+        assertEquals(alice.id, state.turn.active)
+        assertFailsWith<IllegalArgumentException> { alice.activates(scrapper) }
+        advanceTo(TurnStep.Upkeep, turn = 3)
+        assertEquals(bob.id, state.turn.active)
+        advanceTo(TurnStep.Upkeep, turn = 4)
+        alice.activates(scrapper)
+        resolveAll()
+        expect { scrapper.counters(p1p1) shouldBe 2 }
+    }
 }

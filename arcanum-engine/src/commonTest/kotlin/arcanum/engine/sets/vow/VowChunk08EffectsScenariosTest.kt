@@ -75,6 +75,7 @@ class VowChunk08EffectsScenariosTest {
     private val pup = Cards.invent("Brass Pup", "{3}", "Artifact Creature — Dog Construct", "", "2/2")
     private val kestrel = Cards.invent("Skyreach Kestrel", "{1}{W}", "Creature — Bird", "Flying, vigilance", "1/1")
     private val lancer = Cards.invent("Gale Lancer", "{2}{W}", "Creature — Human Knight", "Flying", "2/2")
+    private val stalker = Cards.invent("Veilwood Stalker", "{1}{G}", "Creature — Elf Scout", "Hexproof from blue", "2/1")
     private val cinders = Cards.invent("Sudden Cinders", "{R}", "Instant", "Sudden Cinders deals 5 damage to any target.")
     private val youth = Cards.inventFaces("Transform",
         face("Dusk-Pelt Youth", "{1}{G}", "Creature — Human Werewolf",
@@ -272,6 +273,17 @@ class VowChunk08EffectsScenariosTest {
         alice.casts(corvan)
         resolveAll()
         expect { alice.battlefield.names.count { it == "Blood Token" } shouldBe 2 }
+    }
+
+    // vow fixes: CR 702.11d, 702.11e: "hexproof from [quality]" is a hexproof ability, so a creature with only "hexproof from blue" counts
+    // for hexproof (rulings register: 702.11e)
+    @Test
+    fun hexproofFromCountsAsHexproof() = scenario {
+        alice.battlefield("Mountain", "Plains", "Plains", kestrel, stalker)
+        alice.hand(corvan)
+        alice.casts(corvan)
+        resolveAll()
+        expect { alice.battlefield.names.count { it == "Blood Token" } shouldBe 3 }
     }
 
     // CR 603.12, 608.2h: dying, it exiles another card (not itself, CR 400.7) and the creature gets -X/-X for that card's mana value

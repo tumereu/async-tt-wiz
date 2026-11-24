@@ -28,6 +28,9 @@ internal object Numbers {
 
     private val WORDS = mapOf("a" to 1, "an" to 1, "one" to 1, "two" to 2, "three" to 3, "four" to 4, "five" to 5, "six" to 6,
         "seven" to 7, "eight" to 8, "nine" to 9, "ten" to 10,
+        // snc fixes: "Untap fifteen tapped creatures you control"
+        "eleven" to 11, "twelve" to 12, "thirteen" to 13, "fourteen" to 14, "fifteen" to 15, "sixteen" to 16, "seventeen" to 17,
+        "eighteen" to 18, "nineteen" to 19,
         // gtc chunk 09
         "twenty" to 20,
         // hob chunk 10

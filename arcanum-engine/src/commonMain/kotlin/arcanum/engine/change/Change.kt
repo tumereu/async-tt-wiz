@@ -92,6 +92,16 @@ sealed interface Change {
     }
 
     /**
+     * Counters put on or removed from several objects or players by one instruction, at once (CR 608.2c, 122.6): one event made of
+     * [parts]. The recorder keeps and logs the parts themselves; this whole is what their triggers are looked for in
+     * ([Recorder.countersTogether]), so "one or more counters are put on one or more creatures" triggers once (CR 603.2c).
+     */
+    @Serializable @SerialName("simultaneous")
+    data class Simultaneous(val parts: List<Change>) : Change {
+        override fun inverse() = Simultaneous(parts.reversed().map { it.inverse() })
+    }
+
+    /**
      * One damage event (CR 120, D44): every source and recipient dealt damage at once. The results are their own
      * changes ([DamageMarked], [Life], [Counters]); this one is the event that triggers and is counted.
      */

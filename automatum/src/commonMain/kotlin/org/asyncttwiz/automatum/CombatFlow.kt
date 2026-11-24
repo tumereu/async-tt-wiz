@@ -613,6 +613,7 @@ object CombatFlow {
             is CostPart.Action -> words(part.action::class.simpleName)
             is CostPart.Sacrifice -> "Sacrifice"
             CostPart.TapSelf, is CostPart.TapObjects -> "Tap"
+            is CostPart.UntapObjects -> "Untap"
             is CostPart.Discard -> "Discard"
             is CostPart.Exile -> "Exile"
             else -> words(part::class.simpleName)

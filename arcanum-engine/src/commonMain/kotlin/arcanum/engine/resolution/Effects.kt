@@ -897,7 +897,9 @@ internal object Effects {
                 Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Bound(UNTIL_SOURCE)), from = Zone.Battlefield)),
                 Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Bound(UNTIL_RETURNED), arcanum.api.Destination(
                     from ?: Zone.Battlefield,
-                    controller = Players.OwnerOf(Objects.Bound(UNTIL_RETURNED))))))),
+                    controller = Players.OwnerOf(Objects.Bound(UNTIL_RETURNED))), postBind = "returned"))) +
+                    // snc: "When an exiled card enters under your control this way, …" (CR 603.12)
+                    effect.whenReturned?.steps.orEmpty()),
                 duration = null, repeats = false,
                 extra = mapOf(UNTIL_SOURCE to NamedValue.Objects(leaving), UNTIL_RETURNED to NamedValue.Objects(after)), oneShot = true)
         }

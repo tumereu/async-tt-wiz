@@ -310,7 +310,7 @@ internal object Triggers {
      * as lore counters pass their numbers (CR 715.2b). */
     fun instancesOf(e: Evaluator, state: GameState, trigger: Trigger, change: Change, whole: Change = change, door: Int? = null): List<TriggerEvent> = when (trigger) {
         is Trigger.On -> {
-            fun units(c: Change): List<TriggerEvent> {
+            fun unitsOf(c: Change): List<TriggerEvent> {
                 val all = trigger.events.flatMap { p ->
                     val found = EventMatcher.instances(e, p, c, door = door)
                     // gtc: "whenever a +1/+1 counter is put on …" triggers once per counter put (CR 603.2c)
@@ -330,6 +330,13 @@ internal object Triggers {
                     b.objects.filter { it.role == EventRole.Object }.flatMap { it.ids }.distinct().sumOf { e.property(total.property, it) } >= e.value(total.atLeast)
                 }
             }
+            fun units(c: Change): List<TriggerEvent> =
+                // snc: counters put at once on several objects or players (one event, CR 122.6) are one batch only for a trigger on
+                // "one or more" of them ([Trigger.On.acrossHolders]); "one or more counters are put on a creature" triggers once for
+                // each creature they are put on (CR 603.2c)
+                if (c is Change.Simultaneous && trigger.oneOrMore && !trigger.acrossHolders)
+                    c.parts.groupBy { (it as? Change.Counters)?.holder ?: it }.values.flatMap { unitsOf(Change.Simultaneous(it)) }
+                else unitsOf(c)
             // "during each of your draw steps" ([Trigger.On.during]): only events in that step of the controller's own turn count, and only
             // there it triggers (snc: an opponent's draw step is not one of yours)
             val inStep = trigger.during == null || (state.turn.step == trigger.during && state.turn.active == e.ctx.you)
@@ -337,7 +344,9 @@ internal object Triggers {
             val counted = if (now.isEmpty()) now else trigger.nthThisTurn?.let { n ->
                 // gtc: the events before this one (the last equal one: two combats can make equal changes)
                 val events = state.eventsOf(state.turn.number)
-                val at = events.indexOfLast { it === whole }.takeIf { it >= 0 } ?: events.indexOfLast { it == whole }
+                // snc: counters put at once are logged as their parts: the event begins at the first
+                val first = (whole as? Change.Simultaneous)?.parts?.firstOrNull() ?: whole
+                val at = events.indexOfLast { it === first }.takeIf { it >= 0 } ?: events.indexOfLast { it == first }
                 var before = if (at >= 0) events.take(at) else events
                 // within [during]: counted from the start of this step (its latest beginning: extra combats repeat steps)
                 trigger.during?.let { step ->
@@ -360,7 +369,13 @@ internal object Triggers {
                 (trigger.atLeast == null || size >= trigger.atLeast!!) && (trigger.atMost == null || size <= trigger.atMost!!)
             }
         }
-        is Trigger.Chapter -> (change as? Change.Counters)?.let { c ->
+        // snc: lore counters put on several Sagas at once, each Saga's own chapters
+        is Trigger.Chapter -> (if (change is Change.Simultaneous) change.parts else listOf(change)).flatMap { part -> chapters(e, trigger, part) }
+        // State triggers are checked when triggers are put on the Stack (CR 603.8)
+        is Trigger.State -> emptyList()
+    }
+
+    private fun chapters(e: Evaluator, trigger: Trigger.Chapter, change: Change): List<TriggerEvent> = (change as? Change.Counters)?.let { c ->
             val holder = (c.holder as? TargetRef.Object)?.id ?: return@let null
             if (c.kind != CounterKind.Lore || holder != e.ctx.self) return@let null
             val from = c.before?.count ?: 0
@@ -372,9 +387,6 @@ internal object Triggers {
             trigger.chapters.filter { it in (from + 1)..to && (!readAhead || it == to) }
                 .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder))), amount = it) }
         }.orEmpty()
-        // State triggers are checked when triggers are put on the Stack (CR 603.8)
-        is Trigger.State -> emptyList()
-    }
 
     private fun batch(instances: List<TriggerEvent>): TriggerEvent {
         val roles = instances.flatMap { it.objects }.groupBy { it.role }.map { (role, list) -> RoleObjects(role, list.flatMap { it.ids }.distinct()) }
@@ -479,14 +491,17 @@ internal object Triggers {
         if (due.isEmpty()) return
         act.record(Change.TriggersWaiting(waiting, waiting.filterNot { it.oneShot }))
         val batch = mutableListOf<arcanum.engine.resolution.Batched>()
-        val scopes = due.map { t ->
+        // the first step returns the cards; the rest ("When an exiled card enters under your control this way", snc) follow the returns
+        val steps = due.map { t -> (t.ability as? Ability.Triggered)?.instructions?.steps.orEmpty() }
+        val scopes = due.mapIndexed { i, t ->
             val cause = arcanum.engine.action.Cause(t.controller, t.source, key = "until@${act.state.nextTimestamp()}")
             arcanum.engine.resolution.Scope(act, cause, t.names, t.event, batch = batch).also { scope ->
-                (t.ability as? Ability.Triggered)?.instructions?.steps?.let { arcanum.engine.resolution.Steps.run(scope, it) }
+                arcanum.engine.resolution.Steps.run(scope, steps[i].take(1))
                 scope.batch = null
             }
         }
         arcanum.engine.resolution.Steps.flush(act, scopes.first().cause, batch)
+        scopes.forEachIndexed { i, scope -> steps[i].drop(1).takeIf { it.isNotEmpty() }?.let { arcanum.engine.resolution.Steps.run(scope, it) } }
     }
 
     /** CR 603.3b: a player with two or more triggers puts them on the Stack in the order they choose (P5: only when the

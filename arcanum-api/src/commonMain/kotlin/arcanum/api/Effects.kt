@@ -52,6 +52,10 @@ sealed interface Effect {
     @Serializable @SerialName("move") data class Move(
         val objects: Objects, val to: Destination, val untilLeaves: Objects? = null,
         val preBind: String? = null, val postBind: String? = null,
+        // snc
+        /** With [untilLeaves]: run right after the cards return, the returned objects bound as `returned` ("When an exiled card enters
+         * under your control this way, put two +1/+1 counters on it": a reflexive trigger of the return, CR 603.12, 610.3). */
+        val whenReturned: Instructions? = null,
     ) : Effect
     @Serializable @SerialName("draw") data class Draw(
         val players: Players, val count: Value, val preBind: String? = null, val postBind: String? = null,

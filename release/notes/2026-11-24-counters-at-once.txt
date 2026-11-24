@@ -1,0 +1,1 @@
+fix: Abilities that trigger when counters are put on "one or more" creatures now trigger once when one effect puts counters on several creatures at once.

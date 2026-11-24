@@ -309,6 +309,11 @@ sealed interface ObjectFilter {
     /** It has an Adventure: its copiable values include an Adventure spell's alternative characteristics, whether or not it uses
      * them now ("permanent spells you cast that have an Adventure", "a card in exile that has an Adventure", CR 716.2a, b). */
     @Serializable @SerialName("has-adventure") data object HasAdventure : ObjectFilter
+    // snc fixes
+    /** A card in exile that was exiled by an ability one of [players] controlled ("if it was exiled by an ability you controlled"): the
+     * controller of the ability, as it exiled the card (CR 113.8, 109.5), the cost of an activated ability included; [byAbility] false
+     * also counts spells ("exiled by a spell or ability you controlled"). A card exiled by no spell or ability (a rule) never matches. */
+    @Serializable @SerialName("exiled-by") data class ExiledBy(val players: PlayerFilter, val byAbility: Boolean = true) : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,
@@ -377,6 +382,9 @@ sealed interface SharedQuality {
     @Serializable @SerialName("card-type") data object CardType : SharedQuality
     @Serializable @SerialName("creature-type") data object CreatureType : SharedQuality
     @Serializable @SerialName("name") data object Name : SharedQuality
+    // snc
+    /** Its controller ("any number of target creatures controlled by different players", CR 601.2c). */
+    @Serializable @SerialName("controller") data object Controller : SharedQuality
     /** Basic land types (domain: "the number of basic land types among lands you control"). */
     @Serializable @SerialName("basic-land-type") data object BasicLandType : SharedQuality
     // fra

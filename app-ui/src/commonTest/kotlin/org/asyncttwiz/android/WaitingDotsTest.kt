@@ -47,15 +47,16 @@ class WaitingDotsTest {
         assertEquals(WaitingDot.Build, navigationDot(listOf(move), listOf(build, pick), me.accountId, openGame = move.id, openPod = pick.id)?.dot)
         assertNull(navigationDot(listOf(move), listOf(build), me.accountId, openGame = move.id, openPod = build.id))
         assertNull(navigationDot(emptyList(), emptyList(), me.accountId))
-        // A pod's challenge is a game: it lights the hamburger everywhere but in its own pod (owner 2026-11-23: the pod's own
-        // Games list shows it there); your move in a started game of that pod still does
+        // A pod's games light the hamburger everywhere but in their own pod, whose Games list shows them (owner 2026-11-24):
+        // its challenges and your move in its started games alike
         val challenge = invitation("challenge", pod = pick.id)
         assertEquals(WaitingDot.Move, navigationDot(listOf(challenge), listOf(pick), me.accountId)?.dot)
         assertEquals(WaitingDot.Move, navigationDot(listOf(challenge), listOf(pick, build), me.accountId, openPod = build.id)?.dot)
         assertNull(navigationDot(listOf(challenge), listOf(pick), me.accountId, openPod = pick.id))
         assertEquals(WaitingDot.Build, navigationDot(listOf(challenge), listOf(pick, build), me.accountId, openPod = pick.id)?.dot)
-        assertEquals(WaitingDot.Move, navigationDot(listOf(game("podMove", holder = me.accountId, pod = pick.id)), listOf(pick),
-            me.accountId, openPod = pick.id)?.dot)
+        val podMove = game("podMove", holder = me.accountId, pod = pick.id)
+        assertNull(navigationDot(listOf(podMove), listOf(pick), me.accountId, openPod = pick.id))
+        assertEquals(WaitingDot.Move, navigationDot(listOf(podMove), listOf(pick, build), me.accountId, openPod = build.id)?.dot)
         // The log names what lights it
         assertEquals("game move \"Game move\" (your move)", navigationDot(listOf(move), listOf(pick), me.accountId)?.why)
         assertEquals("pod pick \"Pod pick\" (Your pick · 1 pack)", navigationDot(emptyList(), listOf(pick), me.accountId)?.why)

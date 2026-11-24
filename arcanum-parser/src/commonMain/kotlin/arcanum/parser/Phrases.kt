@@ -100,6 +100,7 @@ internal object Filters {
         LciPhrases.noun(phrase)?.let { return it } // lci
         WoePhrases.noun(phrase)?.let { return it } // woe
         IsdPhrases.noun(phrase)?.let { return it } // isd
+        NeoPhrases.noun(phrase)?.let { return it } // neo
         // fdn chunk 08: "Kithkin spells and Soldier spells you cast": a spell of either kind (CR 601.2f)
         Fdn.X_SPELLS_AND_Y_SPELLS.matchEntire(phrase)?.let { m ->
             return ObjectFilter.Or(listOf(noun("${m.groupValues[1]} spells${m.groupValues[3]}") ?: return null, noun("${m.groupValues[2]} spells${m.groupValues[3]}") ?: return null))
@@ -1440,6 +1441,7 @@ internal object Conditions {
         }
         RvrPhrases.condition(text, self)?.let { return it } // rvr
         OnePhrases.condition(text, self)?.let { return it } // one
+        NeoPhrases.condition(text)?.let { return it } // neo
         // trk chunk 09: "you control five or more differently named lands" (CR 201.2)
         Trk.CONTROL_N_DIFFERENTLY_NAMED.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null

@@ -2939,6 +2939,18 @@ internal class Sentences(
         mshModalTrigger(header, modeLines)?.let { return it } // msh
         mh3ModalTrigger(header, modeLines)?.let { return it } // mh3
         momModalTrigger(header, modeLines)?.let { return it } // mom
+        // neo chunk 02: a Saga's "I, II — Choose one —" with its modes: a modal chapter ability for each listed chapter (CR 715.2b, 700.2)
+        CHAPTERS.matchEntire(header)?.let { c ->
+            val numbers = c.groupValues[1].split(", ")
+            val chapters = numbers.mapNotNull { ROMAN[it] }.takeIf { it.size == numbers.size } ?: return null
+            val choose = CHOOSE_MODES.matchEntire(c.groupValues[2].replaceFirstChar { it.lowercase() }) ?: return null
+            if (choose.groupValues[2].isNotEmpty()) return null
+            val n = Numbers.count(choose.groupValues[1]) ?: return null
+            val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it)) ?: return null, text = it) }
+            if (options.isEmpty()) return null
+            val max = if (choose.groupValues[4].isNotEmpty()) options.size else n
+            return Ability.Triggered(arcanum.api.Trigger.Chapter(chapters), Instructions(modes = arcanum.api.Modes(options, min = n, max = max, chooser = Players.You)))
+        }
         val m = WHENEVER.matchEntire(header) ?: return null
         val (trigger, onlyIf) = trigger(m.groupValues[2]) ?: return null
         // fdn chunk 05: "At the beginning of your end step, if a creature died this turn, choose one —" (an intervening "if", CR 603.4)
@@ -3742,6 +3754,7 @@ internal class Sentences(
             // eoe chunk 09: also a quoted ability's own period before the next sentence ('gains "…." That creature's controller …')
             val whole = (if (body.contains(".\" ")) tryWhole(::eoeWhole) ?: tryWhole(::sncWhole) else null) // eoe; snc chunk 08: Exotic Pets
                 ?: (if (body.contains(". ")) tryWhole(::otjWhole) else null) // otj
+                ?: (if (body.contains(". ")) tryWhole(::neoWhole) else null) // neo
                 ?: tryWhole(::ltrWhole) // ltr
                 ?: tryWhole(::mh2Whole) // mh2
                 ?: if (body.contains(". ")) tryWhole(::dftWhole) // dft
@@ -5438,6 +5451,7 @@ internal class Sentences(
         attempt(context) { inrEffect(sentence, context) }?.let { return it } // inr
         attempt(context) { mh3Effect(sentence, context) }?.let { return it } // mh3
         attempt(context) { rvrEffect(sentence, context) }?.let { return it } // rvr
+        attempt(context) { neoEffect(sentence, context) }?.let { return it } // neo
         // fdn chunk 09: "Exile it from their graveyard with a stash counter on it." (the discarded card; the counter goes on it in exile, CR 122.1)
         Fdn.EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER.matchEntire(sentence)?.let { m ->
             val kind = Counters.kind(m.groupValues[1]) ?: return@let
@@ -10752,12 +10766,16 @@ internal class Sentences(
         }
         // blb chunk 05: "Each opponent discards two cards unless they discard a nonland card." (CR 118.12a, 101.4)
         Blb.EACH_OPPONENT_DISCARDS_UNLESS.matchEntire(sentence)?.let { m ->
-            val n = Numbers.count(m.groupValues[1]) ?: return null
-            val instead = Filters.noun(m.groupValues[2]) ?: return null
+            val instead = Filters.noun(m.groupValues[3]) ?: return null
             val opponent = Players.Bound("opponent")
+            val otherwise = if (m.groupValues[1].isNotEmpty())
+                listOf(Step.Do(Effect.Discard(opponent, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), filter = ObjectFilter.Any)))
+            // neo chunk 02: "sacrifices a creature of their choice": that opponent chooses one they control (CR 701.21a)
+            else listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(opponent))),
+                    Value.Fixed(1), Value.Fixed(1)), bind = "sacrificed", chooser = opponent),
+                Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))))
             return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "opponent", together = true,
-                steps = unlessPays(opponent, Cost(listOf(CostPart.Discard(CostObjects.Choose(instead, count = Value.Fixed(1))))),
-                    listOf(Step.Do(Effect.Discard(opponent, Value.Fixed(n), filter = ObjectFilter.Any))))))
+                steps = unlessPays(opponent, Cost(listOf(CostPart.Discard(CostObjects.Choose(instead, count = Value.Fixed(1))))), otherwise)))
         }
         // blb chunk 05: "Draw an additional card for each opponent who has one or fewer cards in hand."
         Blb.DRAW_FOR_EACH_OPPONENT_WITH_HAND.matchEntire(sentence)?.let { m ->
@@ -13565,7 +13583,8 @@ internal class Sentences(
         // trk chunk 07: also "a tapped token"
         val COPY_OF_TARGET = Regex("""[Cc]reate a (tapped )?token that's a copy of target (.+)\.""")
         val TARGET_CANT_BE_BLOCKED_THIS_TURN = Regex("""Target (.+) can't be blocked this turn\.""")
-        val EACH_OPPONENT_DISCARDS_UNLESS = Regex("""Each opponent discards (\w+) cards unless they discard an? (.+)\.""")
+        // neo chunk 02: also "Each opponent sacrifices a creature of their choice unless they discard a card."
+        val EACH_OPPONENT_DISCARDS_UNLESS = Regex("""Each opponent (?:discards (\w+) cards|sacrifices an? (.+?) of their choice) unless they discard an? (.+)\.""")
         val DRAW_FOR_EACH_OPPONENT_WITH_HAND = Regex("""Draw an additional card for each opponent who has (\w+) or fewer cards in hand\.""")
         val CREATE_NAMED_TOKEN = Regex("""Create an? (colorless|white|blue|black|red|green) ([A-Z][a-z]+ [a-z]+) token named ([A-Z][A-Za-z ]+) with "(.+?)"(?: and ([a-z]+ \{[^}]+\}))?\.""")
         val ATTACH_TARGET_TO_TARGET = Regex("""Attach target (.+?) to (?:up to (\w+) )?target (.+)\.""")
@@ -17355,9 +17374,12 @@ internal class Sentences(
         }
         // tmt chunk 05: "Each player creates a Food token."
         // bro chunk 01: "Each player who controls an artifact or enchantment creates a 2/2 green Bear creature token." (checked as it resolves)
+        // neo chunk 02: "Each opponent creates a 1/1 black Rat Rogue creature token."
         Tmt.EACH_PLAYER_CREATES.matchEntire(sentence)?.let { m ->
-            val (count, token) = Tokens.spec(m.groupValues[2]) ?: return null
-            val who = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { controls ->
+            val (count, token) = Tokens.spec(m.groupValues[3]) ?: return null
+            if (m.groupValues[1] == "opponent") return if (m.groupValues[2].isEmpty())
+                listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), Players.Each(PlayerFilter.Opponent)))) else null
+            val who = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { controls ->
                 PlayerFilter.Where(arcanum.api.Condition.Exists(Filters.all(Filters.noun(controls.removeArticle()) ?: return null,
                     ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Tested))), atLeast = 1))
             } ?: PlayerFilter.Any
@@ -23908,6 +23930,56 @@ internal class Sentences(
     }
 
     /** mh3: one-sentence effects, tried first. */
+    // ---- neo: Kamigawa: Neon Dynasty wordings (the set's parser tests, sets/neo/NeoChunk*Test.kt)
+
+    /** neo: wordings of several sentences read as one. */
+    private fun neoWhole(text: String, context: Context): List<Step>? {
+        // neo chunk 02: "You may discard up to two cards. If you do, draw that many cards." (that many: the number discarded, CR 608.2c; none
+        // discarded draws none)
+        Neo.MAY_DISCARD_UP_TO_IF_YOU_DO_DRAW_THAT_MANY.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)), Value.Fixed(0), Value.Fixed(n)),
+                    bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Discard(Players.You, Value.Fixed(n), ObjectFilter.Any, objects = Objects.Bound("chosen"), postBind = "discarded")),
+                Step.Do(Effect.Draw(Players.You, Value.Count(Objects.Bound("discarded")))))
+        }
+        // neo chunk 02: "Defending player chooses a nonland card in your graveyard. Return that card to your hand. This creature gets +X/+0 until end of
+        // turn, where X is the mana value of that card." (the defending player of this attack chooses, CR 506.2, 608.2d)
+        Neo.DEFENDING_CHOOSES_IN_YOUR_GRAVEYARD_RETURN_GETS_X.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            if (context.event !is EventPattern.Attack) return null
+            val cards = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(cards, Value.Fixed(1), Value.Fixed(1)), bind = "chosen",
+                    chooser = Players.DefendingPlayerOf(Objects.EventObject(EventRole.Object))),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Bound("chosen"),
+                    arcanum.api.Combine.Single), Value.Fixed(0))), Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        return null
+    }
+
+    /** neo: single sentences. */
+    private fun neoEffect(sentence: String, context: Context): List<Step>? {
+        // neo chunk 02: "your opponents can't cast spells with the same mana value as that spell until your next turn." (that spell: the one cast;
+        // its mana value as the ability resolves, CR 608.2h)
+        Neo.OPPONENTS_CANT_CAST_SAME_MANA_VALUE_UNTIL_NEXT_TURN.matchEntire(sentence)?.let { m ->
+            if (context.event !is EventPattern.Cast) return null
+            val spells = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal,
+                Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.EventObject(EventRole.Object), arcanum.api.Combine.Single)))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantCast(spells)), Affected.Players(Players.Each(PlayerFilter.Opponent)),
+                arcanum.api.Duration.UntilYourNextTurn)))
+        }
+        // neo chunk 02: "Each player gains control of all permanents they own." (each player's own, for good, CR 613.1b, 611.2c)
+        Neo.EACH_PLAYER_GAINS_CONTROL_OF_ALL_THEY_OWN.matchEntire(sentence)?.let { m ->
+            val player = Players.Bound("player")
+            val owned = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.Is(player)))
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), bind = "player", together = true, steps = listOf(
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(player)), Affected.Objects(Objects.Each(owned)), arcanum.api.Duration.Indefinitely)))))
+        }
+        // neo chunk 02: "they lose the game" in a trigger: the player named before, else the event's player (CR 104.3e)
+        if (sentence == "They lose the game." && context.event != null) return listOf(Step.Do(Effect.LoseGame(context.lastPlayer ?: Players.EventPlayer)))
+        return null
+    }
+
     private fun mh3Effect(sentence: String, context: Context): List<Step>? {
         // mh3 fixes: "Add …. Spend this mana only on costs that contain {X}." (CR 106.6: the mana's restriction; CR 107.3, 601.2f: the total cost)
         Mh3.SPEND_ONLY_ON_X_COSTS.matchEntire(sentence)?.let { m ->
@@ -27759,7 +27831,7 @@ internal class Sentences(
         // lci chunk 10: also a fixed amount ("Tectonic Hazard deals 1 damage to each opponent and each creature they control.")
         // mom chunk 02: "This Saga deals 3 damage to target opponent and each creature they control." (one damage event, CR 120.2)
         Ecl.DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES.matchEntire(sentence)
-            ?.takeIf { isSelf(it.groupValues[1]) && (it.groupValues[4] == "they" || it.groupValues[3] == "each opponent") }?.let { m ->
+            ?.takeIf { isSelf(it.groupValues[1]) && (it.groupValues[5] == "they" || it.groupValues[3] == "each opponent") }?.let { m ->
             val amount = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             val (players, controllers) = when (m.groupValues[3]) {
                 "each opponent" -> Players.Each(PlayerFilter.Opponent) to PlayerFilter.Opponent
@@ -27767,7 +27839,8 @@ internal class Sentences(
                 else -> context.targetPlayer().let { it to PlayerFilter.Is(it) }
             }
             return listOf(Step.Do(Effect.DealDamage(Recipients(players = players,
-                objects = Objects.Each(Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(controllers)))), amount, Objects.Self)))
+                objects = Objects.Each(Filters.all(ObjectFilter.Type(if (m.groupValues[4] == "planeswalker") CardType.Planeswalker else CardType.Creature),
+                    ObjectFilter.ControlledBy(controllers)))), amount, Objects.Self)))
         }
         // ecl chunk 14: "It deals damage equal to its power to up to one target creature an opponent controls." (the creature named before)
         Ecl.IT_DEALS_POWER_TO_UP_TO_ONE.matchEntire(sentence)?.let { m ->

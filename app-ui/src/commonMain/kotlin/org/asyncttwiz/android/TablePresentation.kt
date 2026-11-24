@@ -543,8 +543,16 @@ object TablePresentation {
         require(play.gameId == game.id && play.playId == game.playId)
         require(width > 0 && height > 0 && width.isFinite() && height.isFinite())
         val positions = logicalPositions + placements
-        val own = play.board.players.single { it.accountId == viewer }
-        val opponent = play.board.players.single { it.accountId != viewer }
+        // The table is drawn for two players: a board without the viewer or with other than one other player is a fault,
+        // reported, drawn with a bare seat for the one missing and only the first of several others (no 3+ player table yet)
+        val others = play.board.players.filter { it.accountId != viewer }
+        fun seatFault(what: String) = Faults.report("TablePresentation", what, mapOf("game" to game.id, "node" to play.nodeId,
+            "viewer" to viewer, "players" to play.board.players.joinToString { it.accountId }))
+        if (others.size != 1) seatFault("table drawn for ${others.size} other players")
+        val own = play.board.players.firstOrNull { it.accountId == viewer }
+            ?: PlayPlayer(viewer).also { seatFault("table drawn without the viewer on the board") }
+        val opponent = others.firstOrNull()
+            ?: PlayPlayer(if (game.inviter.accountId == viewer) game.recipient.accountId else game.inviter.accountId)
         val players = listOf(opponent, own)
         val byId = play.board.cards.associateBy { it.id }
         val definitions = play.definitions.associate { it.digest to it.definition }
@@ -1322,10 +1330,16 @@ object TablePresentation {
             }
         }
     }
-    /** Menu toggles must not mistake a legacy default cover for an explicit public face-down edit. */
-    fun cardForActions(play: TableBoard, cardId: String): PlayCard {
-        val card = play.board.cards.single { it.id == cardId }
-        val zone = play.board.containers.single { it.id == card.containerId }.zone
+    /** Menu toggles must not mistake a legacy default cover for an explicit public face-down edit. Null (reported) when the
+     * board doesn't hold the card or its container. */
+    fun cardForActions(play: TableBoard, cardId: String): PlayCard? {
+        val card = play.board.cards.firstOrNull { it.id == cardId }
+        val zone = card?.let { play.board.containers.firstOrNull { it.id == card.containerId }?.zone }
+        if (card == null || zone == null) {
+            Faults.report("TablePresentation", if (card == null) "card for actions not on the board" else "card for actions in no container",
+                mapOf("game" to play.gameId, "node" to play.nodeId, "card" to cardId))
+            return null
+        }
         return if (zone == PlayZone.LIBRARY || zone == PlayZone.HAND) card else card.copy(covered = card.isFaceDown)
     }
 

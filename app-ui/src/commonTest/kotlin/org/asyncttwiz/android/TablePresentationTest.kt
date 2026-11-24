@@ -604,7 +604,7 @@ class TablePresentationTest {
                 val scene = TablePresentation.scene(TableFixture.game, tableBoard(p), viewer, 412f, 820f, false)
                 val card = p.board.cards.single { it.id == "a/BATTLEFIELD/0" }
                 assertEquals(explicit, scene.items.single { it.cardId == card.id }.covered)
-                assertEquals(explicit, TablePresentation.cardForActions(tableBoard(p), card.id).covered)
+                assertEquals(explicit, TablePresentation.cardForActions(tableBoard(p), card.id)?.covered)
                 assertEquals(explicit, ManualDisclosure.permittedFaces(p, card, viewer, inspecting = false).isEmpty())
                 assertEquals(if (explicit && viewer != "a") "Covered card" else "Secret face",
                     TablePresentation.inspection(tableBoard(p), viewer, card.id)!!.faces.single().name)

@@ -281,7 +281,9 @@ internal object Costs {
         }
         val options = candidates.filter { id ->
             id != self && eval.matches(choose.filter, id) && when (part) {
-                is CostPart.TapObjects -> s.obj(id)?.tapped == false
+                // neo chunk 06: "can't crew Vehicles": not tapped for that keyword's cost (CR 702.122a)
+                is CostPart.TapObjects -> s.obj(id)?.tapped == false && (choose.total?.property as? arcanum.api.NumericProperty.PowerFor)
+                    ?.let { p -> snap.view[id]?.has { it is Mechanic.CantTapFor && it.keyword == p.keyword } } != true
                 is CostPart.UntapObjects -> s.obj(id)?.tapped == true
                 is CostPart.Sacrifice -> snap.view[id]?.has { it is Mechanic.CantBeSacrificed } != true
                 is CostPart.RemoveCounters -> (part.kind?.let { k -> s.obj(id)?.counters(k) ?: 0 } ?: s.obj(id)?.counters?.sumOf { it.count } ?: 0) > 0

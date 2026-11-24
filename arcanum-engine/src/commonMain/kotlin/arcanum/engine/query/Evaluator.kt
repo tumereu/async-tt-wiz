@@ -250,9 +250,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
      * it names none; both for "spell or creature", ecl). */
     fun inZonesOf(filter: ObjectFilter): List<ObjectId> {
         // rvr: "a card from their hand or a permanent they control": each alternative looks where it names, or where it would alone
-        val mixed = filter is ObjectFilter.Or && filter.any.any { zonesIn(it).isEmpty() } && filter.any.any { zonesIn(it).isNotEmpty() }
-        val own = if (mixed) (filter as ObjectFilter.Or).any.flatMap { zonesIn(it).ifEmpty { defaultZones(it) } }.toSet()
-            else zonesIn(filter).ifEmpty { defaultZones(filter) }
+        val own = mixedZones(filter) ?: zonesIn(filter).ifEmpty { defaultZones(filter) }
         val zones = own + prospectiveZones(filter)
         return zones.flatMap { zone ->
             when (zone) {
@@ -1158,6 +1156,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.Not -> (filter.filter as? ObjectFilter.InZone)?.let { n -> GAME_ZONES - n.zone } ?: emptySet()
             else -> emptySet()
         }
+
+        /** For an "or" filter whose alternatives name zones only in part ("spell, nonland permanent, or card in a graveyard"), each
+         * alternative looks where it names, or where it would alone; null for any other filter. */
+        fun mixedZones(filter: ObjectFilter): Set<Zone>? =
+            if (filter is ObjectFilter.Or && filter.any.any { zonesIn(it).isEmpty() } && filter.any.any { zonesIn(it).isNotEmpty() })
+                filter.any.flatMap { zonesIn(it).ifEmpty { defaultZones(it) } }.toSet()
+            else null
 
         private val GAME_ZONES = setOf<Zone>(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)
 

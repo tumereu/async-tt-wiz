@@ -22,6 +22,8 @@ class SncFixesScenariosTest {
     private val wither = Cards.invent("SncFix Withering Whisper", "{B}", "Instant", "Target creature gets -1/-1 until end of turn.")
     private val bear = Cards.invent("SncFix Alley Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val cub = Cards.invent("SncFix Alley Cub", "{G}", "Creature — Bear", "", "1/1")
+    private val detour = Cards.invent("SncFix Endless Roundabout", "{G}{W}{U}", "Instant",
+        "The owner of target spell, nonland permanent, or card in a graveyard puts it on their choice of the top or bottom of their library.")
 
     /** A 3/3 with 2 damage marked, then given a shield counter. */
     private fun Scenario.damagedThenShielded() {
@@ -115,6 +117,32 @@ class SncFixesScenariosTest {
             alice.battlefield has brute
             card(brute).counters(shield) shouldBe 1
             brute.view.obj?.damage shouldBe 0
+        }
+    }
+
+    // CR 608.2b, 401.4, 400.3: a spell on the stack is a legal target; as Detour resolves the spell's owner chooses top or bottom and the
+    // spell goes there (it never resolves)
+    @Test
+    fun detourPutsATargetSpellOnItsOwnersLibrary() = scenario(players = 3) {
+        turn(number = 2, active = bob)
+        bob.hand(bear)
+        bob.battlefield("Forest", "Forest")
+        bob.library("Plains")
+        alice.hand(detour)
+        alice.battlefield("Forest", "Plains", "Island")
+        bob.casts(bear)
+        bob.passes()
+        carol.passes()
+        alice.casts(detour, target = bear)
+        resolveAll()
+        val choice = decision<Decision.ChooseOption>()
+        expect { choice.player shouldBe bob.id }
+        answer(Answer.Option("bottom"))
+        resolveAll()
+        expect {
+            bear.zone shouldBe Zone.Library
+            bob.library.size shouldBe 2
+            state.stack.isEmpty() shouldBe true
         }
     }
 }

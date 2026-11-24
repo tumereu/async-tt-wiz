@@ -50,17 +50,17 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     /** A pod's stored JSON that the current code can't read fails only that pod's requests (SYS-052). */
     private fun <T> stored(row: PodRecord, read: () -> T) = StoredData.decode("pod", row.id, read)
     private fun build(row: PodRecord, data: String) = stored(row) { json.decodeFromString<PodDeckBuild>(data) }
-    private fun settings(row: PodRecord) = stored(row) { json.decodeFromString<DraftSettings>(row.settings!!.data()) }
+    private fun settings(row: PodRecord) = stored(row) { json.decodeFromString<DraftSettings>(row.settings.data()) }
     // Cubes are arrays. A set source (its pack grid and the snapshot of each of its sets, DRF-177) is stored as a JSON
     // string inside JSONB: PostgreSQL's object-key reordering must not change the significant card-map order of fixed
     // recipe sheets.
-    private fun isSetSource(row: PodRecord) = row.sourceSnapshot!!.data().trimStart().startsWith("\"")
-    private fun setSource(row: PodRecord): SetPackSources? = row.sourceSnapshot!!.data().let {
+    private fun isSetSource(row: PodRecord) = row.sourceSnapshot.data().trimStart().startsWith("\"")
+    private fun setSource(row: PodRecord): SetPackSources? = row.sourceSnapshot.data().let {
         if (isSetSource(row)) stored(row) { json.decodeFromString<SetPackSources>(json.decodeFromString<String>(it)) } else null
     }
     private fun encodedSet(source: SetPackSources) = encoded(json.encodeToString(source))
     private fun source(row: PodRecord) = if (!isSetSource(row))
-        stored(row) { json.decodeFromString<List<DraftCubeEntry>>(row.sourceSnapshot!!.data()) } else emptyList()
+        stored(row) { json.decodeFromString<List<DraftCubeEntry>>(row.sourceSnapshot.data()) } else emptyList()
     /** The prepared cube's Maybe: cards of the cube not drafted in this pod. */
     private fun maybe(row: PodRecord) = row.sourceMaybe?.let { stored(row) { json.decodeFromString<List<DraftCubeEntry>>(it.data()) } }.orEmpty()
     private fun supply(row: PodRecord, players: Int): DraftSupply {
@@ -101,7 +101,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     /** Every identity a response names, in one query instead of one per account. */
     private fun identities(sql: DSLContext, ids: Collection<UUID>): Map<UUID, AccountIdentity> =
         if (ids.isEmpty()) emptyMap() else sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.`in`(ids.toSet())).fetch()
-            .associate { it.id!! to AccountService.identity(it) }
+            .associate { it.id to AccountService.identity(it) }
     private fun validName(name: String) = DeckValidation.text(name) && name.isNotBlank() && name.length <= 120 && name.none { it.isISOControl() }
 
     /** DRF-051: [settings] with the server's Cogwork Librarian when the pod has Librarians (none otherwise; whatever a
@@ -232,7 +232,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         val cube = sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ID.eq(UUID.fromString(cubeId)))
             .and(SAVED_CUBE.ACCOUNT_ID.eq(owner)).forShare().fetchOne() ?: return null
         val rows = sql.selectFrom(CUBE_ENTRY).where(CUBE_ENTRY.CUBE_ID.eq(cube.id)).orderBy(CUBE_ENTRY.POSITION).fetch()
-        val support = catalog.support(rows.map { it.printingId to it.name!! })
+        val support = catalog.support(rows.map { it.printingId to it.name })
         log("cube $cubeId as a pod source: ${rows.size} entries, ${support.byHand.size} cards Automatum can't play by the catalog's " +
             "marks${if (support.supported) "" else ": " + support.byHand.take(20)}")
         val cards = rows.mapNotNull { row -> row.printingId?.let(catalog::card)?.let { row to SubmittedDefinition(DeckJson.digest(it), it) } }
@@ -240,10 +240,10 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         val entries = cards.map { (row, card) ->
             val colors = card.definition.printingId?.let { catalog.catalog.printing[it] }?.let { catalog.catalog.faces[it.face].colors }.orEmpty()
                 .mapNotNull { color -> DraftColor.entries.firstOrNull { it.name == color } }.toSet()
-            row.section to DraftCubeEntry(card.digest, row.quantity!!, colors)
+            row.section to DraftCubeEntry(card.digest, row.quantity, colors)
         }
         // Only Main is drafted; Maybe reaches the draft only when Prepare cube moves it to Main (DRF-050).
-        return CubeSnapshot(cube.name!!, entries.filter { it.first == SavedDeckSection.MAINBOARD.name }.map { it.second },
+        return CubeSnapshot(cube.name, entries.filter { it.first == SavedDeckSection.MAINBOARD.name }.map { it.second },
             entries.filter { it.first != SavedDeckSection.MAINBOARD.name }.map { it.second }, json.encodeToString(support))
     }
 
@@ -286,7 +286,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             if (input.name?.let { !validName(it) } == true) return@mutate error(400, "invalid_name")
             // Setup may have only its creator; validate settings against the minimum startable membership. Too many
             // members for the engine is allowed here: Start is refused and an armed auto-start switches off instead.
-            val members = members(sql, row.id!!).size
+            val members = members(sql, row.id).size
             if (input.settings?.let { it.validate(it.seats(members.coerceAtLeast(2))) }?.any { it != DraftSettingsIssue.PLAYERS } == true)
                 return@mutate error(400, "invalid_settings")
             if (listOfNotNull(input.cubeId, input.setCode, input.packSets).size > 1) return@mutate error(400, "invalid_source")
@@ -324,7 +324,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     private fun cubeView(sql: DSLContext, row: PodRecord): PodCube {
         val entries = source(row).map { it to SavedDeckSection.MAINBOARD } + maybe(row).map { it to SavedDeckSection.MAYBEBOARD }
         val cards = StoredDefinitions.read(sql, entries.map { it.first.definition }.toSet()).associate { it.digest to it.definition }
-        return PodCube(row.sourceName!!, entries.map { (entry, section) -> cards[entry.definition].let { card ->
+        return PodCube(row.sourceName, entries.map { (entry, section) -> cards[entry.definition].let { card ->
             PodCubeEntry(entry.definition, card?.printingId, card?.name ?: "Card", entry.quantity, section) } })
     }
 
@@ -340,7 +340,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val row = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id))).forShare().fetchOne()
                 ?: return@transaction error(404, "not_found")
             val owner = UUID.fromString(principal.account.accountId)
-            if (members(sql, row.id!!).none { it.accountId == owner }) return@transaction error(404, "not_found")
+            if (members(sql, row.id).none { it.accountId == owner }) return@transaction error(404, "not_found")
             creator(row, owner) ?: read(sql, row)
         }
     }
@@ -374,15 +374,15 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             if (!DeckValidation.uuid(input.accountId)) return@mutate error(400, "invalid_account")
             val target = UUID.fromString(input.accountId)
             if (!sql.fetchExists(ACCOUNT, ACCOUNT.ID.eq(target))) return@mutate error(404, "account_not_found")
-            val members = members(sql, row.id!!)
-            val invitations = pending(sql, row.id!!)
+            val members = members(sql, row.id)
+            val invitations = pending(sql, row.id)
             if (members.any { it.accountId == target } || invitations.any { it.accountId == target })
                 return@mutate error(409, "already_invited_or_member")
             if (members.size + invitations.size >= 8) return@mutate error(409, "pod_full")
             sql.insertInto(INVITE).set(INVITE.POD_ID, row.id).set(INVITE.ACCOUNT_ID, target).set(INVITE.STATE, "PENDING")
                 .onConflict(INVITE.POD_ID, INVITE.ACCOUNT_ID).doUpdate().set(INVITE.STATE, "PENDING")
                 .set(INVITE.INVITED_AT, DSL.currentOffsetDateTime()).execute()
-            ActivityService.record(sql, target, ActivityKind.POD_INVITATION, row.id!!, UUID.randomUUID(), owner)
+            ActivityService.record(sql, target, ActivityKind.POD_INVITATION, row.id, UUID.randomUUID(), owner)
             overLimit(sql, row)
             save(sql, row); detail(sql, row, owner)
         }
@@ -405,9 +405,9 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             if (row.phase != "SETUP") return@mutate refuse(error(409, "not_setup"))
             if (!DeckValidation.uuid(input.accountId)) return@mutate refuse(error(400, "invalid_account"))
             val target = UUID.fromString(input.accountId)
-            if (pending(sql, row.id!!).none { it.accountId == target }) return@mutate refuse(error(404, "invitation_not_found"))
+            if (pending(sql, row.id).none { it.accountId == target }) return@mutate refuse(error(404, "invitation_not_found"))
             sql.update(INVITE).set(INVITE.STATE, "LAPSED").where(INVITE.POD_ID.eq(row.id)).and(INVITE.ACCOUNT_ID.eq(target)).execute()
-            val left = pending(sql, row.id!!).size
+            val left = pending(sql, row.id).size
             val disarmed = row.autoStart == true && left == 0
             if (disarmed) { row.autoStart = false; row.autoStartOffReason = null; row.autoStartOffAccount = null }
             log("pod ${row.id}: creator $owner cancelled the invitation of ${identity(sql, target).username} ($target); " +
@@ -428,25 +428,25 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val target = UUID.fromString(input.accountId)
             if (target == row.creatorId) return@mutate refuse(error(409, "creator_cannot_be_removed"))
             if (row.phase != "SETUP") return@mutate refuse(error(409, "not_setup"))
-            if (members(sql, row.id!!).none { it.accountId == target }) return@mutate refuse(error(404, "member_not_found"))
+            if (members(sql, row.id).none { it.accountId == target }) return@mutate refuse(error(404, "member_not_found"))
             sql.deleteFrom(MEMBER).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(target)).execute()
-            ActivityService.record(sql, target, ActivityKind.POD_MEMBER_REMOVED, row.id!!, UUID.randomUUID(), owner)
+            ActivityService.record(sql, target, ActivityKind.POD_MEMBER_REMOVED, row.id, UUID.randomUUID(), owner)
             log("pod ${row.id} (${row.name}): creator $owner removed the member ${identity(sql, target).username} ($target) in setup; " +
-                "${members(sql, row.id!!).size} member(s) left; they were sent \"Removed from ${row.name}\"")
+                "${members(sql, row.id).size} member(s) left; they were sent \"Removed from ${row.name}\"")
             save(sql, row); detail(sql, row, owner)
         }
 
     fun invitation(principal: AccountService.Principal, id: String, input: PodRequest, accept: Boolean): Result =
         mutate(principal, id, input.requestId, if (accept) "acceptPod" else "declinePod", json.encodeToJsonElement(input)) { sql, owner, row ->
             if (row.phase != "SETUP") return@mutate error(409, "invitation_unavailable")
-            if (pending(sql, row.id!!).none { it.accountId == owner }) return@mutate error(404, "invitation_not_found")
-            if (accept && members(sql, row.id!!).size >= 8) return@mutate error(409, "pod_full")
+            if (pending(sql, row.id).none { it.accountId == owner }) return@mutate error(404, "invitation_not_found")
+            if (accept && members(sql, row.id).size >= 8) return@mutate error(409, "pod_full")
             sql.update(INVITE).set(INVITE.STATE, if (accept) "ACCEPTED" else "DECLINED")
                 .where(INVITE.POD_ID.eq(row.id)).and(INVITE.ACCOUNT_ID.eq(owner)).execute()
             if (accept) {
                 sql.insertInto(MEMBER).set(MEMBER.POD_ID, row.id).set(MEMBER.ACCOUNT_ID, owner).execute()
                 // The last acceptance starts an armed pod exactly as the creator's Start would.
-                if (row.autoStart == true && pending(sql, row.id!!).isEmpty())
+                if (row.autoStart == true && pending(sql, row.id).isEmpty())
                     begin(sql, row)?.let { failure -> autoStartOff(sql, row, code(failure)) }
             } else if (row.autoStart == true) autoStartOff(sql, row, "declined", owner)
             save(sql, row)
@@ -457,9 +457,9 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         mutate(principal, id, input.requestId, "setPodAutoStart", json.encodeToJsonElement(input)) { sql, owner, row ->
             creator(row, owner)?.let { return@mutate it }
             if (row.phase != "SETUP") return@mutate error(409, "not_setup")
-            if (input.enabled && pending(sql, row.id!!).isEmpty()) return@mutate error(409, "no_pending_invitations")
+            if (input.enabled && pending(sql, row.id).isEmpty()) return@mutate error(409, "no_pending_invitations")
             // DRF-163: bot seats count as players
-            if (input.enabled && settings(row).seats(members(sql, row.id!!).size + pending(sql, row.id!!).size) > settings(row).mode.players.last)
+            if (input.enabled && settings(row).seats(members(sql, row.id).size + pending(sql, row.id).size) > settings(row).mode.players.last)
                 return@mutate error(409, "too_many_players")
             row.autoStart = input.enabled; row.autoStartOffReason = null; row.autoStartOffAccount = null
             save(sql, row); detail(sql, row, owner)
@@ -470,14 +470,14 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     /** An armed auto-start switches off, telling the creator, once members plus invitations exceed the engine's limit. */
     private fun overLimit(sql: DSLContext, row: PodRecord) {
         if (row.autoStart != true) return
-        if (settings(row).seats(members(sql, row.id!!).size + pending(sql, row.id!!).size) > settings(row).mode.players.last)
+        if (settings(row).seats(members(sql, row.id).size + pending(sql, row.id).size) > settings(row).mode.players.last)
             autoStartOff(sql, row, "too_many_players")
     }
 
     /** Switches auto-start off and tells the creator why; [author] is the member who declined, if any. */
     private fun autoStartOff(sql: DSLContext, row: PodRecord, reason: String, author: UUID? = null) {
         row.autoStart = false; row.autoStartOffReason = reason; row.autoStartOffAccount = author
-        ActivityService.record(sql, row.creatorId!!, ActivityKind.POD_AUTO_START_OFF, row.id!!, UUID.randomUUID(), author)
+        ActivityService.record(sql, row.creatorId, ActivityKind.POD_AUTO_START_OFF, row.id, UUID.randomUUID(), author)
     }
 
     fun start(principal: AccountService.Principal, id: String, input: PodRequest): Result =
@@ -490,7 +490,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
 
     /** Starts the draft from setup, or returns why it cannot start. Pending invitations lapse. */
     private fun begin(sql: DSLContext, row: PodRecord): Result? {
-        val humans = members(sql, row.id!!).map { it.accountId.toString() }
+        val humans = members(sql, row.id).map { it.accountId.toString() }
         val settings = settings(row); val cube = source(row)
         // DRF-035, DRF-296 (owner, 2026-11-23): two seats at least; the creator may draft alone with bots (Sealed and Arena,
         // which take none, still need a second person)
@@ -565,7 +565,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             }
             result.state?.arena?.let { logArena(row, previous, result.state!!, "pick of $owner from ${input.packId}: kept ${input.keep}") }
             // The marks belonged to the pack just picked.
-            clearMarks(sql, row.id!!, owner)
+            clearMarks(sql, row.id, owner)
             advance(sql, row, previous, result.state!!)
             detail(sql, row, owner)
         }
@@ -614,8 +614,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         head ?: return null
         val saved = sql.selectFrom(MARKS).where(MARKS.POD_ID.eq(row.id)).and(MARKS.DRAFT_ATTEMPT_ID.eq(attempt))
             .and(MARKS.ACCOUNT_ID.eq(owner)).fetchOne()?.takeIf { it.packId == head.id } ?: return null
-        return stored(row) { DraftMarks(head.id, json.decodeFromString(saved.keeps!!.data()), json.decodeFromString(saved.burns!!.data()),
-            json.decodeFromString(saved.librarians!!.data())) }
+        return stored(row) { DraftMarks(head.id, json.decodeFromString(saved.keeps.data()), json.decodeFromString(saved.burns.data()),
+            json.decodeFromString(saved.librarians.data())) }
     }
 
     private fun clearMarks(sql: DSLContext, pod: UUID, owner: UUID? = null) {
@@ -649,7 +649,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         val attempt = row.draftAttemptId ?: return null
         val saved = sql.selectFrom(NOTES).where(NOTES.POD_ID.eq(row.id)).and(NOTES.DRAFT_ATTEMPT_ID.eq(attempt))
             .and(NOTES.ACCOUNT_ID.eq(owner)).fetchOne() ?: return null
-        return stored(row) { PodDeckNotes(saved.note!!, json.decodeFromString(saved.counters!!.data())) }
+        return stored(row) { PodDeckNotes(saved.note, json.decodeFromString(saved.counters.data())) }
     }
 
     fun selectGrid(principal: AccountService.Principal, id: String, input: SelectPodGrid): Result =
@@ -702,7 +702,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val row = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id))).forShare().fetchOne()
                 ?: return@transaction error(404, "not_found")
             val owner = UUID.fromString(principal.account.accountId)
-            val mine = members(sql, row.id!!).firstOrNull { it.accountId == owner } ?: return@transaction error(404, "not_found")
+            val mine = members(sql, row.id).firstOrNull { it.accountId == owner } ?: return@transaction error(404, "not_found")
             if (settings(row).mode != DraftMode.ROTISSERIE) return@transaction error(409, "wrong_draft_mode")
             val state = limitedState(row) ?: return@transaction error(409, "not_drafting")
             val seen = minOf(input.picks, state.log.size)
@@ -735,9 +735,9 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             sql.update(MEMBER).set(MEMBER.DECK_NAME, input.name).where(MEMBER.POD_ID.eq(row.id))
                 .and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             // The draft deck kept from this membership's submitted deck follows the private name.
-            if (members(sql, row.id!!).first { it.accountId == owner }.submittedDeck != null)
-                DraftDeckStore.rename(sql, owner, row.id!!, input.name)
-            followInLobbies(sql, row.id!!, owner, name = input.name)
+            if (members(sql, row.id).first { it.accountId == owner }.submittedDeck != null)
+                DraftDeckStore.rename(sql, owner, row.id, input.name)
+            followInLobbies(sql, row.id, owner, name = input.name)
             save(sql, row); detail(sql, row, owner)
         }
 
@@ -746,13 +746,13 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         mutate(principal, id, input.requestId, "setPodDeckCover", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
             if (row.phase !in listOf("DRAFTING", "DRAFTED")) return@mutate error(409, "not_drafting")
-            val member = members(sql, row.id!!).first { it.accountId == owner }
+            val member = members(sql, row.id).first { it.accountId == owner }
             if (input.definition !in coverChoices(row, build(row, member.build!!.data()))) return@mutate error(400, "invalid_cover")
             sql.update(MEMBER).set(MEMBER.DECK_COVER, input.definition).where(MEMBER.POD_ID.eq(row.id))
                 .and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             // The draft deck kept from this membership's submitted deck follows the cover, as it does the name.
-            if (member.submittedDeck != null) DraftDeckStore.cover(sql, owner, row.id!!, input.definition)
-            followInLobbies(sql, row.id!!, owner, cover = input.definition)
+            if (member.submittedDeck != null) DraftDeckStore.cover(sql, owner, row.id, input.definition)
+            followInLobbies(sql, row.id, owner, cover = input.definition)
             save(sql, row); detail(sql, row, owner)
         }
 
@@ -790,7 +790,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         if (!changed) return false
         sql.update(GAME).set(GAME.REVISION, game.revision!! + 1).set(GAME.UPDATED_AT, DSL.currentOffsetDateTime())
             .where(GAME.ID.eq(game.id)).execute()
-        val summary = LobbyService(runtime).summary(sql, game.id!!)
+        val summary = LobbyService(runtime).summary(sql, game.id)
         val revision = GameRevision(summary.id, game.revision.toString(), summary.revision, UUID.randomUUID().toString(),
             owner.toString(), GameScope(summary.id, summary.preparationRound), summary, PreparationStore.read(sql, summary))
         sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, game.revision!! + 1)
@@ -830,7 +830,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val changed = followInLobby(sql, game, owner, name, input.cover)
             val what = if (name != null) "named \"$name\"" else "cover ${input.cover}"
             log("pod $podId orphaned game $gameId: $owner's deck $what" + if (changed) "" else " (already so)")
-            acknowledged(game.podId!!)
+            acknowledged(checkNotNull(game.podId) { "orphaned game $gameId has no pod" })
         }
     }
 
@@ -843,7 +843,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         attempt: String, edit: (PodDeckBuild) -> PodDeckBuild?): Result = mutate(principal, id, request, kind, input, attempt) { sql, owner, row ->
         member(sql, row, owner)?.let { return@mutate it }
         if (row.phase !in listOf("DRAFTING", "DRAFTED")) return@mutate error(409, "not_drafting")
-        val member = members(sql, row.id!!).first { it.accountId == owner }
+        val member = members(sql, row.id).first { it.accountId == owner }
         if (member.submittedDeck != null) return@mutate error(409, "deck_submitted")
         val build = build(row, member.build!!.data())
         val next = edit(build) ?: return@mutate error(400, "invalid_build")
@@ -874,7 +874,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
                     "${wait::class.simpleName?.lowercase()})" else "the pod is in ${row.phase}"}")
                 return@mutate error(409, "draft_not_complete")
             }
-            val member = members(sql, row.id!!).first { it.accountId == owner }
+            val member = members(sql, row.id).first { it.accountId == owner }
             if (member.submittedDeck != null) return@mutate error(409, "deck_submitted")
             val build = build(row, member.build!!.data())
             val pool = pools(row).getValue(owner.toString())
@@ -889,16 +889,16 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             // LOB-052: the server's basics (none when its catalog lacks them: the draft deck is kept without them)
             val basics = ServerCatalogs.current()?.basics?.also { storeDefinitions(sql, it.values.toList()) }
             DraftDeckStore.entries(build, pool, copies(row).associate { it.id to it.definition }, basics?.mapValues { it.value.digest }).let { entries ->
-                DraftDeckStore.save(sql, owner, row.id!!, row.name!!, member.deckName ?: "${row.name} draft", entries,
+                DraftDeckStore.save(sql, owner, row.id, row.name, member.deckName ?: "${row.name} draft", entries,
                     member.deckCover?.takeIf { it in coverChoices(row, build) })
             }
-            released += releaseChallenges(sql, row.id!!, owner)
-            if (members(sql, row.id!!).all { it.submittedDeck != null }) {
+            released += releaseChallenges(sql, row.id, owner)
+            if (members(sql, row.id).all { it.submittedDeck != null }) {
                 // I-D57: one notice per thing that needs you: a member with a challenge of this pod queued (sent or received,
                 // not yet played) hears of it from the challenge, not from "Decks ready" too
-                val challenged = queuedChallengers(sql, row.id!!)
-                for (recipient in members(sql, row.id!!)) if (recipient.accountId !in challenged) ActivityService.record(sql,
-                    recipient.accountId!!, ActivityKind.POD_DECKS_READY, row.id!!, row.draftAttemptId!!, owner)
+                val challenged = queuedChallengers(sql, row.id)
+                for (recipient in members(sql, row.id)) if (recipient.accountId !in challenged) ActivityService.record(sql,
+                    recipient.accountId, ActivityKind.POD_DECKS_READY, row.id, checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" }, owner)
             }
             save(sql, row); detail(sql, row, owner)
         }
@@ -920,7 +920,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             if (input.gameName?.let { !LobbyValidation.name(it) } == true) return@mutate error(400, "invalid_name")
             if (!DeckValidation.uuid(input.opponentId) || input.opponentId == owner.toString())
                 return@mutate error(400, "invalid_opponent")
-            val players = members(sql, row.id!!).associateBy { it.accountId.toString() }
+            val players = members(sql, row.id).associateBy { it.accountId.toString() }
             if (input.opponentId !in players) {
                 log("pod ${row.id} challenge by $owner refused: ${input.opponentId} is no member")
                 return@mutate error(404, "opponent_not_member")
@@ -934,7 +934,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             // I-D52 (pivot review #2): its decks come from the source; a source Automatum can't play fully starts no game
             unsupported(row)?.let { log("pod ${row.id} challenge by $owner refused: its source isn't fully supported"); return@mutate it }
             val held = players.getValue(input.opponentId).submittedDeck == null
-            val build = build(row, players.getValue(owner.toString()).submittedDeck!!.data())
+            val build = build(row, checkNotNull(players.getValue(owner.toString()).submittedDeck) { "pod ${row.id}: $owner's deck isn't submitted" }.data())
             // Match the existing tabletop's bounded physical deck representation (submission enforces it too).
             if (build.copies.size + build.basics.total + build.sideBasics.total > DeckValidation.MAX_CARDS) {
                 log("pod ${row.id} challenge by $owner refused: the submitted deck is over the card limit")
@@ -944,7 +944,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             // DRF-304: "<pod name> #N", N counting the pod's games, this one included (the pod row is locked, so two
             // challenges never share a number; declined and withdrawn ones keep theirs)
             val number = sql.fetchCount(GAME, GAME.POD_ID.eq(row.id)) + 1
-            val gameName = input.gameName ?: PodGameNames.name(row.name!!, number)
+            val gameName = input.gameName ?: PodGameNames.name(row.name, number)
             sql.insertInto(GAME).set(GAME.ID, game).set(GAME.GAME_NAME, gameName).set(GAME.INVITER_ID, owner)
                 .set(GAME.RECIPIENT_ID, UUID.fromString(input.opponentId)).set(GAME.PREPARATION_ROUND, UUID.randomUUID())
                 .set(GAME.CURRENT_INVITATION, invitation).set(GAME.POD_ID, row.id).set(GAME.POD_NAME, row.name)
@@ -984,7 +984,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         for (row in games) {
             sql.update(GAME).set(GAME.POD_INVITATION_HELD, false).set(GAME.REVISION, row.revision!! + 1)
                 .set(GAME.UPDATED_AT, DSL.currentOffsetDateTime()).where(GAME.ID.eq(row.id)).execute()
-            val summary = LobbyService(runtime).summary(sql, row.id!!)
+            val summary = LobbyService(runtime).summary(sql, row.id)
             val revision = GameRevision(summary.id, row.revision.toString(), summary.revision, UUID.randomUUID().toString(),
                 recipient.toString(), GameScope(summary.id, summary.preparationRound), summary, PreparationStore.read(sql, summary))
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, row.id).set(GAME_REVISION.REVISION, row.revision!! + 1)
@@ -1030,7 +1030,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             .and(MEMBER.ACCOUNT_ID.eq(UUID.fromString(player))).fetchSingle(MEMBER.DECK_COVER)
             ?.takeIf { it in coverChoices(row, build) }
         val deck = PreparedDeck(CommandIds.output(selection, "prepared-deck", 0), row.id.toString(), "1",
-            row.name!!, chosenCover ?: entries.firstOrNull()?.definition, selection, entries, basics, index.toString())
+            row.name, chosenCover ?: entries.firstOrNull()?.definition, selection, entries, basics, index.toString())
         val definitions = PreparationStore.definitions(sql, entries.map { it.definition }.toSet()) + basicDefinitions
         PreparationStore.saveSelection(sql, UUID.fromString(player), LobbyPreparation(summary.id, summary.preparationRound,
             listOf(PlayerPreparation(player, deck = deck)), definitions.distinctBy { it.digest }))
@@ -1050,9 +1050,9 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             // Leave concerns membership, not an attempt: cancel whichever draft is current.
             // Record cancellation for the original membership, including the departing member.
             if (row.phase == "DRAFTING") reset(sql, row, owner)
-            withdrawChallenges(sql, row.id!!, owner)
+            withdrawChallenges(sql, row.id, owner)
             sql.deleteFrom(MEMBER).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
-            if (row.phase == "DRAFTED" && members(sql, row.id!!).size == 1) destroy(sql, row, owner)
+            if (row.phase == "DRAFTED" && members(sql, row.id).size == 1) destroy(sql, row, owner)
             else save(sql, row)
             acknowledged(row)
         }
@@ -1064,8 +1064,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         }
 
     private fun destroy(sql: DSLContext, row: PodRecord, author: UUID) {
-        withdrawChallenges(sql, row.id!!)
-        clearDraftHints(sql, row.id!!)
+        withdrawChallenges(sql, row.id)
+        clearDraftHints(sql, row.id)
         notify(sql, row, ActivityKind.POD_DESTROYED, author)
         sql.deleteFrom(POD).where(POD.ID.eq(row.id)).execute()
     }
@@ -1079,7 +1079,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             if (sql.select(INVITATION.STATE).from(INVITATION).where(INVITATION.ID.eq(row.currentInvitation)).fetchSingle(INVITATION.STATE) == "ACCEPTED") continue
             sql.update(GAME).set(GAME.LIFECYCLE, "CANCELLED").set(GAME.REVISION, row.revision!! + 1)
                 .set(GAME.UPDATED_AT, DSL.currentOffsetDateTime()).where(GAME.ID.eq(row.id)).execute()
-            val summary = LobbyService(runtime).summary(sql, row.id!!)
+            val summary = LobbyService(runtime).summary(sql, row.id)
             val revision = GameRevision(summary.id, row.revision.toString(), summary.revision, UUID.randomUUID().toString(),
                 (departed ?: row.inviterId).toString(), GameScope(summary.id, summary.preparationRound), summary)
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, row.id).set(GAME_REVISION.REVISION, row.revision!! + 1)
@@ -1090,12 +1090,12 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     private fun reset(sql: DSLContext, row: PodRecord, author: UUID) {
         // DRF-119, DRF-122: members done early may have submitted and challenged while the others drafted; their open
         // challenges go with the draft (games already accepted or in play keep their decks and go on)
-        val submitted = members(sql, row.id!!).count { it.submittedDeck != null }
+        val submitted = members(sql, row.id).count { it.submittedDeck != null }
         if (submitted > 0) log("pod ${row.id} draft reset by $author with $submitted deck(s) submitted: their open challenges are withdrawn")
-        withdrawChallenges(sql, row.id!!)
-        orphanGames(sql, row.id!!, author)
-        clearDraftHints(sql, row.id!!)
-        clearMarks(sql, row.id!!)
+        withdrawChallenges(sql, row.id)
+        orphanGames(sql, row.id, author)
+        clearDraftHints(sql, row.id)
+        clearMarks(sql, row.id)
         sql.deleteFrom(NOTES).where(NOTES.POD_ID.eq(row.id)).execute()
         notify(sql, row, ActivityKind.POD_DRAFT_CANCELLED, author)
         row.phase = "SETUP"; row.draftAttemptId = null; row.draftState = null
@@ -1122,7 +1122,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             if (!lobby) { sql.update(GAME).set(GAME.POD_ORPHANED, true).where(GAME.ID.eq(game.id)).execute(); continue }
             sql.update(GAME).set(GAME.POD_ORPHANED, true).set(GAME.REVISION, game.revision!! + 1)
                 .set(GAME.UPDATED_AT, DSL.currentOffsetDateTime()).where(GAME.ID.eq(game.id)).execute()
-            val summary = LobbyService(runtime).summary(sql, game.id!!)
+            val summary = LobbyService(runtime).summary(sql, game.id)
             val revision = GameRevision(summary.id, game.revision.toString(), summary.revision, UUID.randomUUID().toString(),
                 author.toString(), GameScope(summary.id, summary.preparationRound), summary, PreparationStore.read(sql, summary))
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, game.revision!! + 1)
@@ -1211,8 +1211,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         val next = withBots(sql, row, moved)
         row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
         val lands = basicLands(sql, next.copies) // DRF-093: drafted basic lands go to the Main count
-        for (member in members(sql, row.id!!)) {
-            val owner = member.accountId!!; val player = owner.toString()
+        for (member in members(sql, row.id)) {
+            val owner = member.accountId; val player = owner.toString()
             val build = build(row, member.build!!.data())
             val initialSide = if (previous == null) next.copies.filter { it.librarian && it.id.startsWith("librarian:") }.map { it.id }.toSet() else emptySet()
             sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withDraftPool(build, next.pools.getValue(player), initialSide, lands::get)))
@@ -1223,13 +1223,13 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             // Arena: a player's next offer comes with their own pick, so only the first one is news (DRF-280)
             val hadPacks = previous?.queues?.get(player).orEmpty().any { it in queue } || previous != null && next.arena != null
             if (!hadPacks && queue.isNotEmpty())
-                ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
+                ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id, checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" })
             ownDraftDone(sql, row, member, if (previous == null) PodDraftWait.Picks else DraftEngine.waitFor(previous, player),
                 DraftEngine.waitFor(next, player))
         }
         if (next.finished && previous?.finished != true) {
-            clearDraftHints(sql, row.id!!, finished = true)
-            clearMarks(sql, row.id!!)
+            clearDraftHints(sql, row.id, finished = true)
+            clearMarks(sql, row.id)
         }
         save(sql, row)
     }
@@ -1238,8 +1238,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         val next = withBots(sql, row, moved)
         row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
         val lands = basicLands(sql, next.copies) // DRF-093: drafted basic lands go to the Main count
-        for (member in members(sql, row.id!!)) {
-            val owner = member.accountId!!; val player = owner.toString()
+        for (member in members(sql, row.id)) {
+            val owner = member.accountId; val player = owner.toString()
             val build = build(row, member.build!!.data())
             sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withAwards(build, next.pools.getValue(player), lands::get)))
                 .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
@@ -1248,11 +1248,11 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val queue = next.queues[player].orEmpty()
             val hadGrids = previous?.queues?.get(player).orEmpty().any { it in queue }
             if (!hadGrids && queue.isNotEmpty())
-                ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
+                ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id, checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" })
             ownDraftDone(sql, row, member, if (previous == null) PodDraftWait.Picks else GridEngine.waitFor(previous, player),
                 GridEngine.waitFor(next, player))
         }
-        if (next.finished && previous?.finished != true) clearDraftHints(sql, row.id!!, finished = true)
+        if (next.finished && previous?.finished != true) clearDraftHints(sql, row.id, finished = true)
         save(sql, row)
     }
 
@@ -1260,8 +1260,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         val next = withBots(sql, row, moved)
         row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
         val lands = basicLands(sql, next.copies) // DRF-093: drafted basic lands go to the Main count
-        for (member in members(sql, row.id!!)) {
-            val owner = member.accountId!!; val player = owner.toString()
+        for (member in members(sql, row.id)) {
+            val owner = member.accountId; val player = owner.toString()
             val build = build(row, member.build!!.data())
             sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withAwards(build, next.pools.getValue(player), lands::get)))
                 .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
@@ -1272,11 +1272,11 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
                 next.log.drop(previous.log.size).any { it.player != player }
             val hadTurn = !othersPicked && previous?.queues?.get(player).orEmpty().any { it in queue }
             if (!hadTurn && queue.isNotEmpty())
-                ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
+                ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id, checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" })
             ownDraftDone(sql, row, member, if (previous == null) PodDraftWait.Picks else LimitedEngine.waitFor(previous, player),
                 LimitedEngine.waitFor(next, player))
         }
-        if (next.finished && previous?.finished != true) clearDraftHints(sql, row.id!!, finished = true)
+        if (next.finished && previous?.finished != true) clearDraftHints(sql, row.id, finished = true)
         save(sql, row)
     }
 
@@ -1288,7 +1288,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         before: PodDraftWait?, after: PodDraftWait?) {
         if (before == null || after != null || member.submittedDeck != null) return
         log("pod ${row.id}: ${member.accountId}'s own draft is done; Submit opens for them")
-        ActivityService.record(sql, member.accountId!!, ActivityKind.POD_DRAFT_COMPLETE, row.id!!, row.draftAttemptId!!)
+        ActivityService.record(sql, member.accountId, ActivityKind.POD_DRAFT_COMPLETE, row.id, checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" })
     }
 
     /** The pod's draft notices; at the draft's end ([finished]) only the pick and invitation ones: each member's "Draft
@@ -1303,7 +1303,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     }
 
     private fun notify(sql: DSLContext, row: PodRecord, kind: ActivityKind, author: UUID? = null) {
-        for (member in members(sql, row.id!!)) ActivityService.record(sql, member.accountId!!, kind, row.id!!,
+        for (member in members(sql, row.id)) ActivityService.record(sql, member.accountId, kind, row.id,
             row.draftAttemptId ?: UUID.randomUUID(), author)
     }
     private fun save(sql: DSLContext, row: PodRecord) {
@@ -1317,8 +1317,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     }
     private fun creator(row: PodRecord, owner: UUID): Result? = if (row.creatorId != owner) error(403, "creator_only") else null
     private fun member(sql: DSLContext, row: PodRecord, owner: UUID): Result? =
-        if (members(sql, row.id!!).none { it.accountId == owner }) error(404, "not_found") else null
-    private fun acknowledged(row: PodRecord) = acknowledged(row.id!!)
+        if (members(sql, row.id).none { it.accountId == owner }) error(404, "not_found") else null
+    private fun acknowledged(row: PodRecord) = acknowledged(row.id)
     private fun acknowledged(pod: UUID) = Result(200, json.encodeToString(PodAcknowledged(pod.toString())))
 
     fun read(principal: AccountService.Principal, id: String): Result {
@@ -1328,7 +1328,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val row = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id))).forShare().fetchOne()
                 ?: return@transaction error(404, "not_found")
             val owner = UUID.fromString(principal.account.accountId)
-            val members = members(sql, row.id!!)
+            val members = members(sql, row.id)
             if (members.none { it.accountId == owner }) error(404, "not_found") else detail(sql, row, owner, members = members)
         }
     }
@@ -1346,7 +1346,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val select = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id)))
             val row = (if (exclusive) select.forUpdate() else select.forShare()).fetchOne() ?: return@transaction error(404, "not_found")
             val owner = UUID.fromString(principal.account.accountId)
-            if (members(sql, row.id!!).none { it.accountId == owner }) error(404, "not_found") else action(sql, row.id!!, owner)
+            if (members(sql, row.id).none { it.accountId == owner }) error(404, "not_found") else action(sql, row.id, owner)
         }
     }
 
@@ -1398,7 +1398,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val row = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id))).forShare().fetchOne()
                 ?: return@transaction error(404, "not_found")
             val owner = UUID.fromString(principal.account.accountId)
-            if (members(sql, row.id!!).none { it.accountId == owner }) return@transaction error(404, "not_found")
+            if (members(sql, row.id).none { it.accountId == owner }) return@transaction error(404, "not_found")
             val state = draft(row, settings(row)).booster ?: return@transaction error(409, "wrong_draft_mode")
             val picks = DraftEngine.history(state, owner.toString())
             val digests = picks.flatMap { it.cards + it.takenSince }.map { it.definition }.toSet()
@@ -1432,11 +1432,11 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         // Membership is rechecked after the pod locks: a concurrent leave may have removed the caller.
         // A pod whose stored draft can't be read is left out; opening it fails on its own (SYS-052).
         val memberships = if (rows.isEmpty()) emptyMap() else sql.selectFrom(MEMBER).where(MEMBER.POD_ID.`in`(rows.map { it.id }))
-            .orderBy(MEMBER.ACCOUNT_ID).fetch().groupBy { it.podId!! }
+            .orderBy(MEMBER.ACCOUNT_ID).fetch().groupBy { it.podId }
         val invited = sql.select(INVITE.POD_ID, INVITE.INVITED_AT, POD.NAME, POD.CREATOR_ID, POD.SETTINGS).from(INVITE).join(POD).on(POD.ID.eq(INVITE.POD_ID))
             .where(INVITE.ACCOUNT_ID.eq(owner)).and(INVITE.STATE.eq("PENDING")).and(POD.PHASE.eq("SETUP"))
             .orderBy(INVITE.INVITED_AT.desc(), INVITE.POD_ID).fetch()
-        val names = identities(sql, rows.map { it.creatorId!! } + memberships.values.flatten().map { it.accountId!! } +
+        val names = identities(sql, rows.map { it.creatorId } + memberships.values.flatten().map { it.accountId } +
             invited.map { it[POD.CREATOR_ID]!! })
         val pods = rows.mapNotNull { row -> StoredData.orSkip("pod", row.id) {
             val members = memberships[row.id].orEmpty()
@@ -1450,8 +1450,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
                 mine.submittedDeck == null && ownDraftDone(row, draft, owner.toString()) -> PodAttention.BUILD
                 else -> PodAttention.NONE
             }
-            PodSummary(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId!!),
-                members.map { names.getValue(it.accountId!!) }, attention, waiting, row.updatedAt!!.toInstant().toString(),
+            PodSummary(row.id.toString(), row.name, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId),
+                members.map { names.getValue(it.accountId) }, attention, waiting, row.updatedAt!!.toInstant().toString(),
                 settings(row).mode, chatUnread[row.id] ?: 0, mine.submittedDeck != null)
         } }.sortedWith(podListOrder)
         val invitations = invited.mapNotNull {
@@ -1470,7 +1470,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
     /** Booster cards are private; grid boards/log are public, but pools/builds remain caller-only.
      * Each stored part is decoded once, and every named account is looked up in one query. */
     private fun detail(sql: DSLContext, row: PodRecord, owner: UUID, status: Int = 200,
-        members: List<org.asyncttwiz.server.generated.tables.records.PodMemberRecord> = members(sql, row.id!!)): Result {
+        members: List<org.asyncttwiz.server.generated.tables.records.PodMemberRecord> = members(sql, row.id)): Result {
         val settings = settings(row)
         val stored = draft(row, settings)
         val draft = stored.booster
@@ -1491,7 +1491,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         val cards = StoredDefinitions.read(sql, visible.map { it.definition }.toSet())
         val set = setSource(row)
         val cube = source(row)
-        val sourceView = if (set == null) PodSource(row.sourceName!!, cube.sumOf { it.quantity.toLong() },
+        val sourceView = if (set == null) PodSource(row.sourceName, cube.sumOf { it.quantity.toLong() },
             maybeCopies = maybe(row).sumOf { it.quantity.toLong() }) else
             PodSource(kind = PodSourceKind.SET, setCode = set.first.setCode, setName = set.first.setName,
                 boosterKind = if (set.sets.any { it.recipe == null }) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
@@ -1500,9 +1500,9 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         val rarities = if (settings.mode == DraftMode.ARENA && row.phase == "SETUP") arenaCounts(sql, row) else null
         val finite = settings.supply(settings.seats(members.size), cube)
         val supply = if (!isSetSource(row)) finite else finite.copy(available = Long.MAX_VALUE)
-        val pending = pending(sql, row.id!!)
+        val pending = pending(sql, row.id)
         val offAccount = row.autoStartOffAccount?.takeIf { row.autoStartOffReason != null && row.phase == "SETUP" && owner == row.creatorId }
-        val names = identities(sql, listOf(row.creatorId!!) + members.map { it.accountId!! } + pending.map { it.accountId!! } + listOfNotNull(offAccount))
+        val names = identities(sql, listOf(row.creatorId) + members.map { it.accountId } + pending.map { it.accountId } + listOfNotNull(offAccount))
         // A member's progress in the draft: the picks they can make in a row and the picks made
         fun progress(player: String): Pair<Int, Int> {
             val status = public?.members?.firstOrNull { it.player == player }
@@ -1512,19 +1512,19 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         // DRF-297: a started draft's bot seats, in number order
         val bots = (draft?.seating ?: grid?.seating ?: limited?.seating).orEmpty().mapNotNull(PodBots::identity)
             .sortedBy { it.accountId.removePrefix(PodBots.PREFIX).toIntOrNull() }
-        val result = PodDetail(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId!!),
+        val result = PodDetail(row.id.toString(), row.name, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId),
             settings, sourceView.copy(rarities = rarities), supply,
             members.map { member ->
                 val player = member.accountId.toString()
                 val (waiting, picks) = progress(player)
                 // DRF-119: building once their own draft is done, maybe while others still draft
-                PodMember(names.getValue(member.accountId!!), waiting, picks,
+                PodMember(names.getValue(member.accountId), waiting, picks,
                     member.submittedDeck == null && ownDraftDone(row, stored, player), member.submittedDeck != null, waiting > 0)
             } + bots.map { bot ->
                 // DRF-297: the draft's bot seats after the members; they never build or submit
                 val (waiting, picks) = progress(bot.accountId)
                 PodMember(bot, waiting, picks, picking = waiting > 0, bot = true)
-            }, pending.map { names.getValue(it.accountId!!) }, row.draftAttemptId?.toString(), view,
+            }, pending.map { names.getValue(it.accountId) }, row.draftAttemptId?.toString(), view,
             if (row.draftState != null) build(row, mine.build!!.data()) else null,
             mine.submittedDeck != null, mine.submittedDeck?.let { build(row, it.data()) }, cards,
             row.updatedAt!!.toInstant().toString(), gridView, mine.deckName ?: "${row.name} deck",
@@ -1573,11 +1573,11 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val stale = attempt != null && row?.draftAttemptId?.toString() != attempt
             if (!inserted && !stale) {
                 val outcome = sql.selectFrom(ACCOUNT_REQUEST).where(ACCOUNT_REQUEST.REQUEST_ID.eq(id)).fetchSingle()
-                val responseAttempt = json.parseToJsonElement(outcome.response!!).jsonObject["draftAttemptId"]
+                val responseAttempt = json.parseToJsonElement(outcome.response).jsonObject["draftAttemptId"]
                     ?.jsonPrimitive?.contentOrNull
                 if (responseAttempt != null && row?.draftAttemptId?.toString() != responseAttempt)
                     return@transaction error(409, "draft_attempt_expired")
-                return@transaction Result(outcome.status!!, outcome.response!!)
+                return@transaction Result(outcome.status, outcome.response)
             }
             val result = if (stale) error(409, "draft_attempt_expired") else action(sql, owner, row)
             if (inserted) sql.insertInto(ACCOUNT_REQUEST).set(ACCOUNT_REQUEST.REQUEST_ID, id)

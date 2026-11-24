@@ -706,7 +706,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         return Outcome(play, events.map(history.codec::encodeEvent), state, target, confirmed, ended,
             seats.associate { it.account.toString() to it.head }, moves, newStops, row.request, row.lines, stopTimes, activity,
             history.store as? EngineHistoryStore, branched,
-            if (ended) record(result!!, conceded, agreement?.first, seats.map { it.account.toString() }) else null,
+            if (ended) record(result, conceded, agreement?.first, seats.map { it.account.toString() }) else null,
             seats.filter { it.nextStop != null && stops[it] == null }.map { it.account.toString() }.toSet(),
             ready(state.model.engine, events, seats),
             seats.associate { it.account.toString() to (waits[it] == true) },
@@ -715,7 +715,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             seats.filter { it.waited && waits[it] != true }.map { it.account.toString() }.toSet(), rewoundBy,
             seats.associate { it.account.toString() to it.settings.mode },
             seats.associate { it.account.toString() to it.settings.assume },
-            if (ended) MatchFacts.of(engine, result!!, conceded, agreement, mulligans) else null, alias)
+            if (ended) MatchFacts.of(engine, result, conceded, agreement, mulligans) else null, alias)
     }
 
     /** Each player's mulligans taken in the opening (CR 103.5), from the engine's log of this and last turn. */

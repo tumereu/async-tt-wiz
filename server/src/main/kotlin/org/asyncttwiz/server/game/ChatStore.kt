@@ -42,7 +42,7 @@ internal object ChatStore {
 
     private fun message(it: org.asyncttwiz.server.generated.tables.records.GameChatRecord) =
         ChatMessage(it.id.toString(), it.gameId.toString(), it.playId?.toString(), it.authorId.toString(),
-            it.text!!, it.revision.toString(), it.createdAt!!.toInstant().toString())
+            it.text, it.revision.toString(), it.createdAt!!.toInstant().toString())
 
     fun sync(sql: DSLContext, game: UUID): ChatSync = sql.select(GAME_CHAT.ID, GAME_CHAT.REVISION).from(GAME_CHAT)
         .where(GAME_CHAT.GAME_ID.eq(game)).orderBy(GAME_CHAT.REVISION.desc()).limit(1).fetchOne()

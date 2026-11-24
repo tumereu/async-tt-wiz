@@ -3813,6 +3813,13 @@ internal class Sentences(
                     val stepsFrom = steps.size
                     context.sentence = sentence
                     val itBefore = context.it
+                    // vow chunk 04: cleave (CR 702.148a): a sentence with words in square brackets
+                    if (Vow.CLEAVE_BRACKET.containsMatchIn(sentence)) {
+                        val cleft = cleaveSentence(sentence, steps, context) ?: return null
+                        steps.clear(); steps += cleft
+                        context.previous = targetsFrom to stepsFrom
+                        continue
+                    }
                     val modified = modify(sentence, steps, context)
                     if (modified != null) {
                         steps.clear(); steps += modified
@@ -3895,6 +3902,83 @@ internal class Sentences(
 
     private val X_WORD = Regex("""\bX\b""")
 
+    /**
+     * vow chunk 04: cleave (CR 702.148a): a sentence with words in square brackets reads with them unless the cleave cost was paid
+     * and without them if it was. The steps both readings share come first, then If(not paid, with the words, without them). A target
+     * the readings choose differently is two slots, each chosen only when its reading applies: the cost is chosen before the targets
+     * (CR 601.2b, 601.2c).
+     */
+    private fun cleaveSentence(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        val from = context.targets.size
+        val sentence = sentence.replace(".]", "].")
+        fun read(text: String): Pair<List<Step>, List<TargetSlot>>? {
+            val read = if (text.isEmpty()) steps else modify(text, steps, context)
+                ?: effect(text, context)?.let { steps + renameRepeatedTargets(it, context, from) } ?: return null
+            val slots = context.targets.subList(from, context.targets.size).toList()
+            while (context.targets.size > from) context.targets.removeAt(context.targets.lastIndex)
+            return read to slots
+        }
+        var (withWords, fullSlots) = read(sentence.replace(Vow.CLEAVE_BRACKET) { it.groupValues[1] + it.groupValues[2] }) ?: return null
+        var (without, cleavedSlots) = read(sentence.replace(Vow.CLEAVE_BRACKET, "").trim().takeIf { it != "." } ?: "") ?: return null
+        // a slot both readings have is named by the plainer words ("target spell [that wasn't cast …]" is "spell", not "hand")
+        if (fullSlots.size == cleavedSlots.size) fullSlots = fullSlots.zip(cleavedSlots).map { (full, cleft) ->
+            if (full.name == cleft.name || context.targets.any { it.name == cleft.name } || fullSlots.any { it.name == cleft.name }) full
+            else { withWords = withWords.map { renameTargetSlot(it, full.name, cleft.name) }; full.copy(name = cleft.name) }
+        }
+        val paid = arcanum.api.Condition.Paid(arcanum.api.Keyword.Cleave.Kind, times = 1, of = Objects.Self)
+        for (slot in fullSlots) context.targets += if (slot in cleavedSlots) slot else slot.copy(onlyIf = arcanum.api.Condition.Not(paid))
+        for (slot in cleavedSlots) if (slot !in fullSlots) {
+            val name = if (context.targets.any { it.name == slot.name }) nextTargetName(slot.name, context.targets.map { it.name }) else slot.name
+            if (name != slot.name) without = without.map { renameTargetSlot(it, slot.name, name) }
+            context.targets += slot.copy(name = name, onlyIf = paid)
+        }
+        val shared = withWords.zip(without).takeWhile { (a, b) -> a == b }.size
+        if (shared == withWords.size && shared == without.size) return withWords
+        return withWords.take(shared) + Step.If(arcanum.api.Condition.Not(paid), then = withWords.drop(shared), otherwise = without.drop(shared))
+    }
+
+    /** vow: sentences that change or follow the steps before them. */
+    private fun vowModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // vow chunk 04: "During that turn, damage can't be prevented." after "Take an extra turn after this one.": what "this turn" would
+        // do, applying only during that extra turn (CR 500.7, 611.2a)
+        Vow.DURING_THAT_TURN.matchEntire(sentence)?.let { m ->
+            val (marked, mark) = markExtraTurn(steps) ?: return null
+            val during = effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + " this turn.", context) ?: return null
+            var changed = false
+            val applied = during.map { step ->
+                val apply = (step as? Step.Do)?.effect as? Effect.ApplyMechanics
+                if (apply?.duration != arcanum.api.Duration.EndOfTurn) step
+                else { changed = true; Step.Do(apply.copy(duration = arcanum.api.Duration.DuringTurn(mark))) }
+            }
+            return if (changed) marked + applied else null
+        }
+        // vow chunk 04: "At the beginning of that turn's end step, you lose the game." after taking an extra turn: a delayed trigger of
+        // that turn only (CR 603.7), as dmr's two-sentence wording
+        Vow.AT_THAT_TURNS_STEP.matchEntire(sentence)?.let { m ->
+            val (marked, mark) = markExtraTurn(steps) ?: return null
+            val step = when (m.groupValues[1]) { "upkeep" -> arcanum.api.TurnStep.Upkeep; "draw step" -> arcanum.api.TurnStep.Draw; else -> arcanum.api.TurnStep.End }
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return marked + Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(step, PlayerFilter.Any)),
+                Instructions(steps = then), inTurn = mark))
+        }
+        // vow chunk 04: "X is the number of creatures you control." after the sentences using X: that number in place of the announced X
+        // (CR 107.3c)
+        Vow.X_IS.matchEntire(sentence)?.let { m ->
+            if (steps.isEmpty() || !steps.toString().contains("Announced(name=X")) return null
+            val x = context.value(m.groupValues[1]) ?: return null
+            return Instructions(steps = steps).withX(x).steps
+        }
+        return null
+    }
+
+    /** vow chunk 04: [steps] whose last extra turn has a name, and that name ("that turn"), for a later sentence about that turn. */
+    private fun markExtraTurn(steps: List<Step>): Pair<List<Step>, String>? {
+        val index = steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.ExtraTurn) != null }.takeIf { it >= 0 } ?: return null
+        val extra = (steps[index] as Step.Do).effect as Effect.ExtraTurn
+        val mark = extra.mark ?: "that turn"
+        return steps.toMutableList().also { it[index] = Step.Do(extra.copy(mark = mark)) } to mark
+    }
+
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
@@ -3924,6 +4008,7 @@ internal class Sentences(
         oneModify(sentence, steps, context)?.let { return it } // one: after hob's and fra's own "mana value was" wordings
         isdModify(sentence, steps, context)?.let { return it } // isd
         broModify(sentence, steps)?.let { return it } // bro
+        vowModify(sentence, steps, context)?.let { return it } // vow
         // gtc chunk 06: "He's still a planeswalker." / "It's still a land." after it became a creature in addition to its types:
         // a reminder (CR 205.1b), nothing changes
         // gtc chunk 11: 'Create a 1/1 white and black Cleric creature token. It has "[ability]."' (CR 111.4: part of the token)
@@ -9794,7 +9879,8 @@ internal class Sentences(
 
     private fun sentences(text: String): List<String> {
         val raw = splitOutsideQuotes(text.trim()).map { it.trim() }.filter { it.isNotEmpty() }
-            .map { if (it.endsWith(".")) it else "$it." }.map { it.replaceFirstChar { c -> c.uppercase() } }
+            // vow chunk 04: a cleave sentence in square brackets ends inside them ("[… for the rest of the game.]")
+            .map { if (it.endsWith(".") || it.endsWith(".]")) it else "$it." }.map { it.replaceFirstChar { c -> c.uppercase() } }
         return raw.fold(mutableListOf()) { acc, sentence ->
             // chunk 14: "The flashback cost is equal to its mana cost." completes the sentence before it.
             // otj chunk 01: "Each player who does draws seven cards." completes "Each player may …" before it
@@ -26044,6 +26130,12 @@ internal class Sentences(
         // sos chunk 03: "Exile Divergent Equation." (the resolving spell exiles itself; it isn't put into the graveyard, CR 608.2n)
         Sos.EXILE_SELF.matchEntire(sentence)?.takeIf { isSpell && isSelf(it.groupValues[1]) }?.let {
             return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Exile))))
+        }
+        // vow chunk 04: "Your maximum hand size is reduced by three for the rest of the game." (CR 402.2)
+        Vow.MAXIMUM_HAND_SIZE_CHANGED_REST_OF_GAME.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MaximumHandSizeChange(if (m.groupValues[1] == "reduced") -n else n)),
+                Affected.Players(Players.You), arcanum.api.Duration.Indefinitely)))
         }
         // sos chunk 03: "You have no maximum hand size for the rest of the game." (CR 402.2)
         if (Sos.YOU_HAVE_NO_MAXIMUM_HAND_SIZE_REST_OF_GAME.matches(sentence))

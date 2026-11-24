@@ -3,6 +3,7 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
+import org.asyncttwiz.android.AppLog
 import org.asyncttwiz.android.ShellDestination
 import org.junit.Test
 import java.util.UUID
@@ -11,7 +12,8 @@ import kotlin.test.assertNotNull
 
 /**
  * The "Waiting for you" dots (owner, 2026-11-22), the overall flow: a pod game where it is your move lights your hamburger
- * red while you look at its pod, and its side-menu row red, the open pod's row none; a draft starting with your pick lights
+ * red on Contacts but not while you look at its own pod (owner 2026-11-24: the pod's Games list shows it), and its side-menu
+ * row red, the open pod's row none; a draft starting with your pick lights
  * its row blue, and at the game's table (the game itself left out) the hamburger blue; the other screens' hamburgers (Contacts,
  * Settings) red again.
  */
@@ -19,7 +21,7 @@ class WaitingDotsTest : E2e() {
     private fun dotIn(dot: String, ancestor: String) = hasTestTag(dot) and hasAnyAncestor(hasTestTag(ancestor))
 
     // LOB-267, LOB-268, LOB-269, LOB-270, DRF-306
-    @Test fun yourMoveLightsThePodsHamburgerAndTheGamesRowThenAPickLightsTheTables() {
+    @Test fun yourMoveLightsTheHamburgerButNotInItsPodThenAPickLightsTheTables() {
         launchPlayers()
         val name = "E2E dots ${UUID.randomUUID().toString().take(6)}"
         val game = ServerSetup.readyBoth(alice.account, bob.account, ServerSetup.podGame(alice.account, bob.account, name))
@@ -29,10 +31,15 @@ class WaitingDotsTest : E2e() {
         val holder = ServerSetup.head(alice.account, game.id).summary.attentionHolder
         val you = if (holder == bob.id) bob else alice
 
-        // In the game's pod: the hamburger red for your move in its game
+        // Elsewhere the hamburger is red for your move; in the game's own pod it has no dot (owner 2026-11-24)
+        you.auth.navigate(ShellDestination.CONTACTS)
+        waitUntil("the red dot on ${you.name}'s Contacts hamburger") { you.shows(hasTestTag("navigation-dot-move")) }
         you.auth.navigate(ShellDestination.PODS)
         you.pods.open(pod)
-        waitUntil("the red dot on ${you.name}'s pod hamburger") { you.shows(dotIn("navigation-dot-move", "pod-play-header")) }
+        waitUntil("${you.name}'s pod header") { you.shows(hasTestTag("pod-play-header")) }
+        waitUntil("no dot logged with the game's pod open") { "Hamburger dot: none (open: pod ${pod.take(8)})" in AppLog.text() }
+        for (dot in listOf("move", "pick", "build"))
+            assertFalse(you.shows(dotIn("navigation-dot-$dot", "pod-play-header")), "no dot in the game's own pod: ${you.screen()}")
         you.described("Open navigation").performClick()
         waitUntil("the red dot on the game's side-menu row") { you.shows(dotIn("waiting-dot-move", "navigation-game-${game.id}")) }
         for (dot in listOf("move", "pick", "build"))
@@ -54,5 +61,23 @@ class WaitingDotsTest : E2e() {
             you.auth.navigate(screen)
             waitUntil("the red dot on ${you.name}'s $screen hamburger") { you.shows(hasTestTag("navigation-dot-move")) }
         }
+    }
+
+    // LOB-268, DRF-306 (owner, 2026-11-23, 2026-11-24): Alice challenges Bob from their pod. On Contacts his hamburger is red for it; in the
+    // pod itself, whose Games list shows the challenge, his hamburger has no dot
+    @Test fun aChallengeLightsNoDotInsideItsOwnPod() {
+        launchPlayers()
+        val (pod, challenge) = ServerSetup.podChallenge(alice.account, bob.account, "E2E pod dot ${UUID.randomUUID().toString().take(6)}")
+        bob.auth.navigate(ShellDestination.CONTACTS)
+        waitUntil("the red dot on Bob's Contacts hamburger for the challenge ${challenge.id.take(8)}") {
+            bob.shows(hasTestTag("navigation-dot-move"))
+        }
+        bob.auth.navigate(ShellDestination.PODS)
+        bob.pods.open(pod)
+        waitUntil("Bob's pod header") { bob.shows(hasTestTag("pod-play-header")) }
+        waitUntil("the hamburger dot logged with the pod open") { "Hamburger dot: none (open: pod ${pod.take(8)})" in AppLog.text() }
+        repeat(3) { run() }
+        for (dot in listOf("move", "pick", "build"))
+            assertFalse(bob.shows(dotIn("navigation-dot-$dot", "pod-play-header")), "no dot in the challenge's own pod: ${bob.screen()}")
     }
 }

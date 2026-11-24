@@ -89,10 +89,11 @@ class EngineChoiceScreenTest {
         assertEquals(1, kit.state().player(kit.me).graveyard.size)
     }
 
-    // STK-032, TBL-118: while Automatum's choice is open, casting is refused on both devices without a message: on the
-    // deciding player's device the card shakes (their own table never says they are choosing); on the other player's,
-    // whose table waits for the choice, the card shakes and the event text saying "Alice is choosing" flashes (the
-    // waiting device's cast was refused silently); looking and holding to inspect still work
+    // STK-032, TBL-118, ZON-137: while Automatum's choice is open, casting is refused on both devices without a message: nobody
+    // holds priority, so a double tap on a card of either player's dimmed hand row does nothing (owner, report 8KK2M6,
+    // 2026-11-23: no shake, no flash; her own table never says she is choosing); on the other player's device, whose table
+    // waits for the choice, another refused gesture shakes and the event text saying "Alice is choosing" flashes; looking and
+    // holding to inspect still work
     @Test fun whileAChoiceIsOpenCastingIsRefused() {
         toDiscard()
         val card = kit.atw(kit.hand("Storm Spark").first())
@@ -101,7 +102,7 @@ class EngineChoiceScreenTest {
         val (gestures, _) = kit.gestures()
         kit.doubleTap(gestures, kit.item(card, PlayZone.HAND).bounds.center)
         assertFalse(toolkit.cast.open)
-        assertEquals(card, toolkit.shaking?.id, "the card shakes")
+        assertNull(toolkit.shaking, "the dimmed hand's card doesn't shake")
         assertNull(toolkit.error, "no message")
         assertNull(kit.routes.choosingText(kit.alice.play()), "Alice's own table doesn't say she is choosing")
         assertEquals(0, toolkit.choiceFlashes)
@@ -118,9 +119,12 @@ class EngineChoiceScreenTest {
         val (bobGestures, _) = kit.gestures(kit.bobToolkit, f.b)
         kit.doubleTap(bobGestures, kit.item(bobs, PlayZone.HAND, f.b).bounds.center)
         assertFalse(kit.bobToolkit.cast.open)
-        assertEquals(bobs, kit.bobToolkit.shaking?.id, "Bob's card shakes")
-        assertTrue(kit.bobToolkit.choiceFlashes > 0, "and his event text flashes")
+        assertNull(kit.bobToolkit.shaking, "Bob's dimmed hand's card doesn't shake")
+        assertEquals(0, kit.bobToolkit.choiceFlashes, "nor does his event text flash")
         assertNull(kit.bobToolkit.error, "no message")
+        // A refusal of anything else (its shake, TBL-118) still flashes his event text
+        kit.bobToolkit.shake(bobs, "test")
+        assertTrue(kit.bobToolkit.choiceFlashes > 0, "a refusal while Alice chooses flashes his event text")
     }
 
     // STK-033, STK-101, CMB-033, CMB-094, STK-044, CR 510.1c: a division of combat damage Automatum asks for is its open choice, made in the division

@@ -34,6 +34,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     val cast = CastController(viewer, { current()?.takeIf { enabled() } }, { castMessage(it) },
         automatumWork, tokenArt = tokenArt, shake = { card, why -> shake(card, why) }, engineSend = engine?.let { e -> e::send },
         revealing = { revealing() }, takeBacks = { engine?.takeBacks() ?: 0L }, lastTakeBack = { engine?.lastTakeBack().orEmpty() },
+        rewinds = { engine?.rewinds() ?: 0L },
         // The cast's flow session runs beside the game's device (the browser's engine worker), else here
         port = TableCastPort(LocalCastPort(viewer) { w, d -> automatumWork.run(w, d) }) { (engine as? EngineTableRoutes)?.engine })
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
@@ -446,8 +447,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      * the open choice is about a card in their hand (a discard, a cost discarding or exiling one). On [play], the board acted on.
      * TRN-062 (owner playtest 2026-11-20): never during the viewer's opening: its Keep / Mulligan decision is the opening
      * itself, and the hand they decide on shows at full strength.
+     * TBL-128 (owner, report 8KK2M6, 2026-11-23): and whenever nobody holds priority ([nobodyHoldsPriority]), whatever the
+     * choice is about.
      */
     fun handDimmed(play: TableBoard): Boolean {
+        if (nobodyHoldsPriority(play)) return true
         val answering = flows.answering?.takeUnless { AutomatumDrags.opening(play.board, viewer) }
         val open = cast.open || answering != null || revealing() || panel != null
         if (!open) return false
@@ -455,6 +459,26 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val asked = listOfNotNull(cast.flow?.pending, answering)
         return asked.none { decision -> decisionObjects(decision).any { it in hand } }
     }
+
+    /**
+     * TBL-128 (owner, problem report 8KK2M6, 2026-11-23): nobody holds priority on [play]'s board (a choice while something
+     * resolves, the viewer's or the other player's, the other player declaring, the game over): nothing of the viewer's hand
+     * row can be used, so it is dimmed and a tap does nothing (no shake). Not in the opening (TRN-062: the hand decided on shows
+     * at full strength) nor while the viewer declares, whose hand row shakes saying why (CMB-096), nor on a board between two
+     * points (a step of a play's motion, the untap step before the first turn begins), whose hand row would flicker.
+     */
+    fun nobodyHoldsPriority(play: TableBoard): Boolean {
+        val state = play.engine?.state ?: return false
+        if (state.priority.holder != null || state.turn.number == 0) return false
+        if (declaring(play) != null) return false
+        return state.pending != null || arcanum.engine.Engine.result(state) != null ||
+            combat.readyOrLast(play)?.choices?.declaring.let { it != null && it != viewer }
+    }
+
+    /** Why the viewer's hand row is dimmed on [play] ([handDimmed]), for the log. */
+    private fun dimmedWhy(play: TableBoard): String = if (nobodyHoldsPriority(play)) "nobody holds priority (choice " +
+        "${play.engine?.state?.pending?.decision?.let { "${it.kind} of ${it.player.value.take(8)}" }}, over ${play.engine?.state?.let { arcanum.engine.Engine.result(it) } != null})"
+        else "a panel is open (cast ${cast.open}, choice ${flows.answering?.kind}, panel $panel)"
 
     /** CMB-095, CMB-096 (owner 2026-11-22, F2 follow-up): what the viewer declares now on [play] (their hand row dimmed and
      * refusing taps), as the table shows it: not while they may not act. */
@@ -776,10 +800,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         // ZON-079 (I-D50): a hand has no menu: a tap raises the card (or casts the raised one); a tap on anything else
         // lowers it
         if (item.zone == PlayZone.HAND && item.kind == TableItemKind.CARD) {
-            // ZON-095 (owner notes 2026-11-14): the viewer's dimmed hand takes no taps while a panel is open
+            // ZON-095 (owner notes 2026-11-14): the viewer's dimmed hand takes no taps while a panel is open; TBL-128 (report
+            // 8KK2M6): nor while nobody holds priority
             if (item.owner == viewer && handDimmed(play)) {
-                AppLog.info("table", "Tap on hand card ${item.cardId} while a panel is open (cast ${cast.open}, choice " +
-                    "${flows.answering?.kind}, panel $panel): the hand is dimmed, nothing done")
+                AppLog.info("table", "Tap on hand card ${item.cardId} while ${dimmedWhy(play)}: the hand is dimmed, nothing done")
                 return
             }
             // CMB-096 (owner 2026-11-22, F2 follow-up): while the viewer declares, their dimmed hand row's cards only shake
@@ -905,6 +929,13 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (placed != null && intent is TableIntent.Move && intent.drag && intent.destination is TableDestination.Combat)
             return assumeDrag(placed, intent).also { if (!it && target != null) shake(target, CANT_BLOCK_THERE) }
         if (target == null) return handleIntent(intent)
+        // ZON-095, ZON-137 (report 8KK2M6): a card of the viewer's dimmed hand row takes no double taps or drags: nothing done,
+        // no shake (also while the other player chooses, when nobody holds priority)
+        val play = current()
+        if (play != null && intent is TableIntent.Move && CastController.inHandRow(play, target, viewer) == true && handDimmed(play)) {
+            AppLog.info("table", "Double tap or drag of hand card $target while ${dimmedWhy(play)}: the hand is dimmed, nothing done")
+            return false
+        }
         // TBL-118, HIS-075: while the other player's choice is open a double-tap or drag of a card is refused: it shakes
         // and the event text flashes (a card dropped back where it was only goes back)
         if (othersChoice() && intent is TableIntent.Move && !stays(intent)) { shake(target, othersChoiceReason()); return false }
@@ -939,9 +970,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val play = current()?.takeIf { enabled() }
         // ZON-004, ZON-077 (owner 2026-11-07): as a tap on the raised card: cast at once without any choice, else the
         // cast panel
-        // ZON-095 (owner notes 2026-11-14): the viewer's dimmed hand takes no double taps or drags while a panel is open
+        // ZON-095 (owner notes 2026-11-14): the viewer's dimmed hand takes no double taps or drags while a panel is open;
+        // TBL-128 (report 8KK2M6): nor while nobody holds priority
         if (play != null && handDimmed(play) && CastController.inHandRow(play, cardId, viewer) == true) {
-            AppLog.info("table", "Double tap or drag of hand card $cardId while a panel is open: the hand is dimmed, nothing done")
+            AppLog.info("table", "Double tap or drag of hand card $cardId while ${dimmedWhy(play)}: the hand is dimmed, nothing done")
             return false
         }
         // CMB-096 (owner 2026-11-22, F2 follow-up): nor while the viewer declares: it shakes, nothing is cast

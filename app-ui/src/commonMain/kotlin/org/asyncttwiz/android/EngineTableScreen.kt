@@ -257,23 +257,19 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
                 }
                 changes.applyEngine(t.cursor, t.jump, t.changes - kept.toSet(), t.shuffled)
                 // HIS-076 (owner playtest 2026-11-04 #5): live, the newest event just shown, yours too (your own action's
-                // text fades at the top like the other player's); quiet on open and return. §29.4: an undo says what it
-                // took back ("Undid: cast Storm Spark"; the other player's undo says nothing, HIS-168), even with Event text off
+                // text fades at the top like the other player's); quiet on open and return. HIS-168, HIS-236 (owner,
+                // 2026-11-22 and 2026-11-23): an undo, yours or the other player's, shows no text at the top
                 val told = t.forward.lastOrNull { !EngineEventText.hidden(it) }
                 val undone = t.undone
                 when {
                     // HIS-097: a branch's take-back has its note instead
                     undone != null && undone.branch -> eventText.moved(t.cursor)
-                    // HIS-168, HIS-236 (owner, 2026-11-22): the other player's undo shows no text at the top; logged
-                    undone != null && undone.by != accountId -> {
-                        AppLog.info("game", "The other player's undo, shown without a top text: " +
-                            EngineEventText.undoNote(undone, accountId, names).replace('\n', ' '))
+                    // HIS-168, HIS-236: what it took back (and a library reshuffled by your free undo, HIS-042) only logged
+                    undone != null -> {
+                        AppLog.info("game", "${if (undone.by == accountId) "Your own" else "The other player's"} undo, shown " +
+                            "without a top text: " + EngineEventText.undoNote(undone, accountId, names).replace('\n', ' '))
                         eventText.moved(t.cursor)
                     }
-                    // HIS-042 (owner 2026-11-19): after your free undo that touched library cards, a second line says the
-                    // libraries reshuffled
-                    undone != null -> eventText.post(t.cursor, EngineEventText.undoNote(undone, accountId, names),
-                        always = true)
                     told != null -> eventText.post(t.cursor, engine.timeline.text(engine, told, names))
                     else -> eventText.moved(t.cursor)
                 }

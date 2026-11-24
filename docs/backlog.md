@@ -10,12 +10,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-Owner's 0.3.2 review and playtest (2026-11-23), after the release:
-- Hand cards while nobody holds priority (report 8KK2M6): during a choice while something resolves, or any other point where nobody holds priority, your hand row is dimmed and a tap does nothing (no shake, no "Nobody holds priority now." bubble), as CMB-096 already does while you declare; holding still inspects (TBL-128, TBL-212, CMB-096).
-- A challenge from inside the pod you have open doesn't light that pod's hamburger (it shows in the pod's own Games list) (LOB-268, DRF-306).
-- Your own undo's fading "Undid: …" and its "library reshuffled" line go too, as the other player's did (HIS-168, HIS-236).
-- Reopening a game whose result waits for an OK: when its final board can't be loaded and the old result-over-the-lobby view shows instead, that's a fault: logged as an error with an automatic report (TRN-142), then fixed.
-- A real "Table changed: cast it again." refusal of your own cast is a fault: logged as an error with an automatic report, then its causes fixed.
 ### Earlier
 
 Desktop playtest notes (owner, 2026-11-14): high priority.
@@ -70,6 +64,8 @@ Each owner-reported bug gets an e2e test that fails before the fix.
 - The step arrow's pass worked out ahead of time (optional, decided later; owner 2026-11-06: not now, after the End turn speed work): while the player looks at the board, the idle engine thread works out their step-arrow pass on a probe, so the tap only applies the result (frame-fast passes, some battery cost). Decide on the own-action measurements (SYS-030).
 
 - Summoning-sick permanents in the same battlefield group as their non-sick copies (owner idea, 2026-11-07; owner testing first): one group regardless of sickness with a "2 sick" badge, attacks picking a non-sick member first, so groups don't reshuffle after the turn.
+
+- Choosing hand cards in the hand itself (owner, 2026-11-24; discuss and analyse first, not to be built now): when a choice asks for cards from your hand (a discard while something resolves, a cost discarding or exiling a hand card), picking them straight from the hand row might be better than picking them in the choice panel. General rule meanwhile (owner): whenever you can't interact with your hand cards, they are dimmed (ZON-095), never during animations: avoiding flicker matters more. Questions for the analysis: how chosen cards look in the hand, how a choice with a count (discard two) or a minimum/maximum is confirmed, how it works with the hand band scrolled or crowded, on the desktop, and for choices that mix hand cards with cards from other zones.
 
 - Rule references the compiler can check (owner, 2026-11-15; parked, to think about, not now): replace plain-text `// CR 613.4c` citations with annotations naming the rule number, store each cited rule's text or a checksum of it, and have a build job list which rules the code relies on and which of them changed when the Comprehensive Rules pin moves, so a renumbered or reworded rule can't go unnoticed (today's citations are comments the compiler doesn't check; the 2026-11-15 pin move uses a one-off citation delta tool in arcanum-tools instead).
 

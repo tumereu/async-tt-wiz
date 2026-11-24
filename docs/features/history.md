@@ -85,7 +85,7 @@ in undo.md.
 - **HIS-077** The chip appears and changes at once and fades out in 450 ms after the longer of 2 s and the History playback pause (HIS-028), on its own clock even while paused; moving to another board drops it at once. (r31)
 - **HIS-166** While the other player makes a choice (Automatum's choice, their blockers, their mulligan) the chip shows that instead, in the wait's words (TRN-066), even with Event text off: for a moment, then it fades even while the choice lasts (the wait band goes on saying it). Never on the chooser's own table, and not in timeline mode, where the chip shows only events. (r52)
 - **HIS-167** While the other player is choosing, the chip's choice text shows again, flashing once in the warning colour, when something you try is refused (TBL-118). (r52)
-- **HIS-168** Your own undo says in the chip what it took back, also with Event text off: "Undid: cast Storm Spark" ("End turn" for an undone End turn, "went to combat" for a tap leaving a main phase). The other player's undo shows no text at the top (your device only logs it). (r52, owner 2026-11-22)
+- **HIS-168** An undo, yours or the other player's, shows no text at the top; your device only logs what it took back ("Undid: cast Storm Spark", "End turn" for an undone End turn, "went to combat" for a tap leaving a main phase; "Bob undid: …" for theirs). (r52, owner 2026-11-22, 2026-11-23)
 
 ## Timeline mode
 

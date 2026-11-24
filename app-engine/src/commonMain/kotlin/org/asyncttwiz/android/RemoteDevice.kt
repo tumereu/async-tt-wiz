@@ -127,7 +127,7 @@ class RemoteDevice internal constructor(val game: EngineGame, private val channe
                     return
                 }
                 val built = start.elapsedNow()
-                game.remotePublished(decoded.shown, decoded.notes, answer.takeBacks, answer.lastTakeBack)
+                game.remotePublished(decoded.shown, decoded.notes, answer.takeBacks, answer.lastTakeBack, answer.rewinds)
                 // Web frame rate (owner, 2026-11-15): a board slow to take in on the page says what took the time (its message
                 // read, its engine state and values made on the page's copy, its publishing to the table and the game), as the
                 // frame times' page work (WEB-057) doesn't

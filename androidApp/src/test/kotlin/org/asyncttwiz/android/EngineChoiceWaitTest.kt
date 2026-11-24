@@ -125,15 +125,16 @@ class EngineChoiceWaitTest {
         assertEquals(flashes, toolkit.choiceFlashes)
     }
 
-    // HIS-075, HIS-166, STK-032, TRN-066, TRN-151: Alice discards to hand size (an Automatum choice of hers): Bob's event text says "Alice is
-    // choosing" while the band under her hand stays; her own table says nothing of it
+    // HIS-075, HIS-166, STK-032, TRN-066, TRN-151, ZON-137: Alice discards to hand size (an Automatum choice of hers): Bob's event text says
+    // "Alice is choosing" while the band under her hand stays, and nobody holding priority, his hand row is dimmed; her own table
+    // says nothing of it
     @Test fun theOtherPlayersChoiceShowsInTheEventText() {
         kit.toAliceDiscard()
         kit.settle()
         render(f.b, eventTextOn = true)
         compose.onNodeWithTag("event-text").assertContentDescriptionEquals("Alice is choosing")
         compose.onRoot().captureShot("$SCREENSHOTS/engine/event-text-choosing.png",
-            "Alice discards to hand size in her cleanup step: on Bob's table the event text over the top row says Alice is choosing for a moment; the dark band under her hand says the same and stays while she chooses.")
+            "Alice discards to hand size in her cleanup step: on Bob's table the event text over the top row says Alice is choosing for a moment; the dark band under her hand says the same and stays while she chooses, and Bob's own hand row is dimmed, as nobody holds priority.")
         assertNull(kit.routes.choosingText(kit.alice.play()), "Alice's own table doesn't say she is choosing")
     }
 }

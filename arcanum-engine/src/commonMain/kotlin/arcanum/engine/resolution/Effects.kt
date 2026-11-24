@@ -733,8 +733,11 @@ internal object Effects {
     private fun dealDamage(scope: Scope, effect: Effect.DealDamage) {
         val act = scope.act
         val parts = damageParts(scope, effect).let { parts -> effect.excessTo?.let { redirectExcess(scope, parts, it) } ?: parts }
+        effect.postBind?.let { scope.bind(it, NamedValue.Objects(emptyList())) }
         if (parts.isEmpty() && scope.objects(effect.source).isEmpty()) return
         val result = Actions.damage(act, scope.cause, parts, effect.cantBePrevented)
+        // vow fixes: the objects actually dealt damage, after prevention and replacement (CR 120.1, 615.1a)
+        effect.postBind?.let { bind -> scope.bind(bind, NamedValue.Objects(result.dealt.mapNotNull { (it.recipient as? TargetRef.Object)?.id }.distinct())) }
         effect.bind?.let { bind ->
             scope.bind(bind, NamedValue.Number(result.total))
             scope.bind(Evaluator.EXCESS_PREFIX + bind, NamedValue.Number(result.excess))

@@ -27,6 +27,10 @@ sealed interface Effect {
          * would be lethal (a creature's), its loyalty or its defense is dealt to these instead, worked out before prevention and
          * replacement and dealt in the same damage event. */
         val excessTo: Recipients? = null,
+        // vow fixes
+        /** Names the objects this damage was actually dealt to, after prevention and replacement ("a creature dealt damage this way can't
+         * block this turn": not one whose damage was all prevented, CR 120.1, 615.1a). */
+        val postBind: String? = null,
     ) : Effect
     /** [first] and [second] each deal damage equal to their power to the other (CR 701.14). */
     @Serializable @SerialName("fight") data class Fight(

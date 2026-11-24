@@ -4779,16 +4779,18 @@ internal class Sentences(
                 val amount = neoAmount(m.groupValues[3], context) ?: return null
                 return steps.dropLast(1) + Step.If(condition, then = listOf(Step.Do(effect.copy(amount = amount))), otherwise = listOf(last))
             }
-            // vow chunk 02: "A creature dealt damage this way can't block this turn." (the damaged creature, CR 509.1b)
-            if (sentence == "A creature dealt damage this way can't block this turn.") {
-                val damaged = effect.to.target?.let { Objects.Target(it) } ?: effect.to.objects ?: return null
-                return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBlock(ObjectFilter.Any)),
-                    arcanum.api.Affected.Objects(Objects.Where(damaged, ObjectFilter.Type(arcanum.api.CardType.Creature))), arcanum.api.Duration.EndOfTurn))
+            // vow chunk 02: "A creature dealt damage this way can't block this turn." (the damaged creature, CR 509.1b); cube: "… can't be
+            // regenerated this turn."; vow fixes: only a creature this damage was actually dealt to, not one whose damage was prevented (CR 120.1,
+            // 615.1a)
+            val dealtMechanic = when (sentence) {
+                "A creature dealt damage this way can't block this turn." -> Mechanic.CantBlock(ObjectFilter.Any)
+                "A creature dealt damage this way can't be regenerated this turn." -> Mechanic.CantBeRegenerated
+                else -> null
             }
-            if (sentence == "A creature dealt damage this way can't be regenerated this turn.") {
-                val damaged = effect.to.target?.let { Objects.Target(it) } ?: effect.to.objects ?: return null
-                return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBeRegenerated),
-                    arcanum.api.Affected.Objects(Objects.Where(damaged, ObjectFilter.Type(arcanum.api.CardType.Creature))), arcanum.api.Duration.EndOfTurn))
+            if (dealtMechanic != null) {
+                val bind = effect.postBind ?: "damaged"
+                return steps.dropLast(1) + Step.Do(effect.copy(postBind = bind)) + Step.Do(Effect.ApplyMechanics(listOf(dealtMechanic),
+                    arcanum.api.Affected.Objects(Objects.Where(Objects.Bound(bind), ObjectFilter.Type(arcanum.api.CardType.Creature))), arcanum.api.Duration.EndOfTurn))
             }
         }
         // chunk 14: "If this spell was cast from a graveyard, copy that spell twice instead." (CR 707.10)
@@ -7013,7 +7015,8 @@ internal class Sentences(
             val tokens = TAPPED_TOKENS.replaceFirst(printed, "$1 ")
             // lci chunk 10: "create X … tokens that are tapped and attacking" (X defined by "where X is")
             val x = tokens.startsWith("X ")
-            val (count, token) = Tokens.spec(if (x) "two " + tokens.removePrefix("X ") else tokens) ?: return null
+            // vow fixes: "Create a … token with flying and draw a card." isn't one token: two effects, read below
+            val (count, token) = Tokens.spec(if (x) "two " + tokens.removePrefix("X ") else tokens) ?: if (" and " in tokens) return@let else return null
             return listOf(Step.Do(Effect.CreateToken(token, count = if (x) Value.Announced(name = "X") else Value.Fixed(count), tapped = tokens != printed || attacking != null, controller = Players.You,
                 attacking = attacking?.let { arcanum.api.AttackTarget.Chosen })))
         }
@@ -19334,13 +19337,14 @@ internal class Sentences(
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.LoseAbilities(), Mechanic.GainAbilities(keywords)), Affected.Objects(Objects.Bound("returned")),
                     arcanum.api.Duration.Indefinitely))
         }
-        // msh chunk 07: "During that turn, power-up abilities can't be activated." after taking an extra turn: from that turn's upkeep (no
-        // player gets priority in its untap step, CR 502.4) to its end
+        // msh chunk 07: "During that turn, power-up abilities can't be activated." after taking an extra turn: for that whole turn (CR 500.7,
+        // 611.2a); vow fixes: not from a trigger at its upkeep, which left a window while that trigger was on the Stack (CR 603.3b; power-up
+        // has no timing restriction, CR 702.193a)
         if (Msh.DURING_THAT_TURN_CANT_ACTIVATE.matches(sentence)) {
             if (((steps.lastOrNull() as? Step.Do)?.effect as? Effect.ExtraTurn) == null) return null
-            return steps + Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.Upkeep, PlayerFilter.You)),
-                Instructions(steps = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantActivate(ObjectFilter.AbilityOf(label = arcanum.api.AbilityLabel.PowerUp))),
-                    Affected.Players(Players.Each(PlayerFilter.Any)), arcanum.api.Duration.EndOfTurn))))))
+            val (marked, mark) = markExtraTurn(steps) ?: return null
+            return marked + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantActivate(ObjectFilter.AbilityOf(label = arcanum.api.AbilityLabel.PowerUp))),
+                Affected.Players(Players.Each(PlayerFilter.Any)), arcanum.api.Duration.DuringTurn(mark)))
         }
         // msh chunk 08: "You may put a permanent card from among the milled cards into your hand." after milling (the cards in the graveyard,
         // CR 400.7)

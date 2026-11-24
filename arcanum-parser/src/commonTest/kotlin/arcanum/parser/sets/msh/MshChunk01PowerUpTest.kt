@@ -13,7 +13,6 @@ import arcanum.api.Objects
 import arcanum.api.PlayerFilter
 import arcanum.api.Players
 import arcanum.api.Step
-import arcanum.api.TurnStep
 import arcanum.api.Value
 import arcanum.api.Zone
 import arcanum.parser.cube.abilities
@@ -111,8 +110,8 @@ class MshChunk01PowerUpTest {
         powerUp("{5}{U}", counters(Objects.Self), draw(2)),
     )
 
-    // CR 500.7: the extra turn; power-up abilities can't be activated during it, from its upkeep (no player gets priority in an untap
-    // step, CR 502.4)
+    // CR 500.7, 611.2a: the extra turn; power-up abilities can't be activated during the whole of it (vow fixes: not from a trigger at its
+    // upkeep, which left a window while that trigger was on the Stack, CR 603.3b)
     @Test
     fun chronarchTheConqueror() = card(
         name = "Chronarch the Conqueror",
@@ -127,10 +126,9 @@ class MshChunk01PowerUpTest {
         Keyword.Flying,
         powerUp("{5}{U}{U}{U}",
             counters(Objects.Self),
-            Step.Do(Effect.ExtraTurn(Players.You)),
-            Step.Do(Effect.CreateDelayedTrigger(stepBegins(TurnStep.Upkeep, PlayerFilter.You), arcanum.api.Instructions(steps = listOf(
-                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantActivate(ObjectFilter.AbilityOf(label = arcanum.api.AbilityLabel.PowerUp))),
-                    Affected.Players(Players.Each(PlayerFilter.Any)), Duration.EndOfTurn)))))),
+            Step.Do(Effect.ExtraTurn(Players.You, mark = "that turn")),
+            Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantActivate(ObjectFilter.AbilityOf(label = arcanum.api.AbilityLabel.PowerUp))),
+                Affected.Players(Players.Each(PlayerFilter.Any)), Duration.DuringTurn("that turn"))),
         ),
     )
 

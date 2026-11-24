@@ -227,10 +227,11 @@ class Chunk08BurnAndRemovalTest {
         Ability.Spell(Instructions(
             targets = listOf(anyTarget),
             steps = listOf(
-                damageToAnyTarget(Value.Fixed(3)),
+                // CR 120.1, 615.1a: only a creature this damage was actually dealt to
+                Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(3), source = Objects.Self, postBind = "damaged")),
                 Step.Do(Effect.ApplyMechanics(
                     mechanics = listOf(Mechanic.CantBeRegenerated),
-                    affects = Affected.Objects(Objects.Where(Objects.Target("any"), ObjectFilter.Type(CardType.Creature))),
+                    affects = Affected.Objects(Objects.Where(Objects.Bound("damaged"), ObjectFilter.Type(CardType.Creature))),
                     duration = Duration.EndOfTurn,
                 )),
             ),

@@ -83,6 +83,13 @@ class DurationTextTest {
         assertEquals("Haste until the end of Bob's next turn", line(Duration.UntilEndOfYourNextTurn, controller = table.bob))
     }
 
+    // TBL-104, CR 500.7, 611.2a: an effect of an extra turn ("During that turn, …") applies, and shows, only while that extra turn is the
+    // current turn
+    @Test fun duringANamedExtraTurn() {
+        assertEquals("Haste during that extra turn", line(Duration.DuringTurn("that turn"), bound = mapOf("that turn" to NamedValue.Name("extra-1")),
+            change = { it.setup.turn = it.turn.copy(extraTurnKey = "extra-1") }))
+    }
+
     // CR 611.2c: "until the end of their next turn", for the player named as the effect was created
     @Test fun untilTheEndOfANamedPlayersNextTurn() {
         assertEquals("Haste until the end of Bob's next turn",

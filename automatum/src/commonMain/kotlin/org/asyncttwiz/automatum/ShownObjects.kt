@@ -53,7 +53,8 @@ internal class ShownObjects(
                 ?: return@getOrPut prepared.definition
             return@getOrPut made(copied.definition, token = false, gained = copied.gained, "copy ${obj.card.value}").digest
         }
-        val definition = obj.definition
+        // A double-faced token whose faces are multi-part (CR 707.8a) is drawn as its face up, layout and parts
+        val definition = obj.statuses.status<arcanum.engine.state.ObjectStatus.FaceParts>()?.faces?.getOrNull(obj.face) ?: obj.definition
         val made = AtwTokens.submitted(definition, token = true, gained = obj.statuses.status<arcanum.engine.state.ObjectStatus.GainedInCopying>()?.abilities.orEmpty())
         // A copy of a card (offspring, embalm, myriad, a prepare spell's copy, a named card) is drawn with that card's own picture,
         // by the identity its copiable values carry; a token of no card with its best matching token printing (SYS-072)

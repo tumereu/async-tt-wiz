@@ -52,6 +52,12 @@ sealed interface ObjectStatus {
         override val key: String get() = "gained-in-copying"
     }
 
+    /** A double-faced token's [CopiableValues.faceParts]: each face's layout and parts, of a copy of a double-faced permanent that
+     * copies a multi-part object (CR 707.8a, 712.6); its [GameObject.definition] holds each face's first part. */
+    @Serializable @SerialName("face-parts") data class FaceParts(val faces: List<arcanum.api.CardDefinition>) : ObjectStatus {
+        override val key: String get() = "face-parts"
+    }
+
     /** isd: a token's [CopiableValues.createdBy]: the object whose ability created it, or that created the token it copies (CR 201.5a). */
     @Serializable @SerialName("created-by") data class CreatedBy(val source: ObjectId) : ObjectStatus {
         override val key: String get() = "created-by"
@@ -213,6 +219,7 @@ internal val GameObject.protector: PlayerId? get() = statuses.status<ObjectStatu
 internal val GameObject.flippedStatus: Boolean get() = statuses.status<ObjectStatus.Flipped>() != null
 internal val GameObject.gainedInCopying: List<Ability> get() = statuses.status<ObjectStatus.GainedInCopying>()?.abilities.orEmpty()
 internal val GameObject.createdBy: ObjectId? get() = statuses.status<ObjectStatus.CreatedBy>()?.source
+internal val GameObject.faceParts: List<arcanum.api.CardDefinition> get() = statuses.status<ObjectStatus.FaceParts>()?.faces.orEmpty()
 internal val GameObject.fixedCopies: List<FixedCopy> get() = statuses.status<ObjectStatus.FixedCopies>()?.copies.orEmpty()
 internal val GameObject.dealtCombatDamage: Boolean get() = statuses.status<ObjectStatus.DealtCombatDamage>() != null
 internal val GameObject.dealtDamage: Boolean get() = statuses.status<ObjectStatus.DealtDamage>() != null

@@ -48,6 +48,19 @@ class StoredCopiesTest {
         assertEquals(whole, EngineJson.json.decodeFromString(EffectObject.serializer(), EngineJson.json.encodeToString(EffectObject.serializer(), whole)))
     }
 
+    // CR 707.8a, 712.6: a layout per face is written only when a face has parts of its own
+    @Test
+    fun aLayoutPerFaceIsWrittenOnlyWhenAFaceHasParts() {
+        val plain = effect(values = CopiableValues(Layout.Transform, listOf(left, right)))
+        assertFalse("faceParts" in EngineJson.json.encodeToString(EffectObject.serializer(), plain))
+        val room = arcanum.api.CardDefinition(Layout.Split, listOf(left, right))
+        val parted = effect(values = CopiableValues(Layout.Transform, emptyList(), up = 1).withFaceParts(listOf(room, room)))
+        assertEquals(parted, EngineJson.json.decodeFromString(EffectObject.serializer(), EngineJson.json.encodeToString(EffectObject.serializer(), parted)))
+        val status: arcanum.engine.state.ObjectStatus = arcanum.engine.state.ObjectStatus.FaceParts(listOf(room, room))
+        assertEquals(status, EngineJson.json.decodeFromString(arcanum.engine.state.ObjectStatus.serializer(),
+            EngineJson.json.encodeToString(arcanum.engine.state.ObjectStatus.serializer(), status)))
+    }
+
     @Test
     fun aSpellCopyWritesItsValuesOnlyWhenItHasThem() {
         val plain = StackItemKind.SpellCopy(copy)

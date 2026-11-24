@@ -493,11 +493,14 @@ internal object Filters {
     fun objects(phrase: String, self: Set<String> = emptySet()): Objects? = MomPhrases.objects(phrase) ?: noun(phrase)?.let { Objects.Each(it) }
 
     /** The name of a target slot: its noun ("nonbasic land" → "land"), "permanent" for a list of permanent types. */
+    // neo chunk 03: "creature you control that doesn't have a +1/+1 counter on it" is named "creature" (not "… the same name as …": woe's names stay)
+    private val WITHOUT_A_COUNTER_SUFFIX = Regex(""" that (?:doesn't|don't) have an? \S+ counters? on (?:it|them)""")
+
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
         // blb chunk 06: "… that was dealt damage this turn" is not part of the name; blb chunk 10: nor statuses as alternatives
         // mom chunk 05: "planeswalker that was activated this turn or tapped creature" names both kinds ("permanent")
-        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).replace(" that was activated this turn", "").substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ").substringBefore(" that saddled ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that isn't exactly ").substringBefore(" that's exactly ") /* mom chunk 01 */.substringBefore(" that entered ").substringBefore(" that has ") /* rvr chunk 05 */.substringBefore(" without ").substringBefore(" with ").substringBefore(" other than ") /* lci chunk 04 */
+        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).replace(" that was activated this turn", "").substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ").substringBefore(" that saddled ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that isn't exactly ").substringBefore(" that's exactly ") /* mom chunk 01 */.substringBefore(" that entered ").substringBefore(" that has ") /* rvr chunk 05 */.replace(WITHOUT_A_COUNTER_SUFFIX, "") /* neo chunk 03 */.substringBefore(" without ").substringBefore(" with ").substringBefore(" other than ") /* lci chunk 04 */
             .let { Mkm.OWNED_NOT_CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it } // mkm chunk 01
             .let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard").substringBefore(" from your graveyard").substringBefore(" in a graveyard") // chunk 31, otj chunk 04, mkm chunk 09
@@ -2051,6 +2054,8 @@ internal object Values {
                 arcanum.api.Measure.Objects)
         }
         RvrPhrases.value(text)?.let { return it } // rvr
+        // neo chunk 03: "mana value less than or equal to that damage" (the amount of the damage event that triggered, CR 603.2c)
+        if (text == "that damage") return Value.EventAmount
         OnePhrases.value(text, exiled)?.let { return it } // one
         LciPhrases.value(text)?.let { return it } // lci
         IsdPhrases.value(text)?.let { return it } // isd

@@ -175,14 +175,19 @@ const val TimelineLoadingTag = "timeline-loading"
 internal val SeparatorInk = Color(0xff59656a)
 private val SeparatorLabelStyle = TextStyle(fontSize = 9.sp, lineHeight = 11.sp, fontWeight = FontWeight.Medium)
 
-/** A recognized hold describes the event and consumes the tap; it never moves the review cursor. */
+/** A recognized hold describes the event and consumes the tap; it never moves the review cursor. HIS-011, WEB-028: on the
+ * desktop layout the mouse resting on the event shows the same text (after the controls' tooltip delay, gone once the pointer
+ * leaves or presses), and a right-click shows it as a control's right-click does its hold. */
 @Composable
 private fun TimelineEventChip(event: HistoryTimelineEvent, color: Color, selected: Boolean, modifier: Modifier,
     eventIcon: @Composable (HistoryIcon) -> Unit, onClick: () -> Unit) {
     var held by remember(event.id) { mutableStateOf(false) }
-    val alpha by animateFloatAsState(if (held) 1f else 0f, tween(150), label = "Event description")
+    var hovered by remember(event.id) { mutableStateOf(false) }
+    val alpha by animateFloatAsState(if (held || hovered) 1f else 0f, tween(150), label = "Event description")
     val click by rememberUpdatedState(onClick)
+    val desktop = LocalAppLayout.current == AppLayout.Desktop
     HistoryEventChip(event, color, selected, modifier.semantics { onClick { click(); true } }.hoverLook(HoverLook.Tint(color, CircleShape))
+        .then(if (!desktop) Modifier else Modifier.desktopControl(event.id, onRight = { hovered = true }, onHover = { hovered = it }))
         .pointerInput(event.id) {
             detectTapGestures(onPress = { try { tryAwaitRelease() } finally { held = false } },
                 onTap = { click() }, onLongPress = { held = true })

@@ -478,8 +478,9 @@ internal object Filters {
         }
         // gtc chunk 04: "creature with power less than or equal to the number of +1/+1 counters removed this way"
         // one chunk 10: also "with mana value less than or equal to the mana value of the discarded card"; mh3 chunk 12: "… to your devotion to black"
+        // neo chunk 09: "creature with mana value less than X" (X announced, CR 107.3a)
         GTC_WITH_POWER_AT_MOST_VALUE.matchEntire(phrase)?.let { m ->
-            val value = Values.value(m.groupValues[4]) ?: return null
+            val value = (if (m.groupValues[4] == "X") Value.Announced(name = "X") else Values.value(m.groupValues[4])) ?: return null
             val comparison = if (m.groupValues[3].isEmpty()) Comparison.Less else Comparison.AtMost
             return all(noun(m.groupValues[1]) ?: return null, when (m.groupValues[2]) {
                 "power" -> ObjectFilter.Power(comparison, value)
@@ -563,6 +564,8 @@ internal object Filters {
             // chunk 41: "a tapped land"
             "tapped" -> return ObjectFilter.HasStatus(arcanum.api.Status.Tapped)
             "blocking" -> return ObjectFilter.HasStatus(arcanum.api.Status.Blocking) // blb chunk 10
+            // neo chunk 08: "attacking modified creature" (CR 700.9)
+            "modified" -> return ObjectFilter.Modified
             // dsk chunk 06: "a face-down permanent" (CR 708)
             "face-down" -> return ObjectFilter.HasStatus(arcanum.api.Status.FaceDown)
             // mkm chunk 07: "face-up creatures you control with disguise" (CR 708)
@@ -614,7 +617,8 @@ internal object Filters {
     // dsk chunk 01
     private val WITHOUT_A_NAME = Regex("""(.+) that (?:don't|doesn't) have a name""")
     private val NOT_SHARING_LAND_TYPE = Regex("""(.+) that doesn't share a land type with (.+)""")
-    private val NOT_SAME_NAME_AS = Regex("""(.+) that doesn't have the same name as (.+)""")
+    // neo chunk 08: "Aura card with a different name than each Aura you control" (no name shared with any of them, CR 201.2)
+    private val NOT_SAME_NAME_AS = Regex("""(.+) (?:that doesn't have the same name as|with a different name than each) (.+)""")
     // (also "Kithkin or Soldier spells you cast": "you cast" belongs to every alternative, CR 601.2f)
     private val SPELLS_YOU_CAST_FROM = Regex("""(.+ spells you cast) from (exile|your hand|your graveyard)""")
     private val SPELLS_YOU_CAST = Regex("""([\w-]+(?:(?:,| or|, or) [\w-]+)*) spells you cast""")
@@ -2120,6 +2124,10 @@ internal object Values {
         RvrPhrases.value(text)?.let { return it } // rvr
         // neo chunk 03: "mana value less than or equal to that damage" (the amount of the damage event that triggered, CR 603.2c)
         if (text == "that damage") return Value.EventAmount
+        // neo chunk 07: "the number of times this ability has resolved this turn" (counting this resolution)
+        if (text == "the number of times this ability has resolved this turn") return Value.AbilityUsesThisTurn(resolved = true)
+        // neo chunk 07: "the sacrificed permanent's mana value" (the cost's permanent as it last existed, CR 608.2h)
+        Neo.SACRIFICED_NUMBER.matchEntire(text)?.let { m -> return Value.Of(Dmr.property(m.groupValues[1]), Objects.Bound(SACRIFICED), arcanum.api.Combine.Single) }
         OnePhrases.value(text, exiled)?.let { return it } // one
         LciPhrases.value(text)?.let { return it } // lci
         IsdPhrases.value(text)?.let { return it } // isd

@@ -222,7 +222,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         dismiss()
         val all = abilities(play, cardId).orEmpty()
         AppLog.info("table", "Tap on $cardId: ${all.size} abilities, ${offered.size} usable: ${if (all.size < 2) "activated" else "chips"}")
-        if (all.size < 2) play(cardId, offered.single()) else abilityCard = cardId
+        // More usable abilities than it has is a fault (reported): its chips show them rather than one being guessed
+        val only = offered.singleOrNull()
+        if (all.size < 2 && only == null) Faults.report("TableToolkitController", "more usable abilities than the card has",
+            mapOf("card" to cardId, "abilities" to "${all.size}", "usable" to "${offered.size}"))
+        if (all.size < 2 && only != null) play(cardId, only) else abilityCard = cardId
         return true
     }
 

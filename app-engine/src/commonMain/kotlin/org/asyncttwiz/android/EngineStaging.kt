@@ -4,6 +4,7 @@ import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.CommandIds
 import org.asyncttwiz.protocol.EngineRecordKind
+import org.asyncttwiz.protocol.Faults
 import org.asyncttwiz.protocol.MoveInsertion
 import org.asyncttwiz.protocol.MoveSourceEdge
 import org.asyncttwiz.protocol.MtgAction
@@ -62,7 +63,12 @@ object EngineStaging {
         val card = requireNotNull(board.cards.singleOrNull { it.id == action.cardId }) { "missingReference" }
         require(card.containerId == container.id && card.id in container.cards && card.placement == action.source.placement) { "movementConflict" }
         val cards = board.cards.associateBy { it.id }
-        fun members(placement: PlayPlacement?) = container.cards.filter { id -> cards.getValue(id).placement == placement }
+        // A Battlefield naming a card the board doesn't hold is a fault: reported, and the move refused
+        val unheld = container.cards.filter { it !in cards }
+        if (unheld.isNotEmpty()) Faults.report("EngineStaging", "battlefield member not on the board",
+            mapOf("container" to container.id, "cards" to unheld.joinToString(), "request" to requestId))
+        require(unheld.isEmpty()) { "missingReference" }
+        fun members(placement: PlayPlacement?) = container.cards.filter { id -> cards[id]?.placement == placement }
         val sourceMembers = members(card.placement)
         require(action.source.edge == MoveSourceEdge.MEMBER) { "invalidInput" }
         require(action.source.bottomSlice.isEmpty()) { "movementConflict" }
@@ -76,7 +82,7 @@ object EngineStaging {
         val ordered: List<String>
         if (destination.insertion == MoveInsertion.EMPTY) {
             require(destination.pileId == null) { "invalidInput" }
-            require(reduced.none { id -> cards.getValue(id).placement?.position == position }) { "movementConflict" }
+            require(reduced.none { id -> cards[id]?.placement?.position == position }) { "movementConflict" }
             // An unchanged solo placement is a no-op, retaining its stable pile identity
             val solo = card.placement?.position == position && sourceMembers.size == 1
             if (solo && action.faceDown == null) return board

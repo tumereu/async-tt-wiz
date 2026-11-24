@@ -244,3 +244,8 @@ val yourEndStep: Trigger = stepBegins(TurnStep.End, PlayerFilter.You)
 val exileAndReturnTransformed: Ability = chapter(3, move(Objects.Self, Zone.Exile, postBind = "exiled"),
     Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.You, transformed = true))))
 val thatSpell: Objects = Objects.EventObject(arcanum.api.EventRole.Object)
+/** A planeswalker's loyalty ability ("[+1]: …", CR 606.3). */
+fun loyalty(amount: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
+    Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(amount)))), Instructions(targets = targets, steps = steps.toList()), anyTime)
+/** "you control an artifact and an enchantment" (an artifact enchantment is both). */
+val controlArtifactAndEnchantment: Condition = Condition.And(listOf(Condition.Exists(and(artifact, you), atLeast = 1), Condition.Exists(and(enchantment, you), atLeast = 1)))

@@ -38,7 +38,47 @@ internal object Neo {
     val ATTACHED_IS_CREATURE = Regex("""((?:Enchanted|Equipped) (?:creature|land|permanent|artifact)) is (an? [^.]+? creature(?: with [^.]+)?)\.(?: It's still an? [a-z]+\.)?""")
     // neo chunk 06: "If enchanted land would be destroyed, instead sacrifice this Aura and that land gains indestructible until end of turn."
     val AND_THAT_NOUN = Regex(""" and that (?:creature|land|permanent|artifact) """)
+    // neo chunk 07: "As long as a card exiled with Eater of Virtue has flying, equipped creature has flying. The same is true for first strike, …"
+    val AS_LONG_AS_EXILED_WITH_HAS_SAME_FOR = Regex("""As long as an? (.+?) exiled with (.+?) has ([a-z ]+), (.+?) has \3\. The same is true for (.+)\.""")
+    // neo chunk 07: "Return any number of target nonland permanents with total mana value 6 or less to their owners' hands."
+    val TARGETS_WITH_TOTAL_AT_MOST = Regex("""(.+?\btarget [^.]+?) with total (mana value|power) (\d+) or less( [^.]+)?\.""")
+    // neo chunk 07: "If it has mana value less than the sacrificed permanent's mana value, scry 2."
+    val IT_HAS_NUMBER_THAN = Regex("""it has (mana value|power|toughness) (less|greater) than (.+)""")
+    // neo chunk 07: "the sacrificed permanent's mana value"
+    val SACRIFICED_NUMBER = Regex("""the sacrificed (?:creature|permanent|artifact)'s (mana value|power|toughness)""")
+    // neo chunk 07: "When you exile a nonland card this way, Hidetsugu deals damage equal to the exiled card's mana value to any target."
+    val WHEN_YOU_EXILE_THIS_WAY = Regex("""When you exile an? (.+?) this way, (.+)""")
+    // neo chunk 07: "Equipped creature gets +X/+0 until end of turn, where X is …" (the X cut off before)
+    val ATTACHED_GETS_UNTIL_EOT = Regex("""((?:Enchanted|Equipped) creature) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) until end of turn\.""")
     val IF_WOULD_BE_DESTROYED_INSTEAD = Regex("""If ((?:enchanted|equipped) (?:creature|land|permanent|artifact)) would be destroyed, instead (.+)\.""")
+    // neo chunk 08
+    val COSTS_LESS_IF_AND_LESS_IF = Regex("""This spell costs (\{\d+\}) less to cast if (.+?) and (\{\d+\}) less to cast if (.+)\.""")
+    val ITS_A_SUBTYPES_WITH_BASE_PT = Regex("""It's an? ((?:[A-Z]\w+ )*[A-Z]\w+) with base power and toughness (\d+)/(\d+)(?: and (.+))?\.""")
+    val AS_LONG_AS_ENTERED_THIS_TURN_LOYALTY_INSTANT = Regex("""As long as (.+?) entered this turn, you may activate (?:her|his|its|their) loyalty abilities any time you could cast an instant\.""")
+    val AS_LONG_AS_HAS_QUOTED = Regex("""As long as (.+?), (it|.+?) has "(.+)"\.?""")
+    val SACRIFICES_IF_THEY_CANT_REPEAT_FOR = Regex("""(Target opponent|Target player|Each opponent|Each player) sacrifices (an? \w+) of their choice\. If they can't, (.+?)\. Then repeat this process for (an? \w+(?:, an? \w+)*,? and an? \w+)\.""")
+    val CAST_UP_TO_TOTAL_MV_FROM_ZONES_FREE = Regex("""You may cast up to (\w+) (.+?) spells with total mana value (\d+) or less from your (graveyard|hand)(?: and/or (graveyard|hand))? without paying their mana costs\.""")
+    val SPELLS_COST_FOR_EACH_TARGET = Regex("""Spells (you|your opponents) cast cost (\{\d+\}) (less|more) to cast for each target\.""")
+    val WITH_MANA_VALUE_AT_MOST_THAT = Regex("""(.+?) with mana value less than or equal to that (?:[A-Z]\w+|creature|artifact|enchantment|permanent|card)(?: and (with .+))?""")
+    // neo chunk 09: "Whenever a Vehicle you control attacks" (the subtype a later "that Vehicle" names)
+    val WHENEVER_A_SUBTYPE = Regex("""^(?:(?:When|Whenever) )?an? ([A-Z][a-z]+) """)
+    // neo chunk 09: "If this spell's additional cost was paid, Voltage Surge deals 4 damage instead."
+    val IF_DEALS_AMOUNT_INSTEAD = Regex("""If (.+?), (.+?) deals (.+?) damage instead\.""")
+    // neo chunk 09: "X plus 2", "X minus one"
+    val PLUS_OR_MINUS = Regex("""(.+) (plus|minus) (\w+)""")
+    // neo chunk 09: "X minus one 2/2 white Samurai creature tokens with vigilance" (a count that isn't a plain number)
+    val COUNTED_TOKENS = Regex("""(X(?: (?:plus|minus) \w+)?) (.+ tokens(?: with .+)?)""")
+    // neo chunk 09: "Seismic Wave deals 2 damage to any target and 1 damage to each nonartifact creature target opponent controls."
+    val DEALS_N_TO_AND_M_TO = Regex("""(.+?) deals (\w+) damage to (.+?) and (\w+) damage to (.+)\.""")
+    // neo chunk 09: "It deals damage equal to … to target player and that much damage to up to one target creature."
+    val DEALS_EQUAL_TO_AND_THAT_MUCH_TO = Regex("""(.+? deals damage equal to .+? to .+?) and that much damage to (.+)\.""")
+    // neo chunk 09: "distribute four +1/+1 counters among any number of creatures and/or Vehicles target player controls"
+    val DISTRIBUTE_AMONG_TARGET_PLAYER_CONTROLS = Regex("""[Dd]istribute (\w+) (\S+) counters among any number of (.+?) target (player|opponent) controls\.""")
+    // neo chunk 09: "for each kind of counter on target permanent, put another counter of that kind on it or remove one from it."
+    val EACH_KIND_PUT_OR_REMOVE = Regex("""[Ff]or each kind of counter on target (.+?), put another counter of that kind on it or remove one from it\.""")
+    // neo chunk 09: "permanent that shares a card type with the chosen card"
+    val SHARES_CARD_TYPE_WITH_CHOSEN = Regex("""(.+?) that shares a card type with the chosen card""")
+    val NEXT_SPELL_COSTS_LESS = Regex("""[Tt]he next (?:(.+?) )?spell you cast this turn costs ((?:\{[^}]+\})+) less to cast\.""")
 }
 
 /** neo: nouns and conditions of Kamigawa: Neon Dynasty wordings, tried by [Filters] and [Conditions]. */
@@ -51,9 +91,11 @@ internal object NeoPhrases {
     private val IT_HAS_DEALT_DAMAGE_TO_THAT_PLAYER = Regex("""it has dealt (\w+) or more damage to that player this turn""")
 
     private val SUBTYPE_AND_SUBTYPE = Regex("""([A-Z][\w-]*) and ([A-Z][\w-]*) ((?:creatures|permanents)\b.*)""")
+    private val SELF_IS_MODIFIED = Regex("""(.+?) is modified""")
     private val SELF_IS_ATTACHED_TO_A_CREATURE = Regex("""(.+?) is attached to a creature""")
     // neo chunk 06: "creature with the greatest power among creatures on the battlefield" (ties count, CR 208.1)
     private val WITH_THE_GREATEST_AMONG = Regex("""(.+?) with the greatest (power|toughness|mana value) among (.+)""")
+    private val CONTROL_A_AND_A = Regex("""you control an? ([a-z]+) and an? ([a-z]+)""")
     private val WITHOUT_A_COUNTER = Regex("""(.+?) that (?:doesn't|don't) have an? (\S+) counters? on (?:it|them)""")
 
     fun noun(phrase: String): ObjectFilter? {
@@ -91,9 +133,19 @@ internal object NeoPhrases {
     }
 
     fun condition(text: String, self: Set<String>): Condition? {
+        // neo chunk 08: "you control an artifact and an enchantment" (one of each, both at once; an artifact enchantment is both, CR 205.2b)
+        CONTROL_A_AND_A.matchEntire(text)?.let { m ->
+            val first = Filters.noun(m.groupValues[1] + " you control") ?: return@let
+            val second = Filters.noun(m.groupValues[2] + " you control") ?: return@let
+            return Condition.And(listOf(Condition.Exists(first, atLeast = 1), Condition.Exists(second, atLeast = 1)))
+        }
         // neo chunk 04: "The Reality Chip is attached to a creature" (an Equipment with reconfigure, CR 702.151b; false while unattached)
         SELF_IS_ATTACHED_TO_A_CREATURE.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.AttachedTo(of = Objects.Self), ObjectFilter.Type(arcanum.api.CardType.Creature))
+        }
+        // neo chunk 08: "this creature is modified" (it has an Equipment or an Aura its controller controls attached, or a counter, CR 700.9)
+        SELF_IS_MODIFIED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.Modified)
         }
         IT_HAS_DEALT_DAMAGE_TO_THAT_PLAYER.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: m.groupValues[1].toIntOrNull() ?: return null

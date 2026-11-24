@@ -134,6 +134,11 @@ sealed interface Value {
     /** [then] while [condition] holds, else [otherwise] ("This ability costs {1} less to activate during your turn": {1} less once
      * during your turn, CR 601.2f). */
     @Serializable @SerialName("if") data class If(val condition: Condition, val then: Value, val otherwise: Value = Fixed(0)) : Value
+    // neo
+    /** How many targets the spell or ability [of] has (CR 115.1): every target it was given, an object or player chosen for several
+     * instances of the word "target" counted once for each ("Spells you cast cost {1} less to cast for each target": read as the cost is
+     * determined, after the targets are chosen, CR 601.2c, 601.2f); 0 when it isn't on the Stack. */
+    @Serializable @SerialName("targets-of") data class TargetsOf(val of: Objects) : Value
 }
 
 /**

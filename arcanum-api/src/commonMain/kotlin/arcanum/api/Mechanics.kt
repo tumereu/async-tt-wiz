@@ -412,6 +412,11 @@ sealed interface Mechanic {
         /** Each of those abilities may be activated only this many times each turn ("You may activate each of those abilities only once each
          * turn", CR 602.5b). */
         val perTurn: Int? = null,
+        // neo
+        /** Instead of their activated abilities, each of their keyword abilities of these kinds, every instance as it is ("As long as a card exiled
+         * with this Equipment has flying, equipped creature has flying. The same is true for … protection …": each protection a card has, its
+         * quality included, CR 702.16a; a "hexproof from" is a hexproof ability, CR 702.11e). */
+        val onlyKeywords: List<@Serializable(with = KeywordKindSerializer::class) KeywordKind>? = null,
     ) : Mechanic {
         override val layer: Layer get() = Layer.Ability
         override val stacking: Stacking get() = Stacking.Independent

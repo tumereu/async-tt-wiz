@@ -2328,7 +2328,9 @@ internal class Sentences(
             val counter = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { ObjectFilter.HasCounter(Counters.kind(it) ?: return null, 1) }
             val by = ObjectFilter.ExiledBy(PlayerFilter.You).takeIf { m.groupValues[5].isNotEmpty() }
             val how = if (m.groupValues[2] == "play") PlayKind.Play else PlayKind.Cast
-            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Exile, how, perTurn = 1, holder = PlayerFilter.You, manaAsAnyColor = m.groupValues[6].isNotEmpty())),
+            // "any color" isn't colorless, "any type" is (CR 106.1b, 609.4b)
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Exile, how, perTurn = 1, holder = PlayerFilter.You, manaAsAnyColor = m.groupValues[7] == "type",
+                manaAsAnyColorOnly = m.groupValues[7] == "color")),
                 condition = arcanum.api.Condition.YourTurn.takeIf { m.groupValues[1] != "each turn" },
                 affects = arcanum.api.Affected.Objects(Objects.Each(Filters.all(*listOfNotNull(cards, ObjectFilter.InZone(Zone.Exile), counter, by).toTypedArray()))))
         }
@@ -11313,16 +11315,17 @@ internal class Sentences(
                 "Until the end of your next turn" -> arcanum.api.Duration.UntilEndOfYourNextTurn
                 else -> return null
             }
-            // vow chunk 05: "you may spend mana as though it were mana of any color to cast that spell" (CR 609.4b)
+            // vow chunk 05: "you may spend mana as though it were mana of any color to cast that spell" (CR 609.4b); snc fixes: any colour, not
+            // colorless (CR 106.1b)
             val anyColor = m.groupValues[4].isNotEmpty()
             if (m.groupValues[2] == "you") return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You,
-                manaAsAnyColor = anyColor)), Affected.Objects(cards), duration)))
+                manaAsAnyColorOnly = anyColor)), Affected.Objects(cards), duration)))
             // vow chunk 05: "that creature's controller" (the event's creature, as it last existed if it left, CR 608.2h) is found as the ability
             // resolves and kept by name: the permission is theirs for its whole duration (CR 611.2c)
             val creature = context.that ?: return null
             return listOf(Step.ForEach(arcanum.api.Each.Players(Players.ControllerOf(creature)), bind = "player", together = true, steps = listOf(
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(Players.Bound("player")),
-                    manaAsAnyColor = anyColor)), Affected.Objects(cards), duration)))))
+                    manaAsAnyColorOnly = anyColor)), Affected.Objects(cards), duration)))))
         }
         // blb chunk 04: "Draw cards equal to the number of stash counters on this enchantment."
         // one chunk 09: "… counters on it" in a dies trigger: the creature as it last existed (CR 603.10a)

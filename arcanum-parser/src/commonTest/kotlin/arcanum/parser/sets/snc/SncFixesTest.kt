@@ -78,7 +78,7 @@ class SncFixesTest {
     private val collection = CounterKind.Named("collection")
 
     // CR 122.1 (the counter put on each exiled card in exile), 113.8 (the controller of the ability that exiled it), 609.4b (mana as though of any
-    // color), 601.2 / 305.1 (play: lands too); once each turn, any turn
+    // color: not colorless, CR 106.1b), 601.2 / 305.1 (play: lands too); once each turn, any turn
     @Test
     fun evelynTheCovetous() = card(
         name = "Avelyne, the Grasping",
@@ -95,8 +95,24 @@ class SncFixesTest {
         triggered(enters(or(ObjectFilter.Is(Objects.Self), and(another, sub("Vampire"), you))),
             doing(Effect.Move(Objects.LibraryCards(Players.Each(PlayerFilter.Any), n(1), fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
             doing(Effect.PutCounters(Objects.Bound("exiled"), collection, n(1)))),
-        static(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, perTurn = 1, holder = PlayerFilter.You, manaAsAnyColor = true),
+        static(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, perTurn = 1, holder = PlayerFilter.You, manaAsAnyColorOnly = true),
             affects = Objects.Each(and(ObjectFilter.Category(ObjectCategory.Card), ObjectFilter.InZone(Zone.Exile), ObjectFilter.HasCounter(collection, 1),
                 ObjectFilter.ExiledBy(PlayerFilter.You)))),
+    )
+
+    // CR 118.14, 609.4b, 106.1b: "as though it were mana of any type" also pays colorless costs; "any color" doesn't
+    @Test
+    fun onceACastFromExileWithAnyTypeMana() = card(
+        name = "Collector of the Vault",
+        cost = "{3}{B}",
+        type = "Creature — Vampire",
+        pt = "3/3",
+        text = """
+            Once during each of your turns, you may cast a card from exile with a collection counter on it, and you may spend mana as though it were mana of any type to cast that spell.
+        """,
+    ) parsesTo abilities(
+        static(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, perTurn = 1, holder = PlayerFilter.You, manaAsAnyColor = true),
+            condition = Condition.YourTurn,
+            affects = Objects.Each(and(ObjectFilter.Category(ObjectCategory.Card), ObjectFilter.InZone(Zone.Exile), ObjectFilter.HasCounter(collection, 1)))),
     )
 }

@@ -1,0 +1,1 @@
+fix: Mana remembers what made it as it was made: mana from a permanent that was a Treasure then still counts as Treasure mana later, mana made before it became one doesn't, and mana added by a snow spell is snow mana.

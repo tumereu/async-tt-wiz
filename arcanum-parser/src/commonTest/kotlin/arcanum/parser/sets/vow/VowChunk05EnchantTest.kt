@@ -37,7 +37,7 @@ class VowChunk05EnchantTest {
             move(Objects.LibraryCards(Players.EventPlayer, n(1), fromTop = true), Zone.Exile, postBind = "exiled"),
             Step.ForEach(Each.Players(Players.ControllerOf(Objects.EventObject(EventRole.Source))), bind = "player", together = true, steps = listOf(
                 untilEndOfTurn(Objects.Bound("exiled"), Mechanic.MayPlay(from = Zone.Exile, how = PlayKind.Play,
-                    holder = PlayerFilter.Is(Players.Bound("player")), manaAsAnyColor = true))))),
+                    holder = PlayerFilter.Is(Players.Bound("player")), manaAsAnyColorOnly = true))))),
     )
 
     // CR 400.7, 603.10a (the Aura is a new object in the graveyard), 712.14a (it returns back face up), 303.4f (attached to the player the

@@ -65,6 +65,10 @@ data class ManaUnit(
     /** The printed words of its riders, from the ability that made it ([arcanum.api.ManaProduction.words]): what hosts show players
      * ("Spend this mana only to cast creature spells."); empty when it has none or the definition doesn't say them. */
     val words: List<String> = emptyList(),
+    /** snc fixes: its source's characteristics as the source produced it (CR 106.3), its abilities left out: what "mana produced by
+     * Treasures" and "if mana from a Treasure was spent" test, whatever has become of the source since. Null: read the source as it
+     * is (or last existed). */
+    val sourceThen: arcanum.engine.view.Characteristics? = null,
 ) {
     /** It carries a rider ([restriction], [onlyCostsWithX], [spellGets], [keptUntil], [whenSpent]; CR 106.4, 106.6), which [words]
      * should say. Snow isn't one: it is where the mana came from ([snow], CR 106.3). */

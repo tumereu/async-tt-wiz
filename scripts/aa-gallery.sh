@@ -3,8 +3,9 @@
 # androidApp/src/test/screenshots/gallery.tsv (one representative screenshot each, its caption, catalog IDs and
 # decision kinds), as committed at HEAD. The owner reviews only what's new, changed or commented since the last
 # gallery review (the gallery-reviewed tag): those items come first with a
-# badge and red boxes around the pixels that changed (toggle: H), the rest are folded away; a picture re-recorded with the
-# same pixels is no change. Items sharing a sequence (gallery.tsv's sixth column) show as one card, all their pictures in
+# badge and red boxes around the pixels that changed (toggle: H), new pictures first, the rest are folded away; a picture re-recorded
+# with the same pixels is no change, and a changed picture whose every change already shows in an earlier one is folded
+# away too (owner, 2026-11-24). Items sharing a sequence (gallery.tsv's sixth column) show as one card, all their pictures in
 # order, to review whole when any is. An item may name an animated clip (.webp, a key animation) in the screenshot's place:
 # it plays looping in its card, marked "clip", and counts as changed when its file did. Comments are lines
 # "<screenshot>\t<note>" in ~/projects/atw-cache/aa-gallery-comments.tsv.
@@ -30,7 +31,7 @@ import html, os, subprocess, sys
 
 shots, tag, out, comments_file, lib = sys.argv[1:]
 sys.path.insert(0, lib)
-from shotdiff import changed_boxes, size
+from shotdiff import changes, size
 comments = {}
 if os.path.exists(comments_file):
     for line in open(comments_file):
@@ -65,7 +66,7 @@ for line in git("show", f"HEAD:{shots}/gallery.tsv").splitlines()[1:]:
     image = f"images/{number.zfill(3)}-{os.path.basename(shot)}"
     with open(os.path.join(out, image), "wb") as f:
         f.write(png)
-    status, regions = ("new" if path not in seen else "changed" if path in changed or caption_path in changed else ""), []
+    status, regions, keys = ("new" if path not in seen else "changed" if path in changed or caption_path in changed else ""), [], []
     if status == "changed" and clip:
         # A clip has no boxes: its file changed (a re-recorded clip with the same frames is the same file), or its caption
         status = "changed" if path in changed else "caption"
@@ -73,12 +74,13 @@ for line in git("show", f"HEAD:{shots}/gallery.tsv").splitlines()[1:]:
         # Boxes around the changed pixels against the reviewed picture; same pixels with only a caption change says so,
         # and a picture re-recorded with the same pixels and caption is no change to review
         if path in changed:
-            regions = changed_boxes(git("show", f"{tag}:{path}", text=False), png)
+            found = changes(git("show", f"{tag}:{path}", text=False), png)
+            regions, keys = [list(box) for box, _ in found], [key for _, key in found]
         if not regions:
             status = "caption" if caption_path in changed else ""
             same_pixels += status == ""
     items.append(dict(number=int(number), name=name, shot=shot, ids=ids.split(), decisions=decisions.replace(",", " ").split(),
-                      caption=caption, image=image, status=status, comment=comments.get(shot, ""), regions=regions,
+                      caption=caption, image=image, status=status, comment=comments.get(shot, ""), regions=regions, keys=keys,
                       size=[1, 1] if clip else size(png), sequence=sequence.strip(), clip=clip))
 
 for i in items:
@@ -93,9 +95,21 @@ for i in items:
         units.append((i["sequence"], [i]))
 review = [u for u in units if any(i["review"] for i in u[1])]
 rest = [u for u in units if not any(i["review"] for i in u[1])]
+# New pictures first, then changed ones, then caption-only and commented ones, each in number order (owner, 2026-11-24)
+rank = lambda u: min({"new": 0, "changed": 1}.get(i["status"], 2) for i in u[1] if i["review"])
+review.sort(key=lambda u: (rank(u), u[1][0]["number"]))
+# A changed picture whose every change (the same pixels before and after) already shows in an earlier one is folded away,
+# shown once only (owner, 2026-11-24); a sequence, a comment or a caption change keeps it in view
+shown, repeats = set(), []
+for u in list(review):
+    i = u[1][0]
+    if not u[0] and i["status"] == "changed" and not i["comment"] and i["keys"] and None not in i["keys"] and set(i["keys"]) <= shown:
+        review.remove(u); repeats.append(u)
+    shown.update(k for m in u[1] for k in m["keys"] if k)
 count = lambda status: sum(i["status"] == status for i in items)
 summary = (f'{sum(len(u[1]) for u in review)} to review ({count("new")} new, {count("changed")} changed, {count("caption")} caption only, '
-           f'{sum(bool(i["comment"]) for i in items)} commented)' + (f'; {same_pixels} re-recorded with the same pixels left out' if same_pixels else ""))
+           f'{sum(bool(i["comment"]) for i in items)} commented)' + (f'; {same_pixels} re-recorded with the same pixels left out' if same_pixels else "")
+           + (f'; {len(repeats)} only repeating an earlier change folded away' if repeats else ""))
 
 def unit(u):
     name, members = u
@@ -189,6 +203,7 @@ page = f'''<!DOCTYPE html>
 <main>
 {chr(10).join(unit(u) for u in review) or '<p>Nothing new, changed or commented.</p>'}
 </main>
+{f'<details><summary>Only the same change as an earlier picture ({len(repeats)})</summary><main>' + chr(10).join(unit(u) for u in repeats) + '</main></details>' if repeats else ''}
 <details><summary>Already reviewed, unchanged ({len(rest)})</summary>
 <main>
 {chr(10).join(unit(u) for u in rest)}

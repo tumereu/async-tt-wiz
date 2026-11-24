@@ -323,7 +323,9 @@ internal object Payment {
                 else -> refuse("Not a simple mana ability")
             }
         }
-        addMana(recorder, player, yields.flatMap { Mana.units(it, use.color, use.source) })
+        // snc fixes: the source as it produces the mana, before its costs are paid (CR 106.3, 605.3b: it resolves at once)
+        val then = Mana.sourceThen(snap, use.source)
+        addMana(recorder, player, yields.flatMap { Mana.units(it, use.color, use.source, then) })
         recorder.record(Change.Happened(GameEvent.Activated(player, use.source, inst.origin.key, manaAbility = true, label = ability.label)))
         countActivation(recorder, use.source, inst.origin, loyalty = false)
         arcanum.engine.trigger.Triggers.resolveManaTriggers(act, use.triggered)
@@ -625,6 +627,7 @@ internal object Payment {
             x = plan.choices.announced["X"],
             manaSpent = spentByKind(spent),
             manaSources = spent.mapNotNull { it.source },
+            manaSourcesThen = spent.filter { it.source != null }.map { it.sourceThen },
             paid = paidCosts(plan),
             alternative = alternativePaid(plan),
             modesChosen = (o.castOrNone.modesChosen + plan.choices.modes).distinct(),
@@ -776,7 +779,8 @@ internal object Payment {
             plan.snap.evaluator(plan.player, self = plan.sourceId, names = plan.names.with(names), stackItem = plan.item).value(part.amount)
         }
         // snc: the mana spent to activate it, for "If mana from a Treasure was spent to activate this ability" (CR 602.2b, 106.3)
-        val manaFacts = if (spent.isEmpty()) null else CastFacts(manaSpent = spentByKind(spent), manaSources = spent.mapNotNull { it.source })
+        val manaFacts = if (spent.isEmpty()) null else CastFacts(manaSpent = spentByKind(spent), manaSources = spent.mapNotNull { it.source },
+            manaSourcesThen = spent.filter { it.source != null }.map { it.sourceThen })
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp(), cast = manaFacts)
         recorder.record(Change.StackItemAdded(item, s.stack.size, listOf(Meaning.Activated)))
@@ -830,8 +834,10 @@ internal object Payment {
                 else Mana.yields(snap, plan.player, plan.sourceId, one, plan.names.with(bound))
             val combination = (add.mana.kind as? arcanum.api.ManaKind.Choose)?.combination == true
             // In any combination of colours: one mana of each colour chosen
-            val units = if (combination && colors.size > 1) yields.flatMap { y -> colors.take(y.amount).flatMap { Mana.units(y.copy(amount = 1), it, plan.sourceId) } }
-                else yields.flatMap { Mana.units(it, colors.firstOrNull(), plan.sourceId) }
+            // snc fixes: the source as it produces the mana (CR 106.3)
+            val then = Mana.sourceThen(plan.snap, plan.sourceId)
+            val units = if (combination && colors.size > 1) yields.flatMap { y -> colors.take(y.amount).flatMap { Mana.units(y.copy(amount = 1), it, plan.sourceId, then) } }
+                else yields.flatMap { Mana.units(it, colors.firstOrNull(), plan.sourceId, then) }
             addMana(recorder, plan.player, units)
         }
         recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, plan.origin!!.key, manaAbility = true,

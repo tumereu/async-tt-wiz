@@ -31,6 +31,7 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.view.AbilityInstance
 import arcanum.engine.view.AbilityOrigin
+import arcanum.engine.view.Characteristics
 import arcanum.engine.view.Functioning
 
 /**
@@ -320,11 +321,12 @@ internal object Mana {
                 .map { Yield(listOf(it), 1, choice = false, production, snow) }
         }
 
-    /** The mana units [yield] adds, all of [color] when it is a choice, from [source]. */
-    fun units(yield: Yield, color: Color?, source: ObjectId): List<ManaUnit> {
+    /** The mana units [yield] adds, all of [color] when it is a choice, from [source]; [sourceThen]: what the source is as it
+     * produces them ([ManaUnit.sourceThen], [sourceThen]). */
+    fun units(yield: Yield, color: Color?, source: ObjectId, sourceThen: Characteristics? = null): List<ManaUnit> {
         val c = if (yield.choice || yield.colors.size > 1) color ?: yield.colors.first() else yield.colors.first()
         return List(yield.amount) {
-            ManaUnit(c, source = source, snow = yield.snow, restriction = yield.production.restriction,
+            ManaUnit(c, source = source, snow = yield.snow, sourceThen = sourceThen, restriction = yield.production.restriction,
                 spellGets = yield.production.spellGets, keptUntil = yield.production.keptUntil, whenSpent = yield.production.whenSpent,
                 spellGetsIf = yield.production.spellGetsIf, spellGetsUntil = yield.production.spellGetsUntil, onlyCostsWithX = yield.production.onlyCostsWithX,
                 words = yield.production.words)
@@ -808,7 +810,7 @@ internal object Mana {
         val pool = snap.state.player(player).manaPool
         val anyColor = if (anyColor != AsAnyColor.AnyType && spendsAsAnyColor(snap, player, paysFor)) AsAnyColor.All else anyColor
         val anyType = anyColor == AsAnyColor.AnyType || spendsAsAnyType(snap, player, paysFor)
-        return pool.withIndex().filter { (i, u) -> (indices == null || i in indices) && allowed(snap, player, u, paysFor, xCost) && producedBy(snap, player, u.source, manaFrom) }
+        return pool.withIndex().filter { (i, u) -> (indices == null || i in indices) && allowed(snap, player, u, paysFor, xCost) && producedBy(snap, player, u.source, manaFrom, u.sourceThen) }
             .map { (i, u) -> Payer(colorsOf(u, anyColor, anyType), u.snow, ManaUse.Pool(i), u) }
     }
 
@@ -827,10 +829,17 @@ internal object Mana {
         }
 
     /** snc fixes: whether mana from [source] may be spent where only mana produced by [manaFrom] may ("Spend only mana produced by
-     * Treasures to cast it this way", [Mechanic.AlternativeCost.manaFrom]): the source of the mana (CR 106.3) as it is, or as it last
-     * existed once it has left (a sacrificed Treasure); mana without a source never. */
-    fun producedBy(snap: Snapshot, player: PlayerId, source: ObjectId?, manaFrom: ObjectFilter?): Boolean =
-        manaFrom == null || (source != null && snap.evaluator(player).matches(manaFrom, source))
+     * Treasures to cast it this way", [Mechanic.AlternativeCost.manaFrom]): the source of the mana (CR 106.3) as it was when it
+     * produced the mana ([then], [ManaUnit.sourceThen]), else (a mana ability not activated yet) as it is; mana without a source never. */
+    fun producedBy(snap: Snapshot, player: PlayerId, source: ObjectId?, manaFrom: ObjectFilter?, then: Characteristics? = null): Boolean =
+        manaFrom == null || (source != null && snap.evaluator(player).matchesAsThen(manaFrom, source, then))
+
+    /** snc fixes: what [source] is as it produces mana, for [ManaUnit.sourceThen] (CR 106.3): its characteristics now, or as it last
+     * existed once it has left (a Treasure sacrificed for the mana, CR 608.2h), its abilities left out (no test of a mana's source
+     * reads them). */
+    fun sourceThen(snap: Snapshot, source: ObjectId?): Characteristics? = source?.let { id ->
+        (snap.view[id]?.characteristics ?: snap.board.snapshot(id)?.characteristics)?.copy(abilities = emptyList(), identity = null)
+    }
 
     /** Whether [unit] may be spent on [paysFor]: its restriction ("spend this mana only to cast artifact spells"); mh3 fixes: "only on
      * costs that contain {X}" when the cost being paid had an {X} ([xCost], CR 106.6, 107.3). */

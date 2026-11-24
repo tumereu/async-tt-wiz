@@ -401,6 +401,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         return arcanum.engine.view.Copiable.initial(then, listOf(arcanum.engine.view.IndexedFace(0, face)), null)
     }
 
+    /** snc fixes: whether [id] matched [filter] when its characteristics were [then] (a mana's source as it produced the mana,
+     * CR 106.3); null: [matches] as it is. */
+    fun matchesAsThen(filter: ObjectFilter, id: ObjectId, then: Characteristics?): Boolean =
+        if (then == null) matches(filter, id) else Evaluator(arcanum.engine.trigger.CharacteristicsThenBoard(board, id, then), ctx).matches(filter, id)
+
     fun matches(filter: ObjectFilter, id: ObjectId): Boolean {
         val then = ctx.asOf?.takeIf { it.id == id }
         val o = then ?: state.obj(id)
@@ -852,7 +857,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             val spent = facts(id)?.manaSpent.orEmpty()
             when {
                 // hob: only mana from sources matching (as they last existed, CR 106.3)
-                value.source != null -> facts(id)?.manaSources.orEmpty().count { matches(value.source!!, it) }
+                // snc fixes: each source as it produced the mana (CR 106.3)
+                value.source != null -> facts(id)?.let { f -> f.manaSources.withIndex().count { (i, s) -> matchesAsThen(value.source!!, s, f.manaSourcesThen.getOrNull(i)) } } ?: 0
                 // mh3: only colorless mana (CR 106.1b)
                 value.colorless -> spent.filter { it.color == null }.sumOf { it.amount }
                 value.distinctColors -> spent.filter { it.color != null && it.amount > 0 }.map { it.color }.distinct().size

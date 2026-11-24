@@ -78,19 +78,24 @@ class LandscapeHandTest : E2e() {
             bob.tap("Keep")
             waitUntil("Alice's Main 1", along = listOf(bob)) { alice.inOwnMain() }
             val bar = 412f - 56f
-            val field = alice.battlefieldBounds()
-            fun mountain() = alice.nodes(hasContentDescription("Mountain, owner ${alice.name}, ", substring = true)).fetchSemanticsNodes()
-                .map { it.boundsInRoot }.filter { it.bottom > bar }.minBy { it.left }
-            val card = mountain()
-            assertTrue(card.top < bar - 30f, "the card stands above the bar: $card")
+            // Her leftmost Mountain in her hand (in the bar's height), once laid out at the 2.5x hand size (100 dp tall)
+            fun mountain(): Rect? = alice.nodes(hasContentDescription("Mountain, owner ${alice.name}, ", substring = true))
+                .fetchSemanticsNodes().map { it.boundsInRoot }.filter { it.bottom > bar && it.height > 90f }.minByOrNull { it.left }
+            fun field() = runCatching { alice.battlefieldBounds() }.getOrNull()
             // (before, the battlefield stopped 4 dp above the hand cards)
-            assertTrue(field.bottom > card.top + 10f && field.bottom <= bar + .5f,
-                "her battlefield seen under her hand cards: $field, $card, ${alice.screen()}")
-            fun tapAbove(c: Rect) = alice.table().performTouchInput { click(Offset(c.center.x - field.left, c.top + 8f - field.top)) }
-            waitUntil("Alice's game settled") { alice.settled(this) }
+            waitUntil("Alice's 2.5x hand laid out, her battlefield seen under it") {
+                val card = mountain(); val field = field()
+                card != null && field != null && card.top < bar - 30f && field.bottom > card.top + 10f && field.bottom <= bar + .5f &&
+                    alice.settled(this)
+            }
+            val card = mountain()!!
+            fun tapAbove(c: Rect) {
+                val field = alice.battlefieldBounds()
+                alice.table().performTouchInput { click(Offset(c.center.x - field.left, c.top + 8f - field.top)) }
+            }
             tapAbove(card)
-            waitUntil("the Mountain raised") { mountain().top < card.top - 10f && alice.settled(this) }
-            tapAbove(mountain())
+            waitUntil("the Mountain raised") { mountain()?.let { it.top < card.top - 10f } == true && alice.settled(this) }
+            tapAbove(mountain()!!)
             waitUntil("the Mountain on the battlefield") { alice.field("Mountain").isNotEmpty() }
             assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
         } finally { sizes.setSize(1f, CardArea.HAND); sizes.customizeAreas(false) }

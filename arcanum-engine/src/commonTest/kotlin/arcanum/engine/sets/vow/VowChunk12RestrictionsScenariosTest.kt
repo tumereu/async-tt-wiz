@@ -27,8 +27,8 @@ class VowChunk12RestrictionsScenariosTest {
         Ward {2}
         This creature enters with two +1/+1 counters on it for each other nontoken Human you control.
     """.trimIndent(), "1/1")
-    private val human = Cards.invent("Hedge Villager", "{1}", "Creature — Human", "", "1/1")
-    private val recruiter = Cards.invent("Hedge Recruiter", "{1}{W}", "Creature — Human", "When this creature enters, create a 1/1 white Human creature token.", "1/1")
+    private val human = Cards.invent("Briar Villager", "{1}", "Creature — Human", "", "1/1")
+    private val recruiter = Cards.invent("Briar Recruiter", "{1}{W}", "Creature — Human", "When this creature enters, create a 1/1 white Human creature token.", "1/1")
     private val monstrosity = Cards.invent("Gloomtide Monstrosity", "{4}{U}{U}", "Creature — Crab Horror", """
         Ward {2}
         {U}: This creature can't be blocked this turn. Activate only if you own a card in exile.
@@ -44,14 +44,14 @@ class VowChunk12RestrictionsScenariosTest {
         {T}, Pay 1 life: Add one mana of any color. Spend this mana only to cast a Vampire spell.
         {5}, {T}: Create a Blood token. This ability costs {1} less to activate for each Vampire you control.
     """.trimIndent())
-    private val bat = Cards.invent("Dusk Bat", "{R}", "Creature — Vampire", "", "1/1")
-    private val ogre = Cards.invent("Hollow Ogre", "{R}", "Creature — Ogre", "", "2/3")
+    private val bat = Cards.invent("Vesper Bat", "{R}", "Creature — Vampire", "", "1/1")
+    private val ogre = Cards.invent("Mossback Ogre", "{R}", "Creature — Ogre", "", "2/3")
     private val forebear = Cards.invent("Ravenmoor Forebear", "{2}{B}", "Creature — Vampire", """
         Flying
         This creature can't block.
         {B}, Sacrifice two Blood tokens: Return this card from your graveyard to the battlefield.
     """.trimIndent(), "3/1")
-    private val font = Cards.invent("Crimson Font", "{B}", "Artifact", "When this artifact enters, create two Blood tokens.")
+    private val font = Cards.invent("Scarlet Font", "{B}", "Artifact", "When this artifact enters, create two Blood tokens.")
     private val mesmerist = Cards.invent("Gore Mesmerist", "{2}{R}", "Creature — Vampire", """
         This creature can't block.
         Whenever you sacrifice one or more Blood tokens, target creature can't block this turn. This ability triggers only once each turn.
@@ -61,8 +61,8 @@ class VowChunk12RestrictionsScenariosTest {
         Tap target creature. It doesn't untap during its controller's next untap step.
         Draw a card.
     """.trimIndent())
-    private val zombie = Cards.invent("Barrow Zombie", "{B}", "Creature — Zombie", "", "2/2")
-    private val boar = Cards.invent("Quillback Boar", "{2}{G}", "Creature — Boar", "", "4/4")
+    private val zombie = Cards.invent("Cairn Zombie", "{B}", "Creature — Zombie", "", "2/2")
+    private val boar = Cards.invent("Gorse Boar", "{2}{G}", "Creature — Boar", "", "4/4")
     private val stitched = Cards.invent("Stitched Lancer", "{U}", "Creature — Zombie Horse", """
         As an additional cost to cast this spell, exile a creature card from your graveyard.
         {3}{U}, Exile this card from your graveyard: Draw a card.
@@ -170,8 +170,8 @@ class VowChunk12RestrictionsScenariosTest {
         alice.battlefield(manor)
         alice.hand(bat, ogre)
         alice.activates(manor, ability = 0, color = Color.Red)
-        assertTrue(!canCast(alice, "Hollow Ogre"), "a restricted mana can't pay for a non-Vampire")
-        assertTrue(!canCast(alice, "Dusk Bat"), "the land is already tapped")
+        assertTrue(!canCast(alice, "Mossback Ogre"), "a restricted mana can't pay for a non-Vampire")
+        assertTrue(!canCast(alice, "Vesper Bat"), "the land is already tapped")
     }
 
     @Test
@@ -180,7 +180,7 @@ class VowChunk12RestrictionsScenariosTest {
         alice.hand(bat, ogre)
         alice.activates(manor, ability = 1, color = Color.Red)
         expect { alice.life shouldBe 19 }
-        assertTrue(!canCast(alice, "Hollow Ogre"), "a restricted mana can't pay for a non-Vampire")
+        assertTrue(!canCast(alice, "Mossback Ogre"), "a restricted mana can't pay for a non-Vampire")
         alice.casts(bat)
         resolveAll()
         expect { alice.battlefield has bat }
@@ -284,11 +284,11 @@ class VowChunk12RestrictionsScenariosTest {
         alice.casts(frost, target = boar)
         resolveAll()
         expect {
-            "Quillback Boar".tapped shouldBe true
+            "Gorse Boar".tapped shouldBe true
             alice.hand.size shouldBe 1
         }
         advanceTo(TurnStep.Upkeep, turn = 2)
-        expect { "Quillback Boar".tapped shouldBe true }
+        expect { "Gorse Boar".tapped shouldBe true }
     }
 
     // CR 118.8, 601.2b: the creature card to exile comes from your own graveyard only

@@ -17,8 +17,8 @@ import kotlin.test.assertFailsWith
 class VowChunk13CounterDamageDestroyDrawScenariosTest {
     private val reprisal = Cards.invent("Night Reprisal", "{2}{R}", "Instant",
         "Night Reprisal deals 2 damage to each non-Vampire creature. Create a Blood token.")
-    private val bat = Cards.invent("Vesper Bat", "{R}", "Creature — Vampire", "", "2/2")
-    private val ogre = Cards.invent("Mossback Ogre", "{R}", "Creature — Ogre", "", "2/2")
+    private val bat = Cards.invent("Dusk Flitter", "{R}", "Creature — Vampire", "", "2/2")
+    private val ogre = Cards.invent("Reedbank Ogre", "{R}", "Creature — Ogre", "", "2/2")
     private val boar = Cards.invent("Gorse Boar", "{2}{G}", "Creature — Boar", "", "4/4")
     private val wound = Cards.invent("Gash Wound", "{4}{R}", "Sorcery",
         "Gash Wound deals 4 damage to target creature. Create a number of Blood tokens equal to the amount of excess damage dealt to that creature this way.")
@@ -93,7 +93,7 @@ class VowChunk13CounterDamageDestroyDrawScenariosTest {
         alice.battlefield(entomber, "Mountain", "Mountain", "Mountain", "Mountain")
         alice.hand(ogre, reversal, "Mountain", "Island")
         alice.library("Forest", "Forest", "Forest", "Forest", "Forest")
-        alice.activates(entomber, choosing = listOf("Mossback Ogre"))
+        alice.activates(entomber, choosing = listOf("Reedbank Ogre"))
         resolveAll()
         expect { alice.hand.size shouldBe 4 }
         alice.casts(reversal)
@@ -132,7 +132,7 @@ class VowChunk13CounterDamageDestroyDrawScenariosTest {
         alice.library("Forest", "Forest")
         alice.casts(skaab)
         resolveAll()
-        playOut("Mossback Ogre", "Vesper Bat")
+        playOut("Reedbank Ogre", "Dusk Flitter")
         expect {
             alice.exile has ogre
             alice.exile has bat

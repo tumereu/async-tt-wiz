@@ -180,6 +180,9 @@ internal object Filters {
         // dsk chunk 07: "any card" (CR 701.23a: a search for any card)
         if (phrase == "any card") return ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
         // snc chunk 08: "spell you control that wasn't cast" (a copy, or a card put on the Stack, CR 707.10, 601.2a)
+        // vow chunk 04: "spell that wasn't cast from its owner's hand" (a card is only ever in its owner's hand, CR 400.3)
+        if (phrase.endsWith(" that wasn't cast from its owner's hand"))
+            return all(noun(phrase.removeSuffix(" that wasn't cast from its owner's hand")) ?: return null, ObjectFilter.Not(ObjectFilter.WasCast(Zone.Hand)))
         if (phrase.endsWith(" that wasn't cast")) return all(noun(phrase.removeSuffix(" that wasn't cast")) ?: return null, ObjectFilter.Not(ObjectFilter.WasCast()))
         // mh3 chunk 05: "noncreature spells you cast from exile": cast from that zone (CR 601.2a)
         SPELLS_YOU_CAST_FROM.matchEntire(phrase)?.let { m ->
@@ -500,11 +503,14 @@ internal object Filters {
     fun objects(phrase: String, self: Set<String> = emptySet()): Objects? = MomPhrases.objects(phrase) ?: noun(phrase)?.let { Objects.Each(it) }
 
     /** The name of a target slot: its noun ("nonbasic land" → "land"), "permanent" for a list of permanent types. */
+    // neo chunk 03: "creature you control that doesn't have a +1/+1 counter on it" is named "creature" (not "… the same name as …": woe's names stay)
+    private val WITHOUT_A_COUNTER_SUFFIX = Regex(""" that (?:doesn't|don't) have an? \S+ counters? on (?:it|them)""")
+
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
         // blb chunk 06: "… that was dealt damage this turn" is not part of the name; blb chunk 10: nor statuses as alternatives
         // mom chunk 05: "planeswalker that was activated this turn or tapped creature" names both kinds ("permanent")
-        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).replace(" that was activated this turn", "").substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ").substringBefore(" that saddled ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that isn't exactly ").substringBefore(" that's exactly ") /* mom chunk 01 */.substringBefore(" that entered ").substringBefore(" that has ") /* rvr chunk 05 */.substringBefore(" without ").substringBefore(" with ").substringBefore(" other than ") /* lci chunk 04 */
+        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).replace(" that was activated this turn", "").substringBefore(" that was ").substringBefore(" that targets ").substringBefore(" that crewed ").substringBefore(" that saddled ") /* tmt chunks 09, 14 */.substringBefore(" that dealt ").substringBefore(" that attacked ").substringBefore(" that isn't exactly ").substringBefore(" that's exactly ") /* mom chunk 01 */.substringBefore(" that entered ").substringBefore(" that has ") /* rvr chunk 05 */.replace(WITHOUT_A_COUNTER_SUFFIX, "") /* neo chunk 03 */.substringBefore(" without ").substringBefore(" with ").substringBefore(" other than ") /* lci chunk 04 */
             .let { Mkm.OWNED_NOT_CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it } // mkm chunk 01
             .let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard").substringBefore(" from your graveyard").substringBefore(" in a graveyard") // chunk 31, otj chunk 04, mkm chunk 09
@@ -802,7 +808,15 @@ internal object Events {
                 EventPattern.ZoneChange(subject(it, self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
             }
         }
-        return event(text, self)?.let(::listOf)
+        event(text, self)?.let { return listOf(it) }
+        // vow chunk 03: "this creature enters or becomes the target of an Aura spell", "this Aura enters or enchanted creature becomes the
+        // target of an Aura spell" (one ability, two events, CR 603.2): the second event of the same object or of its own subject
+        Vow.ENTERS_OR.matchEntire(text)?.let { m ->
+            val subject = subject(m.groupValues[1], self) ?: return null
+            val second = event("${m.groupValues[1]} ${m.groupValues[2]}", self) ?: event(m.groupValues[2], self) ?: return null
+            return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), second)
+        }
+        return null
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
@@ -1053,12 +1067,17 @@ internal object Events {
         // one chunk 02: "a creature you control becomes the target of a spell" (any player's spell, not an ability)
         BECOMES_TARGET.matchEntire(text)?.let { m ->
             // mh3 chunk 11: no controller, "this creature becomes the target of a spell or ability" (anyone's)
-            val controller = when (m.groupValues[3]) {
+            val controller = when (m.groupValues[4]) {
                 "you control" -> ObjectFilter.ControlledBy(PlayerFilter.You)
                 "an opponent controls" -> ObjectFilter.ControlledBy(PlayerFilter.Opponent)
                 else -> null
             }
-            val spell = if (m.groupValues[2] == "spell") ObjectFilter.Category(arcanum.api.ObjectCategory.Spell) else null
+            // vow chunk 03: "the target of an Aura spell" (CR 303.4a: an Aura spell targets what it will enchant)
+            val spell = when {
+                m.groupValues[3].isNotEmpty() -> Filters.noun(m.groupValues[2]) ?: return@let
+                m.groupValues[2] == "spell" -> ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)
+                else -> null
+            }
             val by = listOfNotNull(spell, controller).let { if (it.isEmpty()) ObjectFilter.Any else it.singleOrNull() ?: ObjectFilter.And(it) }
             return EventPattern.BecomesTarget(subject(m.groupValues[1], self) ?: return null, by = by)
         }
@@ -1241,6 +1260,10 @@ internal object Events {
         // gtc chunk 08
         // rvr chunk 01: "enchanted Forest" (an Aura with "Enchant Forest")
         if (text == "enchanted land" || ENCHANTED_SUBTYPE.matches(text)) return ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))
+        // neo chunk 04: "this creature or equipped creature" (a reconfigure Equipment: itself, or the creature it is attached to)
+        SELF_OR_ATTACHED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self), ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))))
+        }
         SELF_OR_ANOTHER.matchEntire(text)?.let { m ->
             if (m.groupValues[1] !in self) return null
             val other = Filters.noun(m.groupValues[2]) ?: return null
@@ -1307,6 +1330,7 @@ internal object Events {
     // also "into exile"
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) (?:is|are) put into (a graveyard|exile) from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
+    private val SELF_OR_ATTACHED = Regex("""(.+) or (?:equipped|enchanted) creature""")
     private val DIES = Regex("""(.+) dies""")
     private val SELF_DIE = Regex("""(.+) die""")
     private val CASTS_OR_ACTIVATES_ABILITY_OF = Regex("""(an opponent|a player) casts (an? .+?) or activates an ability of (an? .+)""")
@@ -1366,7 +1390,8 @@ internal object Events {
     // blb chunk 01
     // mom chunk 13: Mirror-Shield Hoplite "a creature you control becomes the target of a backup ability"
     private val BECOMES_TARGET_OF_KEYWORD_ABILITY = Regex("""(.+) becomes the target of an? ([a-z]+) ability""")
-    private val BECOMES_TARGET = Regex("""(.+) becomes the target of a (spell or ability|spell)(?: (you control|an opponent controls))?""")
+    // vow chunk 03: also "an Aura spell" (a spell of that kind)
+    private val BECOMES_TARGET = Regex("""(.+) becomes the target of an? (spell or ability|(?:(\S+) )?spell)(?: (you control|an opponent controls))?""")
     // blb chunk 05
     private val BEGINNING_OF_EACH_OPPONENTS = Regex("""the beginning of each opponent's (upkeep|end step)""")
     private val BEGINNING_OF_ENCHANTED_PLAYERS = Regex("""the beginning of (?:each of )?enchanted player's (upkeep|draw step|end step|postcombat main phases)""")
@@ -1449,7 +1474,7 @@ internal object Conditions {
         }
         RvrPhrases.condition(text, self)?.let { return it } // rvr
         OnePhrases.condition(text, self)?.let { return it } // one
-        NeoPhrases.condition(text)?.let { return it } // neo
+        NeoPhrases.condition(text, self)?.let { return it } // neo
         // trk chunk 09: "you control five or more differently named lands" (CR 201.2)
         Trk.CONTROL_N_DIFFERENTLY_NAMED.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
@@ -1697,8 +1722,9 @@ internal object Conditions {
         if (text == "it wasn't the first land you played this turn")
             return Condition.HappenedThisTurn(EventPattern.PlayLand(players = PlayerFilter.You, lands = ObjectFilter.Any), atLeast = 2, measure = Measure.Events)
         // chunk 41: "this creature is attacking"
+        // vow chunk 03: "this creature is attacking alone" (the only creature declared as an attacker, CR 506.5)
         SELF_IS_ATTACKING.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
-            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
+            return Condition.ObjectMatches(Objects.Self, if (it.groupValues[2].isEmpty()) ObjectFilter.HasStatus(arcanum.api.Status.Attacking) else ObjectFilter.AttackingAlone)
         }
         // snc chunk 04: "enchanted creature is attacking alone" (the only creature declared as an attacker, CR 506.5), "equipped creature is attacking"
         Snc.ATTACHED_IS_ATTACKING.matchEntire(text)?.let { m ->
@@ -1895,7 +1921,7 @@ internal object Conditions {
     // chunk 21
     private val SELF_IS_UNTAPPED = Regex("""(.+) is untapped""")
     // chunk 41
-    private val SELF_IS_ATTACKING = Regex("""(.+) is attacking""")
+    private val SELF_IS_ATTACKING = Regex("""(.+?) is attacking( alone)?""")
     // chunk 42
     private val THERE_ARE_N_OR_MORE = Regex("""there are (\w+) or more (.+)""")
     private val YOU_HAVE_N_OR_MORE_IN_GRAVEYARD = Regex("""you have (\w+) or more (.+ in your graveyard)""")
@@ -2059,6 +2085,8 @@ internal object Values {
                 arcanum.api.Measure.Objects)
         }
         RvrPhrases.value(text)?.let { return it } // rvr
+        // neo chunk 03: "mana value less than or equal to that damage" (the amount of the damage event that triggered, CR 603.2c)
+        if (text == "that damage") return Value.EventAmount
         OnePhrases.value(text, exiled)?.let { return it } // one
         LciPhrases.value(text)?.let { return it } // lci
         IsdPhrases.value(text)?.let { return it } // isd

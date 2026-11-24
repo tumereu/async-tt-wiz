@@ -61,6 +61,7 @@ internal class DurationText(
         }
         is Duration.UntilEndOfNextTurnOf ->
             "until the end of ${possessive(effect?.let { players(duration.players, it).singleOrNull() }, "that player's", effect)} next turn"
+        is Duration.DuringTurn -> "during that extra turn"
         Duration.Indefinitely -> null
     }
 

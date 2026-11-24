@@ -1,0 +1,1 @@
+fix: Reopening a finished game whose result still waits for your OK shows its final board again instead of the result over the lobby, also after the other player took back moves you had seen

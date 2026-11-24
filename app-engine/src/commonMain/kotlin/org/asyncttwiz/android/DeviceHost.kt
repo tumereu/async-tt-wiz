@@ -119,7 +119,7 @@ class DeviceHost(private val post: (String) -> Unit, private val now: () -> Long
             game.notes.clear()
             recent[shown.version] = shown
             while (recent.size > ShownEncoder.KEEP) recent.remove(recent.keys.first())
-            host.send(gameId, DeviceAnswer.Published(enc.wire(shown, notes), game.takeBacks, game.lastTakeBack,
+            host.send(gameId, DeviceAnswer.Published(enc.wire(shown, notes), game.takeBacks, game.lastTakeBack, game.rewinds,
                 definitions = if (fresh) codec.encodeDefinitions() else null))
         }
 

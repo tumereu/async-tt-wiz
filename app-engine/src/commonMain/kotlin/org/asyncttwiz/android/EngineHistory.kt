@@ -331,8 +331,9 @@ object EngineEventText {
     }
 
     /**
-     * §29.4: the fading top text of an undo: "Undid: cast Storm Spark" for the player who undid ([by] is [viewer]),
-     * "Alice undid: cast Storm Spark" for the other player (only logged: their undo shows no text, HIS-168), naming [event], the first action taken back, as [viewer] saw it
+     * §29.4: the words of an undo (only logged: an undo shows no text at the top, HIS-168, owner 2026-11-22 and 2026-11-23):
+     * "Undid: cast Storm Spark" for the player who undid ([by] is [viewer]), "Alice undid: cast Storm Spark" for the other
+     * player, naming [event], the first action taken back, as [viewer] saw it
      * on [state] (the board before the undo). An End turn's first pass reads "End turn", a press leaving a main phase
      * ([GameEvent.press]) "went to combat"; with no event, just who undid.
      */
@@ -352,7 +353,7 @@ object EngineEventText {
     }
 
     /**
-     * HIS-168, HIS-042 (owner 2026-11-19, playtest N4): an undo's fading top text for [viewer] ([undid]'s words), with, after a
+     * HIS-168, HIS-042 (owner 2026-11-19, playtest N4): an undo's logged words for [viewer] ([undid]'s), with, after a
      * free undo whose events taken back touched library cards ([EngineGame.Undone.libraries]), a second line saying so
      * ([reshuffled]); an approved request's dialogs said it already.
      */

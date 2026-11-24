@@ -1,0 +1,1 @@
+fix: A spell you were casting is no longer dropped with "The table changed: cast it again." when both phones made the same moves at once

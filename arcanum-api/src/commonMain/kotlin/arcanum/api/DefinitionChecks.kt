@@ -330,11 +330,19 @@ object DefinitionChecks {
         if (abilities.any { it.typeName() == "enchant" }) spellSlots += Keyword.Enchant.SLOT
         // A cost reduction of the spell is applied after its targets are chosen too ("costs {3} less if it targets a tapped
         // creature", CR 601.2f).
+        // vow chunk 04: an alternative cost with {X} in it ("Cleave {X}{R}{W}") has X announced as the spell is cast for it (CR 107.3, 601.2b)
+        val alternativeX = abilities.any { a ->
+            val ability = runCatching { json.decodeFromJsonElement(Ability.serializer(), a) }.getOrNull()
+            ((ability as? Keyword)?.let { KeywordExpansions.expand(it) } ?: listOfNotNull(ability)).any { e ->
+                e is Ability.Static && e.mechanics.any { m -> m is Mechanic.AlternativeCost &&
+                    m.cost.parts.any { p -> p is CostPart.Mana && p.cost.symbols.any { it is ManaSymbol.Variable } } }
+            }
+        }
         fun isCostStatic(a: JsonObject) = a.typeName() == "static" && (a["mechanics"] as? JsonArray).orEmpty()
             .any { (it as? JsonObject)?.typeName() in setOf("additional-cost", "alternative-cost", "cost-change") }
         abilities.forEach { ability ->
             when {
-                ability.typeName() == "spell" -> check(ability, costNames)
+                ability.typeName() == "spell" -> check(ability, costNames, extraAnnounced = if (alternativeX) setOf("X") else emptySet())
                 // sos: "As an additional cost to cast this spell, pay X life." reads the X announced for the spell (CR 601.2b)
                 isCostStatic(ability) -> check(ability, costNames, spellSlots, spellAnnounced)
                 // fra: an equip ability's cost change reads the creature it targets, the slot its expansion declares (CR 702.6a)

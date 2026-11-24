@@ -10,14 +10,13 @@ import kotlin.test.assertTrue
 
 /**
  * Owner decisions 2026-11-19 (playtest N4 and the "can't do" explainer): an undo that takes back library cards drawn says
- * the libraries reshuffle, in the request's dialogs on both phones or, after a free undo, in its fading text (owner,
- * 2026-11-22: only on the phone of the player who undid; the other player's table shows no text for it); and a shake says
- * why in a short bubble.
+ * the libraries reshuffle, in the request's dialogs on both phones (after a free undo, owner 2026-11-23: no table shows a
+ * text for it, the device of the player who undid logs it); and a shake says why in a short bubble.
  */
 class UndoReshuffleAndRefusalTest : E2e() {
     // HIS-236, HIS-202, HIS-168: Bob ends his first turn and Alice's phone passes on into her turn, drawing her card; Bob's
-    // Undo takes his End turn back, free (Alice only passed), with her draw: his fading text says her library reshuffled;
-    // her table shows no text for his undo (owner, 2026-11-22)
+    // Undo takes his End turn back, free (Alice only passed), with her draw: neither table shows a text for it (owner,
+    // 2026-11-22 and 2026-11-23), his device logs it with her library reshuffled
     @Test fun aFreeUndoOfTheOtherPlayersDrawSaysTheLibraryReshuffled() {
         startGame(bobStarts = true)
         bothOpen()
@@ -32,15 +31,18 @@ class UndoReshuffleAndRefusalTest : E2e() {
             bob.state.turn.active == bob.me && alice.state.turn.active == bob.me
         }
         assertFalse(bob.shows(hasTestTag("rewind-confirm")), "free: no dialog")
-        waitUntil("Bob told her library reshuffled") { bob.told("${alice.name}'s library reshuffled: the next draws may change.") }
-        assertTrue(bob.told("Undid"), "${bob.shownTexts}")
+        // HIS-168, HIS-236 (owner, 2026-11-23): his own undo shows no text either; his device logs it, the reshuffle with it
+        waitUntil("Bob's undo logged with her library reshuffled") {
+            ownUndoLogged("Undid", "${alice.name}'s library reshuffled: the next draws may change.")
+        }
         repeat(3) { run() }
+        assertFalse(bob.toldOwnUndo(), "nothing told on Bob's table: ${bob.shownTexts}")
         assertFalse(alice.toldATakeBack(bob), "nothing told on Alice's table: ${alice.shownTexts}")
     }
 
     // HIS-235, HIS-209, HIS-100: Alice plays a Mountain and ends her turn; Bob draws and plays his Mountain. Alice's Undo back to
     // before her End turn takes his draw back too: her dialog asking him and his "asks to undo" both say his library reshuffles;
-    // once he accepts, neither fading text repeats it (HIS-236)
+    // once he accepts, nothing repeats it (HIS-236)
     @Test fun anUndoRequestThatTakesBackADrawSaysSoOnBothPhones() {
         startGame(deal = { a, b -> "Mountain" in hand(a) && "Mountain" in hand(b) })
         bothOpen()

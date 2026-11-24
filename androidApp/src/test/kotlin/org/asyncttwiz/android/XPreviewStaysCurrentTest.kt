@@ -37,7 +37,9 @@ class XPreviewStaysCurrentTest {
         val refused = mutableListOf<String?>()
         val cast = CastController(kit.f.a, { kit.alice.play() }, { refused += it }, engineSend = kit.routes::send,
             port = LocalCastPort(kit.f.a) { work: () -> CastAnswer, done: (CastAnswer) -> Unit -> waiting.addLast { done(work()) } })
-        val logFrom = AppLog.text().length
+        // The log is a capped buffer whose start is trimmed: what follows a marker line, not an offset into it
+        val marker = "XPreviewStaysCurrentTest from here ${DeviceRandom.uuid()}"
+        AppLog.info("test", marker)
         assertTrue(cast.start(kit.atw(kit.hand(Choices.BURST).first())))
         letThrough()
         val x = assertIs<Decision.Announce>(assertNotNull(cast.flow, "the panel").pending, "X is asked")
@@ -47,7 +49,7 @@ class XPreviewStaysCurrentTest {
         letThrough()
         assertNull(cast.notice, "no refusal in the panel")
         assertTrue(cast.targeting, "X answered, the target is next")
-        val log = AppLog.text().substring(logFrom)
+        val log = AppLog.text().substringAfter(marker)
         assertTrue("refused as stale" !in log, log.takeLast(4_000))
         assertTrue("version $shown worked out again" in log, "the previews kept the version shown: ${log.takeLast(4_000)}")
         assertTrue(cast.answer(cast.pick!!.answer(listOf(TargetRef.Player(PlayerId(kit.f.b))))), "Bob targeted")

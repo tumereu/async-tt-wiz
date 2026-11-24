@@ -79,6 +79,8 @@ interface EngineRoutes {
     /** STK-025, HIS-099 (problem report RC3J4K): how many times a board already shown was taken back, and the last one's words. */
     fun takeBacks(): Long = 0L
     fun lastTakeBack(): String = ""
+    /** STK-025, HIS-099: of [takeBacks], those where the game itself went back (an undo or rewind, a branch). */
+    fun rewinds(): Long = 0L
     /** Table actions the controls make: a card moved on its own battlefield (its place, shared), the combat staging,
      * attack choices and early answers (shared as table changes at the head, I-D54 §8; behind it the declaring player's
      * own until declared, I-D56 §12). False for anything else (nothing changes the game by hand). [requestId]: the batch's
@@ -302,6 +304,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
         own(true, "ending $what", ask) { acted -> sent(); acted is GameDevice.Acted.Sent }
     override fun takeBacks(): Long = game()?.takeBacks ?: 0L
     override fun lastTakeBack(): String = game()?.lastTakeBack.orEmpty()
+    override fun rewinds(): Long = game()?.rewinds ?: 0L
 
     override fun local(actions: List<PlayAction>, requestId: String?): Boolean {
         val g = game() ?: return false

@@ -1,0 +1,1 @@
+fix: Pressing the main button at the start of your own turn is no longer sometimes refused with "That wasn't taken: the game moved on first."

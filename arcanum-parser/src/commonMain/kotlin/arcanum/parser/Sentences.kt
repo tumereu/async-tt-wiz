@@ -76,6 +76,7 @@ internal class Sentences(
         lciMulti(line)?.let { return it } // lci
         mkmMulti(line)?.let { return it } // mkm
         dmrMulti(line)?.let { return it } // dmr
+        neoMulti(line)?.let { return it } // neo
         // one chunk 07: "This creature has trample as long as it has two or fewer oil counters on it. Otherwise, it has hexproof." (two statics, the
         // second while the condition fails)
         One.HAS_AS_LONG_AS_OTHERWISE.matchEntire(line)?.let { m ->
@@ -2482,6 +2483,13 @@ internal class Sentences(
         Mkm.IS_SUBTYPES_IN_ADDITION_PREDICATE.matchEntire(predicate)?.let { m ->
             val subtypes = m.groupValues[1].split(' ').map { it.takeIf { t -> t in RulesWords.subtypes } ?: return null }
             return@flatMap listOf(Mechanic.SetTypes(addSubtypes = subtypes.map { arcanum.api.SubtypeRef.Literal(Subtype(it)) }))
+        }
+        // neo chunk 04: "is a black Demon in addition to its other colors and types" (layers 4 and 5, CR 613.1d-e)
+        Neo.IS_COLOR_SUBTYPES_IN_ADDITION_PREDICATE.matchEntire(predicate)?.let { m ->
+            val color = BECOME_COLORS[m.groupValues[1]] ?: return null
+            val subtypes = m.groupValues[2].split(' ').map { it.takeIf { t -> t in RulesWords.subtypes } ?: return null }
+            return@flatMap listOf(Mechanic.SetTypes(addSubtypes = subtypes.map { arcanum.api.SubtypeRef.Literal(Subtype(it)) }),
+                Mechanic.SetColors(listOf(ColorRef.Literal(color)), add = true))
         }
         // one chunk 10: "can't attack or block"
         if (predicate == "can't attack or block") return@flatMap listOf(Mechanic.CantAttack(), Mechanic.CantBlock(attackers = ObjectFilter.Any))
@@ -9029,6 +9037,8 @@ internal class Sentences(
             objects = Objects.Each(Filters.noun("battle an opponent protects") ?: return null))
         // dmr chunk 07: "this creature deals that much damage to you"
         "you" -> Recipients(players = Players.You)
+        // neo chunk 04: "it deals 1 damage to defending player" in an attack or becomes-blocked trigger (CR 508.5)
+        "defending player" -> Recipients(players = playersIn(text, context) ?: return null)
         // woe chunk 10: "this creature deals 1 damage to that creature" (as "That creature" in [gtcSubject])
         "that creature" -> gtcSubject("That creature", context)?.let { Recipients(objects = it) }
         // rvr chunk 04: Rakdos Firewheeler: "… and 2 damage to up to one target creature or planeswalker." (CR 115.1)
@@ -9828,7 +9838,9 @@ internal class Sentences(
             else -> null
         }
         // blb chunk 07: "defending player" in an attack trigger (CR 506.2)
-        "defending player" -> (context.event as? EventPattern.Attack)?.let { Players.DefendingPlayerOf(Objects.EventObject(EventRole.Object)) }
+        // neo chunk 04: also in a becomes-blocked trigger: the player the blocked creature attacked (CR 508.5)
+        "defending player" -> context.event?.takeIf { it is EventPattern.Attack || it is EventPattern.BecomesBlocked }
+            ?.let { Players.DefendingPlayerOf(Objects.EventObject(EventRole.Object)) }
         // one chunk 05: "its controller": of what "it" names (the event's object in a trigger; a creature that died as it last existed,
         // CR 603.10a, 608.2h), else of the last object target ("Destroy target creature. Its controller …", whether or not it was destroyed)
         "its controller" -> (lastKnownIt(context) ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) })
@@ -23971,6 +23983,18 @@ internal class Sentences(
     // ---- neo: Kamigawa: Neon Dynasty wordings (the set's parser tests, sets/neo/NeoChunk*Test.kt)
 
     /** neo: wordings of several sentences read as one. */
+    /** neo chunk 04: "As long as The Reality Chip is attached to a creature, you may play lands and cast spells from the top of your library.":
+     * a condition on a line read as several static abilities, each of them under it (CR 611.3a) */
+    private fun neoMulti(line: String): List<Ability>? {
+        AS_LONG_AS_FIRST.matchEntire(line)?.let { m ->
+            val condition = conditionWithAnd(m.groupValues[1]) ?: return null
+            val rest = m.groupValues[2].replaceFirstChar { it.uppercase() }
+            val inner = multi(rest) ?: finMulti(rest) ?: return null
+            return inner.map { (it as? Ability.Static)?.takeIf { s -> s.condition == null }?.copy(condition = condition, functionsIn = zoneOf(condition)) ?: return null }
+        }
+        return null
+    }
+
     private fun neoWhole(text: String, context: Context): List<Step>? {
         // neo chunk 02: "You may discard up to two cards. If you do, draw that many cards." (that many: the number discarded, CR 608.2c; none
         // discarded draws none)

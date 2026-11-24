@@ -6,8 +6,10 @@
 #             minutes more; before each release, ask the owner whether to include them)
 # Logs: suites.log and e2e.log (each ends with its exit code), and summary.txt. The worktree is detached at the commit
 # and kept between runs ($ATW_VERIFY_WORKTREE, default ~/projects/atw-wt/full-verify-<repository folder>). Builds go
-# through the machine-wide heavy-build slots ($ATW_GRADLE_SLOT, default arcanum-tools/set-work/bin/gradle-slot.sh). :arcanum-tools:setSupport reads
-# the pinned MTGJSON file (scripts/catalog-pin.sh verify). The e2e run starts even when the suites failed.
+# through the machine-wide heavy-build slots ($ATW_GRADLE_SLOT, default arcanum-tools/set-work/bin/gradle-slot.sh).
+# :arcanum-tools:setSupport reads the pinned MTGJSON file (scripts/catalog-pin.sh verify). The e2e run starts even when
+# the suites failed. A run that ran out of memory, was killed or hit a stale Kotlin cache runs once more by itself (the
+# summary says so); failing tests don't.
 # Exit 0 all green; 1 something failed (see summary.txt); 2 usage or setup.
 set -u
 usage() { sed -n '2,/^set -u/p' "$0" | sed '$d; s/^# \{0,1\}//' >&2; exit 2; }

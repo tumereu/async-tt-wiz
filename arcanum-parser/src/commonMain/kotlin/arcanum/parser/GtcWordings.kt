@@ -34,7 +34,8 @@ internal object Gtc {
     val EXILE_TOP_THEN_PUT_ONTO_BATTLEFIELD = Regex("""Exile the top (\w+) cards of (that player's|your) library, then put an? (.+?) card from among them onto the battlefield under your control\.""")
     val REMOVE_A_COUNTER_FROM = Regex("""Remove a counter from (target .+)\.""")
     val PLAYER_ACTIONS = Regex("""(Target player) ((?:[^,]+, )+)then (.+)\.""")
-    val UNTAP_THAT = Regex("""Untap (that creature|that permanent|those creatures)\.""") // inr chunk 09: that permanent
+    // inr chunk 09: that permanent; neo chunk 07: also "Tap that creature."
+    val UNTAP_THAT = Regex("""(Untap|Tap) (that creature|that permanent|those creatures)\.""")
     val DEALS_N_DAMAGE = Regex("""(.+?) deals (\d+|X) damage to (.+)\.""")
     val DEALS_DAMAGE_TO_EQUAL = Regex("""(.+?) deals damage to (.+?) equal to (.+)\.""")
     val DEALS_DAMAGE_SAME_NAME = Regex("""(.+?) deals (\d+) damage to target (.+?) and each other (.+?) with the same name as that \w+\.""")

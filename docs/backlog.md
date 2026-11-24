@@ -15,12 +15,10 @@ Changes the owner wants but that are not built yet. The feature catalog
 Desktop playtest notes (owner, 2026-11-14): high priority.
 
 - Desktop battlefield cards at least twice today's size (the rest of the desktop default sizes is built, 2026-11-14): waits for the owner's choice, since at 4× the six battlefield rows don't fit a 1440 × 900 or 1920 × 1080 window even at the opening's 0.65× (TBL-121), so the table opens with both land rows out of view (gallery: desktop/table-battlefield-4x.png). Meanwhile, with the taller seat headers, hand band and top row, the 2× battlefield cards open smaller at 1440 × 900 than before (the rows fit: about 56 px tall, 72 before; at 1920 × 1080 about 78, 80 before). Options: the desktop opening shows your own battlefield whole (the other player's land row out of view); a lower least zoom on the desktop so the rows fit (cards then only as large as fit); fewer rows on the desktop; or the battlefield stays 2× (the Card size slider gives 4×) (WEB-022, TBL-121, TBL-010).
-- Desktop timeline: hovering an event shows its text, as holding it does on the phone (HIS-011); not built (the mouse holds an event as a finger does). Left over from the web client spec.
 
 Playtest and gallery notes (owner, 2026-11-11):
 
 - Short phones (found 2026-11-12, C2): with the combat band open the other player's land row stays fully visible only on screens about 845 dp tall or more; shorter phones still lose part of it. Owner to say whether a shorter phone matters (their device's height decides).
-- Crash-safety leftovers (2026-11-11, from the client crash-safety pass, built): `!!` are gone from client code (checkClientNotNull), but not every throwing lookup was reviewed: app-ui's `BasicTableController`, `TablePresentation.cardForActions` and the `players.single` calls (these also assume two players; fix them for 3+ with the Commander work) and other `first()`/`single()`/`getValue`/`error()`/`check()` reachable from UI state. The table scene's own fallback keeps drawing safe meanwhile. Review them with the same rule (provable by types, or fallback + `Faults.report`).
 - Server and engine non-null hygiene (owner, 2026-11-11, lower priority): jOOQ code generation makes NOT NULL columns non-null types, removing most of the server's ~440 `row.get(...)!!`; the engine's ~107 `!!` are read in the owner's engine review (Needs discussion), not swept blindly.
 
 Queue (owner, 2026-11-09 evening), in any order: the items below. The evidence selection's running total is not wanted for now (owner).

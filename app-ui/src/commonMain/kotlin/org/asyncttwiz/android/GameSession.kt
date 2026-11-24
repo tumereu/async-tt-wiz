@@ -521,7 +521,7 @@ class GameSession(private val connection: GameConnection, private val credential
         headsAhead.keys.removeAll { !engineLoad(it) }
         for (gameId in engineGames.keys.filter { !engineLoad(it) }) {
             if (endHeld.remove(gameId)) AppLog.info("game", "End of game: table let go, the game closed (an OK still owed)")
-            val game = engineGames.getValue(gameId)
+            val game = engineGames[gameId] ?: continue // let go already by an earlier one's delivery
             if (game.shown != null) game.takeNow(Long.MAX_VALUE) { actions -> deliverEngine(gameId, game, actions) }
             engineGames.remove(gameId)?.close(); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
             released += order.letGo(gameId); drainHeld()
@@ -954,14 +954,14 @@ class GameSession(private val connection: GameConnection, private val credential
             is GameReceipt -> Unit // Receipt is not acceptance and never removes an uncertain original.
             is GameAdmissionError -> {
                 if (Diagnostics.enabled) message.requestId?.let(DebugLatency::result)
-                val fenced = message.gameId?.takeIf { message.code == "streamFenced" && it in streams }
+                val fenced = message.gameId?.takeIf { message.code == "streamFenced" }?.let { id -> streams[id]?.let { id to it } }
                 if (message.code == "gameplayRulesUpgradeRequired" || message.code == "serverUpdatePending" ||
                     (!welcome && message.code == "invalidInput" && message.requestId == null)) {
                     // A server older than the app's Hello rejects it as unknown input: wait for the server update.
                     incompatibleRules(clientOlder = message.code == "gameplayRulesUpgradeRequired")
                 }
                 else if (message.code == "unauthorized") { val rejected = token; connectionUnavailable("admission:unauthorized"); rejected?.let(authenticationRequired) }
-                else if (fenced != null) streamTakenOver(fenced, message.requestId)
+                else if (fenced != null) streamTakenOver(fenced.first, fenced.second, message.requestId)
                 else if (message.retryable || message.code == "streamFenced") connectionUnavailable("admission:${message.code}")
                 else {
                     connectionLog.warn("admission", "Refused at admission (epoch $epoch): ${message.code}" +
@@ -1117,8 +1117,7 @@ class GameSession(private val connection: GameConnection, private val credential
      * an open or resume still on its way is left to that one's answer. Before, the whole connection was dropped and every
      * new one asked to resume the stream the other tab held, was fenced again and started over, silently, forever.
      */
-    private fun streamTakenOver(gameId: String, requestId: String?) {
-        val stream = streams.getValue(gameId)
+    private fun streamTakenOver(gameId: String, stream: SessionStream, requestId: String?) {
         val what = requestId?.let { "request ${it.take(8)} (${pending[it]?.action?.let(::simpleClassName)})" }
             ?: if (stream.opened) "its resume" else "its open"
         if (requestId != null && stream.awaitingReady) {

@@ -1,0 +1,1 @@
+add: On a computer, resting the mouse on an event of the timeline shows what happened, as holding it does.

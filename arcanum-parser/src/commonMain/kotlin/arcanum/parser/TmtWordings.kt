@@ -80,7 +80,8 @@ internal object Tmt {
     val DEALS_TO_ANY_AND_TO_YOU = Regex("""(.+?) deals (\d+) damage to any target and (\d+) damage to you\.""")
     val MAY_SEARCH_IF_YOU_DONT_PUT = Regex("""[Yy]ou may search your library for an? (.+?) card, reveal it, put it into your hand, then shuffle\. If you don't put a card into your hand this way, (.+)""")
     val MAY_REMOVE_COUNTER_WHEN_YOU_DO = Regex("""[Yy]ou may remove a counter from (.+?)\. When you do, (.+)""")
-    val LOOK_PUT_TOTAL_MANA_VALUE = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) with total mana value (\d+) or less from among them onto the battlefield and the rest on the bottom of your library in a random order\.""")
+    // neo chunk 09: also "Put any number of …" and the rest in a sentence of its own
+    val LOOK_PUT_TOTAL_MANA_VALUE = Regex("""Look at the top (\w+) cards of your library\. Put (?:up to (\w+)|any number of) (.+?) with total mana value (\d+) or less from among them onto the battlefield(?: and the rest|\. Put the rest) on the bottom of your library in a random order\.""")
     // woe chunk 08: also "{X} less to activate, where X is …. This effect can't reduce the mana in that cost to less than one mana."; one chunk 09: "that target …"; mkm chunk 02: the floor of one mana
     val ACTIVATED_ABILITIES_COST_LESS = Regex("""Activated abilities of (.+?)(?: that target (.+?))? cost (\{\d+\}|\{X\}) less to activate(?:, where X is (.+?))?\.( This effect can't reduce the mana in that cost to less than one mana\.)?""")
     val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(any number of|\w+) (.+?) cards( that each have [^,]+)?, put them (?:onto the battlefield( tapped)?|(into your graveyard)), then shuffle\.""") // dmu chunk 02: "land cards that each have a basic land type"; mom chunk 07: "for any number of Praetor cards"; fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped; mh3 chunk 12: into your graveyard

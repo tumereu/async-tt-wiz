@@ -195,6 +195,14 @@ class DesktopTableTest : E2e() {
         assertEquals(emptyList(), alice.leaks.leaks)
     }
 
+    // TBL-010, TBL-012, WEB-029 (found 2026-11-24 by the desktop battlefield worker): on Alice's desktop table, zoomed in and
+    // panned until Bob's battlefield leaves the view, its node goes too, and Fit table brings it back at once (before, it
+    // stayed away until something else composed the table)
+    @Test fun theBattlefieldNodesFollowTheCamera() {
+        start()
+        battlefieldNodesFollowTheCamera(alice, bob)
+    }
+
     // WEB-017, WEB-078, LOB-066, LOB-162, LOB-163, WEB-031, WEB-089 (owner, desktop playtest 2026-11-14: "Two different ways of showing chat, do we need those?"):
     // Alice folds the dock away; Bob's message lights the top row's chat button, whose click unfolds the dock to its chat,
     // ready to type, with no chat panel over the table (before: the side panel), and the message read there clears the dot.

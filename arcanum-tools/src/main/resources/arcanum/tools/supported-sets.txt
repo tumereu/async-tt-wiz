@@ -23,6 +23,7 @@ MH3 Modern Horizons 3
 MKM Murders at Karlov Manor
 MOM March of the Machine
 MSH Marvel Super Heroes
+NEO Kamigawa: Neon Dynasty
 ONE Phyrexia: All Will Be One
 OTJ Outlaws of Thunder Junction
 RTR Return to Ravnica

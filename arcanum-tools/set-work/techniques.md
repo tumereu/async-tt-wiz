@@ -51,6 +51,15 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   (`selfAfterInGraveyard`, CR 400.7); a leaves-the-battlefield trigger stays graveyard-only.
 - In "a X card or a Y card with mana value N or less" the qualifier belongs to the last alternative only. A may-play or
   cast-free static's affected filter never keeps `Category(Spell)`: in a hand or library it matches nothing (CR 601.2a).
+  `Effect.Cast.resultingSpell` may keep it: the engine drops it while judging the card before the cast (CR 601.2a).
+- "As long as <condition>, <several statics on one line>" gives each static the condition. "<noun> with the greatest
+  power/toughness/mana value among <objects>" is a noun. "It gains haste" with no duration lasts indefinitely.
+- An exile cost's `remember` key is a bound name of its ability: "cards exiled with this" after "Exile this and N other X"
+  is `Bound("exiled")`. "The next time one or more X enter this turn, each enters with ..." is a shield used once per
+  event, every object of the move included (`Effect.ApplyMechanics.perEvent`, CR 616.1).
+- "costs {1} less for each target" counts `Value.TargetsOf(Objects.Tested)`; a number fixed as the spell's casting
+  finishes is `Value.AsCast(value)` (CR 601.2i). A modal triggered ability in parser tests is `Ability.Triggered(trigger,
+  Instructions(modes = ...))`, not the `triggered()` helper.
 - An Aura's "when enchanted creature dies" trigger: "this card" is `Objects.SelfAfter` (the Aura in the graveyard is a new
   object). In an ability an Aura or Equipment grants, its own name is `Objects.Granter`.
 - "where X is" inside a quoted ability (an emblem, a granted ability) belongs to that ability, not the outer one; at top
@@ -177,6 +186,10 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - `activates(name, ability = i)` counts activated abilities only, mana abilities included, from 0 (a planeswalker's
   loyalty abilities in printed order). A planeswalker needs `battlefield(x, counters = listOf(CounterKind.Loyalty to n))`;
   a 0/0 X creature needs +1/+1 counters; a tap ability can't be activated twice a turn.
+  Crew: `activates(vehicle, ability = <crew>, choosing = listOf(...))`, then `resolve()` puts a "becomes crewed" trigger
+  on the Stack; reconfigure is #0 (attach, target) and #1 (unattach). A +1/+1 counter at setup makes a creature modified.
+- An "exile any number of <color> cards" additional cost asks `ChooseObjects` even with none (`alice.chooses()`, then the
+  `ManaPayment` suggestion); a one-of additional cost is a `ChooseOption` ("Tap", "Pay {1}").
 - Combat with a trampler or several blockers needs `divideAsSuggested()`; trample excess is power minus blocker toughness.
   Attack after `advanceTo(TurnStep.DeclareAttackers)`; check "can't block" with `assertFailsWith` on `blocks`.
 - Names: `name.zone` needs a unique name; a card in several zones (a token copy sharing a name) is ambiguous. Library

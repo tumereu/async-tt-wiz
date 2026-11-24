@@ -24506,7 +24506,8 @@ internal class Sentences(
                 condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)))))
         }
         // neo chunk 08: "As long as this creature is modified, it has "{T}: Add {G}{G}."" (a granted ability under the condition, CR 611.3a)
-        Neo.AS_LONG_AS_HAS_QUOTED.matchEntire(line)?.takeIf { it.groupValues[2] == "it" || isSelf(it.groupValues[2]) }?.let { m ->
+        // ("it" only after a condition about this object: "As long as enchanted permanent is a land, it has …" is about that permanent)
+        Neo.AS_LONG_AS_HAS_QUOTED.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) || it.groupValues[2] == "it" && isSelf(it.groupValues[1].substringBefore(" is ")) }?.let { m ->
             val condition = conditionWithAnd(m.groupValues[1]) ?: return@let
             val granted = Sentences(self + setOf("this creature")).line(m.groupValues[3])?.takeIf { it !is Ability.Unparsed } ?: return@let
             return listOf(Ability.Static(listOf(Mechanic.GainAbilities(listOf(granted))), affects = Affected.Objects(Objects.Self), condition = condition))

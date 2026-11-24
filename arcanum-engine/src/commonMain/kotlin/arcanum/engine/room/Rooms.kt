@@ -39,8 +39,9 @@ internal object Rooms {
      * what is cast and enters. */
     fun isRoom(definition: CardDefinition?): Boolean = definition != null && isRoom(definition.layout, definition.faces)
 
-    /** Copiable values with a shared type line (CR 709.5, 709.5b): what a permanent works by, a copy of a Room too. */
-    fun isRoom(values: CopiableValues?): Boolean = values != null && isRoom(values.layout, values.faces)
+    /** Copiable values with a shared type line (CR 709.5, 709.5b): what a permanent works by, a copy of a Room too (of a double-faced
+     * object whose faces are multi-part, its face up's, CR 712.6). */
+    fun isRoom(values: CopiableValues?): Boolean = values != null && values.faceUp.let { isRoom(it.layout, it.faces) }
 
     private fun isRoom(layout: Layout, faces: List<FaceDefinition>) =
         layout == Layout.Split && faces.size == 2 && faces.all { isPermanentFace(it) }
@@ -108,7 +109,7 @@ internal object Rooms {
      */
     fun unlockActions(o: ObjectView?): List<AbilityInstance> =
         locked(o).mapNotNull { door ->
-            val half = o?.copiable?.faces?.getOrNull(face(door)) ?: return@mapNotNull null
+            val half = o?.copiable?.faceUp?.faces?.getOrNull(face(door)) ?: return@mapNotNull null
             val cost = half.manaCost ?: return@mapNotNull null
             AbilityInstance(Ability.SpecialAction(Cost.mana(cost),
                 Instructions(steps = listOf(Step.Do(Effect.UnlockDoor(Objects.Self, chooser = Players.You, door = door)))),

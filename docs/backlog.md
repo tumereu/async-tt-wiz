@@ -23,11 +23,6 @@ Playtest and gallery notes (owner, 2026-11-11):
 
 Queue (owner, 2026-11-09 evening), in any order: the items below. The evidence selection's running total is not wanted for now (owner).
 
-
-Arcanum copies, found building copiable values (2026-11-09; can be done any time):
-
-- A token copy of a double-faced permanent that copies a multi-part card (a Room, a prepare creature) isn't double-faced (CR 707.8a): `CopiableValues` has one layout, so it can't hold two faces each with their own parts. The token has the copied layout; what it lacks is transforming between two identical faces. Holding it needs a layout per face.
-
 Parser report decisions (owner, 2026-11-09, relayed by session async-tt-wiz-74), queued after the engine items; not built ahead of them without asking the owner:
 
 - Support set by set, the rest (SYS-082 is built: the catalog's marks count a card as supported by a printing in a supported set or on the single-card list, `arcanum-tools/src/main/resources/arcanum/tools/supported-cards.txt`, first the owner's Powered Synergy Cube; the server's set pods and the app follow them). Still to do: compare the list with the owner's own edited prod cube, in case they changed anything else; and check how a game or a draft already holding cards that are no longer supported behaves, raising that with the owner rather than deciding. This changes what players can use: catalog entries change and e2e covers it.

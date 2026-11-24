@@ -142,4 +142,4 @@ data class ObjectSnapshot(
 /** The statuses of [o] an [ObjectSnapshot] keeps: all but those of copying and merging, which its characteristics show. */
 internal fun snapshotStatuses(o: GameObject): List<ObjectStatus> =
     if (o.statuses.isEmpty()) o.statuses
-    else o.statuses.filter { it !is ObjectStatus.Merged && it !is ObjectStatus.FixedCopies && it !is ObjectStatus.GainedInCopying }
+    else o.statuses.filter { it !is ObjectStatus.Merged && it !is ObjectStatus.FixedCopies && it !is ObjectStatus.GainedInCopying && it !is ObjectStatus.FaceParts }

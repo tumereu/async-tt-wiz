@@ -19,7 +19,6 @@ Desktop playtest notes (owner, 2026-11-14): high priority.
 Playtest and gallery notes (owner, 2026-11-11):
 
 - Short phones (found 2026-11-12, C2): with the combat band open the other player's land row stays fully visible only on screens about 845 dp tall or more; shorter phones still lose part of it. Owner to say whether a shorter phone matters (their device's height decides).
-- Crash-safety leftovers (2026-11-11, from the client crash-safety pass, built): `!!` are gone from client code (checkClientNotNull), but not every throwing lookup was reviewed: app-ui's `BasicTableController`, `TablePresentation.cardForActions` and the `players.single` calls (these also assume two players; fix them for 3+ with the Commander work) and other `first()`/`single()`/`getValue`/`error()`/`check()` reachable from UI state. The table scene's own fallback keeps drawing safe meanwhile. Review them with the same rule (provable by types, or fallback + `Faults.report`).
 - Server and engine non-null hygiene (owner, 2026-11-11, lower priority): jOOQ code generation makes NOT NULL columns non-null types, removing most of the server's ~440 `row.get(...)!!`; the engine's ~107 `!!` are read in the owner's engine review (Needs discussion), not swept blindly.
 
 Queue (owner, 2026-11-09 evening), in any order: the items below. The evidence selection's running total is not wanted for now (owner).

@@ -48,8 +48,8 @@ class BasicTableController(private val play: () -> TableBoard?, private val conn
         if (ids.isEmpty() || ids.size != intent.scope.cardIds.distinct().size) return false
         // Compare semantic locations, not animated pixels, and never repair a stale source by recapture.
         val sources = ids.associateWith { id -> intent.sources[id]?.source() ?: return false }
-        if (ids.any { id -> state.board.cards.single { it.id == id }.let {
-                it.containerId != sources.getValue(id).containerId || it.placement != sources.getValue(id).placement } }) return false
+        if (sources.any { (id, source) ->
+                boardCard(state, id)?.let { it.containerId != source.containerId || it.placement != source.placement } ?: true }) return false
         val target = when (val d = intent.destination) {
             is TableDestination.Container -> state.board.containers.singleOrNull { it.id == d.id && it.zone == d.zone }
             is TableDestination.Grid -> state.board.containers.singleOrNull { it.id == d.containerId && it.zone == PlayZone.BATTLEFIELD }
@@ -61,31 +61,34 @@ class BasicTableController(private val play: () -> TableBoard?, private val conn
             val captured = d.source?.source()?.placement ?: return false
             val card = state.board.cards.singleOrNull { it.id == d.cardId } ?: return false
             if (card.id in ids || card.containerId != target.id || card.placement != captured) return false
-            if ((target.cards.filter { id -> state.board.cards.single { it.id == id }.placement == captured } + ids).distinct().size > 3) return false
+            if ((target.cards.filter { id -> boardCard(state, id)?.placement == captured } + ids).distinct().size > 3) return false
             captured
         }
         val pileRight = pileTarget?.let { p -> target.cards.firstOrNull { id ->
-            id !in ids && state.board.cards.single { it.id == id }.placement == p } }
+            id !in ids && boardCard(state, id)?.placement == p } }
         val grid = intent.destination as? TableDestination.Grid
         val positions = if (grid?.auto == true) {
-            BattlefieldPlacement.cells(state.board, state.definitions, target.id, ids.map { id -> state.board.cards.single { it.id == id } })
+            BattlefieldPlacement.cells(state.board, state.definitions, target.id, ids.map { id -> boardCard(state, id) ?: return false })
         } else if (grid != null) {
             val context = sources[intent.scope.contextId]?.placement?.position
-            ids.mapIndexed { index, id ->
-                val old = sources.getValue(id).placement?.position
+            sources.entries.mapIndexed { index, (id, source) ->
+                val old = source.placement?.position
                 id to if (context != null && old != null) BoardPosition(grid.column + old.x - context.x, grid.row + old.y - context.y)
                     else BoardPosition(grid.column + index, grid.row)
             }.toMap()
         } else emptyMap()
         if (positions.isNotEmpty()) {
-            for ((position, members) in ids.groupBy { positions.getValue(it) }) {
+            val unplaced = ids.filter { it !in positions }
+            if (unplaced.isNotEmpty()) return false.also { report("cards without a battlefield cell", state, unplaced.joinToString()) }
+            for ((position, members) in ids.groupBy { positions[it] }) {
                 if (members.size > 3 || state.board.cards.any { it.id !in ids && it.containerId == target.id && it.placement?.position == position }) return false
             }
         }
         var prefix: String? = null
         val placed = mutableMapOf<BoardPosition, String>()
         var any = false
-        for ((index, id) in ids.withIndex()) {
+        for ((index, entry) in sources.entries.withIndex()) {
+            val (id, source) = entry
             if (!connected()) break
             val predecessor = play()?.takeIf { it.playId == state.playId && it.gameId == state.gameId } ?: break
             val currentTarget = predecessor.board.containers.singleOrNull { it.id == target.id } ?: break
@@ -100,7 +103,7 @@ class BasicTableController(private val play: () -> TableBoard?, private val conn
                     afterId = prefix, beforeId = pileRight,
                     targetCardId = (intent.destination as TableDestination.CardPile).cardId, pendingIds = ids.drop(index + 1))
                 grid != null -> {
-                    val position = positions.getValue(id)
+                    val position = positions[id] ?: break
                     val anchor = placed[position]
                     if (anchor == null) MoveDestination(target.id, MoveInsertion.EMPTY, position)
                     else {
@@ -122,7 +125,6 @@ class BasicTableController(private val play: () -> TableBoard?, private val conn
                 }
                 else -> MoveDestination(target.id, MoveInsertion.UNORDERED)
             }
-            val source = sources.getValue(id)
             val action = PlayAction.MoveCard(id, source, destination, removeStackEntryId = stackEntryId)
             if (target.zone == PlayZone.HAND && source.containerId == target.id && destination.insertion == MoveInsertion.GAP) {
                 val members = currentTarget.cards
@@ -130,7 +132,7 @@ class BasicTableController(private val play: () -> TableBoard?, private val conn
                 val projected = reduced.filterNot { it in destination.pendingIds }
                 val left = destination.afterId?.let { projected.indexOf(it) } ?: -1
                 val index = destination.afterId?.let { reduced.indexOf(it) + 1 } ?: 0
-                val card = predecessor.board.cards.single { it.id == id }
+                val card = boardCard(predecessor, id) ?: break
                 if ((destination.afterId == null || left >= 0) && projected.getOrNull(left + 1) == destination.beforeId &&
                     members.indexOf(id) == index && card.covered && !card.explicitlyCovered) {
                     prefix = id // A no-op Hand member must still anchor the next selected card.
@@ -157,7 +159,7 @@ class BasicTableController(private val play: () -> TableBoard?, private val conn
                 }
             }
             if (pileTarget != null && source.containerId == target.id && source.placement == pileTarget) {
-                val members = currentTarget.cards.filter { member -> predecessor.board.cards.single { it.id == member }.placement == pileTarget }
+                val members = currentTarget.cards.filter { member -> boardCard(predecessor, member)?.placement == pileTarget }
                 val reduced = members.filter { it != id && it !in destination.pendingIds }
                 val left = destination.afterId?.let { reduced.indexOf(it) } ?: -1
                 val addressed = predecessor.board.cards.singleOrNull { it.id == destination.targetCardId }
@@ -179,7 +181,14 @@ class BasicTableController(private val play: () -> TableBoard?, private val conn
         return any
     }
 
+    /** [state]'s card [id]; null when its board doesn't hold it (a fault, reported: the move is refused or stops there). */
+    private fun boardCard(state: TableBoard, id: String): PlayCard? =
+        state.board.cards.firstOrNull { it.id == id } ?: null.also { report("card not on the board", state, id) }
+
     companion object {
+        private fun report(what: String, state: TableBoard, cards: String) =
+            Faults.report("BasicTableController", what, mapOf("game" to state.gameId, "node" to state.nodeId, "cards" to cards))
+
         fun projection(state: TableBoard, action: PlayAction.MoveCard): PlayAction.Stack? {
             if (action.removeStackEntryId != null) return null
             val card = state.board.cards.singleOrNull { it.id == action.cardId } ?: return null
@@ -199,11 +208,14 @@ class BasicTableController(private val play: () -> TableBoard?, private val conn
         /** Same-source order is semantic; cross-source order is stable spatial order, not card name. */
         private fun ordered(state: TableBoard, ids: List<String>): List<String> {
             val cards = state.board.cards.associateBy { it.id }
-            return ids.distinct().filter { it in cards }.sortedWith(compareBy<String> {
-                state.board.containers.indexOfFirst { c -> c.id == cards.getValue(it).containerId }
-            }.thenBy { cards.getValue(it).placement?.position?.y ?: 0 }
-                .thenBy { cards.getValue(it).placement?.position?.x ?: 0 }
-                .thenBy { id -> state.board.containers.single { it.id == cards.getValue(id).containerId }.cards.indexOf(id) })
+            val members = state.board.containers.associate { it.id to it.cards }
+            val unheld = ids.distinct().mapNotNull { cards[it] }.filter { it.containerId !in members }
+            if (unheld.isNotEmpty()) report("cards in no container", state, unheld.joinToString { it.id })
+            return ids.distinct().mapNotNull { cards[it] }.sortedWith(compareBy<PlayCard> { card ->
+                state.board.containers.indexOfFirst { c -> c.id == card.containerId }
+            }.thenBy { it.placement?.position?.y ?: 0 }
+                .thenBy { it.placement?.position?.x ?: 0 }
+                .thenBy { card -> members[card.containerId]?.indexOf(card.id) ?: -1 }).map { it.id }
         }
     }
 }

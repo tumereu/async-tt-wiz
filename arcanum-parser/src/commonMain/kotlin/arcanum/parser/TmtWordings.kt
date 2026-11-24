@@ -86,7 +86,7 @@ internal object Tmt {
     val SEARCH_UP_TO_PUT_THEM_TAPPED = Regex("""Search your library for (?:up to )?(any number of|\w+) (.+?) cards( that each have [^,]+)?, put them (?:onto the battlefield( tapped)?|(into your graveyard)), then shuffle\.""") // dmu chunk 02: "land cards that each have a basic land type"; mom chunk 07: "for any number of Praetor cards"; fdn chunk 05: "for two" (fewer may be found, CR 701.23b), untapped; mh3 chunk 12: into your graveyard
     val ATTACH_WHEN_YOU_DO_FIGHTS = Regex("""[Aa]ttach it to target (.+?)\. When you do, equipped creature fights up to one target (.+)\.""")
     // bro chunk 01: "Each player who controls an artifact or enchantment creates ..."
-    val EACH_PLAYER_CREATES = Regex("""[Ee]ach player(?: who controls (.+?))? creates (.+)\.""")
+    val EACH_PLAYER_CREATES = Regex("""[Ee]ach (player|opponent)(?: who controls (.+?))? creates (.+)\.""")
     val OPPONENTS_ARE_ATTACKED = Regex("""one or more of your opponents are attacked""")
     val SACRIFICE_UNLESS_DISCARD = Regex("""[Ss]acrifice an? (.+?) unless you discard a card\.""")
     val RETURN_IF_ARTIFACT_CREATURE_OTHERWISE = Regex("""Choose target (.+?)\. Return it to the battlefield if it's an artifact creature card\. Otherwise, return it to the battlefield and it's an? (\d+)/(\d+) ([A-Z]\w+) artifact creature with ([a-z ,]+)\.""")

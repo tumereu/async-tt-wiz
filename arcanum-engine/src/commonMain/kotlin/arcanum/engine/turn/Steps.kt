@@ -163,7 +163,14 @@ internal object Steps {
             if (kept != p.manaPool) recorder.record(Changes.manaPool(s, p.id, kept, listOf(Meaning.ManaEmptied)))
         }
         // the step's player read with the effect's own names (exert: "its controller's next untap step", CR 701.43a)
-        endEffectsNamed(recorder) { d, you, names -> d is Duration.ThroughNextStep && d.step == step && whose(recorder.state, d.whose, you, names) }
+        // snc fixes: an effect made during this very step lasts through the next such step, not this one ("attacks during its controller's
+        // next combat phase if able", made during that player's declare attackers step, CR 508.1d, 611.2a)
+        val events = s.eventsOf(s.turn.number)
+        val began = events.indexOfLast { it is Change.Step && it.after.step == step && it.before.step != step }
+        val madeThisStep = events.drop(began + 1).filterIsInstance<Change.EffectAdded>().map { it.effect.id }.toSet()
+        endEffectsNamed(recorder, except = madeThisStep) { d, you, names ->
+            d is Duration.ThroughNextStep && d.step == step && whose(recorder.state, d.whose, you, names)
+        }
         if (step == TurnStep.EndOfCombat) {
             // CR 511.2: "until end of combat" effects end; CR 511.3: everything is removed from combat
             endEffects(recorder) { d, _ -> d == Duration.EndOfCombat }
@@ -477,11 +484,12 @@ internal object Steps {
     ) = endEffectsNamed(recorder, onlyController, createdBefore) { d, you, _ -> ends(d, you) }
 
     private fun endEffectsNamed(
-        recorder: Recorder, onlyController: PlayerId? = null, createdBefore: Int? = null,
+        recorder: Recorder, onlyController: PlayerId? = null, createdBefore: Int? = null, except: Set<arcanum.engine.state.EffectId> = emptySet(),
         ends: (Duration, PlayerId, arcanum.engine.state.Bindings) -> Boolean,
     ) {
         recorder.state.effects.values.toList().forEach { e: EffectObject ->
             if (onlyController != null && e.controller != onlyController) return@forEach
+            if (e.id in except) return@forEach
             if (createdBefore != null && e.createdTurn >= createdBefore) return@forEach
             if (ends(e.duration, e.controller, e.names)) recorder.record(Change.EffectRemoved(e))
         }

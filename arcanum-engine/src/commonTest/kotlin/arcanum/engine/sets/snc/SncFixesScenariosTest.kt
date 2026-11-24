@@ -22,6 +22,7 @@ class SncFixesScenariosTest {
     private val wither = Cards.invent("SncFix Withering Whisper", "{B}", "Instant", "Target creature gets -1/-1 until end of turn.")
     private val bear = Cards.invent("SncFix Alley Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val cub = Cards.invent("SncFix Alley Cub", "{G}", "Creature — Bear", "", "1/1")
+    private val goad = Cards.invent("SncFix Taunting Heckle", "{R}", "Instant", "Target creature attacks during its controller's next combat phase if able.")
     private val detour = Cards.invent("SncFix Endless Roundabout", "{G}{W}{U}", "Instant",
         "The owner of target spell, nonland permanent, or card in a graveyard puts it on their choice of the top or bottom of their library.")
 
@@ -144,5 +145,31 @@ class SncFixesScenariosTest {
             bob.library.size shouldBe 2
             state.stack.isEmpty() shouldBe true
         }
+    }
+
+    // CR 508.1d, 611.2a: made during its controller's own declare attackers step (after attackers are declared), the requirement is for
+    // that player's next combat phase, not the one under way
+    @Test
+    fun mustAttackMadeDuringItsControllersDeclareAttackersStepLastsToTheirNextCombat() = scenario(players = 3) {
+        turn(number = 2, active = bob)
+        bob.battlefield(bear)
+        alice.battlefield("Mountain")
+        alice.hand(goad)
+        alice.library("Island", "Island")
+        bob.library("Island", "Island")
+        carol.library("Island", "Island")
+        advanceTo(TurnStep.DeclareAttackers)
+        bob.attacks()
+        bob.passes()
+        carol.passes()
+        alice.casts(goad, target = bear)
+        resolveAll()
+        advanceTo(TurnStep.EndOfCombat)
+        expect { bear hasMechanic { it is arcanum.api.Mechanic.MustAttack } }
+        advanceTo(TurnStep.DeclareAttackers, turn = 5)
+        kotlin.test.assertFailsWith<IllegalArgumentException> { bob.attacks() }
+        bob.attacks(bear, defender = "carol")
+        advanceTo(TurnStep.EndOfCombat)
+        expect { bear lacksMechanic { it is arcanum.api.Mechanic.MustAttack } }
     }
 }

@@ -1460,6 +1460,12 @@ internal object Conditions {
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         InrPhrases.condition(text, self)?.let { return it } // inr
+        // vow chunk 06: "an Equipment named Groom's Finery is attached to a creature you control" (any such permanent, CR 201.2, 301.5)
+        Vow.NAMED_IS_ATTACHED_TO.matchEntire(text)?.let { m ->
+            val to = Filters.noun(m.groupValues[3]) ?: return@let
+            return Condition.Exists(Filters.all(Filters.noun(m.groupValues[1]) ?: return@let, ObjectFilter.Named(m.groupValues[2]),
+                ObjectFilter.Attached(to = Objects.Each(to))), atLeast = 1)
+        }
         // mh3 chunk 10: "you've paid or lost four or more {E} this turn" (energy counters removed from you, CR 107.14)
         Mh3.PAID_OR_LOST_ENERGY_THIS_TURN.matchEntire(text)?.let { m ->
             return Condition.HappenedThisTurn(EventPattern.PlayerCountersRemoved(PlayerFilter.You, arcanum.api.CounterKind.Energy),

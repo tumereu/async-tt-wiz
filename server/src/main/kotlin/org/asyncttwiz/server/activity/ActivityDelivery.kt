@@ -111,14 +111,14 @@ class ActivityDelivery @JvmOverloads constructor(private val runtime: ServiceRun
                     if (ActivityTiming.present(recipient, time) || sql.fetchExists(SUMMARY, SUMMARY.ACCOUNT_ID.eq(owner)
                             .and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).and(ActivityService.answered())))
                         sql.deleteFrom(PUSH).where(exact).execute()
-                } else if (activity > summary.activityId!!) {
+                } else if (activity > summary.activityId) {
                     sql.deleteFrom(PUSH).where(exact).execute() // A reminder whose stretch the recipient answered.
-                } else if (summary.seenThrough!! >= summary.activityId!!) {
+                } else if (summary.seenThrough!! >= summary.activityId) {
                     // Seen only by a heartbeat after the event. A recipient who merely may be present (a recent
                     // heartbeat, the app possibly closed since) only postpones the push below.
                     sql.deleteFrom(PUSH).where(exact).execute()
-                } else if (summary.authorId != null && !ActivityTiming.due(ActivityTiming.leases(sql, game, summary.authorId!!),
-                        recipient, summary.lastEventAt!!, summary.yourMove!!, time)) {
+                } else if (summary.authorId.let { author -> author != null && !ActivityTiming.due(ActivityTiming.leases(sql, game, author),
+                        recipient, summary.lastEventAt!!, summary.yourMove!!, time) }) {
                     sql.update(PUSH).set(PUSH.DUE_AT, maxOf(row[PUSH.DUE_AT]!!, time.plusSeconds(1))).where(exact).execute()
                 }
             }

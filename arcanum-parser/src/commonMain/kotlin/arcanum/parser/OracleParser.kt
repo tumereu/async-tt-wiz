@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 152
+    const val VERSION: Int = 153
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -657,6 +657,12 @@ object OracleParser {
     private fun keywordThenSentence(line: String, sentences: Sentences): List<Ability>? {
         val dot = line.indexOf(". ").takeIf { it > 0 } ?: return null
         val keywords = keywordLine(line.substring(0, dot))?.takeIf { parts -> parts.none { it is Ability.Unparsed } } ?: return null
+        // mid chunk 01: "Flashback—{3}{R}, Remove X loyalty counters from among planeswalkers you control. If you cast this spell this way, X can't be 0."
+        // (only a spell cast with that keyword, CR 107.3)
+        if (line.substring(dot + 2) == "If you cast this spell this way, X can't be 0.") {
+            val keyword = keywords.singleOrNull() as? arcanum.api.Keyword ?: return null
+            return keywords + Ability.Static(listOf(arcanum.api.Mechanic.XAtLeast(1, castWith = keyword.kind)), affects = arcanum.api.Affected.Objects(arcanum.api.Objects.Self))
+        }
         return keywords + (sentences.line(line.substring(dot + 2)) ?: return null)
     }
 

@@ -120,7 +120,7 @@ internal object MatchRecords {
 
     private fun accounts(sql: DSLContext, ids: Collection<UUID>): Map<UUID, AccountIdentity> =
         if (ids.isEmpty()) emptyMap() else sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.`in`(ids.toSet())).fetch()
-            .associate { it.id!! to AccountService.identity(it) }
+            .associate { it.id to AccountService.identity(it) }
 
     /** The players' names and avatars as they are now. */
     private fun identities(sql: DSLContext, records: List<MatchRecord>): List<MatchRecord> {

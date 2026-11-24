@@ -17,7 +17,7 @@ import org.jooq.impl.DSL
  */
 internal object PodChatStore {
     private fun message(it: PodChatRecord) = PodChatMessage(it.id.toString(), it.podId.toString(), it.authorId.toString(),
-        it.text!!, it.ordinal.toString(), it.createdAt!!.toInstant().toString())
+        it.text, it.ordinal.toString(), it.createdAt!!.toInstant().toString())
 
     private fun cursor(sql: DSLContext, pod: UUID, account: UUID): Long =
         sql.select(CURSOR.ORDINAL).from(CURSOR).where(CURSOR.POD_ID.eq(pod)).and(CURSOR.ACCOUNT_ID.eq(account))

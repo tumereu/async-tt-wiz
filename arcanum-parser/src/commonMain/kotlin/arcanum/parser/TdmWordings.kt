@@ -194,7 +194,8 @@ internal object Tdm {
     val SEARCH_ANY_EXILE_CAST_FREE = Regex("""Search your library for any number of (.+?) cards, exile them, then shuffle\. Until end of turn, you may cast those cards without paying their mana costs\.""")
     // tdm chunk 13: "Look at the top seven cards of your library. Put up to two noncreature, nonland permanent cards with mana value 3 or less from among
     // them onto the battlefield. Put the rest on the bottom of your library in a random order."
-    val LOOK_PUT_UP_TO_ONTO_BATTLEFIELD_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) from among them onto the battlefield\. Put the rest on the bottom of your library in a random order\.""")
+    // mid chunk 01: also "You may put up to two …" (the same choice of zero to two, CR 608.2d)
+    val LOOK_PUT_UP_TO_ONTO_BATTLEFIELD_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library\. (?:You may put|Put) up to (\w+) (.+?) from among them onto the battlefield\. Put the rest on the bottom of your library in a random order\.""")
     // tdm chunk 13: "When you cast this spell, if you've cast another spell this turn, copy this spell."
     val COPY_THIS_SPELL = Regex("""[Cc]opy this spell\.""")
     // tdm chunk 13: "Activate only during your turn and only if a card left your graveyard this turn."

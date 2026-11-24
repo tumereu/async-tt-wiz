@@ -69,7 +69,7 @@ class DeckService(private val runtime: ServiceRuntime) {
             if ((requestedName == null && requestedCover == null && contents == null && input.category == null) ||
                 (requestedName != null && (!DeckValidation.text(requestedName) || requestedName.isBlank())))
                 return@business error(400, "invalid_deck", "name")
-            val previous = entries(sql, row.id!!)
+            val previous = entries(sql, row.id)
             val next = if (contents == null) previous else {
                 if (built == null) return@business error(400, "invalid_deck")
                 // A card without a printing is kept only while the deck holds it.
@@ -79,11 +79,11 @@ class DeckService(private val runtime: ServiceRuntime) {
                 deckEntries(built)
             }
             if (requestedCover != null && next.none { it.printingId == requestedCover }) return@business error(400, "invalid_cover", "cover")
-            val name = input.name ?: row.name!!
+            val name = input.name ?: row.name
             val cover = (input.cover ?: row.coverPrinting)?.takeIf { printing -> next.any { it.printingId == printing } }
             if (next != previous) {
                 sql.deleteFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.eq(row.id)).execute()
-                insertEntries(sql, row.id!!, owner, next)
+                insertEntries(sql, row.id, owner, next)
             }
             if (name != row.name || cover != row.coverPrinting || next != previous) {
                 sql.update(SAVED_DECK).set(SAVED_DECK.NAME, name).set(SAVED_DECK.COVER_PRINTING, cover)
@@ -113,7 +113,7 @@ class DeckService(private val runtime: ServiceRuntime) {
         if (!DeckValidation.uuid(input.requestId)) return error(400, "invalid_request", "requestId")
         return business(principal, input.requestId, "copyDeck", intent(id, json.encodeToJsonElement(CopyDeck.serializer(), input))) { sql, owner ->
             val source = owned(sql, owner, id) ?: return@business error(404, "not_found")
-            val entries = entries(sql, source.id!!)
+            val entries = entries(sql, source.id)
             val copy = UUID.randomUUID()
             val row = sql.insertInto(SAVED_DECK).set(SAVED_DECK.ID, copy).set(SAVED_DECK.ACCOUNT_ID, owner)
                 .set(SAVED_DECK.NAME, source.name).set(SAVED_DECK.COVER_PRINTING, source.coverPrinting).returning().fetchSingle()
@@ -142,7 +142,7 @@ class DeckService(private val runtime: ServiceRuntime) {
         if (!DeckValidation.uuid(id)) return null
         val row = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(UUID.fromString(id)))
             .and(SAVED_DECK.ACCOUNT_ID.eq(owner)).forShare().fetchOne() ?: return null
-        val entries = entries(sql, row.id!!)
+        val entries = entries(sql, row.id)
         return SavedDeck(summary(row, entries), entries)
     }
 
@@ -150,7 +150,7 @@ class DeckService(private val runtime: ServiceRuntime) {
     internal fun summaries(sql: DSLContext, rows: List<SavedDeckRecord>): List<DeckSummary> {
         if (rows.isEmpty()) return emptyList()
         val entries = sql.selectFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.`in`(rows.map { it.id }))
-            .orderBy(DECK_ENTRY.DECK_ID, DECK_ENTRY.POSITION).fetch().groupBy({ it.deckId!! }, ::entry)
+            .orderBy(DECK_ENTRY.DECK_ID, DECK_ENTRY.POSITION).fetch().groupBy({ it.deckId }, ::entry)
         return rows.map { row -> summary(row, entries[row.id].orEmpty()) }
     }
 
@@ -160,10 +160,10 @@ class DeckService(private val runtime: ServiceRuntime) {
         val catalog = ServerCatalogs.current()
         val cover = (entries.firstOrNull { it.printingId != null && it.printingId == row.coverPrinting } ?: entries.firstOrNull { it.printingId != null })
             ?.let { entry -> DeckCover(entry.printingId!!, entry.name, catalog?.catalog?.printing?.get(entry.printingId)?.scryfall) }
-        return DeckSummary(row.id.toString(), row.name!!, row.revision.toString(), row.createdAt!!.toInstant().toString(),
+        return DeckSummary(row.id.toString(), row.name, row.revision.toString(), row.createdAt!!.toInstant().toString(),
             entries.filter { it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity.toLong() },
             entries.filter { it.section == SavedDeckSection.SIDEBOARD }.sumOf { it.quantity.toLong() }, cover,
-            row.draftPodId?.let { DraftDeckOrigin(it.toString(), row.draftPodName!!) },
+            row.draftPodId?.let { DraftDeckOrigin(it.toString(), checkNotNull(row.draftPodName) { "draft deck ${row.id} has a pod but no pod name" }) },
             entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.sumOf { it.quantity.toLong() },
             CardListSupports.support(entries.map { it.printingId to it.name }), row.categoryId?.toString())
     }
@@ -187,7 +187,7 @@ class DeckService(private val runtime: ServiceRuntime) {
                 if (original.accountId != owner || original.kind != kind || original.scope != "account" || original.intentDigest != intent)
                     return@transaction error(409, "request_conflict")
                 val outcome = sql.selectFrom(ACCOUNT_REQUEST).where(ACCOUNT_REQUEST.REQUEST_ID.eq(id)).fetchSingle()
-                return@transaction Result(outcome.status!!, outcome.response!!)
+                return@transaction Result(outcome.status, outcome.response)
             }
             val outcome = action(sql, owner)
             sql.insertInto(ACCOUNT_REQUEST).set(ACCOUNT_REQUEST.REQUEST_ID, id)
@@ -225,13 +225,13 @@ class DeckService(private val runtime: ServiceRuntime) {
             val row = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(UUID.fromString(id)))
                 .and(SAVED_DECK.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId))).forShare().fetchOne()
                 ?: return@transaction error(404, "not_found")
-            val entries = entries(sql, row.id!!)
+            val entries = entries(sql, row.id)
             Result(200, json.encodeToString(SavedDeck(summary(row, entries), entries)))
         }
     }
 
     internal companion object {
-        fun entry(row: DeckEntryRecord) = SavedDeckEntry(SavedDeckSection.valueOf(row.section!!), row.printingId, row.name!!, row.quantity!!)
+        fun entry(row: DeckEntryRecord) = SavedDeckEntry(SavedDeckSection.valueOf(row.section), row.printingId, row.name, row.quantity)
 
         /** [entries] as deck [deck]'s rows, in order, in one statement (SYS-025). */
         fun insertEntries(sql: DSLContext, deck: UUID, owner: UUID, entries: List<SavedDeckEntry>) {

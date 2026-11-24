@@ -51,7 +51,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             val rows = OpponentPresences.rows(sql, game, owner)
             val old = rows.firstOrNull { it.presenceId == presence }
             val active = input.didSomething || old == null || old.left || !old.heartbeat.plusSeconds(15).isAfter(time)
-            val inputAt = if (active) time else old!!.input
+            val inputAt = if (active) time else old.input
             sql.insertInto(PRESENCE).set(PRESENCE.GAME_ID, game).set(PRESENCE.ACCOUNT_ID, owner)
                 .set(PRESENCE.SESSION_ID, principal.sessionId).set(PRESENCE.PRESENCE_ID, presence)
                 .set(PRESENCE.HEARTBEAT_AT, time).set(PRESENCE.INPUT_AT, inputAt)
@@ -104,7 +104,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             val old = sql.selectFrom(INSTALL).where(INSTALL.INSTALLATION_ID.eq(id)).forUpdate().fetchOne()
             val binding = UUID.fromString(input.binding)
             val same = old?.sessionId == principal.sessionId && old.binding == binding && old.accountId == account(principal)
-            val generation = if (same) old!!.generation!! else UUID.randomUUID()
+            val generation = if (same) old.generation else UUID.randomUUID()
             val invalid = old?.invalidTokenHash
             val token = input.pushToken?.takeUnless { tokenHash(it) == invalid }
             // WEB-052: a browser's Web Push subscription, to a push service only (WebPushSender.pushService)
@@ -213,7 +213,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val rows = sql.select(activity, kind, game, identity, author, GAME.GAME_NAME, GAME.POD_ID, GAME.POD_NAME, GAME.POD_INVITATION_HELD,
             GAME.DECK_SETTINGS).from(source)
             .leftJoin(GAME).on(GAME.ID.eq(game)).leftJoin(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
-            .where(ownerField.eq(owner)).and(activity.gt(if (reset) lower else normal!!))
+            .where(ownerField.eq(owner)).and(activity.gt(if (reset) lower else normal))
             .and(activity.le(if (reset) snapshot else high)).and(visible(owner, kind, identity).or(podVisible(DSL.`val`(owner), kind, game, identity)))
             .orderBy(activity).limit(101).fetch()
         val entries = hints(sql, owner, rows.take(100), activity, kind, game, identity, author)
@@ -298,14 +298,14 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val authorId = row.authorId ?: return null
         // CR 104.3a (I-D52): the accepter accepted their own loss: they conceded
         val conceded = gameOver != null && !byRules && joined[suggestionAuthor] == authorId.toString()
-        val recipient = ActivityTiming.leases(sql, row.gameId!!, owner)
+        val recipient = ActivityTiming.leases(sql, row.gameId, owner)
         // A push already sent for this activity decided it was due; a later actor input must not hide it.
-        val pushed = row.pushedThrough!! >= row.activityId!! && !ActivityTiming.present(recipient, now())
-        if (due && !pushed && !ActivityTiming.due(ActivityTiming.leases(sql, row.gameId!!, authorId),
+        val pushed = row.pushedThrough!! >= row.activityId && !ActivityTiming.present(recipient, now())
+        if (due && !pushed && !ActivityTiming.due(ActivityTiming.leases(sql, row.gameId, authorId),
                 recipient, row.lastEventAt!!, row.yourMove!!, now())) return null
         val opponent = sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(authorId)).fetchSingle()
         return ActivityHint(row.activityId.toString(), ActivityKind.GAME, row.gameId.toString(), row.identity.toString(),
-            authorId.toString(), GameNoticeContent(gameRow.gameName!!, opponent.username!!,
+            authorId.toString(), GameNoticeContent(gameRow.gameName, opponent.username,
                 row.lastEventAt.toString(), row.yourMove!!, row.newMessage!!, gameOver = gameOver,
                 opponentReady = row.opponentReady!!, conceded = conceded, byRules = byRules && gameOver != null,
                 branched = row.branched!! && gameOver == null, resumeAt = resumePoint(joined[ENGINE_SEAT.RESUME_AT]),
@@ -619,13 +619,13 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 val pending = sql.selectFrom(PUSH).where(PUSH.GENERATION.eq(generation)).and(PUSH.GAME_ID.eq(game))
                     .and(PUSH.KIND.eq(kind.name)).forUpdate().fetchOne()
                 // What each one-by-one upsert would have found and left: (identity, first, due, attempts)
-                var row = pending?.let { Triple(it.identity!!, it.firstAt!!, it.dueAt!!) to it.attempts!! }
+                var row = pending?.let { Triple(it.identity, it.firstAt, it.dueAt) to it.attempts!! }
                 for ((_, identity) in events) {
                     val same = row?.first?.first == identity
-                    val first = if (same) row!!.first.second else time
-                    val retrying = same && row!!.second > 0
-                    val due = if (retrying) maxOf(time, row!!.first.third) else time
-                    row = Triple(identity, first, due) to if (retrying) row!!.second else 0
+                    val first = if (same) row.first.second else time
+                    val retrying = same && row.second > 0
+                    val due = if (retrying) maxOf(time, row.first.third) else time
+                    row = Triple(identity, first, due) to if (retrying) row.second else 0
                 }
                 val (id, identity) = events.last()
                 val (first, due) = row!!.first.second to row.first.third

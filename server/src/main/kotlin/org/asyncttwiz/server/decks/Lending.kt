@@ -27,7 +27,7 @@ class Lending(private val runtime: ServiceRuntime) {
     /** The decks game [gameId]'s creator lends, for one of its players. */
     fun list(principal: AccountService.Principal, gameId: String): Result = read(principal, gameId) { sql, game ->
         val settings = settings(game)
-        val lender = game.inviterId!!
+        val lender = game.inviterId
         val categories = DeckCategoryService.all(sql, lender)
         val ids = lentIds(sql, lender, settings, categories)
         val rows = if (ids.isEmpty()) emptyList() else sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.`in`(ids))
@@ -46,7 +46,7 @@ class Lending(private val runtime: ServiceRuntime) {
     /** Lent deck [deckId] of game [gameId]'s creator, whole, for one of its players; "not_found" when it isn't lent. */
     fun deck(principal: AccountService.Principal, gameId: String, deckId: String): Result = read(principal, gameId) { sql, game ->
         if (!DeckValidation.uuid(deckId) || !isLent(sql, game, UUID.fromString(deckId))) return@read error(404, "not_found")
-        val deck = DeckService(runtime).lentSource(sql, game.inviterId!!, deckId) ?: return@read error(404, "not_found")
+        val deck = DeckService(runtime).lentSource(sql, game.inviterId, deckId) ?: return@read error(404, "not_found")
         Result(200, json.encodeToString(deck))
     }
 
@@ -90,14 +90,14 @@ class Lending(private val runtime: ServiceRuntime) {
         }
 
         /** Whether [game]'s creator lends their deck [deck] now. */
-        fun isLent(sql: DSLContext, game: GameRecord, deck: UUID): Boolean = deck in lentIds(sql, game.inviterId!!, settings(game))
+        fun isLent(sql: DSLContext, game: GameRecord, deck: UUID): Boolean = deck in lentIds(sql, game.inviterId, settings(game))
 
         /**
          * Whether [player]'s chosen [deck] is allowed in [game] under [settings] (LOB-256, LOB-249, LOB-257): a borrowed deck only while
          * it is lent; with only lent decks, nothing else (the creator's other decks included).
          */
         fun allowed(sql: DSLContext, game: GameRecord, settings: DeckSettings, player: UUID, deck: PreparedDeck,
-            lent: Set<UUID> = lentIds(sql, game.inviterId!!, settings)): Boolean {
+            lent: Set<UUID> = lentIds(sql, game.inviterId, settings)): Boolean {
             val source = runCatching { UUID.fromString(deck.sourceId) }.getOrNull()
             val isLent = source != null && source in lent && (deck.lender == game.inviterId.toString() ||
                 (deck.lender == null && player == game.inviterId))

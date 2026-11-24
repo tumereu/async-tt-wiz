@@ -112,8 +112,8 @@ internal object Ecl {
     val EXILE_UP_TO_ONE_UNTIL_LEAVES = Regex("""[Ee]xile up to one target (.+?) until (.+?) leaves the battlefield\.""")
     val DEALS_TO_ANY_AND_ANY_OTHER = Regex("""(.+?) deals (\d+) damage to any target and (\d+) damage to (?:any other target|each of up to (\w+) other targets)\.""")
     // mom chunk 02: also "3 damage to target opponent and each creature they control" (Urabrask // The Great Work)
-    // trk chunk 10: "… to each opponent and each creature your opponents control."
-    val DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES = Regex("""(.+?) deals (X|\d+) damage to (each opponent|target opponent|target player) and each creature (they|your opponents) control\.""")
+    // trk chunk 10: "… to each opponent and each creature your opponents control."; neo chunk 02: "… and each planeswalker they control."
+    val DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES = Regex("""(.+?) deals (X|\d+) damage to (each opponent|target opponent|target player) and each (creature|planeswalker) (they|your opponents) control\.""")
     val IT_DEALS_POWER_TO_UP_TO_ONE = Regex("""It deals damage equal to its power to up to one target (.+?)\.""")
     val GAIN_LIFE_EQUAL_TO = Regex("""[Yy]ou gain life equal to (.+)\.""")
     val ENCHANTED_FIGHTS_UP_TO_ONE = Regex("""[Ee]nchanted creature fights up to one target (.+?)\.""")

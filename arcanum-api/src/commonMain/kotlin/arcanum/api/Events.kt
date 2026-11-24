@@ -424,6 +424,10 @@ sealed interface Trigger {
         /** With [nthThisTurn]: each of the first [nthThisTurn] such events, not only the last of them ("whenever you draw your first or
          * second card each turn"). */
         val throughNth: Boolean = false,
+        // vow
+        /** With [oneOrMore]: only a batch of at most this many objects; with [atLeast] the same number, exactly that many ("when you
+         * attack with exactly two creatures": the creatures declared as attackers, CR 508.1, 603.2c). */
+        val atMost: Int? = null,
     ) : Trigger {
         constructor(event: EventPattern, oneOrMore: Boolean = false) : this(listOf(event), oneOrMore)
     }

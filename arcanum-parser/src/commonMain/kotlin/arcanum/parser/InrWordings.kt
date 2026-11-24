@@ -109,7 +109,8 @@ internal object InrPhrases {
     // inr chunk 08: Boarded Window "if you were dealt 4 or more damage this turn" (all of it, from any sources, CR 120.1)
     private val YOU_WERE_DEALT_DAMAGE_THIS_TURN = Regex("""you were dealt (?:(\d+) or more )?damage this turn""")
     // inr chunk 08: Boarded Window "Creatures attacking you": attacking you, not a planeswalker or battle (CR 506.3, 508.1b)
-    private val ATTACKING_YOU = Regex("""(.+?) attacking you""")
+    // vow chunk 05: "Creatures attacking enchanted player" (a Curse's player, CR 303.4e)
+    private val ATTACKING_YOU = Regex("""(.+?) attacking (you|enchanted player)""")
 
     // inr chunk 09: Falkenrath Gorger "Vampire creature card you own that isn't on the battlefield" (in any other zone, CR 400.1)
     private val YOU_OWN_NOT_ON_BATTLEFIELD = Regex("""(.+?) you own that isn't on the battlefield""")
@@ -124,7 +125,8 @@ internal object InrPhrases {
         ATTACKING_YOU.matchEntire(phrase)?.let { m ->
             val noun = Filters.noun(m.groupValues[1]) ?: return null
             return Filters.all(noun, ObjectFilter.HasStatus(arcanum.api.Status.Attacking),
-                ObjectFilter.Where(Condition.PlayerMatches(Players.DefendingPlayerOf(Objects.Tested), PlayerFilter.You)),
+                ObjectFilter.Where(Condition.PlayerMatches(Players.DefendingPlayerOf(Objects.Tested),
+                    if (m.groupValues[2] == "you") PlayerFilter.You else PlayerFilter.Is(Players.AttachedTo(Objects.Self)))),
                 ObjectFilter.Where(Condition.Compare(Value.Count(Objects.AttackedBy(Objects.Tested)), Comparison.Equal, Value.Fixed(0))))
         }
         return null

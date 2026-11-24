@@ -4,6 +4,7 @@ import arcanum.api.Affected
 import arcanum.api.Choice
 import arcanum.api.Comparison
 import arcanum.api.Condition
+import arcanum.api.Each
 import arcanum.api.Cost
 import arcanum.api.CostObjects
 import arcanum.api.CostPart
@@ -96,13 +97,15 @@ class DftChunk12BlackTest {
         triggered(on(EventPattern.Cast(not(ObjectFilter.OwnedBy(PlayerFilter.Is(Players.ControllerOf(Objects.Tested)))), PlayerFilter.Any)),
             doing(Effect.CreateToken(treasure, n(1), Players.EventPlayer))),
         run {
-            val controller = Players.ControllerOf(Objects.Bound("creature"))
+            // CR 608.2h: "its controller" is found once, as the trigger resolves, and kept for the lasting permission
+            val controller = Players.Bound("controller")
             triggered(on(EventPattern.Damage(creature, RecipientFilter(players = PlayerFilter.Opponent), combat = true)),
                 Step.Bind(Objects.EventObject(EventRole.Source), "creature"),
-                doing(Effect.LookAt(Objects.LibraryCards(Players.EventPlayer, n(1), fromTop = true), controller, bind = "looked")),
-                doing(Effect.Move(Objects.Bound("looked"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
-                doing(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(controller), manaAsAnyColor = true)),
-                    Affected.Objects(Objects.Bound("exiled")), Duration.Indefinitely)))
+                Step.ForEach(Each.Players(Players.ControllerOf(Objects.Bound("creature"))), bind = "controller", together = true, steps = listOf(
+                    doing(Effect.LookAt(Objects.LibraryCards(Players.EventPlayer, n(1), fromTop = true), controller, bind = "looked")),
+                    doing(Effect.Move(Objects.Bound("looked"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
+                    doing(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(controller), manaAsAnyColor = true)),
+                        Affected.Objects(Objects.Bound("exiled")), Duration.Indefinitely)))))
         },
     )
 

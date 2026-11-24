@@ -197,7 +197,10 @@ object DefinitionChecks {
                     // attack target each: it stays a loop
                     val effect = (body.getOrNull(0) as? JsonObject)?.get("effect") as? JsonObject
                     val attacksThem = effect?.typeName() == "create-token" && bind != null && effect["attacking"].toString().contains("\"$bind\"")
-                    if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do" && uses <= 1 && !action && !attacksThem)
+                    // vow chunk 05: a lasting effect naming that player ("that creature's controller may play that card until end of turn")
+                    // keeps the player found as it resolves (CR 608.2h, 611.2c): it stays a loop
+                    val lastingForThem = effect?.typeName() == "apply" && uses >= 1
+                    if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do" && uses <= 1 && !action && !attacksThem && !lastingForThem)
                         found += "a single effect for each player: give the effect the players (one event); loops are for several steps"
                 }
                 if (type == "each" && (element["filter"] as? JsonObject)?.typeName() == "is")

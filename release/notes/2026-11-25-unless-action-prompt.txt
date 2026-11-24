@@ -1,0 +1,1 @@
+fix: Automatum now asks "Discard an artifact card?" and the like for choices worded "… unless you discard an artifact card", instead of "Pay discard?"

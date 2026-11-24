@@ -74,11 +74,13 @@ internal object Texts {
      * The prompt of a cost paid on resolution (CR 118.12): the sentence of [ability]'s text that says "pay", else its
      * "may" sentence ("you may forage"), a triggered ability's trigger condition left out, followed by the sentences
      * that say what paying does ("If you do, put two +1/+1 counters on it."): "You may forage. If you do, put two +1/+1
-     * counters on it." [otherwise] when the text has neither. Every sentence after the first "If you do" up to the next
+     * counters on it." With no "pay", an "unless you [action]" sentence asks that action ("Discard an artifact card?").
+     * [otherwise] when the text has none of these. Every sentence after the first "If you do" up to the next
      * choice belongs to what paying does ("If you do, create a 1/1 red Goblin creature token. It gains haste until end of turn.").
      */
     fun pay(ability: Ability?, otherwise: String): String {
         val all = sentences(of(ability) ?: return otherwise)
+        if (all.none { PAY.containsMatchIn(it) }) all.firstNotNullOfOrNull { unless(it) }?.let { return it }
         val at = all.indexOfFirst { PAY.containsMatchIn(it) }.takeIf { it >= 0 }
             ?: all.indexOfFirst { MAY.containsMatchIn(it) }.takeIf { it >= 0 } ?: return otherwise
         val first = all[at].let { if (ability is Ability.Triggered) it.replace(CONDITION, "").replaceFirstChar(Char::uppercaseChar) else it }
@@ -87,6 +89,21 @@ internal object Texts {
             listOf(rest.first()) + rest.drop(1).takeWhile { FOLLOW.containsMatchIn(it) || !(PAY.containsMatchIn(it) || MAY.containsMatchIn(it)) }
         else emptyList()
         return (listOf(first) + follows).joinToString(" ")
+    }
+
+    /** "… unless you discard an artifact card." / "… unless that player sacrifices a creature." (CR 118.12a). */
+    private val UNLESS = Regex("""\bunless (you|they|that player|its controller|an opponent|any player) (\w+) ([^.;]+)""")
+
+    /** Verbs of an "unless" condition rather than an action ("unless you control a Wizard", "unless you cast it"). */
+    private val STATES = setOf("control", "controls", "have", "has", "had", "cast", "casts", "revealed", "did", "do", "does", "are", "is", "were", "attacked")
+
+    /** The action of an "unless [player] [action]" sentence as a question, verb in plain form: "Discard an artifact card?". */
+    private fun unless(sentence: String): String? {
+        val m = UNLESS.find(sentence) ?: return null
+        val (who, verb, rest) = m.destructured
+        if (verb in STATES) return null
+        val plain = if (who != "you" && who != "they" && verb.length > 3 && verb.endsWith("s")) verb.dropLast(1) else verb
+        return "${plain.replaceFirstChar(Char::uppercaseChar)} $rest?"
     }
 
     /** The sentence of [ability]'s text that says [verb] ("search", "choose"), else [otherwise]. */

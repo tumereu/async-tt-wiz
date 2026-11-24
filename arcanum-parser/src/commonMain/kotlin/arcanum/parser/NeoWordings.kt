@@ -26,6 +26,14 @@ internal object Neo {
     // neo chunk 02: "defending player chooses a nonland card in your graveyard. Return that card to your hand. This creature gets +X/+0 until end of
     // turn, where X is the mana value of that card."
     val DEFENDING_CHOOSES_IN_YOUR_GRAVEYARD_RETURN_GETS_X = Regex("""Defending player chooses an? (.+?) in your graveyard\. Return that card to your hand\. (.+?) gets \+X/\+0 until end of turn(?:, where X is the mana value of that card)?\.""")
+    // neo chunk 05: "Create a Treasure token and a 1/1 colorless Pilot creature token with "…"" (two token kinds, the last with a quoted ability)
+    // neo chunk 05: Mechtitan Core
+    val EXILE_SELF_AND_OTHERS_YOU_CONTROL = Regex("""Exile (.+?) and (\w+) other (.+?) you control""")
+    val CREATE_NAMED_LEGENDARY_ALL_COLORS = Regex("""Create ([A-Z][\w' -]*?), a legendary (\d+)/(\d+) ([A-Z][A-Za-z ]+?) creature token(?: with (.+?))? that's all colors\.""")
+    val CREATE_WHEN_THAT_TOKEN_LEAVES = Regex("""(Create [^.]+? token[^.]*?\.) When that token leaves the battlefield, (.+)""")
+    val RETURN_ALL_EXILED_WITH_EXCEPT_TAPPED_UNDER_OWNERS = Regex("""Return all cards exiled with (.+?) except (.+?) to the battlefield tapped under their owners' control\.""")
+    val UNTIL_EOT_BECOMES_COPY_OF_TARGET_EXCEPT = Regex("""[Uu]ntil end of turn, (.+?) becomes a copy of target (.+?), except (.+)\.""")
+    val CREATE_TOKEN_AND_TOKEN = Regex("""Create (an? [^"]+? tokens?) and (an? .+ tokens? with ".+"\.?)""")
 }
 
 /** neo: nouns and conditions of Kamigawa: Neon Dynasty wordings, tried by [Filters] and [Conditions]. */

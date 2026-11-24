@@ -153,7 +153,7 @@ the brackets (`<wt>` and `<plan>` as absolute paths) and send them exactly.
 - **Running times, roughly:** `coveredShapes` 6-8 minutes, `setPlan` under a minute, `base-snapshot.sh` 1-2 minutes,
   `set-tests.sh` 1-3 minutes, with `--full` about 4-8 (it compiles automatum and Wasm too, and leaves out the engine's
   long random-game and fuzz classes); `--full --long` (about 2 minutes more) runs them too and is what the fix, sweep and
-  close steps use. `merge-to-master.sh --chunk` takes a few minutes (the gate's light mode: the set's own suites, no app checks), the full merge at the close about 45.
+  close steps use. `merge-to-master.sh --chunk` takes a few minutes (the gate's light mode: the set's own suites and androidApp's EngineWorkCountTest, no other app checks), the full merge at the close about 45.
 - Gradle (through `gradle-slot.sh`) waits silently for a free build slot: no output for a while isn't a hang.
 - **Context.** Workers stop at about 250k context and report what's left. If one goes far past it, tell it to commit at
   the next green point and report the rest; the rest becomes a new chunk.

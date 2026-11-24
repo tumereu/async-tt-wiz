@@ -8,7 +8,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - Where a rule goes: a single-sentence whole-ability rule at the top of `Sentences.effectRules` (the set's `<set>Effect`
   hook); a wording of several sentences read as one in the set's `<set>Whole`, which sees only bodies with ". " inside;
   a static line that becomes several abilities in `Sentences.multi`. A new table line or slot beats a new rule.
-  `Sentences.effectRules` is at the JVM method size limit and ends calling `effectRulesRest`: split again the same way.
+  `Sentences.effectRules` is at the JVM method size limit: add nothing to it; a new set's single-sentence hook is called
+  from the end of the latest set's hook (`<set>Effect`), whole static lines from the end of `Sentences.static`.
 - "it" follows `context.it`: a rule that moves or exiles an object sets it (`Bound("exiled")`), so a later "it", "that
   card" or "If it's a X" reads the new object (CR 400.7); a return to the battlefield binds `Bound("returned")`. In "When
   this enters", "it" is `EventObject(After)`. After a Move of a target, event object or this card to the battlefield
@@ -58,7 +59,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   (Dr., Capt., U.S.S.) don't end sentences; a legendary name also answers to first+last word or title+last name.
 - "X enters tapped/untapped" triggers are `ZoneChange(And(subject, [Not] HasStatus(Tapped)))`; both replacements apply in
   the chosen order, last wins. Player-bound results that outlast the resolution ("that opponent" after a control change, a
-  permission only that player holds) bind the player with a one-player `ForEach(..., bind = ...)`.
+  permission only that player holds) bind the player with a one-player `ForEach(..., bind = ...)`, a single
+  `ApplyMechanics` inside allowed (CR 608.2h).
 - Every copy keeps the original's targets ("Copy target ... spell", "copy it", "copy this spell", copies in delayed
   triggers and repeats); only a following "You may choose new targets" sets `newTargets` (CR 707.10, 707.10c).
 - "If ... would ... this turn, ... instead." or "Until end of turn, if ... instead." inside an effect is a replacement
@@ -105,7 +107,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   a different filter (CR 115.3), not `Not(Is(Self))`. A condition judged
   "as you cast" is `Condition.AsCast` (copies aren't cast); a spell's own cost reduction may read its cast choices.
 - Replacements: "dealt damage this way would die this turn, exile it instead" covers only objects actually dealt damage
-  (prevented damage isn't dealt, CR 615.1a); "if you would pay life" is `EventPattern.PayLife` with a
+  (prevented damage isn't dealt, CR 615.1a): any "a creature dealt damage this way" is `DealDamage.postBind`, never
+  `Objects.Target`; "if you would pay life" is `EventPattern.PayLife` with a
   `Replacement.condition`, payability stays CR 119.4; mana multipliers are a `Replacement` on `Tap(forMana = true)`.
 - "mana spent to activate this ability" = `Value.ManaSpent(of = Objects.ThisAbility)`; "as though it were mana of any
   color" = `MayPlay.manaAsAnyColorOnly` (can't pay {C}), "of any type" `manaAsAnyColor` (CR 106.1b); "mana from a X"
@@ -138,21 +141,28 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - "during their last turn" = `PlayerFilter.LastTurn(event)` (CR 800.4i): with 3+ players a player's last turn can be
   older than the game's previous turn (`GameState.logNeededFrom`). Attacks on a battle: the protector is the defending
   player (CR 506.2; `Battles.defender`, `ObjectFilter.ProtectedBy`).
+- "up to one target X, up to one target player, and/or ..." = min-0 slots and one `DealDamage` with `Recipients(objects =
+  Union, players)`. "If a <kind> card was milled this way" = any milled card of that kind, wherever it went (CR 701.17c).
+- "Choose a number between A and B." binds `thatMuch = Bound("number")`; "During that turn, X." after an extra turn =
+  mark the turn (`markExtraTurn`) + `Duration.DuringTurn(mark)`, not a delayed upkeep trigger. "it's night/day" are
+  `Condition.IsNight/IsDay`; daybound/nightbound are plain keywords (the engine runs day/night).
 
 ## Engine scenarios
 - All setup (`battlefield`, `hand`, `library`, `life`, `turn`, `attach`) comes before the first move; afterwards only
   `move(name, zone)`, which fires no triggers: kill a creature with a damage spell to see a dies trigger.
 - `turn(step = Upkeep)` fires no upkeep triggers: start in `PrecombatMain` and `advanceTo(Upkeep, turn = n)`. Going past
   turn 1 needs a library for each player who draws (an empty library loses the game).
-- Opponent's turn: `turn(number = 2, active = bob)`, or `priority = alice` to act in it. After your own spell resolves you
-  hold priority again: `alice.passes()` before the opponent acts; with 3 players priority then goes in turn order from the
-  active player (bob active: carol, then alice). `Engine.options(state, p.id)` is empty without priority.
+- Opponent's turn: `turn(number = 2, active = bob)`, or `priority = alice` to act in it. After any resolution the active
+  player gets priority (CR 117.3b): on your turn `alice.passes()` before the opponent acts; with 3 players priority then
+  goes in turn order from the active player (bob active: carol, then alice). `Engine.options(state, p.id)` is empty
+  without priority.
 - `casts(...)` answers targets in slot order, `modes`, `x`, `kicked` (0 declines; without it a kicker card stops at a May
   and later expectations can pass vacuously: assert the spell resolved), `option` ("A or B" costs), `choosing` (cost
   objects), `paying` ("name#1" = the second land of that name). Leftover decisions stay open for `answer(...)`.
   `kicked = 2` answers both Mays of a two-kicker card; to kick only one, answer the Mays by hand. Several "up to one"
   slots: `while (pending is Decision.Targets) answer(Answer.Targets(emptyList()))`, then pay.
-- Casting never throws for missing mana: test "can't pay" with `decision<Decision.ManaPayment>().suggestion` empty. A spell
+- Casting never throws for missing mana, and `Engine.options` lists unaffordable activations: test "can't pay" with
+  `decision<Decision.ManaPayment>().suggestion` empty. A spell
   with no legal target throws `IllegalArgumentException`, as does casting without permission or a failed activation
   condition. Test a target limit through `decision<Decision.Targets>().max`, not by over-supplying targets.
 - Auto-answers: a cast's lone legal target, a lone sacrifice or discard choice, a scry of a one-card library and a cast
@@ -214,6 +224,10 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   subtypes via `x.view.characteristics!!.hasSubtype(Subtype("Elf"))`; damage via `x.view.obj?.damage`.
 - A scry or optional payment inside a resolving spell can leave a decision open before triggers (scry: `Answer.Objects(
   emptyList())`); a mana ability with a colour choice asks colour and payment in either order: answer what is pending.
+- A transformed or disturbed permanent from the start: `battlefield(card)` + `backFaceUp(card)` (+ `attach` for an Aura
+  face); a back face cast from the graveyard is a plain `casts(front, ...)`. Cast/play events name the card before it
+  moved (cast from exile still matches what was remembered there). In exile `Engine.options` offers a creature only at
+  sorcery timing: test "who may play it" with an instant.
 - An Adventure face: `casts("Face", way = CastWay(face = 1))`; a player target needs `target = "bob"` even with one
   opponent. Saga chapter II after I: `loreChapter(saga, n)`, then `advanceTo(PrecombatMain, turn = 5)`. A read ahead
   Saga's chapter is `answers(Answer.Number(n))` after the first `allPass()`.

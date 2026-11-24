@@ -18,7 +18,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 406.3 (the looker may go on looking at the face-down card), 406.3b (the qualities are the resulting spell's), 401.4
     @Test
     fun discoverTheImpossible() = card(
-        name = "Discover the Impossible",
+        name = "Unearth the Unthinkable",
         cost = "{2}{U}",
         type = "Instant",
         text = "Look at the top five cards of your library. Exile one of them face down and put the rest on the bottom of your library in a random order. You may cast the exiled card without paying its mana cost if it's an instant spell with mana value 2 or less. If you don't, put that card into your hand.",
@@ -35,11 +35,11 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 701.23 (searching hidden zones for cards by name), 611.2a-b (one card in all, for as long as you control it), 609.4b (any colour)
     @Test
     fun kotoseTheSilentSpider() = card(
-        name = "Kotose, the Silent Spider",
+        name = "Kotara, the Hushed Spider",
         cost = "{3}{U}{B}",
         type = "Legendary Creature — Human Ninja",
         pt = "4/4",
-        text = "When Kotose enters, exile target card other than a basic land card from an opponent's graveyard. Search that player's graveyard, hand, and library for any number of cards with the same name as that card and exile them. Then that player shuffles. For as long as you control Kotose, you may play one of the exiled cards, and you may spend mana as though it were mana of any color to cast it.",
+        text = "When Kotara enters, exile target card other than a basic land card from an opponent's graveyard. Search that player's graveyard, hand, and library for any number of cards with the same name as that card and exile them. Then that player shuffles. For as long as you control Kotara, you may play one of the exiled cards, and you may spend mana as though it were mana of any color to cast it.",
     ) parsesTo abilities(run {
         val player = Players.OwnerOf(exiled)
         val zones = listOf(Zone.Graveyard, Zone.Hand, Zone.Library)
@@ -59,7 +59,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 601.2f, 602.2b (an activation cost reduced; mana abilities are activated abilities too, CR 605.1a), 606.3, 205.1b, 613.4b, 301.7
     @Test
     fun tezzeretBetrayerOfFlesh() = card(
-        name = "Tezzeret, Betrayer of Flesh",
+        name = "Tezzarin, Flesh Forsworn",
         cost = "{2}{U}{U}",
         type = "Legendary Planeswalker — Tezzeret",
         loyalty = "4",
@@ -86,7 +86,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 601.2i: the modified creatures are counted as the spell finishes being cast; CR 700.9 (modified)
     @Test
     fun lethalExploit() = card(
-        name = "Lethal Exploit",
+        name = "Deadly Overreach",
         cost = "{1}{B}",
         type = "Instant",
         text = "Target creature gets -2/-2 until end of turn. It gets an additional -1/-1 until end of turn for each modified creature you controlled as you cast this spell. (Equipment, Auras you control, and counters are modifications.)",
@@ -100,7 +100,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 704.5j (the legend rule), 201.2 (the same name), 613.4c
     @Test
     fun mirrorBox() = card(
-        name = "Mirror Box",
+        name = "Mirrored Coffer",
         cost = "{3}",
         type = "Artifact",
         text = """
@@ -120,7 +120,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 608.2c ("Then if" checked after the destruction); "up to one" may be none (CR 115.6)
     @Test
     fun banishingSlash() = card(
-        name = "Banishing Slash",
+        name = "Exiling Cut",
         cost = "{W}{W}",
         type = "Sorcery",
         text = "Destroy up to one target artifact, enchantment, or tapped creature. Then if you control an artifact and an enchantment, create a 2/2 white Samurai creature token with vigilance.",
@@ -133,7 +133,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 603.12 (a reflexive trigger after a cost paid on resolution, CR 118.12), 107.3c ("where X is", counted as it resolves)
     @Test
     fun goShintaiOfHiddenCruelty() = card(
-        name = "Go-Shintai of Hidden Cruelty",
+        name = "Go-Shrine of Veiled Cruelty",
         cost = "{3}{B}",
         type = "Legendary Enchantment Creature — Shrine",
         pt = "2/2",
@@ -152,7 +152,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 707.2, 111.1 (a token copy of the artifact that entered, as it last existed if it left, CR 608.2h)
     @Test
     fun replicationSpecialist() = card(
-        name = "Replication Specialist",
+        name = "Duplication Adept",
         cost = "{4}{U}",
         type = "Creature — Moonfolk Artificer",
         pt = "3/4",
@@ -170,7 +170,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 611.2a (two of the cards in all), 601.2b, 601.2f (an additional cost that reduces the cost)
     @Test
     fun marchOfRecklessJoy() = card(
-        name = "March of Reckless Joy",
+        name = "Procession of Wild Joy",
         cost = "{X}{R}",
         type = "Instant",
         text = """
@@ -189,7 +189,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 603.4 (an intervening "if"), 113.6m (it works from the graveyard), 400.3 (your graveyard: an enchantment you own)
     @Test
     fun kamiOfTransience() = card(
-        name = "Kami of Transience",
+        name = "Kami of Passing Moments",
         cost = "{1}{G}",
         type = "Creature — Spirit",
         pt = "2/2",
@@ -210,7 +210,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 400.7 ("that permanent": the one the card became), 608.2c
     @Test
     fun okibaSalvage() = card(
-        name = "Okiba Salvage",
+        name = "Okiba Scrapping",
         cost = "{4}{B}",
         type = "Sorcery",
         text = "Return target creature or Vehicle card from your graveyard to the battlefield. Then put two +1/+1 counters on that permanent if you control an artifact and an enchantment.",
@@ -223,7 +223,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 205.2 ("artifact and enchantment cards": each card that is either)
     @Test
     fun brilliantRestoration() = card(
-        name = "Brilliant Restoration",
+        name = "Radiant Recovery",
         cost = "{3}{W}{W}{W}{W}",
         type = "Sorcery",
         text = "Return all artifact and enchantment cards from your graveyard to the battlefield.",
@@ -232,7 +232,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 603.7 (a delayed trigger at your next end step, about the Vehicle that returned, CR 400.7)
     @Test
     fun greasefangOkibaBoss() = card(
-        name = "Greasefang, Okiba Boss",
+        name = "Oilfang, Okiba Chief",
         cost = "{1}{W}{B}",
         type = "Legendary Creature — Rat Pilot",
         pt = "4/3",
@@ -247,7 +247,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 107.3 (X announced, then the sacrifice must have that mana value), 601.2c
     @Test
     fun scrapWelder() = card(
-        name = "Scrap Welder",
+        name = "Junk Welder",
         cost = "{2}{R}",
         type = "Creature — Goblin Artificer",
         pt = "3/3",
@@ -264,13 +264,13 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 509.1b (both can be blocked only by creatures with flying or reach this turn)
     @Test
     fun tatsunariToadRider() = card(
-        name = "Tatsunari, Toad Rider",
+        name = "Tatsuro, Toad Rider",
         cost = "{2}{B}",
         type = "Legendary Creature — Human Ninja",
         pt = "3/3",
         text = """
             Whenever you cast an enchantment spell, if you don't control a creature named Keimi, create Keimi, a legendary 3/3 black and green Frog creature token with "Whenever you cast an enchantment spell, each opponent loses 1 life and you gain 1 life."
-            {1}{G/U}: Tatsunari and target Frog you control can't be blocked this turn except by creatures with flying or reach.
+            {1}{G/U}: Tatsuro and target Frog you control can't be blocked this turn except by creatures with flying or reach.
         """,
     ) parsesTo abilities(
         triggered(youCast(enchantment),
@@ -286,7 +286,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 122.1b (keyword counters), 608.2c (a choice for each token)
     @Test
     fun invokeTheAncients() = card(
-        name = "Invoke the Ancients",
+        name = "Call the Old Ones",
         cost = "{1}{G}{G}{G}{G}",
         type = "Sorcery",
         text = "Create two 4/5 green Spirit creature tokens. For each of them, put your choice of a reach counter, a vigilance counter, or a trample counter on it.",
@@ -305,7 +305,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 702.26 (phasing), 601.2c (up to X targets, X announced, CR 601.2b)
     @Test
     fun marchOfSwirlingMist() = card(
-        name = "March of Swirling Mist",
+        name = "Procession of Drifting Fog",
         cost = "{X}{U}",
         type = "Instant",
         text = """
@@ -323,7 +323,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 400.7 (it returns as a new object, with the counter, CR 614.1c)
     @Test
     fun planarIncision() = card(
-        name = "Planar Incision",
+        name = "Planar Slice",
         cost = "{1}{U}",
         type = "Instant",
         text = "Exile target artifact or creature, then return it to the battlefield under its owner's control with a +1/+1 counter on it.",
@@ -336,7 +336,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 702.49a (ninjutsu, granted ones too: an activated ability), 603.2, 401.4
     @Test
     fun satoruUmezawa() = card(
-        name = "Satoru Umezawa",
+        name = "Satori Umeno",
         cost = "{1}{U}{B}",
         type = "Legendary Creature — Human Ninja",
         pt = "2/4",
@@ -357,7 +357,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 509.3a, 509.3c (once each combat either way); "it": the creature that blocked or became blocked, this one
     @Test
     fun jukaiTrainee() = card(
-        name = "Jukai Trainee",
+        name = "Jukai Novice",
         cost = "{1}{G}",
         type = "Creature — Human Samurai",
         pt = "2/2",
@@ -371,7 +371,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 707.10 (copy that spell), 701.6 (counter), 603.2h ("triggers only once each turn"), 102.3 (an opponent)
     @Test
     fun jinGitaxiasProgressTyrant() = card(
-        name = "Jin-Gitaxias, Progress Tyrant",
+        name = "Gin-Taxias, Progress Despot",
         cost = "{5}{U}{U}",
         type = "Legendary Creature — Phyrexian Praetor",
         pt = "5/5",
@@ -387,7 +387,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 700.9 (modified), 603.10a (looked back at as it died: its counters, Equipment and Auras then)
     @Test
     fun akkiEmberKeeper() = card(
-        name = "Akki Ember-Keeper",
+        name = "Akki Spark-Keeper",
         cost = "{1}{R}",
         type = "Enchantment Creature — Goblin Warrior",
         pt = "2/1",
@@ -400,7 +400,7 @@ class NeoChunk10EffectsAndTriggersTest {
     // CR 603.2c (one or more at once: one trigger), 603.2h, 400.3; CR 107.3, 602.5d (activate only as a sorcery)
     @Test
     fun tameshiRealityArchitect() = card(
-        name = "Tameshi, Reality Architect",
+        name = "Tamesho, Reality Builder",
         cost = "{2}{U}",
         type = "Legendary Creature — Moonfolk Wizard",
         pt = "2/3",

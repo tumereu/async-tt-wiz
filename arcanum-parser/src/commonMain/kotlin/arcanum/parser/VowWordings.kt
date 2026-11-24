@@ -25,4 +25,6 @@ internal object Vow {
     val X_IS = Regex("""X is (.+)\.""")
     // vow chunk 04: "Your maximum hand size is reduced by three for the rest of the game."
     val MAXIMUM_HAND_SIZE_CHANGED_REST_OF_GAME = Regex("""Your maximum hand size is (increased|reduced) by (\w+) for the rest of the game\.""")
+    // vow chunk 05: an Aura's "When enchanted creature dies, return this card to the battlefield transformed under your control attached to target opponent."
+    val RETURN_THIS_CARD_TO_BATTLEFIELD = Regex("""[Rr]eturn this card to the battlefield( transformed)?(?: under (your|its owner's) control)?(?: attached to target (player|opponent))?\.""")
 }

@@ -6519,15 +6519,6 @@ internal class Sentences(
             val namedParts = if (!readsSacrificed) costParts else costParts?.map {
                 if (it is CostPart.Sacrifice && it.what is CostObjects.Choose && it.preBind == null) it.copy(preBind = SACRIFICED) else it
             }
-            // vow chunk 01: "You may choose a nonland card from it. If you do, …": a choice of zero or one cards you make, done when one is
-            // chosen (CR 608.2d)
-            val choice = (steps?.singleOrNull() as? Step.Choose)?.takeIf { c -> c.chooser == Players.You &&
-                (c.choice as? arcanum.api.Choice.Objects)?.let { it.min == Value.Fixed(1) && it.max == Value.Fixed(1) } == true }
-            if (choice != null) {
-                val then = ifYouDo(m.groupValues[2], context) ?: return null
-                return listOf(choice.copy(choice = (choice.choice as arcanum.api.Choice.Objects).copy(min = Value.Fixed(0))),
-                    Step.If(arcanum.api.Condition.NonEmpty(choice.bind), then = then))
-            }
             val pay = if (namedParts != null) Step.Pay(Cost(namedParts), bind = "paid", payer = Players.You)
                 else Step.Pay(steps = steps!!, bind = "paid", payer = Players.You)
             if (namesThatCreature) context.that = Objects.Bound(SACRIFICED)

@@ -110,7 +110,7 @@ class VowChunk01TransformTest {
         ),
     )
 
-    // CR 701.27f: "transforms into" triggers only on becoming that face; CR 608.2d: choosing no card is allowed, and then nothing is discarded
+    // CR 701.27f: "transforms into" triggers only on becoming that face; CR 608.2d: you may choose no card, and then nothing is discarded or drawn
     @Test
     fun concealingCurtains() = cardFaces(Layout.Transform,
         card(
@@ -140,8 +140,9 @@ class VowChunk01TransformTest {
             Keyword.Menace,
             triggered(transformsInto("Unveiled Watcher"),
                 doing(Effect.Reveal(handOf(Players.Target("opponent")), bind = "revealed")),
-                Step.Choose(Choice.Objects(nonland, n(0), n(1), from = Objects.Bound("revealed")), bind = "chosen", chooser = Players.You),
-                ifThen(Condition.NonEmpty("chosen"),
+                Step.Pay(steps = listOf(Step.Choose(Choice.Objects(nonland, n(1), n(1), from = Objects.Bound("revealed")), bind = "chosen", chooser = Players.You)),
+                    payer = Players.You, bind = "paid"),
+                ifThen(Condition.Did("paid"),
                     doing(Effect.Discard(Players.Target("opponent"), objects = Objects.Bound("chosen"), count = n(1), filter = ObjectFilter.Any)),
                     draw(1, Players.Target("opponent"))),
                 targets = listOf(targetOpponent)),

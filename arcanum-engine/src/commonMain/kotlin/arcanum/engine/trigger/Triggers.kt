@@ -355,7 +355,10 @@ internal object Triggers {
                     nth(earlier.count { !trigger.batchPerPlayer || batchKey(trigger, it) == batchKey(trigger, unit) } + 1)
                 }
             } ?: now
-            counted.filter { trigger.atLeast == null || it.objects.firstOrNull { o -> o.role == EventRole.Object }?.ids.orEmpty().size >= trigger.atLeast!! }
+            counted.filter {
+                val size = it.objects.firstOrNull { o -> o.role == EventRole.Object }?.ids.orEmpty().size
+                (trigger.atLeast == null || size >= trigger.atLeast!!) && (trigger.atMost == null || size <= trigger.atMost!!)
+            }
         }
         is Trigger.Chapter -> (change as? Change.Counters)?.let { c ->
             val holder = (c.holder as? TargetRef.Object)?.id ?: return@let null

@@ -11,6 +11,7 @@ import arcanum.engine.sets.blb.targets
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** Chunk 13 of NEO: an opponent who chooses what to exile, a returned artifact that gains haste and is sacrificed at the next end step, a return counting
  * modified creatures, and an "attacks alone" exile you may play. */
@@ -69,7 +70,7 @@ class NeoChunk13MoveScenariosTest {
             colossus.zone shouldBe Zone.Graveyard
         }
         assertNotNull(view()[card(scout)]!!.characteristics)
-        assert(view()[card(scout)]!!.characteristics!!.hasKeyword(Keyword.Haste.kind))
+        assertTrue(view()[card(scout)]!!.characteristics!!.hasKeyword(Keyword.Haste.kind))
         advanceTo(TurnStep.End)
         resolveAll()
         expect { scout.zone shouldBe Zone.Graveyard }

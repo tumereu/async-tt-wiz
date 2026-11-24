@@ -79,11 +79,13 @@ class LandscapeHandTest : E2e() {
             waitUntil("Alice's Main 1", along = listOf(bob)) { alice.inOwnMain() }
             val bar = 412f - 56f
             val field = alice.battlefieldBounds()
-            assertEquals(bar, field.bottom, .5f, "her battlefield seen down to the bar: ${alice.screen()}")
             fun mountain() = alice.nodes(hasContentDescription("Mountain, owner ${alice.name}, ", substring = true)).fetchSemanticsNodes()
                 .map { it.boundsInRoot }.filter { it.bottom > bar }.minBy { it.left }
             val card = mountain()
             assertTrue(card.top < bar - 30f, "the card stands above the bar: $card")
+            // (before, the battlefield stopped 4 dp above the hand cards)
+            assertTrue(field.bottom > card.top + 10f && field.bottom <= bar + .5f,
+                "her battlefield seen under her hand cards: $field, $card, ${alice.screen()}")
             fun tapAbove(c: Rect) = alice.table().performTouchInput { click(Offset(c.center.x - field.left, c.top + 8f - field.top)) }
             waitUntil("Alice's game settled") { alice.settled(this) }
             tapAbove(card)

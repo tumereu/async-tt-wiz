@@ -2188,6 +2188,12 @@ internal object Values {
                 else -> arcanum.api.NumericProperty.ManaValue }
             return Value.Of(property, Objects.Bound(SACRIFICED), Combine.Single)
         }
+        // mid chunk 01: "the total power of the sacrificed creatures" (each as it last existed, CR 608.2h)
+        SACRIFICED_TOTAL.matchEntire(text)?.let { m ->
+            val property = when (m.groupValues[1]) { "power" -> arcanum.api.NumericProperty.Power; "toughness" -> arcanum.api.NumericProperty.Toughness
+                else -> arcanum.api.NumericProperty.ManaValue }
+            return Value.Of(property, Objects.Bound(SACRIFICED), Combine.Total)
+        }
         // rtr chunk 05: "the total life lost by your opponents this turn"
         if (text == "the total life lost by your opponents this turn")
             return Value.EventsThisTurn(EventPattern.LoseLife(PlayerFilter.Opponent), arcanum.api.Measure.Amount)
@@ -2213,6 +2219,8 @@ internal object Values {
     // rtr chunk 06
     // one chunk 09, mh3 chunk 06: any sacrificed noun ("the sacrificed artifact's mana value")
     private val SACRIFICED_PROPERTY = Regex("""the sacrificed \w+'s (power|toughness|mana value)""")
+    // mid chunk 01: "the total power of the sacrificed creatures" (an additional cost of any number)
+    private val SACRIFICED_TOTAL = Regex("""the total (power|toughness|mana value) of the sacrificed \w+""")
     // dsk chunk 02
     private val UNLOCKED_DOORS_AMONG = Regex("""the number of unlocked doors among (.+)""")
     private val CARDS_IN_YOUR_ZONE = Regex("""the number of cards in your (library|hand|graveyard)""")

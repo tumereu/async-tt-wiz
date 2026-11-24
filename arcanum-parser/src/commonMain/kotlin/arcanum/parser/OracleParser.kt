@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 154
+    const val VERSION: Int = 155
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -172,7 +172,8 @@ object OracleParser {
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
         // chunks 21, 26: abilities that exile are linked to "cards exiled with [this]" (CR 607.2a)
         // dsk chunk 09: "each card exiled with it"
-        val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") } || text.contains("exiled with it ") || text.contains("exiled with it."),
+        val linkedExile = self.any { text.contains("exiled with $it") } || text.contains("exiled with it ") || text.contains("exiled with it.")
+        val sentences = Sentences(self, isSpell, linkedExile = linkedExile,
             chosenCardType = text.contains("choose a card type")) // dmu chunk 06
         // chunk 33: "the exiled card" in a later ability refers to the cards an earlier ability exiled (linked
         // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
@@ -424,7 +425,8 @@ object OracleParser {
         }
         // tdm chunk 02: "exile … until this creature leaves the battlefield" and a later "the exiled card": the exile keeps the card as card memory
         // (linked abilities, CR 607.2a)
-        val linked = if (sentences.exiledCard == arcanum.api.Objects.Remembered(EXILED_WITH)) result.map(::rememberUntilLeaves) else result
+        val linked = (if (sentences.exiledCard == arcanum.api.Objects.Remembered(EXILED_WITH)) result.map(::rememberUntilLeaves) else result)
+            .let { if (linkedExile) it.map(::rememberLinkedExiles) else it }
         return dftCostTargetYouControl(dftSacrificedCost(finCostTargets(linked))).mapIndexed { index, ability -> stillA(ability.withText(raws[index]), raws[index]) }
     }
 
@@ -515,6 +517,57 @@ object OracleParser {
             static.copy(condition = arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.Target(only.name), Filters.all(condition.filter, noun)))
         }
     }
+
+    /** vow sweep: on a card that refers to cards "exiled with" it, every activated or triggered ability that exiles cards is linked to that
+     * reference (CR 607.2a): an exile (other than of this object) in an ability that keeps nothing as card memory yet keeps the cards it
+     * exiled ("Exile target player's graveyard.", "Exile the top card of each player's library.", "Each opponent exiles a card from their
+     * hand."), whichever sentence rule read it. */
+    private fun rememberLinkedExiles(ability: Ability): Ability {
+        val instructions = when (ability) {
+            is Ability.Activated -> ability.instructions
+            is Ability.Triggered -> ability.instructions
+            else -> return ability
+        }
+        fun keeps(steps: List<arcanum.api.Step>): Boolean = steps.any { step ->
+            when (step) {
+                is arcanum.api.Step.Do -> (step.effect as? arcanum.api.Effect.Remember)?.key == EXILED_WITH
+                is arcanum.api.Step.May -> keeps(step.steps)
+                is arcanum.api.Step.If -> keeps(step.then) || keeps(step.otherwise)
+                is arcanum.api.Step.ForEach -> keeps(step.steps)
+                is arcanum.api.Step.Repeat -> keeps(step.steps)
+                is arcanum.api.Step.RepeatWhile -> keeps(step.steps)
+                is arcanum.api.Step.Simultaneously -> keeps(step.steps)
+                else -> false
+            }
+        }
+        if (keeps(instructions.steps)) return ability
+        val self = setOf<arcanum.api.Objects>(arcanum.api.Objects.Self, arcanum.api.Objects.SelfAfter)
+        fun link(steps: List<arcanum.api.Step>): List<arcanum.api.Step> = steps.flatMap { step ->
+            when (step) {
+                is arcanum.api.Step.Do -> {
+                    val move = step.effect as? arcanum.api.Effect.Move
+                    if (move == null || move.to.zone != arcanum.api.Zone.Exile || move.objects in self) listOf(step) else {
+                        val bind = move.postBind ?: LINKED_EXILE
+                        listOf(arcanum.api.Step.Do(move.copy(postBind = bind)), arcanum.api.Step.Do(arcanum.api.Effect.Remember(EXILED_WITH, arcanum.api.Objects.Bound(bind))))
+                    }
+                }
+                is arcanum.api.Step.May -> listOf(step.copy(steps = link(step.steps)))
+                is arcanum.api.Step.If -> listOf(step.copy(then = link(step.then), otherwise = link(step.otherwise)))
+                is arcanum.api.Step.ForEach -> listOf(step.copy(steps = link(step.steps)))
+                is arcanum.api.Step.Repeat -> listOf(step.copy(steps = link(step.steps)))
+                is arcanum.api.Step.RepeatWhile -> listOf(step.copy(steps = link(step.steps)))
+                else -> listOf(step)
+            }
+        }
+        val steps = link(instructions.steps)
+        if (steps == instructions.steps) return ability
+        return when (ability) {
+            is Ability.Activated -> ability.copy(instructions = instructions.copy(steps = steps))
+            is Ability.Triggered -> ability.copy(instructions = instructions.copy(steps = steps))
+            else -> ability
+        }
+    }
+    private const val LINKED_EXILE = "linked-exiled"
 
     /** tdm: [ability] with each top-level "exile … until … leaves" kept as card memory (when nothing keeps it already). */
     private fun rememberUntilLeaves(ability: Ability): Ability {

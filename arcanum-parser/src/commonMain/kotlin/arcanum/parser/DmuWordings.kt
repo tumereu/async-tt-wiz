@@ -29,7 +29,7 @@ internal object Dmu {
     val BECOMES_BASIC_LAND_TYPE_OF_CHOICE = Regex("""Target (.+?) becomes the basic land type of your choice until end of turn\.""")
     // dmu chunk 02: Nael, Avizoa Aeronaut; Shadow Prophecy; Slimefoot's Survey
     val LOOK_THEN_PUT = Regex("""(Look at the top \w+ cards of your library\.) (Put .+)""")
-    val PUT_N_OF_THEM_REST = Regex("""Put (up to )?(\w+) of them (into your hand|on top of your library) and the rest (into your graveyard|on the bottom(?: of your library)? in a random order)\.""")
+    val PUT_N_OF_THEM_REST = Regex("""Put (up to )?(\w+) of (?:them|those cards) (into your hand|on top of your library) and the rest (into your graveyard|on the bottom(?: of your library)? in a random order)\.""") // vow chunk 09: "of those cards"
     // dmu chunk 02: Bortuk Bonerattle
     val RETURN_IT = Regex("""Return (?:it|that card) to (the battlefield|your hand)( tapped)?\.""")
     val IF_ITS_MANA_VALUE_AT_MOST = Regex("""(.+?) if its mana value is less than or equal to (.+)\.""")

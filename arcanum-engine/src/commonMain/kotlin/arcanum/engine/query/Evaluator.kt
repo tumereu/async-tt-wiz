@@ -700,6 +700,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.CounterKind -> counterKinds(a).any { it in counterKinds(b) } // tdm
             SharedQuality.ColorPair -> colorPair(ca) != null && colorPair(ca) == colorPair(cb) // mkm
             SharedQuality.PermanentType -> permanentTypes(ca).any { it in cb.types } // rvr, lci
+            SharedQuality.LandType -> landTypes(ca).any { it in landTypes(cb) } // vow
         }
     }
 
@@ -722,6 +723,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 SharedQuality.CounterKind -> counterKinds(id) // tdm
                 SharedQuality.ColorPair -> listOfNotNull(colorPair(c)) // mkm
                 SharedQuality.PermanentType -> permanentTypes(c) // rvr, lci
+                SharedQuality.LandType -> landTypes(c) // vow
                 SharedQuality.Controller -> listOfNotNull(board.controller(id)) // snc
             }
         }
@@ -742,6 +744,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     }
 
     private fun creatureTypes(c: Characteristics) = c.subtypes.filter { Subtypes.kindOf(it) == SubtypeKind.Creature }
+    // vow: a land's land types (CR 205.3i)
+    private fun landTypes(c: Characteristics) =
+        if (c.isType(arcanum.api.CardType.Land)) c.subtypes.filter { Subtypes.kindOf(it) == SubtypeKind.Land } else emptyList()
     // fra: a planeswalker's planeswalker types (CR 205.3j)
     private fun planeswalkerTypes(c: Characteristics) =
         if (c.isType(arcanum.api.CardType.Planeswalker)) c.subtypes.filter { Subtypes.kindOf(it) == SubtypeKind.Planeswalker } else emptyList()
@@ -1020,6 +1025,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.CounterKind -> ids.map { counterKinds(it) } // tdm
             SharedQuality.ColorPair -> cs.map { listOfNotNull(colorPair(it)) } // mkm
             SharedQuality.PermanentType -> cs.map { permanentTypes(it) } // rvr, lci
+            SharedQuality.LandType -> cs.map { landTypes(it) } // vow
             SharedQuality.Controller -> ids.map { listOfNotNull(board.controller(it)) } // snc
             SharedQuality.CreatureType -> emptyList()
         }
@@ -1040,6 +1046,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.CounterKind -> ids.flatMap { counterKinds(it) }.distinct().size // tdm
             SharedQuality.ColorPair -> cs.mapNotNull { colorPair(it) }.distinct().size // mkm
             SharedQuality.PermanentType -> cs.flatMap { permanentTypes(it) }.distinct().size // rvr, lci
+            SharedQuality.LandType -> cs.flatMap { landTypes(it) }.distinct().size // vow
             SharedQuality.Controller -> ids.mapNotNull { board.controller(it) }.distinct().size // snc
         }
     }

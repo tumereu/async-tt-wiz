@@ -113,7 +113,11 @@ internal object EoePhrases {
             return listOf(EventPattern.ZoneChange(noun, from = Zone.Battlefield, to = Zone.Graveyard), EventPattern.ZoneChange(noun, from = Zone.Battlefield, to = Zone.Exile))
         }
         // eoe chunk 13: "you play a land or cast a spell" (CR 305.1, 601.2i)
-        if (Eoe.PLAY_LAND_OR_CAST.matches(text)) return listOf(EventPattern.PlayLand(ObjectFilter.Any, PlayerFilter.You), EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You))
+        // vow chunk 09: "a player plays a land or casts a spell", "an opponent …"
+        Eoe.PLAY_LAND_OR_CAST.matchEntire(text)?.let { m ->
+            val who = when (m.groupValues[1]) { "you" -> PlayerFilter.You; "a player" -> PlayerFilter.Any; else -> PlayerFilter.Opponent }
+            return listOf(EventPattern.PlayLand(ObjectFilter.Any, who), EventPattern.Cast(ObjectFilter.Any, who))
+        }
         // isd chunk 04: "equipped creature blocks or becomes blocked by a Vampire" (once for each such creature it blocks or that blocks it,
         // CR 509.3b, 509.3d)
         Isd.BLOCKS_OR_BECOMES_BLOCKED_BY_A.matchEntire(text)?.let { m ->
@@ -253,7 +257,7 @@ internal object Eoe {
     val EXILE_EACH_OPPONENTS_GRAVEYARD = Regex("""[Ee]xile each opponent's graveyard\.""")
     val ACTIVATED_COSTS_X_LESS_WHERE = Regex("""This ability costs \{X\} less to activate, where X is (.+?)\.""")
     val YOU_CONTROL_TARGET_OPPONENT_NEXT_TURN = Regex("""You control target opponent during their next turn\.""")
-    val PLAY_LAND_OR_CAST = Regex("""you play a land or cast a spell""")
+    val PLAY_LAND_OR_CAST = Regex("""(you|a player|an opponent) plays? a land or casts? a spell""")
     val LIFE_BECOMES_HALF_STARTING = Regex("""[Yy]our life total becomes half your starting life total, rounded (up|down)\.""")
     val ADD_X_ANY_ONE_COLOR_COUNTERS = Regex("""Add X mana of any one color, where X is the number of (\S+) counters on (.+)\.""")
     val TARGET_PLAYER_DRAWS_AND_GAINS = Regex("""Target player draws (\w+) cards and gains (\d+) life\.""")

@@ -403,6 +403,9 @@ sealed interface SharedQuality {
     /** Permanent types: the card types artifact, battle, creature, enchantment, land and planeswalker only (CR 110.4a: "shares a permanent
      * type with it", "four or more permanent types among cards in your graveyard"; a kindred card's kindred type isn't one). */
     @Serializable @SerialName("permanent-type") data object PermanentType : SharedQuality
+    // vow
+    /** Land types, basic or not (CR 205.3i: "a basic land card that doesn't share a land type with a land you control"). */
+    @Serializable @SerialName("land-type") data object LandType : SharedQuality
 }
 
 /** Which players something refers to, worked out when it is used. "You" is the controller of the spell or ability

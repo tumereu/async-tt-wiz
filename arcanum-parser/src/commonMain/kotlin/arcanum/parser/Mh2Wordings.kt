@@ -81,7 +81,7 @@ internal object Mh2 {
     val SHUFFLE_PERMANENTS_REVEAL_THAT_MANY_PUT_NON_AURA_THEN_AURA = Regex("""Shuffle all permanents you own into your library, then reveal that many cards from the top of your library\. Put all non-Aura permanent cards revealed this way onto the battlefield, then do the same for Aura cards, then put the rest on the bottom of your library in a random order\.""")
     // mh2 chunk 09
     val COUNTER_ON_CREATURES = Regex("""(\S+) counter on (.+?)""")
-    val GET_PT_FOR_EACH_COUNTER_ON_SELF = Regex("""(.+) get \+(\d+)/\+(\d+) for each (\S+) counter on (.+)\.""")
+    val GET_PT_FOR_EACH_COUNTER_ON_SELF = Regex("""(.+) get ([+-]\d+)/([+-]\d+) for each (\S+) counter on (.+)\.""") // vow chunk 09: "-1/-1 … on them"
     val ISNT_LEGENDARY_IF_TOKEN = Regex("""(.+) isn't legendary if it's a token\.""")
     val CHOOSE_LAND_OR_NONLAND_REVEAL_UNTIL = Regex("""Choose land or nonland\. Reveal cards from the top of your library until you reveal a card of the chosen kind\. Put that card into your hand and the rest on the bottom of your library in a random order\.""")
     val ENTERS_WITH_N_COUNTERS_FOR_EACH_COLOR_SPENT = Regex("""(.+) enters with (\w+) (\S+) counters on it for each (color of mana|(?:\{[WUBRGC]\})+) spent to cast it\.""")

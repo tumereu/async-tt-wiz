@@ -86,7 +86,7 @@ internal object Inr {
     // inr chunk 09: Grimgrin, Corpse-Born
     val ENTERS_TAPPED_AND_DOESNT_UNTAP = Regex("""(.+?) enters tapped and doesn't untap during your untap step\.""")
     // inr chunk 09: Eldritch Evolution "Search your library for …. Put that card onto the battlefield, then shuffle. Exile ~."
-    val SEARCH_THEN_PUT_THAT_CARD = Regex("""Search your library for (an? [^.]+?)\. Put that card (onto the battlefield|into your hand), then shuffle\.(?: (.+))?""")
+    val SEARCH_THEN_PUT_THAT_CARD = Regex("""(?:([^.]+?), then s|S)earch your library for (an? [^.]+?)\. Put that card (onto the battlefield|into your hand), then shuffle\.(?: (.+))?""") // vow chunk 09: "[A], then search …"
     // inr chunk 09: Sigarda, Host of Herons
     val OPPONENTS_CANT_CAUSE_YOU_TO_SACRIFICE = Regex("""Spells and abilities your opponents control can't cause you to sacrifice permanents\.""")
     // inr chunk 09: Mirrorwing Dragon

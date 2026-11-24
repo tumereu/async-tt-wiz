@@ -148,7 +148,7 @@ internal object Msh {
     val THE_NUMBER_ATTACHED_TO = Regex("""the number of (.+?) attached to (?:it|him|her|(.+))""")
     val FIGHTS_UP_TO_ONE_OTHER = Regex("""(.+?) fights up to one other target (.+)\.""")
     val THAT_PLAYER_DRAWS = Regex("""That player draws (a|\w+) cards?\.""")
-    val RETURN_TAPPED_AND_ATTACKING_WITH_COUNTER = Regex("""[Rr]eturn target (.+?) to the battlefield tapped and attacking with an? (\S+) counter on it\.""")
+    val RETURN_TAPPED_AND_ATTACKING_WITH_COUNTER = Regex("""[Rr]eturn target (.+?) to the battlefield tapped and attacking(?: with an? (\S+) counter on it)?\.""") // vow chunk 09: no counter
     val REVEALS_NUMBER_YOU_CHOOSE_DISCARDS = Regex("""Target player reveals a number of cards from their hand equal to one plus (.+?)\. You choose one of them\. That player discards that card\.""")
     val ATTACH_UP_TO_ONE_TO_TARGET = Regex("""[Aa]ttach up to one target (.+?) to (?:target (.+)|that creature)\.""")
     val DEALS_DIVIDED_ONE_OR_TWO = Regex("""(.+?) deals (\d+) damage divided as you choose among one or two targets\.""")

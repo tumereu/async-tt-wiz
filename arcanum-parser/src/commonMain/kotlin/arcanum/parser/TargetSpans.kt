@@ -54,17 +54,30 @@ internal object TargetSpans {
         if (slots.isEmpty()) return slots
         val phrases = phrases(text)
         fun assign(slot: Int, phrase: Int): List<TextSpan>? {
-            if (slot == slots.size || phrase == phrases.size) return if (slot == slots.size && phrase == phrases.size) emptyList() else null
-            val span = phrases[phrase]
-            val words = span.of(text)!!
-            for (taken in 1..minOf(most(words), slots.size - slot)) {
-                if (!fits(slots[slot + taken - 1], words)) break
-                assign(slot + taken, phrase + 1)?.let { return List(taken) { span } + it }
+            if (slot == slots.size) return if (phrase == phrases.size) emptyList() else null
+            if (phrase < phrases.size) {
+                val span = phrases[phrase]
+                val words = span.of(text)!!
+                for (taken in 1..minOf(most(words), slots.size - slot)) {
+                    if (!fits(slots[slot + taken - 1], words)) break
+                    assign(slot + taken, phrase + 1)?.let { return List(taken) { span } + it }
+                }
             }
+            // vow chunk 04: a slot chosen only in place of the one before it (cleave's words in square brackets, CR 702.148a,
+            // 601.2c) is named by the same phrase
+            if (phrase > 0 && slot > 0 && alternatives(slots[slot - 1], slots[slot]))
+                assign(slot + 1, phrase)?.let { return listOf(phrases[phrase - 1]) + it }
             return null
         }
         val spans = assign(0, 0) ?: return slots
         return slots.zip(spans).map { (slot, span) -> slot.copy(span = span) }
+    }
+
+    /** Whether [second] exists exactly when [first] doesn't: their conditions are each other's negation. */
+    private fun alternatives(first: TargetSlot, second: TargetSlot): Boolean {
+        val a = first.onlyIf ?: return false
+        val b = second.onlyIf ?: return false
+        return a == arcanum.api.Condition.Not(b) || b == arcanum.api.Condition.Not(a)
     }
 
     /** How many targets a phrase's count words allow at most: "two target creatures" 2, "any number of targets" any. */

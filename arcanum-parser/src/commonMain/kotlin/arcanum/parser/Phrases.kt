@@ -180,6 +180,9 @@ internal object Filters {
         // dsk chunk 07: "any card" (CR 701.23a: a search for any card)
         if (phrase == "any card") return ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
         // snc chunk 08: "spell you control that wasn't cast" (a copy, or a card put on the Stack, CR 707.10, 601.2a)
+        // vow chunk 04: "spell that wasn't cast from its owner's hand" (a card is only ever in its owner's hand, CR 400.3)
+        if (phrase.endsWith(" that wasn't cast from its owner's hand"))
+            return all(noun(phrase.removeSuffix(" that wasn't cast from its owner's hand")) ?: return null, ObjectFilter.Not(ObjectFilter.WasCast(Zone.Hand)))
         if (phrase.endsWith(" that wasn't cast")) return all(noun(phrase.removeSuffix(" that wasn't cast")) ?: return null, ObjectFilter.Not(ObjectFilter.WasCast()))
         // mh3 chunk 05: "noncreature spells you cast from exile": cast from that zone (CR 601.2a)
         SPELLS_YOU_CAST_FROM.matchEntire(phrase)?.let { m ->

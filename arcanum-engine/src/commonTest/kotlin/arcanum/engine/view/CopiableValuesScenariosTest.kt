@@ -312,6 +312,181 @@ class CopiableValuesScenariosTest {
         assertEquals(listOf("Moss Bear", "Moss Bear"), o.definition!!.faces.map { it.name })
     }
 
+    // CR 707.8a: a token copy of a plain double-faced permanent has one face per face of the permanent: no face has a layout of its own
+    @Test
+    fun aTokenCopyOfAPlainDoubleFacedPermanentHasOneFaceOnEachSide() = scenario {
+        alice.battlefield(werewolf, mold)
+        alice.activates(mold, target = werewolf)
+        allPass()
+        val plain = token()
+        assertEquals(listOf("Pale Pup", "Pale Howler"), seen(plain).copiable!!.faces.map { it.name })
+        assertTrue(seen(plain).copiable!!.faceParts.isEmpty())
+        assertTrue(state.objOrThrow(plain).statuses.none { it is arcanum.engine.state.ObjectStatus.FaceParts })
+    }
+
+    // CR 707.8a: nor does one of a double-faced permanent under a copy effect of a one-faced permanent: each face is that permanent's
+    @Test
+    fun aTokenCopyOfADoubleFacedPermanentCopyingAOneFacedPermanentHasOneFaceOnEachSide() = scenario {
+        alice.battlefield(werewolf, bear, mold)
+        effect(alice, copyMechanic, on = listOf(werewolf), names = mapOf("original" to bear), duration = Duration.Indefinitely)
+        alice.activates(mold, target = werewolf)
+        allPass()
+        val copied = token()
+        assertEquals(Layout.Transform, seen(copied).copiable!!.layout)
+        assertEquals(listOf("Moss Bear", "Moss Bear"), seen(copied).copiable!!.faces.map { it.name })
+        assertTrue(seen(copied).copiable!!.faceParts.isEmpty())
+        assertTrue(state.objOrThrow(copied).statuses.none { it is arcanum.engine.state.ObjectStatus.FaceParts })
+    }
+
+    /** "Transform target permanent." */
+    private val turnOver = Cards.define("Turn Over", CardDefinition(Layout.Normal, listOf(FaceDefinition("Turn Over", ManaCost.parse("{0}"),
+        types = listOf(CardType.Instant), abilities = listOf(Ability.Spell(Instructions(
+            targets = listOf(TargetSlot("permanent", TargetKind.Objects(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent)),
+                arcanum.api.Value.Fixed(1), arcanum.api.Value.Fixed(1))),
+            steps = listOf(Step.Do(Effect.Transform(Objects.Target("permanent")))))))))))
+
+    /** Casts a [turnOver] in hand targeting [name] and lets it resolve. */
+    private fun Scenario.turnsOver(name: String) {
+        alice.castsWithoutCosts(turnOver, target = name)
+        resolve()
+    }
+
+    /** A token copy, made with [maker], of [werewolf] while it is a copy of [original]; then both leave, the token alone stays. */
+    private fun Scenario.doubleFacedTokenCopying(original: String, maker: String): ObjectId {
+        effect(alice, copyMechanic, on = listOf(werewolf), names = mapOf("original" to original), duration = Duration.Indefinitely)
+        alice.activates(maker, target = werewolf)
+        allPass()
+        val token = token()
+        change(Changes.move(state, listOf(card(werewolf, zone = Zone.Battlefield), card(original, zone = Zone.Battlefield)), Zone.Graveyard))
+        return token
+    }
+
+    // CR 707.8a, 712.6: a token copy of a double-faced permanent that copies a Room is a double-faced token, each face that Room with
+    // both its halves (a layout per face, CR 709.5b), both locked as it enters (709.5d); CR 712.7, 701.27a: it transforms; CR 712.15,
+    // 709.5c: it stays the same object, so the door unlocked stays unlocked on the other face; CR 712.6d, 709.5: back face up, its
+    // mana value is its front face's, the Room's unlocked half
+    @Test
+    fun aTokenCopyOfADoubleFacedPermanentCopyingARoomTransformsBetweenTwoRooms() = scenario {
+        alice.battlefield(werewolf, room, press, "Plains", "Plains", "Swamp", "Swamp", "Swamp")
+        alice.hand(turnOver, turnOver)
+        val token = doubleFacedTokenCopying(room, press)
+        val o = state.objOrThrow(token)
+        assertEquals(Layout.Transform, o.definition!!.layout)
+        val values = seen(token).copiable!!
+        assertEquals(listOf<Layout>(Layout.Split, Layout.Split), values.faceParts.map { it.layout })
+        assertEquals(List(2) { listOf("Lantern Foyer", "Quiet Pantry") }, values.faceParts.map { face -> face.faces.map { it.name } })
+        assertTrue(o.marks.isEmpty())
+        assertNull(seen(token).characteristics!!.name, "both doors are locked")
+        assertEquals(2, unlocks(token).size)
+        alice.takesSpecialAction("Lantern Foyer", "unlock-right", paying = listOf("Swamp", "Swamp", "Swamp"))
+        assertEquals("Quiet Pantry", seen(token).characteristics!!.name)
+        turnsOver("Lantern Foyer")
+        assertTrue(state.objOrThrow(token).transformed, "it transformed")
+        assertEquals(1, seen(token).copiable!!.up)
+        assertEquals(listOf("Lantern Foyer", "Quiet Pantry"), seen(token).copiable!!.faceUp.faces.map { it.name }, "its back face is the Room too")
+        assertEquals("Quiet Pantry", seen(token).characteristics!!.name, "the right door is still unlocked")
+        assertEquals(1, seen(token).characteristics!!.abilities.size)
+        assertEquals(1, unlocks(token).size, "the left door can still be unlocked")
+        val evaluator = arcanum.engine.query.Evaluator(arcanum.engine.query.ViewBoard(state, Engine.view(state)), arcanum.engine.query.Context(you = alice.id))
+        assertEquals(3, evaluator.manaValue(token, seen(token).characteristics!!), "{2}{B}, the front face's unlocked half")
+        turnsOver("Lantern Foyer")
+        assertFalse(state.objOrThrow(token).transformed, "it transforms back")
+        assertEquals("Quiet Pantry", seen(token).characteristics!!.name)
+    }
+
+    // CR 707.8a, 201.5a: copying a token, a double-faced permanent's token copy refers to the object that created that token, not to
+    // the one that made the copy
+    @Test
+    fun aTokenCopyOfADoubleFacedPermanentCopyingATokenKeepsItsCreator() = scenario {
+        alice.battlefield(werewolf, bear, press, mold)
+        val made = card(bear) as ObjectId.Card
+        state._objects[made] = state.objOrThrow(made).copy(token = true, statuses = listOf(arcanum.engine.state.ObjectStatus.CreatedBy(card(press))))
+        effect(alice, copyMechanic, on = listOf(werewolf), names = mapOf("original" to bear), duration = Duration.Indefinitely)
+        alice.activates(mold, target = werewolf)
+        allPass()
+        val copy = state.battlefield.last { state.objOrThrow(it).token }
+        assertEquals(Layout.Transform, state.objOrThrow(copy).definition!!.layout)
+        assertEquals(listOf<arcanum.engine.state.ObjectStatus>(arcanum.engine.state.ObjectStatus.CreatedBy(card(press))), state.objOrThrow(copy).statuses)
+    }
+
+    // CR 707.8a: a token copy of that token is double-faced with the same parts, with its back face up as the original's is; CR 707.8:
+    // a permanent that becomes a copy of it has only the face up's values, the Room, and isn't double-faced
+    @Test
+    fun copiesOfADoubleFacedTokenWithARoomOnEachFace() = scenario {
+        alice.battlefield(werewolf, room, press, blank, "Plains", "Swamp", "Swamp", "Swamp")
+        alice.hand(turnOver)
+        val token = doubleFacedTokenCopying(room, press)
+        turnsOver("Lantern Foyer")
+        alice.activates(press, target = "Lantern Foyer")
+        allPass()
+        val again = state.battlefield.last { state.objOrThrow(it).token }
+        assertEquals(1, state.objOrThrow(again).face, "it enters with its back face up")
+        assertEquals(seen(token).copiable!!.faceParts, seen(again).copiable!!.faceParts)
+        assertEquals(2, unlocks(again).size)
+        change(Change.EffectAdded(arcanum.engine.state.EffectObject(
+            id = arcanum.engine.state.EffectId("clone"), mechanics = listOf(copyMechanic), affects = arcanum.api.Affected.Objects(Objects.Self),
+            locked = listOf(card(blank)), source = null, controller = alice.id, timestamp = state.timestampCounter + 1, createdTurn = 1,
+            duration = Duration.Indefinitely,
+            names = arcanum.engine.state.Bindings(mapOf("original" to arcanum.engine.state.NamedValue.Objects(listOf(again)))),
+        )))
+        val copy = seen(card(blank)).copiable!!
+        assertEquals(Layout.Split, copy.layout)
+        assertTrue(copy.faceParts.isEmpty())
+        assertEquals(2, unlocks(card(blank)).size)
+    }
+
+    // CR 707.8a, 712.6, 723.2b: copying a preparation creature, each face of the token has the creature and its prepare spell, the
+    // exception on each creature part but not on the prepare spell (CR 707.9b, 723.3c); transformed, it can still become prepared (723.3a)
+    @Test
+    fun aTokenCopyOfADoubleFacedPermanentCopyingAPreparationCreatureHasThePrepareSpellOnEachFace() = scenario {
+        /** "Create a token that's a copy of target creature, except it's a 1/1." */
+        val frogWord = Cards.define("Frog Word", CardDefinition(Layout.Normal, listOf(FaceDefinition("Frog Word", ManaCost.parse("{0}"),
+            types = listOf(CardType.Sorcery), abilities = listOf(Ability.Spell(Instructions(
+                targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), arcanum.api.Value.Fixed(1), arcanum.api.Value.Fixed(1))),
+                steps = listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Target("creature"), listOf(CopyException.PowerToughness(1, 1))),
+                    arcanum.api.Value.Fixed(1), arcanum.api.Players.You))))))))))
+        alice.battlefield(werewolf, seraph)
+        alice.hand(frogWord, turnOver)
+        effect(alice, copyMechanic, on = listOf(werewolf), names = mapOf("original" to seraph), duration = Duration.Indefinitely)
+        alice.castsWithoutCosts(frogWord, target = werewolf)
+        resolve()
+        val token = token()
+        change(Changes.move(state, listOf(card(werewolf, zone = Zone.Battlefield), card(seraph, zone = Zone.Battlefield)), Zone.Graveyard))
+        val parts = seen(token).copiable!!.faceParts
+        assertEquals(listOf<Layout>(Layout.Prepare, Layout.Prepare), parts.map { it.layout })
+        assertEquals(List(2) { listOf("Hushed Seraph", "Small Mending") }, parts.map { face -> face.faces.map { it.name } })
+        assertEquals(List(2) { PrintedNumber.Fixed(1) }, parts.map { it.faces[0].power })
+        assertEquals(List(2) { null }, parts.map { it.faces[1].power }, "the prepare spell is as printed")
+        turnsOver("Hushed Seraph")
+        assertTrue(state.objOrThrow(token).transformed)
+        assertEquals("Hushed Seraph", seen(token).characteristics!!.name)
+        assertEquals(1, seen(token).characteristics!!.power)
+        activateOnly(token)
+        assertTrue(ObjectMark.Prepared in state.objOrThrow(token).marks, "it becomes prepared")
+        val spell = state.exile.single()
+        assertEquals("Small Mending", seen(spell).characteristics!!.name)
+        assertEquals<ObjectId?>(token, state.objOrThrow(spell).prepareSpellOf)
+    }
+
+    // CR 707.8a, 712.6: copying a flip card, each face of the token has both versions; CR 110.5b: it enters unflipped; CR 707.3, 110.5c:
+    // it flips, a status of its own, and transformed it keeps the flipped version
+    @Test
+    fun aTokenCopyOfADoubleFacedPermanentCopyingAFlipCardFlipsAndTransforms() = scenario {
+        alice.battlefield(werewolf, novice, mold)
+        alice.hand(turningWord, turnOver)
+        val token = doubleFacedTokenCopying(novice, mold)
+        assertEquals(listOf<Layout>(Layout.Flip, Layout.Flip), seen(token).copiable!!.faceParts.map { it.layout })
+        assertEquals("Glass Novice", seen(token).characteristics!!.name)
+        alice.castsWithoutCosts(turningWord, target = "Glass Novice")
+        resolve()
+        assertTrue(state.objOrThrow(token).flipped)
+        assertEquals("Glass Master", seen(token).characteristics!!.name)
+        turnsOver("Glass Novice")
+        assertTrue(state.objOrThrow(token).transformed)
+        assertEquals("Glass Master", seen(token).characteristics!!.name)
+        assertEquals(3, seen(token).characteristics!!.power)
+    }
+
     // ---- Flip
 
     // CR 110.5c's example, CR 707.3: a permanent that's a copy of a flip card flips into its flipped version

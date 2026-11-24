@@ -222,7 +222,7 @@ internal object Effects {
             // what isn't a flip card keeps the face it has up (CR 712.6c)
             is Effect.Flip -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
-                if (act.view()[id]?.copiable?.layout != Layout.Flip || o.flipped) return@forEach
+                if (act.view()[id]?.copiable?.faceUp?.layout != Layout.Flip || o.flipped) return@forEach
                 act.record(if (o.definition.layout == Layout.Flip) Change.Face(id, 0, 1, listOf(Meaning.Flipped))
                     else Change.Status(id, StatusFlag.Flipped, false, true, listOf(Meaning.Flipped)))
             }
@@ -671,7 +671,7 @@ internal object Effects {
 
     private fun chooseDoor(scope: Scope, chooser: Players, id: ObjectId, doors: List<arcanum.api.Door>, text: String): arcanum.api.Door {
         val player = scope.players(chooser).firstOrNull() ?: scope.actor
-        val names = scope.act.view()[id]?.copiable?.faces.orEmpty()
+        val names = scope.act.view()[id]?.copiable?.faceUp?.faces.orEmpty()
         val options = doors.map { names.getOrNull(arcanum.engine.room.Rooms.face(it))?.name ?: it.toString() }
         val chosen = scope.act.chooseOption(player, id, options)
         return doors[options.indexOf(chosen).coerceAtLeast(0)]

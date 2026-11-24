@@ -4,6 +4,7 @@ import arcanum.engine.state.castOrNone
 import arcanum.engine.state.fixedCopies
 import arcanum.engine.state.gainedInCopying
 import arcanum.engine.state.createdBy
+import arcanum.engine.state.faceParts
 import arcanum.engine.state.mergedAbove
 import arcanum.engine.state.mergedBelow
 import arcanum.engine.state.turnedFaceUp
@@ -43,13 +44,13 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     /** An object's whole copiable [values] and, of them, the [faces] whose characteristics it has now, before its doors lock. */
     private class Worked(val values: CopiableValues, val faces: List<IndexedFace>) {
         fun map(change: (FaceDefinition) -> FaceDefinition) =
-            Worked(values.copy(faces = values.faces.map(change)), faces.map { if (it.gained) it else it.copy(face = change(it.face)) })
+            Worked(values.mapFaces(change), faces.map { if (it.gained) it else it.copy(face = change(it.face)) })
 
         /** With the exceptions of a copy effect (CR 707.9b). */
         fun except(except: List<CopyException>): Worked {
             if (except.isEmpty()) return this
             val excepted = exceptions(values, except)
-            return Worked(excepted, faces.filterNot { it.gained }.map { it.copy(face = exceptions(it.face, onEachFace(values.layout, except))) } + gainedPart(excepted))
+            return Worked(excepted, faces.filterNot { it.gained }.map { it.copy(face = exceptions(it.face, onEachFace(values.faceUp.layout, except))) } + gainedPart(excepted))
         }
     }
 
@@ -74,7 +75,8 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     /**
      * The values of a token that's a copy of [id] (CR 707.2, 111.3), or that a copy of a permanent spell becomes (CR 707.10f, g).
      * A double-faced permanent or card gives a double-faced token, each face the copiable values of the same face and the same
-     * face up (CR 707.8a), but an object that only copies a double-faced permanent doesn't (the rule's example of Clone), and a
+     * face up (CR 707.8a), a multi-part object's layout and parts on each face too ([CopiableValues.faceParts]), but an object that
+     * only copies a double-faced permanent doesn't (the rule's example of Clone), and a
      * meld card or a melded permanent gives its face up (CR 707.8); the token enters unflipped (CR 110.5b) and with neither half
      * unlocked (CR 709.5d). Null: unknown.
      */
@@ -94,9 +96,14 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
 
     private fun shapedForToken(o: GameObject?, values: CopiableValues): CopiableValues {
         val printed = o?.definition?.takeIf { !o.faceDown && !o.merged && doubleFaced(it.layout) && it.faces.size > 1 }
-        // A double-faced permanent under a copy effect: each of its faces has what the effect gives (CR 707.8a)
-        if (printed != null && values.layout == Layout.Normal && values.faces.size == 1)
-            return CopiableValues(printed.layout, printed.faces.map { values.faces.single() }, o.face)
+        // A double-faced permanent under a copy effect: each of its faces has what the effect gives (CR 707.8a), a multi-part object's
+        // layout and parts too (a Room, a prepare creature: a layout per face, CR 712.6)
+        if (printed != null && !doubleFaced(values.layout)) {
+            val face = values.copy(up = 0)
+            if (face.layout == Layout.Normal && face.faces.size == 1)
+                return CopiableValues(printed.layout, printed.faces.map { face.faces.single() }, o.face, face.gained, face.createdBy)
+            return CopiableValues(printed.layout, emptyList(), o.face, face.gained, face.createdBy).withFaceParts(printed.faces.map { face.definition })
+        }
         return when (values.layout) {
             is Layout.Meld -> faceUp(values)
             Layout.Flip, Layout.Split -> values.copy(up = 0)
@@ -129,7 +136,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         // CR 613.2b, 708.2a: face down, its copiable values are the face-down values whatever it is
         if (o.faceDown) return Worked(CopiableValues.of(faceDown(o)), listOf(IndexedFace(0, faceDown(o))))
         val definition = o.definition
-        var worked = CopiableValues(definition.layout, definition.faces, o.face, o.gainedInCopying, o.createdBy).let { Worked(it, inEffect(it, o)) }
+        var worked = CopiableValues(definition.layout, definition.faces, o.face, o.gainedInCopying, o.createdBy, o.faceParts).let { Worked(it, inEffect(it, o)) }
         // CR 719.3: cast prototyped, on the Stack and the battlefield its mana cost, colour, power and toughness are its prototype's
         if (o.castOrNone.alternative?.keyword == arcanum.api.Keyword.Prototype.Kind && (o.zone == Zone.Stack || o.zone == Zone.Battlefield))
             worked = worked.map(::prototyped)
@@ -151,12 +158,18 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         return worked
     }
 
-    /** The faces of [values] whose characteristics [o] has: the one up, and what it gained in copying, in neither half. */
-    private fun inEffect(values: CopiableValues, o: GameObject): List<IndexedFace> = when {
-        // CR 709.4: a split card outside the Stack has both halves' characteristics; a fused split spell too (709.4d)
-        values.layout == Layout.Split && (o.zone != Zone.Stack || o.castOrNone.fused) -> values.faces.mapIndexed { i, f -> IndexedFace(i, f) }
-        else -> listOfNotNull(values.faces.getOrNull(values.up)?.let { IndexedFace(values.up, it) })
-    } + gainedPart(values)
+    /** The faces of [values] whose characteristics [o] has: the one up, and what it gained in copying, in neither half. Of a
+     * double-faced object whose faces are multi-part, the parts of the face up, by their index in that face (CR 712.6). */
+    private fun inEffect(values: CopiableValues, o: GameObject): List<IndexedFace> {
+        val up = values.faceUp
+        // CR 707.3, 110.5: a flip card face is the version its object's flipped status picks
+        val upIndex = if (up !== values && up.layout == Layout.Flip && o.flipped) 1 else up.up
+        return when {
+            // CR 709.4: a split card outside the Stack has both halves' characteristics; a fused split spell too (709.4d)
+            up.layout == Layout.Split && (o.zone != Zone.Stack || o.castOrNone.fused) -> up.faces.mapIndexed { i, f -> IndexedFace(i, f) }
+            else -> listOfNotNull(up.faces.getOrNull(upIndex)?.let { IndexedFace(upIndex, it) })
+        } + gainedPart(values)
+    }
 
     /** CR 731.2a, 702.140e: the topmost component's faces, then the other components' abilities ([IndexedFace.abilitiesOnly]). In its
      * copiable values those are [CopiableValues.gained] with its own card on top, its faces as printed, so no face or door decides
@@ -280,7 +293,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         val original = worked(evaluator.objects(copy.objects).firstOrNull() ?: return null, visiting) ?: return null
         val values = copiedByEffect(original.values, o.flipped)
         // Halves, flip versions and what is in no face come from the values themselves; else it has what the original has
-        val own = values.layout == Layout.Split || values.layout == Layout.Flip || values.gained.isNotEmpty()
+        val own = values.layout == Layout.Split || values.layout == Layout.Flip || values.gained.isNotEmpty() || values.faceParts.isNotEmpty()
         return Worked(values, if (own) inEffect(values, o) else original.faces)
     }
 
@@ -297,7 +310,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
          * what [arcanum.engine.state.ObjectSnapshot.copiable] is compared with. */
         fun plain(o: GameObject): CopiableValues =
             if (o.faceDown) CopiableValues.of(faceDown(o))
-            else CopiableValues(o.definition.layout, o.definition.faces, o.face, o.gainedInCopying, o.createdBy)
+            else CopiableValues(o.definition.layout, o.definition.faces, o.face, o.gainedInCopying, o.createdBy, o.faceParts)
 
         /** A merged permanent's [faces] as one face (CR 707.2): the first face, with the abilities of its other components (CR
          * 731.2a, 702.140e: they are part of its copiable values). */
@@ -310,17 +323,18 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         /** Whether [layout] is that of a card that can turn over to its other face (CR 712.7). */
         private fun doubleFaced(layout: Layout) = layout == Layout.Transform || layout == Layout.ModalDoubleFaced
 
-        private fun faceUp(values: CopiableValues) = CopiableValues.of(values.faces.getOrElse(values.up) { FaceDefinition("") })
+        /** The face up's values (CR 707.8): of a double-faced object whose faces are multi-part, that face's layout and parts. */
+        private fun faceUp(values: CopiableValues) = if (values.faceParts.isNotEmpty()) values.faceUp
+            else CopiableValues.of(values.faces.getOrElse(values.up) { FaceDefinition("") })
 
         /**
          * What a copy effect takes from [values]: of a double-faced object, the face up (CR 707.8); of a flip card both
          * versions, the copy's own [flipped] status choosing (CR 707.2, 707.3); else all of them: a split card's halves (CR
          * 709.5b) and the alternative characteristics of an Adventure, an Omen or a prepare spell (CR 716.2b, 721.2b, 723.2b).
          */
-        fun copiedByEffect(values: CopiableValues, flipped: Boolean): CopiableValues = when {
-            doubleFaced(values.layout) || values.layout is Layout.Meld -> faceUp(values)
-            values.layout == Layout.Flip -> values.copy(up = if (flipped) 1 else 0)
-            else -> values
+        fun copiedByEffect(values: CopiableValues, flipped: Boolean): CopiableValues {
+            val copied = if (doubleFaced(values.layout) || values.layout is Layout.Meld) faceUp(values) else values
+            return if (copied.layout == Layout.Flip) copied.copy(up = if (flipped) 1 else 0) else copied
         }
 
         /**
@@ -328,6 +342,11 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
          * ability a split card gains in copying is in neither half (CR 707.9a, 709.5): it is held once, in [CopiableValues.gained].
          */
         fun exceptions(values: CopiableValues, except: List<CopyException>): CopiableValues {
+            // A layout per face (CR 712.6): each face's parts as that layout has them; what is in none of them, once
+            if (values.faceParts.isNotEmpty()) {
+                val parts = values.faceParts.map { exceptions(CopiableValues(it.layout, it.faces, gained = values.gained), except) }
+                return values.withFaceParts(parts.map { it.definition }).copy(gained = (parts.getOrNull(values.up) ?: parts.first()).gained)
+            }
             val faces = values.faces.mapIndexed { i, f -> if (values.layout == Layout.Prepare && i > 0) f else exceptions(f, onEachFace(values.layout, except)) }
             return values.copy(faces = faces, gained = except.fold(values.gained) { gained, e -> when (e) {
                 is CopyException.AddAbilities -> if (values.layout == Layout.Split) gained + e.abilities else gained
@@ -341,7 +360,8 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
 
         /** What [values] gained in copying as a part of its own, after its faces: [AbilityOrigin.Printed] names it by a face index no face has. */
         private fun gainedPart(values: CopiableValues): List<IndexedFace> = if (values.gained.isEmpty()) emptyList()
-            else listOf(IndexedFace(values.faces.size, FaceDefinition("", abilities = values.gained), abilitiesOnly = true, gained = true))
+            else listOf(IndexedFace(maxOf(values.faces.size, values.faceParts.maxOfOrNull { it.faces.size } ?: 0),
+                FaceDefinition("", abilities = values.gained), abilitiesOnly = true, gained = true))
 
         /** CR 708.2a: a 2/2 face-down creature with no text, no name, no subtypes and no mana cost. */
         val FACE_DOWN = FaceDefinition(

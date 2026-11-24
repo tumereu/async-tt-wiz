@@ -2090,6 +2090,7 @@ internal object Values {
         FraPhrases.value(text)?.let { return it } // fra
         MomPhrases.value(text)?.let { return it } // mom
         OtjPhrases.value(text)?.let { return it } // otj
+        VowPhrases.value(text)?.let { return it } // vow
         // mkm chunk 09: "the number of different color pairs among permanents you control that are exactly two colors" (CR 105.2)
         Mkm.NUMBER_OF_COLOR_PAIRS_AMONG.matchEntire(text)?.let { m ->
             return Value.CountDistinct(Filters.objects(m.groupValues[1]) ?: return null, arcanum.api.SharedQuality.ColorPair)

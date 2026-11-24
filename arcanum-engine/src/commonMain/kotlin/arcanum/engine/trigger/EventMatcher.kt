@@ -606,6 +606,13 @@ internal class CurrentBoard(private val base: arcanum.engine.query.Board) : arca
     override fun snapshot(id: ObjectId): arcanum.engine.state.ObjectSnapshot? = null
 }
 
+/** snc fixes: a [base] board on which [id]'s characteristics are [characteristics]: what it was as an earlier event happened (a mana's
+ * source as it produced the mana, CR 106.3). */
+internal class CharacteristicsThenBoard(private val base: arcanum.engine.query.Board, private val id: ObjectId,
+    private val characteristics: arcanum.engine.view.Characteristics) : arcanum.engine.query.Board by base {
+    override fun characteristics(id: ObjectId): arcanum.engine.view.Characteristics? = if (id == this.id) characteristics else base.characteristics(id)
+}
+
 /** A [base] board on which [id]'s controller is [controller]: the controller it had as an earlier event happened (CR 608.2h). */
 internal class ControllerThenBoard(private val base: arcanum.engine.query.Board, private val id: ObjectId, private val controller: PlayerId) :
     arcanum.engine.query.Board by base {

@@ -13,6 +13,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -128,14 +129,52 @@ class ServerMessageOrderTest {
         assertEquals(2, s.wire.subscribes().size, "the stream's own subscription was enough")
     } }
 
-    // HIS-006 (e2e full run 2026-11-13, PassesAndUndoTest): the asked-for engine head beat the revisions; still ahead of what
-    // the device could follow, the game loads from it and the live table stays live; the revisions after it are repeats
-    @Test fun anEngineHeadBeforeItsRevisionsLoadsAndStaysLive() { val (s, game) = opened(); s.use {
+    // HIS-006 (e2e full run 2026-11-13, PassesAndUndoTest; merge gate 2026-11-24, CoreLoopTest): the asked-for engine head beat
+    // the revisions; ahead of what the device could follow, the game doesn't load from it but asks for the revisions after its
+    // own again: they come and play, the live table stays live
+    @Test fun anEngineHeadBeforeItsRevisionsIsAskedPastAndStaysLive() { val (s, game) = opened(); s.use {
+        val before = device(game)
         s.wire.serve(kept, seen, keptHead("4"))
         s.wire.deliver(Arrangement.HeadsFirst)
         assertEquals("4", game.revision)
         assertEquals(1, game.read { d -> d.session.events.count { it.id == keep.id } })
         assertNotEquals(GameDevice.Status.CatchUp, device(game).status, "no catch-up pause on a live table")
+        assertSame(before, device(game), "followed by its revisions, not loaded again")
+        assertEquals(listOf("0", "2"), s.wire.subscribes().map { it.revision }, "the revisions after the table's asked for again")
+    } }
+
+    // SYS-135, SYS-138, HIS-006 (merge gate 2026-11-24, CoreLoopTest.theStepArrowGoesToCombatAndDeclares: her own To combat
+    // refused as "That wasn't taken" at the start of her own turn): Bob's keep is committed after the open game's subscription
+    // replayed its revisions, so the head read after the replay reaches Alice's table before the keep's own publication. The
+    // table isn't loaded again from that head (loading took back the board she had just been shown, so her press on it was
+    // judged stale, and an open cast was dropped with "The table changed: cast it again."): the revisions after its own are
+    // asked for again, and the keep comes by its publication
+    @Test fun aHeadReadBeforeItsRevisionsPublicationTakesNothingBack() { val (s, game) = opened(); s.use {
+        val before = device(game)
+        s.wire.message(keptHead("3"))
+        assertSame(before, device(game), "not loaded again from the head")
+        assertEquals(0L, game.takeBacks, "no board taken back: ${game.lastTakeBack}")
+        assertEquals(listOf("0", "2"), s.wire.subscribes().map { it.revision }, "the revisions after the table's asked for again")
+        // The publication, then the replay's repeat of it and the head asked for
+        s.wire.serve(kept, kept, keptHead("3"))
+        s.wire.deliver()
+        assertSame(before, device(game), "still the same device")
+        assertEquals("3", game.revision)
+        assertEquals(1, game.read { d -> d.session.events.count { it.id == keep.id } }, "Bob's keep by its revision")
+        assertEquals(0L, game.takeBacks, "nothing taken back: ${game.lastTakeBack}")
+        assertEquals(2, s.wire.subscribes().size, "nothing more asked for")
+    } }
+
+    // HIS-006, SYS-015: a head past the revisions whose revisions, asked for again, don't come (more than a replay carries):
+    // the game loads from the next such head
+    @Test fun aHeadStillAheadOnceItsRevisionsWereAskedForLoads() { val (s, game) = opened(); s.use {
+        val before = device(game)
+        s.wire.message(keptHead("3"))
+        assertSame(before, device(game), "asked past first")
+        s.wire.message(keptHead("3"))
+        assertNotSame(before, device(game), "the revisions asked for didn't come: loaded from the head")
+        assertEquals("3", game.revision)
+        assertTrue(game.read { d -> d.session.events.any { it.id == keep.id } })
     } }
 
     /** Bob concedes at the start: the revision that ends the play (the lobby, the result owed by both). */

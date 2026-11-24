@@ -234,6 +234,18 @@ internal fun E2ePlayer.toldATakeBack(by: E2ePlayer): Boolean = shownTexts.any { 
         "taken back", "library reshuffled", "libraries reshuffled").any { it in text }
 }
 
+/** HIS-168, HIS-236 (owner, 2026-11-23): whether the table showed a text of the player's own undo ("Undid: …", or its
+ * "library reshuffled" line), which no longer shows. */
+internal fun E2ePlayer.toldOwnUndo(): Boolean = shownTexts.any { text ->
+    listOf("Undid", "library reshuffled", "libraries reshuffled").any { it in text }
+}
+
+/** HIS-168, HIS-236 (owner, 2026-11-23): whether a device logged the player's own undo, shown with no text at the top, with
+ * every one of [words] in its line ("Undid: cast Storm Spark", the reshuffle line joined on). */
+internal fun ownUndoLogged(vararg words: String): Boolean = org.asyncttwiz.android.AppLog.text().lines().any { line ->
+    "Your own undo, shown without a top text: " in line && words.all { it in line }
+}
+
 /**
  * HIS-106, HIS-190 (owner 2026-11-08): a branch's rewind stops at the branch point as playback stops: this player's table waits
  * there, live, without timeline mode's look, with "<[by]> responded differently from here · Tap to continue", and their

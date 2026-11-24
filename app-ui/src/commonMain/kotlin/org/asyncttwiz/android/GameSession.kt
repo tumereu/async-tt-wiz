@@ -238,6 +238,17 @@ class GameSession(private val connection: GameConnection, private val credential
         drainHeld()
         statusChanged()
     }
+    /** TRN-142 (owner, 2026-11-23): a game whose result waits for an OK shows it over the lobby instead of over its final board
+     * ([how]): a fault, logged as an error and reported (the device's own line says why it couldn't show the end). */
+    @OptIn(UnobservedEngineState::class) // the server stream's handling, outside composition
+    private fun endUnshown(gameId: String, how: String, revision: String?) {
+        val summary = summaries[gameId]
+        Faults.report("GameSession", "ended play's board can't be shown: the result over the lobby", mapOf("game" to gameId,
+            "how" to how, "revision" to "$revision", "play" to "${summary?.playId ?: engineGames[gameId]?.base?.id}",
+            "ending" to "${summary?.resultNotice?.ending}", "owed" to "${summary?.resultNotice?.unseen?.size}",
+            "loadFailed" to "${engineGames[gameId]?.loadFailed}"))
+    }
+
     /** TRN-065: [message] ended [game]'s play: whether its table stays on until both OKs stand ([endHeld]). Only when the
      * game is open here with its board on the table and an OK is still owed (this player's or the other's); else, the lobby
      * at once, with the dialog over it while an OK is owed (a device that wasn't at the table, a device that can't follow
@@ -263,7 +274,10 @@ class GameSession(private val connection: GameConnection, private val credential
         if (endHeld.add(message.gameId)) {
             AppLog.info("game", "End of game: ${notice.ending} while at the table, staying until both OKs; owed by " +
                 owed.joinToString { if (it == (account ?: accountId())) "this player" else "the other player" })
-            game.holdEnd(message) { releaseEnd(message.gameId, "the device can't show the end") }
+            game.holdEnd(message) {
+                endUnshown(message.gameId, "at the table when it ended", message.resultRevision)
+                releaseEnd(message.gameId, "the device can't show the end")
+            }
         }
         install(message.summary, message.resultRevision, message.preparation, "the revision that ended the play")
         return true
@@ -317,7 +331,11 @@ class GameSession(private val connection: GameConnection, private val credential
         if (existing == null && !engineLoad(head.gameId)) {
             // A list game: its summary is all the list needs; it loads when it opens
             engineHeads[head.gameId] = head
+        } else if (existing != null && !existing.needsReload && behind(existing, head) && asksPast(existing, head)) {
+            // The revisions up to it are asked for again instead ([asksPast]): the game follows them
+            following = true
         } else if (existing == null || existing.needsReload || behind(existing, head)) {
+            headsAhead.remove(head.gameId)
             // A head while the device follows the server exactly changes nothing; a new play, a device that asked to load
             // again, or a head past the revisions the device received (a resubscription replays at most 100,
             // switchreview #10) loads from it
@@ -335,7 +353,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 existing.load(snapshot, play, live = true)
             }
             reloadAsked.remove(head.gameId)
-        } else following = true
+        } else { following = true; headsAhead.remove(head.gameId) }
         // HIS-205, HIS-035: every engine head of an open game, from where to where and what it did (a head past the revisions
         // is how a take-back can reach a phone back from sleep)
         if (existing != null) AppLog.info("engine", "Head of game ${head.gameId.take(8)}: revision ${existing.revision} → ${head.revision}, " +
@@ -384,10 +402,54 @@ class GameSession(private val connection: GameConnection, private val credential
         // What the player hadn't watched shows at once, as when the play ended at the table
         game.holdEnd(GameRevision(head.gameId, head.revision, head.revision, "", "", GameScope(head.gameId), head.summary)) {
             endTableUnavailable += head.gameId
+            endUnshown(head.gameId, "opened again, its end couldn't be shown", head.revision)
             releaseEnd(head.gameId, "the device can't show the ended play's end: the result over the lobby")
         }
         changed(summary(head.summary))
         statusChanged()
+    }
+
+    /** A head of an open game past the revisions it received that it didn't load from ([asksPast]): its revision, and how many
+     * such heads in a row the revisions asked for again caught up with. By game. */
+    private class HeadAhead(val revision: String, val asked: Int)
+    private val headsAhead = mutableMapOf<String, HeadAhead>()
+
+    /**
+     * Merge gate 2026-11-24 (CoreLoopTest.theStepArrowGoesToCombatAndDeclares): [head] of the open game [game] is past the
+     * revisions it received, read right after a revision was committed whose publication is still on its way (the server
+     * registers the subscription before it replays, so what is committed after that reaches the device as a publication, but
+     * the head read after the replay can come first). Loading from such a head took back the board the player had just been
+     * shown (their own events, the other player's equivalent ones about to be adopted) and refused the press they made on it
+     * as stale. So the revisions after the received one are asked for again first (the server replays them, then sends its head
+     * again): true while it does. The game loads from a head that stays past them only when the revisions asked for didn't
+     * come (a replay can't bring them: more than it carries), after [MAX_HEADS_AHEAD] such heads in a row, or when the head is
+     * further ahead than one replay carries ([REPLAY_REVISIONS]). Main thread.
+     */
+    @OptIn(UnobservedEngineState::class) // the server stream's handling, outside composition
+    private fun asksPast(game: EngineGame, head: GameHead): Boolean {
+        val received = game.revision ?: return false
+        val gap = GameWire.ordinal(head.revision) - GameWire.ordinal(received)
+        val last = headsAhead[head.gameId]
+        val caughtUp = last == null || GameWire.ordinal(received) >= GameWire.ordinal(last.revision)
+        val asked = (last?.asked ?: 0) + 1
+        val why = when {
+            gap > REPLAY_REVISIONS -> "it is $gap revisions ahead, more than one replay carries"
+            !caughtUp -> "the revisions up to ${last?.revision} asked for didn't come"
+            asked > MAX_HEADS_AHEAD -> "the ${asked}th head in a row past the revisions received"
+            streams[head.gameId]?.generation == null || !ready || !available(head.gameId) -> "the stream isn't ready to ask"
+            else -> null
+        }
+        if (why != null) {
+            AppLog.info("engine", "Game ${head.gameId.take(8)}: head ${head.engine?.headId?.take(8)} at revision ${head.revision} is " +
+                "past revision $received: it loads from it ($why)")
+            return false
+        }
+        headsAhead[head.gameId] = HeadAhead(head.revision, asked)
+        AppLog.info("engine", "Game ${head.gameId.take(8)}: head ${head.engine?.headId?.take(8)} at revision ${head.revision} is " +
+            "past revision $received (shown tip ${game.shown?.tip?.take(8)}): not loaded from; the revisions after $received asked " +
+            "for again (committed after the replay was read, their publication on its way; head $asked in a row)")
+        askHead(head.gameId)
+        return true
     }
 
     /** [head] is past the revisions [game] received, and its last event isn't among those the device shows. */
@@ -456,6 +518,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun letGoClosed() {
         // TRN-142: a game opened again tries its ended play's table again
         endTableUnavailable.removeAll { !engineLoad(it) }; endTableAsked.keys.removeAll { !engineLoad(it) }
+        headsAhead.keys.removeAll { !engineLoad(it) }
         for (gameId in engineGames.keys.filter { !engineLoad(it) }) {
             if (endHeld.remove(gameId)) AppLog.info("game", "End of game: table let go, the game closed (an OK still owed)")
             val game = engineGames.getValue(gameId)
@@ -501,6 +564,7 @@ class GameSession(private val connection: GameConnection, private val credential
         // TRN-142: an ended play's table that fails to load leaves the result over the lobby
         if (game.loadFailed && gameId in endHeld) {
             endTableUnavailable += gameId
+            endUnshown(gameId, "opened again, its ended play failed to load", order.received(gameId))
             releaseEnd(gameId, "the ended play's table failed to load: the result over the lobby")
             return
         }
@@ -1104,6 +1168,10 @@ class GameSession(private val connection: GameConnection, private val credential
         const val CANNOT_OPEN = "This game can't be opened on this device. Send a problem report from the menu."
         /** The longest wait between background socket attempts after failures ([poll]). */
         const val MAX_RECONNECT_DELAY_MS = 10_000L
+        /** The most revisions one replay of a subscription carries (the server's revisions page). */
+        const val REPLAY_REVISIONS = 100
+        /** How many heads in a row past the revisions received an open game asks past before it loads from one ([asksPast]). */
+        const val MAX_HEADS_AHEAD = 3
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)
         fun ended(game: GameSummary) = game.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)
     }

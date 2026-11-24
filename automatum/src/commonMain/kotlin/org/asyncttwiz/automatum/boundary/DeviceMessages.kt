@@ -215,6 +215,8 @@ sealed interface DeviceAnswer {
     /** A board the device published, with the notes published with it ([ShownWire]); [takeBacks] and [lastTakeBack]: the
      * device's count of boards taken back after they were shown and the latest one's words. */
     @Serializable @SerialName("published") data class Published(val shown: ShownWire, val takeBacks: Long, val lastTakeBack: String,
+        /** Of [takeBacks], those where the game itself went back (an undo or rewind, a branch; EngineGame.rewinds). */
+        val rewinds: Long,
         /** The game's card data ([org.asyncttwiz.protocol.game.EngineJson.encodeDefinitions]) when the device (re)loaded: the
          * page reads this board and the later ones anew with it. */
         val definitions: String? = null) : DeviceAnswer

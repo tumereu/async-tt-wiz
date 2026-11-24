@@ -32,7 +32,7 @@ number	item	screenshot	catalog	decisions	sequence
 31	Quick actions row, the main button without the unconfirmed mark	engine/assumed-main.png	TRN-016 TRN-059 TRN-163
 32	Opening: Mulligan and Keep	engine/opening.png	TRN-062
 33	Wait band under the other player's hand while they decide on their opening, Assume keep on the main button	engine/waiting-bar.png	TRN-066 TRN-070 TRN-004 HIS-096
-34	Event text while the other player chooses	engine/event-text-choosing.png	HIS-075 STK-032 TRN-066
+34	Event text while the other player chooses	engine/event-text-choosing.png	HIS-075 STK-032 TRN-066 ZON-137
 35	Assume resolves on the main button	engine/stack-assume.png	STK-028 TRN-070 HIS-096
 36	Catch-up: has made moves, Assume resolves greyed	engine/catch-up.png	HIS-094 TRN-059
 37	Playback paused by a tap	engine/playback-paused.png	HIS-095

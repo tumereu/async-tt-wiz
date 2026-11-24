@@ -51,11 +51,12 @@ data class NavigationDot(val dot: WaitingDot, val why: String)
 
 /**
  * LOB-268: the hamburger's one dot, in the highest colour of everything waiting for [accountId] in [games] (the games and
- * invitations) and [pods], except the game ([openGame]) or pod ([openPod]) being looked at; null when nothing waits.
+ * invitations) and [pods], except the game ([openGame]) or pod ([openPod]) being looked at and (owner 2026-11-23) a
+ * challenge from inside the pod open, which that pod's own Games list shows; null when nothing waits.
  */
 fun navigationDot(games: List<GameSummary>, pods: List<PodSummary>, accountId: String, openGame: String? = null,
     openPod: String? = null): NavigationDot? {
-    val waiting = games.distinctBy { it.id }.filter { it.id != openGame }.mapNotNull { game ->
+    val waiting = games.distinctBy { it.id }.filter { it.id != openGame && !(openPod != null && challengeIn(it, openPod)) }.mapNotNull { game ->
         gameWaitingDot(game, accountId)?.let { NavigationDot(it, "game ${game.id.take(8)} \"${game.gameName}\" (" +
             "${if (game.lifecycle == GameLifecycle.ACTIVE) "your move" else if (game.podId != null) "pod challenge" else "invitation"})") }
     } + pods.distinctBy { it.id }.filter { it.id != openPod }.mapNotNull { pod ->
@@ -63,6 +64,9 @@ fun navigationDot(games: List<GameSummary>, pods: List<PodSummary>, accountId: S
     }
     return waiting.maxByOrNull { it.dot.rank }
 }
+
+/** LOB-268 (owner 2026-11-23): [game] is a challenge from inside the pod [podId] (one of its games not started yet). */
+private fun challengeIn(game: GameSummary, podId: String): Boolean = game.podId == podId && game.lifecycle != GameLifecycle.ACTIVE
 
 /** LOB-268: the dot every hamburger shows (a screen's header, a game's table, a started pod's header, DRF-306, the card list
  * editors); the shell works it out with the game or pod open left out. */

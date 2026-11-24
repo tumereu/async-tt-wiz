@@ -1,1 +1,1 @@
-Alice discards to hand size in her cleanup step: on Bob's table the event text over the top row says Alice is choosing for a moment; the dark band under her hand says the same and stays while she chooses.
+Alice discards to hand size in her cleanup step: on Bob's table the event text over the top row says Alice is choosing for a moment; the dark band under her hand says the same and stays while she chooses, and Bob's own hand row is dimmed, as nobody holds priority.

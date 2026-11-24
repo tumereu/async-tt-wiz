@@ -3,6 +3,7 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
+import org.asyncttwiz.android.AppLog
 import org.asyncttwiz.android.ShellDestination
 import org.junit.Test
 import java.util.UUID
@@ -54,5 +55,23 @@ class WaitingDotsTest : E2e() {
             you.auth.navigate(screen)
             waitUntil("the red dot on ${you.name}'s $screen hamburger") { you.shows(hasTestTag("navigation-dot-move")) }
         }
+    }
+
+    // LOB-268, DRF-306 (owner, 2026-11-23): Alice challenges Bob from their pod. On Contacts his hamburger is red for it; in the
+    // pod itself, whose Games list shows the challenge, his hamburger has no dot
+    @Test fun aChallengeLightsNoDotInsideItsOwnPod() {
+        launchPlayers()
+        val (pod, challenge) = ServerSetup.podChallenge(alice.account, bob.account, "E2E pod dot ${UUID.randomUUID().toString().take(6)}")
+        bob.auth.navigate(ShellDestination.CONTACTS)
+        waitUntil("the red dot on Bob's Contacts hamburger for the challenge ${challenge.id.take(8)}") {
+            bob.shows(hasTestTag("navigation-dot-move"))
+        }
+        bob.auth.navigate(ShellDestination.PODS)
+        bob.pods.open(pod)
+        waitUntil("Bob's pod header") { bob.shows(hasTestTag("pod-play-header")) }
+        waitUntil("the hamburger dot logged with the pod open") { "Hamburger dot: none (open: pod ${pod.take(8)})" in AppLog.text() }
+        repeat(3) { run() }
+        for (dot in listOf("move", "pick", "build"))
+            assertFalse(bob.shows(dotIn("navigation-dot-$dot", "pod-play-header")), "no dot in the challenge's own pod: ${bob.screen()}")
     }
 }

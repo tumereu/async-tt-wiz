@@ -1,6 +1,6 @@
 """Pixel differences between two screenshots, used by scripts/aa-gallery.sh (boxes around the changed areas).
 Needs numpy and ImageMagick."""
-import struct, subprocess
+import hashlib, struct, subprocess
 from collections import deque
 import numpy as np
 
@@ -50,3 +50,12 @@ def changed_boxes(before_png, after_png):
     if a.shape != b.shape:
         return [[0, 0, b.shape[1], b.shape[0]]]
     return boxes((a != b).any(axis=2))
+
+def changes(before_png, after_png):
+    """[changed_boxes] with a key per box: the box's pixels before and after, so the same change in another picture has
+    the same key; None when the sizes differ (that change is never the same as another)."""
+    a, b = pixels(before_png), pixels(after_png)
+    if a.shape != b.shape:
+        return [([0, 0, b.shape[1], b.shape[0]], None)]
+    return [((x, y, w, h), hashlib.sha1(a[y:y + h, x:x + w].tobytes() + b[y:y + h, x:x + w].tobytes() + f"{w}x{h}".encode()).hexdigest())
+            for x, y, w, h in boxes((a != b).any(axis=2))]

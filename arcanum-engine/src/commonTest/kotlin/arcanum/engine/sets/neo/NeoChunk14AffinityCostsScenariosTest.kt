@@ -177,7 +177,7 @@ class NeoChunk14AffinityCostsScenariosTest {
         alice.hand(bear)
         alice.casts(bear)
         alice.passes()
-        bob.casts(jammer, target = bear, choosing = listOf(gadget), option = "tap")
+        bob.casts(jammer, target = bear, choosing = listOf(gadget), option = "Tap")
         resolveAll()
         expect {
             gadget.tapped shouldBe true

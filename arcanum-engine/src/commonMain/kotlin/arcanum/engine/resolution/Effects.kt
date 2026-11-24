@@ -1343,6 +1343,9 @@ internal object Effects {
     private fun copiedFacts(of: arcanum.engine.state.CastFacts?) = arcanum.engine.state.CastFacts(
         x = of?.x, paid = of?.paid.orEmpty(), alternative = of?.alternative, modesChosen = of?.modesChosen.orEmpty(),
         paidWith = of?.paidWith ?: arcanum.engine.state.Bindings.EMPTY,
+        // snc sweep: also the opponent chosen for a gift (an additional cost, CR 702.174a) and casting both halves (fuse, CR 702.102a): decisions
+        // made for the original (CR 707.10)
+        chosenPlayer = of?.chosenPlayer,
     )
 
     /** CR 701.6: a countered spell goes to its owner's graveyard; an ability or copy just leaves the Stack. Spells that

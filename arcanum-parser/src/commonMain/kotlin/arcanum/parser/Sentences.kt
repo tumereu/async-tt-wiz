@@ -11922,11 +11922,12 @@ internal class Sentences(
             if (context.targets.take(i).none { it.name == slot.name }) continue
             val renamed = nextTargetName(slot.name, context.targets.map { it.name })
             // snc chunk 10: "... up to one other target creature ...", after a sentence with a target creature: "other" is a different
-            // object from that target (CR 115.3), not one other than this object
+            // object from that target (CR 115.3), not one other than this object; snc sweep: also when the earlier target is narrower or wider
+            // ("target creature you control ... other target creature"): the target of the same noun
             val parts = ((slot.what as? TargetKind.Objects)?.filter as? ObjectFilter.And)?.all
             val rest = parts?.takeIf { it.size >= 2 && it.first() == ObjectFilter.Not(ObjectFilter.Is(Objects.Self)) }?.drop(1)
                 ?.let { if (it.size == 1) it.single() else ObjectFilter.And(it) }
-            val first = rest?.let { r -> context.targets.take(i).firstOrNull { (it.what as? TargetKind.Objects)?.filter == r && it.name == slot.name } }
+            val first = rest?.let { context.targets.take(i).firstOrNull { it.name == slot.name } }
             context.targets[i] = if (first != null) slot.copy(name = renamed, what = TargetKind.Objects(rest), distinctFrom = listOf(first.name))
                 else slot.copy(name = renamed)
             result = result.map { renameTargetSlot(it, slot.name, renamed) }

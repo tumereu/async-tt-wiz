@@ -627,7 +627,9 @@ internal object Actions {
                 linked = linked,
                 // CR 615.12: damage that can't be prevented isn't, but a prevention effect's additional effect still
                 // applies to it, once (615.12a)
-                skip = { r, d -> r.prevention != null && !r.prevention.hasAdditional && (cantBePrevented || unpreventable(act, d)) ||
+                // snc sweep: a shield counter's "and remove a shield counter from it" is such an additional effect (CR 122.1c)
+                skip = { r, d -> r.prevention != null && !r.prevention.hasAdditional && r.prevention !is Prevention.ShieldCounter &&
+                    (cantBePrevented || unpreventable(act, d)) ||
                     notLess(act, d, r) },
                 extra = preventions(act),
             )
@@ -878,17 +880,16 @@ internal object Actions {
                 arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, c, r.names, instance.copy(amount = amount)), steps)
             }
         }
+        if (p is Prevention.ShieldCounter) {
+            // CR 122.1c: the one prevention effect removes a single shield counter however many sources hit at once; also from damage that
+            // can't be prevented, which is dealt all the same (CR 615.12, snc sweep)
+            if (prevented.put(r.key, 1) == null) act.record(Changes.counters(act.state, p.recipient, CounterKind.Shield, -1))
+            return if (cantBePrevented) d else null
+        }
         if (cantBePrevented) return d
         val left = when (p) {
             is Prevention.Protection -> 0
-            is Prevention.ShieldCounter -> {
-                // CR 122.1c: the one prevention effect removes a single shield counter however many sources hit at once
-                if (prevented.put(r.key, 1) == null) {
-                    val id = (p.recipient as TargetRef.Object).id
-                    act.record(Changes.counters(act.state, p.recipient, CounterKind.Shield, -1))
-                }
-                0
-            }
+            is Prevention.ShieldCounter -> 0
             is Prevention.Amount -> p.each?.let { each ->
                 d.amount - Evaluator(act.board(), Context(r.controller, r.source, r.names)).value(each)
             } ?: 0

@@ -2041,7 +2041,8 @@ internal class Sentences(
             // trk chunk 09: "You may cast this card from exile." (CR 113.6f)
             val from = if (m.groupValues[3] == "exile") Zone.Exile else Zone.Graveyard
             if (isSelf(m.groupValues[2])) return Ability.Static(listOf(Mechanic.MayPlay(from, how, holder = PlayerFilter.You)), affects = Affected.Objects(Objects.Self))
-            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            // neo sweep: "You may cast creature spells from your graveyard.": cards there become spells only as they are cast (CR 601.2a)
+            val filter = asCards(Filters.noun(m.groupValues[2]) ?: return null)
             return Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, how, holder = PlayerFilter.You)), affects = arcanum.api.Affected.Objects(Objects.Each(
                 Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))))
         }

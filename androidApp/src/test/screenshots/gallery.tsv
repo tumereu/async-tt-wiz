@@ -392,4 +392,4 @@ number	item	screenshot	catalog	decisions	sequence
 567	Waiting dots: a pod in setup, its hamburger blue for a pick in another pod	waiting-dots/pod-setup.png	LOB-268		
 568	Pod setup: the ✕ on Bob's row asks "Remove Bob from Bot night?"	draft/setup-remove-member.png	DRF-308		
 569	Payment with restricted mana in the pool: the Gildleaf Shard's mana (creature spells only) has the violet sparkle, held to show its restriction in its own words with its source	cast-panel/pool-mana-restricted.png	STK-228 TBL-136 TBL-120	ManaPayment
-570	Pod setup of a solo draft: the creator alone with two bots, warned that there is no one to play against	draft/setup-solo.png	DRF-296 DRF-301 DRF-035		Pod setup members
+570	Pod setup of a solo draft: the creator alone with two bots, warned that there is no one to play against	draft/setup-solo.png	DRF-296 DRF-301 DRF-035		

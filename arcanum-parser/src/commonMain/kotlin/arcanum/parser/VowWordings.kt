@@ -39,4 +39,12 @@ internal object Vow {
     val EACH_OPPONENT_EXILES_FROM_HAND = Regex("""[Ee]ach opponent exiles a card from their hand\.""")
     // vow chunk 06: Screaming Swarm
     val PUT_SELF_FROM_GRAVEYARD_FROM_TOP = Regex("""[Pp]ut this card from your graveyard into your library (\w+) from the top\.""")
+    // vow chunk 07: Savior of Ollenbock: "this creature trains" (a trigger, CR 702.149c)
+    val TRAINS = Regex("""(.+?) trains""")
+    // vow chunk 07: Magma Pummeler
+    val PREVENT_REMOVE_THAT_MANY_COUNTERS = Regex("""If damage would be dealt to (.+?) while it has an? (\S+) counter on it, prevent that damage and remove that many (\S+) counters from it\. When one or more counters are removed from (.+?) this way, (it|.+?) deals that much damage to any target\.""")
+    // vow chunk 07: Skulking Killer: "… if that opponent controls no other creatures" (the target's controller)
+    val IF_THAT_PLAYER_CONTROLS_NO_OTHER = Regex("""(.+) if that (?:opponent|player) controls no other (.+?)\.""")
+    // vow chunk 07: Arm the Cathars: "Until end of turn, A gets +3/+3, B gets +2/+2, and C gets +1/+1."
+    val UNTIL_EOT_LIST_OF_GETS = Regex("""Until end of turn, ((?:[^,]+ gets [+-]\d+/[+-]\d+, )+and [^,]+ gets [+-]\d+/[+-]\d+)\.""")
 }

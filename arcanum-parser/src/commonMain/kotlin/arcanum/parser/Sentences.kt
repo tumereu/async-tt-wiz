@@ -1597,6 +1597,7 @@ internal class Sentences(
         isdStatic(line)?.let { return it } // isd
         dmrStatic(line)?.let { return it } // dmr
         broStatic(line)?.let { return it } // bro
+        vowStatic(line)?.let { return it } // vow
         // dsk chunk 02: "You have no maximum hand size[ and don't lose the game for having 0 or less life]." (CR 402.2, 704.5a)
         NO_MAXIMUM_HAND_SIZE.matchEntire(line)?.let { m ->
             val noMax = line.startsWith("You have")
@@ -3034,8 +3035,10 @@ internal class Sentences(
         }
         // (also "one or more +1/+1 counters are put on this creature": the object is Self, CR 122.6). An object or kind it can't read falls
         // through, so "… on this creature for the first time each turn" reaches the rule for that ending below.
+        // vow chunk 07: "… are put on one or more Humans you control" (one trigger for the batch, CR 603.2c)
         Fdn.COUNTERS_ARE_PUT_ON.matchEntire(text)?.let { m ->
-            val objects = if (isSelf(m.groupValues[2])) ObjectFilter.Is(Objects.Self) else Filters.noun(m.groupValues[2])
+            val on = m.groupValues[2].removePrefix("one or more ")
+            val objects = if (isSelf(on)) ObjectFilter.Is(Objects.Self) else Filters.noun(on)
             val kind = Counters.kind(m.groupValues[1])
             if (objects != null && kind != null) return arcanum.api.Trigger.On(EventPattern.CountersPut(objects, kind), oneOrMore = true) to null
         }
@@ -3956,6 +3959,37 @@ internal class Sentences(
 
     /** vow: single sentences. */
     private fun vowEffect(sentence: String, context: Context): List<Step>? {
+        // vow chunk 07: Arm the Cathars: "Until end of turn, target creature gets +3/+3, up to one other target creature gets +2/+2, and up to one
+        // other target creature gets +1/+1." (a list of pumps, each read as "… until end of turn", in the order written)
+        Vow.UNTIL_EOT_LIST_OF_GETS.matchEntire(sentence)?.let { m ->
+            val before = context.targets.size
+            val parts = m.groupValues[1].split(Regex(", (?:and )?"))
+            val steps = mutableListOf<Step>()
+            for (part in parts) {
+                val read = effect("${part.replaceFirstChar { it.uppercase() }} until end of turn.", context)
+                if (read == null) {
+                    while (context.targets.size > before) context.targets.removeAt(context.targets.lastIndex)
+                    return@let
+                }
+                steps += read
+            }
+            return steps
+        }
+        // vow chunk 07: "target creature an opponent controls gets -2/-2 until end of turn if that opponent controls no other creatures": the
+        // target's controller, checked as the ability resolves (CR 608.2c, 608.2h)
+        Vow.IF_THAT_PLAYER_CONTROLS_NO_OTHER.matchEntire(sentence)?.let { m ->
+            val before = context.targets.size
+            val then = effect(m.groupValues[1] + ".", context)
+            val slot = context.targets.drop(before).singleOrNull()?.takeIf { it.what is TargetKind.Objects }
+            val noun = Filters.noun(m.groupValues[2])
+            if (then == null || slot == null || noun == null) {
+                while (context.targets.size > before) context.targets.removeAt(context.targets.lastIndex)
+                return@let
+            }
+            val target = Objects.Target(slot.name)
+            val others = Filters.all(ObjectFilter.Not(ObjectFilter.Is(target)), noun, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.ControllerOf(target))))
+            return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Exists(others, atLeast = 1)), then = then))
+        }
         // vow chunk 06: "Each opponent exiles a card from their hand." (each chooses one of their own, in turn order, then all are exiled, CR 101.4)
         if (Vow.EACH_OPPONENT_EXILES_FROM_HAND.matches(sentence)) {
             val player = Players.Bound("opponent")
@@ -3972,8 +4006,41 @@ internal class Sentences(
         return null
     }
 
+    /** vow: static abilities. */
+    private fun vowStatic(line: String): Ability? {
+        // vow chunk 07: Magma Pummeler: "If damage would be dealt to this creature while it has a +1/+1 counter on it, prevent that damage and remove
+        // that many +1/+1 counters from it. When one or more counters are removed from this creature this way, it deals that much damage to any
+        // target." The prevention applies while the counter is there (all the damage, CR 615.1a); removing counters is its additional effect
+        // (CR 615.5), and "that much" is the number removed, which can be fewer than the damage (a reflexive trigger, CR 603.12)
+        Vow.PREVENT_REMOVE_THAT_MANY_COUNTERS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) && isSelf(it.groupValues[4]) &&
+            (it.groupValues[5] == "it" || isSelf(it.groupValues[5])) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[2])?.takeIf { it == Counters.kind(m.groupValues[3]) } ?: return null
+            val removed = Value.Bound("removed")
+            val any = TargetSlot("any", TargetKind.Either(ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.Type(CardType.Planeswalker),
+                ObjectFilter.Type(CardType.Battle))), PlayerFilter.Any), min = Value.Fixed(1), max = Value.Fixed(1))
+            val reflexive = Instructions(targets = listOf(any), steps = listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(target = "any"), removed, Objects.Self))))
+            return Ability.Static(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self))),
+                additional = Instructions(steps = listOf(
+                    Step.Do(Effect.RemoveCounters(Objects.Self, kind, Value.EventAmount, bind = "removed")),
+                    Step.If(arcanum.api.Condition.Compare(removed, arcanum.api.Comparison.AtLeast, Value.Fixed(1)),
+                        then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive)))))))),
+                affects = Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = 1)))
+        }
+        return null
+    }
+
     /** vow: sentences that change or follow the steps before them. */
     private fun vowModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // vow chunk 07: "Those creatures gain vigilance until end of turn." after effects on several targets until end of turn (each of those
+        // targets still there, CR 608.2b)
+        Fin.THOSE_CREATURES_GAIN.matchEntire(sentence)?.let { m ->
+            val targets = steps.map { (((it as? Step.Do)?.effect as? Effect.ApplyMechanics)?.affects as? arcanum.api.Affected.Objects)?.objects as? Objects.Target }
+            if (targets.size < 2 || targets.any { it == null } || targets.distinct().size != targets.size) return@let
+            val granted = keywords(m.groupValues[1]) ?: return null
+            return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(granted)), arcanum.api.Affected.Objects(Objects.Union(targets.filterNotNull())),
+                arcanum.api.Duration.EndOfTurn))
+        }
         // vow chunk 06: "If a land card is milled this way, create a Treasure token." after "mill a card" (and after other such sentences): any
         // of the milled cards of that kind, wherever a replacement put it (CR 701.17a, 701.17c)
         Vow.IF_CARD_MILLED_THIS_WAY.matchEntire(sentence)?.let { m ->
@@ -10574,10 +10641,12 @@ internal class Sentences(
         }
         // blb chunk 10: "Up to one other target creature gets +1/+1 until end of turn." (CR 115.3)
         Blb.UP_TO_ONE_OTHER_TARGET_GETS.matchEntire(sentence)?.let { m ->
-            val first = context.targets.lastOrNull { it.what is TargetKind.Objects } ?: return null
-            val name = "other " + Filters.slotName(m.groupValues[1])
+            // vow chunk 07: after several targets (Arm the Cathars' third "up to one other target creature"), other than each of them (CR 115.3), with
+            // its own name
+            val earlier = context.targets.filter { it.what is TargetKind.Objects }.map { it.name }.ifEmpty { return null }
+            val name = ("other " + Filters.slotName(m.groupValues[1])).let { if (context.targets.any { t -> t.name == it }) nextTargetName(it, context.targets.map { t -> t.name }) else it }
             context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null), min = Value.Fixed(0), max = Value.Fixed(1),
-                distinctFrom = listOf(first.name))
+                distinctFrom = earlier)
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null)),
                 Affected.Objects(Objects.Target(name)), arcanum.api.Duration.EndOfTurn)))
         }
@@ -11852,13 +11921,14 @@ internal class Sentences(
             return if (m.groupValues[1].isEmpty()) exile else listOf(Step.May(exile, player = Players.You))
         }
         // rtr chunk 01: "Return the exiled cards to their owners' hands.", "Return the exiled cards to the battlefield under their
-        // owner's control." (the cards linked to this object, CR 607.2a)
+        // owner's control." (the cards linked to this object, CR 607.2a); vow chunk 07: "Put the exiled cards onto the battlefield …"
         Rtr.RETURN_THE_EXILED_CARDS.matchEntire(sentence)?.let { m ->
             val cards = exiledCard ?: return null
             val to = if (m.groupValues[1] == "to their owners' hands") Destination(Zone.Hand) else Destination(Zone.Battlefield, controller = Players.OwnerOf(cards))
             return listOf(Step.Do(Effect.Move(cards, to)))
         }
         // rtr chunk 01: "You may exile up to three other target creatures from the battlefield and/or creature cards from graveyards."
+        // vow chunk 07: "exile up to one other target creature from the battlefield or creature card from a graveyard"
         // mkm chunk 01: "Exile up to X other target creatures from the battlefield and/or creature cards from graveyards." (X: the ability's X)
         Rtr.EXILE_UP_TO_TARGETS_AND_OR_CARDS.matchEntire(sentence)?.let { m ->
             val permanents = Filters.noun(m.groupValues[4]) ?: return null
@@ -12605,11 +12675,14 @@ internal class Sentences(
                 then = listOf(Step.Do(Effect.Draw(Players.ControllerOf(it), Value.Fixed(1)))))
         }
         // fra chunk 02: "If that permanent was a legendary enchantment, draw a card." (after destroying it)
+        // vow chunk 07: "If that permanent is a Spirit, Rending Flame also deals 2 damage to that permanent's controller." after damage to a
+        // target: whether it is one as the spell resolves (CR 608.2h)
         Fra.IF_THAT_PERMANENT_WAS.matchEntire(sentence)?.let { m ->
-            val destroy = ((last as? Step.Do)?.effect as? Effect.Destroy) ?: return@let
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
-            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
-            return steps + Step.If(arcanum.api.Condition.ObjectMatches(destroy.objects, filter), then = then)
+            val objects = if (m.groupValues[1] == "was") ((last as? Step.Do)?.effect as? Effect.Destroy)?.objects ?: return@let
+                else ((last as? Step.Do)?.effect as? Effect.DealDamage)?.to?.objects?.takeIf { it is Objects.Target } ?: return@let
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            val then = effect(m.groupValues[3].replaceFirstChar { it.uppercase() }.replace(" also deals ", " deals ") + ".", context) ?: return null
+            return steps + Step.If(arcanum.api.Condition.ObjectMatches(objects, filter), then = then)
         }
         // fra chunk 02: "If that permanent's mana value was 3 or less, return it to the battlefield tapped under your control. Exile it at
         // the beginning of the next end step." (after exiling it: its mana value as it last existed, CR 608.2h)
@@ -13577,8 +13650,8 @@ internal class Sentences(
         val STEP_OF_ENCHANTED_CONTROLLER = Regex("""the beginning of the (upkeep|draw step) of enchanted (?:creature|permanent|land)'s controller""")
         val ENCHANTED_BECOMES_TAPPED = Regex("""enchanted (?:land|creature|permanent) becomes tapped""")
         // mkm chunk 01: also without "you may" and with "up to X" (Aurelia's Vindicator)
-        val EXILE_UP_TO_TARGETS_AND_OR_CARDS = Regex("""(You may e|E)xile (up to \w+) (other )?target (.+?) from the battlefield and/or (.+?) from graveyards\.""")
-        val RETURN_THE_EXILED_CARDS = Regex("""Return (?:the exiled cards?|all cards exiled with it) (to their owners' hands|to the battlefield under (?:their|its) owner's control|to the battlefield under their owners' control)\.""") // inr chunk 08: card
+        val EXILE_UP_TO_TARGETS_AND_OR_CARDS = Regex("""(You may e|E)xile (up to \w+) (other )?target (.+?) from the battlefield (?:and/)?or (.+?) from (?:graveyards|a graveyard)\.""")
+        val RETURN_THE_EXILED_CARDS = Regex("""(?:Return|Put) (?:the exiled cards?|all cards exiled with it) (to their owners' hands|(?:to|onto) the battlefield under (?:their|its) owner's control|(?:to|onto) the battlefield under their owners' control)\.""") // inr chunk 08: card
         // rtr chunk 01
         val SACRIFICE_IT_UNLESS_YOU = Regex("""Sacrifice (it|this \w+) unless you (.+)\.""")
         val EXCHANGE_CONTROL_OF_SELF_AND_TARGET = Regex("""(You may )?[Ee]xchange control of (.+) and target (.+)\.""")
@@ -26736,6 +26809,11 @@ internal class Sentences(
         SpmPhrases.events(text)?.let { return arcanum.api.Trigger.On(it) to null }
         // vow chunk 01: "you play a card exiled with this creature" (played as a land or cast, CR 305.1, 601.2a; the card linked to this
         // object, CR 607.2a)
+        // vow chunk 07: "this creature trains": a resolving training ability puts +1/+1 counters on it (CR 702.149c)
+        Vow.TRAINS.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return arcanum.api.Trigger.On(EventPattern.CountersPut(ObjectFilter.Is(Objects.Self), arcanum.api.CounterKind.PowerToughness(1, 1),
+                causedBy = ObjectFilter.AbilityOf(arcanum.api.AbilityKind.Triggered, keyword = arcanum.api.Keyword.Training)), oneOrMore = true) to null
+        }
         Vow.YOU_PLAY_A_CARD_EXILED_WITH.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             val exiled = ObjectFilter.Is(Objects.Remembered(EXILED_WITH))
             return arcanum.api.Trigger.On(listOf(EventPattern.PlayLand(exiled, PlayerFilter.You), EventPattern.Cast(exiled, PlayerFilter.You))) to null

@@ -1537,6 +1537,9 @@ internal object Conditions {
         }
         // blb chunk 09: "it's not your turn"
         if (text == "it's not your turn") return Condition.Not(Condition.YourTurn)
+        // vow chunk 07: "it's night", "it's day" (the game's designation, CR 732.1; neither: both false)
+        if (text == "it's night") return Condition.IsNight
+        if (text == "it's day") return Condition.IsDay
         // dsk chunk 14: "a player has 13 or less life"
         A_PLAYER_HAS_LIFE_OR_LESS.matchEntire(text)?.let { m ->
             return Condition.PlayerExists(PlayerFilter.Life(arcanum.api.Comparison.AtMost, Value.Fixed(m.groupValues[1].toInt())), atLeast = 1)

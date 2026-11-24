@@ -468,8 +468,11 @@ internal object Filters {
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = 1)))
         }
         // gtc chunk 08: "creature with power X or less" (X announced, CR 107.3a)
+        // neo chunk 10: also "creature with toughness X or less"
         GTC_WITH_POWER_X.matchEntire(phrase)?.let { m ->
-            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Power(Comparison.AtMost, Value.Announced(name = "X")))
+            val x = Value.Announced(name = "X")
+            return all(noun(m.groupValues[1]) ?: return null,
+                if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtMost, x) else ObjectFilter.Toughness(Comparison.AtMost, x))
         }
         // gtc chunk 11: "creature that dealt damage this turn": the source of damage this turn
         GTC_DEALT_DAMAGE_THIS_TURN.matchEntire(phrase)?.let { m ->
@@ -502,7 +505,7 @@ internal object Filters {
     private val GTC_TYPES_AND = Regex("""((?:[a-z]+s, )*)([a-z]+)s,? and ((?:non[a-z]+ )?[a-z]+)s(| you control| your opponents control| an opponent controls)""")
     private val GTC_IN_OPPONENTS_GRAVEYARDS = Regex("""(?:(.+) )?cards? in your opponents' graveyards""")
     private val GTC_WITH_NO_COUNTERS = Regex("""(.+) with no (\S+) counters on (?:them|it)""")
-    private val GTC_WITH_POWER_X = Regex("""(.+) with power X or less""")
+    private val GTC_WITH_POWER_X = Regex("""(.+) with (power|toughness) X or less""")
     // dmu chunk 02: also "with toughness less than the number of basic land types among lands you control"
     private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with (power|toughness|mana value) less than (or equal to )?(.+)""")
     private val GTC_DEALT_DAMAGE_THIS_TURN = Regex("""(.+) that dealt damage this turn""")
@@ -795,6 +798,11 @@ internal object Events {
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.Attack(subject), EventPattern.Block(subject, attacker = ObjectFilter.Any))
         }
+        // neo chunk 10: "this creature blocks or becomes blocked" (once each combat either way, CR 509.3a, 509.3c)
+        BLOCKS_OR_BECOMES_BLOCKED.matchEntire(text)?.let { m ->
+            val subject = subject(m.groupValues[1], self) ?: return null
+            return listOf(EventPattern.Block(subject, attacker = ObjectFilter.Any), EventPattern.BecomesBlocked(subject, ObjectFilter.Any))
+        }
         // mkm chunk 01: "this creature enters or is turned face up" (CR 702.168d: turning it face up isn't entering)
         Mkm.ENTERS_OR_TURNED_FACE_UP.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
@@ -884,6 +892,8 @@ internal object Events {
         BECOMES_BLOCKED.matchEntire(text)?.let { m -> return EventPattern.BecomesBlocked(subject(m.groupValues[1], self) ?: return null, ObjectFilter.Any) }
         // dsk chunk 11: "one or more creatures die" (a batch), "an opponent draws a card"
         DIE_PLURAL.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard) }
+        // neo chunk 10: "one or more noncreature permanents are returned to hand" (from the battlefield to their owners' hands, CR 400.3)
+        RETURNED_TO_HAND.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Hand) }
         if (text == "an opponent draws a card") return EventPattern.Draw(PlayerFilter.Opponent)
         // dsk chunk 10: "enchanted creature is dealt damage", "enchanted player is dealt damage", "this creature is dealt damage"
         // one chunk 10: "a source deals damage to this creature": the recipient of "is dealt damage", but once for each source's
@@ -1026,6 +1036,12 @@ internal object Events {
         // chunk 25: "you play a land" (CR 305.1)
         if (text == "you play a land") return EventPattern.PlayLand(players = PlayerFilter.You, lands = ObjectFilter.Any)
         // chunk 14: "a player casts an instant or sorcery spell", "a player taps an Island for mana", "an opponent gains life"
+        // neo chunk 10: "you activate a ninjutsu ability" (an ability of that keyword's expansion, granted ones too, CR 702.49a)
+        ACTIVATES_KEYWORD_ABILITY.matchEntire(text)?.let { m ->
+            val kind = arcanum.api.KeywordKind.byId(m.groupValues[2]) ?: return@let
+            return EventPattern.Activate(ObjectFilter.Any, if (m.groupValues[1] == "you") PlayerFilter.You else PlayerFilter.Opponent,
+                ability = ObjectFilter.AbilityOf(keyword = kind))
+        }
         PLAYER_CASTS.matchEntire(text)?.let { m ->
             val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.spellKind(it) ?: return null } ?: ObjectFilter.Any
             return EventPattern.Cast(kind, by = PlayerFilter.Any)
@@ -1312,6 +1328,7 @@ internal object Events {
     private val YOU_FULLY_UNLOCK = Regex("""you fully unlock an? (\w+)""")
     // dsk chunk 11
     private val DIE_PLURAL = Regex("""(one or more .+) die""")
+    private val RETURNED_TO_HAND = Regex("""(one or more .+) are returned to hand""")
     private val BECOMES_BLOCKED = Regex("""(.+) becomes blocked""")
     private val BECOMES_BLOCKED_BY = Regex("""(.+) becomes blocked by an? (.+)""")
     // dsk chunk 12
@@ -1362,6 +1379,7 @@ internal object Events {
     private val DEALS_COMBAT_DAMAGE_TO_A_PLAYER = Regex("""(.+) deals combat damage to (a player|enchanted player)""")
     // chunk 14
     private val PLAYER_CASTS = Regex("""a player casts an? (?:(.+) )?spell""")
+    private val ACTIVATES_KEYWORD_ABILITY = Regex("""(you|an opponent) activates? an? ([a-z]+) ability""")
     private val PLAYER_TAPS_FOR_MANA = Regex("""a player taps (.+) for mana""")
     // chunk 20
     private val BECOMES_UNATTACHED = Regex("""(.+) becomes unattached from an? (.+)""")
@@ -1369,6 +1387,7 @@ internal object Events {
     // chunk 21
     private val ENTERS_OR_LEAVES = Regex("""(.+) enters or (leaves the battlefield|is put into a graveyard from the battlefield)""")
     private val ATTACKS_OR_BLOCKS = Regex("""(.+) attacks or blocks""")
+    private val BLOCKS_OR_BECOMES_BLOCKED = Regex("""(.+) blocks or becomes blocked""")
     private val YOU_DISCARD = Regex("""(you discard|an opponent discards) an? (.+)""")
     // chunk 30
     private val ANOTHER = Regex("""another (.+)""")

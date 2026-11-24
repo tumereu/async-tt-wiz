@@ -25,13 +25,14 @@ import arcanum.engine.state.TokenIds
  * CR 704.5e), and its controller may cast it then; the permanent loses the designation as the copy becomes cast (723.3c, 601.2i).
  */
 internal object Prepare {
-    /** Whether copiable values have a prepare spell (CR 723.2a, b). */
-    fun hasPrepareSpell(values: CopiableValues?): Boolean = values != null && values.layout == Layout.Prepare && values.faces.size > 1
+    /** Whether copiable values have a prepare spell (CR 723.2a, b): of a double-faced object whose faces are multi-part, its face up
+     * (CR 712.6). */
+    fun hasPrepareSpell(values: CopiableValues?): Boolean = values != null && values.faceUp.let { it.layout == Layout.Prepare && it.faces.size > 1 }
 
     /** [id] becomes prepared (CR 723.3a, c): only with a prepare spell and not when it already is. */
     fun becomePrepared(act: Act, id: ObjectId) {
         val o = act.obj(id) ?: return
-        val values = act.view()[id]?.copiable
+        val values = act.view()[id]?.copiable?.faceUp
         if (o.zone != Zone.Battlefield || !hasPrepareSpell(values) || ObjectMark.Prepared in o.marks) return
         // A copy left from an earlier designation goes first (the designation can't be held twice)
         removeCopies(act, id)

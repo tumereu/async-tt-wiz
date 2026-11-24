@@ -1140,7 +1140,9 @@ internal object Actions {
                     cast = arcanum.engine.state.castFacts(fromSpellCopy),
                     statuses = listOfNotNull(arcanum.engine.state.ObjectStatus.GainedInCopying(f.gained).takeIf { f.gained.isNotEmpty() },
                         // isd: what its abilities' "Gutter Grime" means: the object that created it, or the original's creator for a copy (CR 201.5a)
-                        (f.createdBy ?: cause.source)?.let { arcanum.engine.state.ObjectStatus.CreatedBy(it) }),
+                        (f.createdBy ?: cause.source)?.let { arcanum.engine.state.ObjectStatus.CreatedBy(it) },
+                        // CR 707.8a, 712.6: a double-faced copy whose faces are multi-part holds each face's layout and parts
+                        arcanum.engine.state.ObjectStatus.FaceParts(f.faceParts).takeIf { f.faceParts.isNotEmpty() }).sortedBy { it.key },
                 )
             }
         }

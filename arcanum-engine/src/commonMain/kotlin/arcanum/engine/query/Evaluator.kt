@@ -4,6 +4,7 @@ import arcanum.engine.state.copyOfCard
 import arcanum.engine.state.dealtCombatDamage
 import arcanum.engine.state.dealtDamage
 import arcanum.engine.state.goadedBy
+import arcanum.engine.state.faceParts
 import arcanum.engine.state.mergedBelow
 import arcanum.engine.state.prepareSpellOf
 import arcanum.engine.state.protector
@@ -549,7 +550,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 (!filter.byAbility || !by.spell) && matches(filter.players, by.player)
             } == true
             // woe: an Adventure in its copiable values, used or not (CR 716.2a, b)
-            ObjectFilter.HasAdventure -> arcanum.engine.view.Copiable(state).values(id)?.let { it.layout == arcanum.api.Layout.Adventure && it.faces.size > 1 } == true
+            ObjectFilter.HasAdventure -> arcanum.engine.view.Copiable(state).values(id)?.faceUp?.let { it.layout == arcanum.api.Layout.Adventure && it.faces.size > 1 } == true
             // spm: modified (CR 700.9): a counter on it, an Equipment attached, or an Aura its controller controls attached
             ObjectFilter.Modified -> (counterList(id)?.any { it.count > 0 } == true) || state.battlefield.any { other ->
                 val a = state.obj(other)?.attachedTo
@@ -995,6 +996,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         if (definition.layout != arcanum.api.Layout.Transform || o.face == 0 || o.faceDown) return null
         if (o.zone != Zone.Battlefield && o.zone != Zone.Stack) return null
         if (state.effects.values.any { e -> e.locked?.contains(id) == true && e.mechanics.any { it is arcanum.api.Mechanic.CopyOf } }) return null
+        // CR 707.8a, 709.5: a double-faced token whose front face is a Room: that Room's mana cost, of the halves it has unlocked
+        o.faceParts.firstOrNull()?.takeIf { it.layout == arcanum.api.Layout.Split }?.let { front ->
+            return arcanum.api.ManaCost(front.faces.filterIndexed { i, _ -> arcanum.engine.room.Rooms.unlocked(o, arcanum.engine.room.Rooms.door(i)) }
+                .flatMap { it.manaCost?.symbols.orEmpty() })
+        }
         return definition.faces.first().manaCost ?: arcanum.api.ManaCost(emptyList())
     }
 

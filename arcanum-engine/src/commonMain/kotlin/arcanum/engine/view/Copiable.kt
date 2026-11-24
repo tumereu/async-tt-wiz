@@ -398,6 +398,8 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
                 CopyException.ThisAbility -> f
                 // bro: replaced by fixed values as the object enters as a copy (CR 707.9b)
                 CopyException.OwnPowerToughness -> f
+                // snc fixes: fixed as the copy is made (Effects.addCopy, CR 707.9b, 306.5b)
+                is CopyException.Loyalty -> (e.loyalty as? arcanum.api.Value.Fixed)?.let { f.copy(loyalty = PrintedNumber.Fixed(it.value)) } ?: f
             }
         }
 

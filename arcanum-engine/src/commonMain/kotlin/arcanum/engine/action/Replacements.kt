@@ -161,7 +161,18 @@ internal object Replacements {
             if (matching.isEmpty()) return current
             val (r, instance) = pick(act, matching, affected, about)
             used += r.key
-            if (r.mechanic.optional && !act.yesNo(r.controller, r.source, "Apply ${describe(r)}?")) continue
+            // snc fixes: an optional replacement offering several results asks once, "don't replace" among them (CR 614.1a); declined,
+            // [modify] gives back the event itself and the replacement isn't applied
+            val declinable = declinedInChoice(r)
+            if (r.mechanic.optional && !declinable && !act.yesNo(r.controller, r.source, "Apply ${describe(r)}?")) continue
+            if (declinable) {
+                val next = modify(current, r, instance)
+                if (next === current) continue
+                useUp(act, r)
+                r.mechanic.whenApplied?.let { linked += linkedTrigger(r, it, instance) }
+                current = next ?: return null
+                continue
+            }
             useUp(act, r)
             // spm: an entering copy's linked trigger is made when the copied object is chosen (it names it), and only if one is
             r.mechanic.whenApplied?.takeIf { r.mechanic.modify.none { m -> m is arcanum.api.Modification.EntersAsCopy && m.bind != null } }
@@ -173,6 +184,14 @@ internal object Replacements {
             current = modify(current, r, instance) ?: return null
         }
     }
+
+    /** The option of an optional [Modification.CreateInsteadChosen] that keeps the event's own tokens. */
+    const val KEEP_ORIGINAL_TOKENS = "Keep the original tokens"
+
+    /** An optional replacement whose choice among results includes not replacing ([Modification.CreateInsteadChosen]): asked as one
+     * question by the event's [apply] modify, not a yes/no first. */
+    private fun declinedInChoice(r: Replacement): Boolean = r.mechanic.optional && r.mechanic.instead == null &&
+        r.mechanic.modify.any { it is Modification.CreateInsteadChosen }
 
     /** CR 616.1a–e: the next replacement to apply. */
     /**

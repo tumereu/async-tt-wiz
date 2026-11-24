@@ -51,11 +51,13 @@ data class NavigationDot(val dot: WaitingDot, val why: String)
 
 /**
  * LOB-268: the hamburger's one dot, in the highest colour of everything waiting for [accountId] in [games] (the games and
- * invitations) and [pods], except the game ([openGame]) or pod ([openPod]) being looked at; null when nothing waits.
+ * invitations) and [pods], except the game ([openGame]) or pod ([openPod]) being looked at and (owner 2026-11-24) every
+ * game of the pod open, its challenges and its started games alike, which that pod's own Games list shows; null when nothing
+ * waits.
  */
 fun navigationDot(games: List<GameSummary>, pods: List<PodSummary>, accountId: String, openGame: String? = null,
     openPod: String? = null): NavigationDot? {
-    val waiting = games.distinctBy { it.id }.filter { it.id != openGame }.mapNotNull { game ->
+    val waiting = games.distinctBy { it.id }.filter { it.id != openGame && (openPod == null || it.podId != openPod) }.mapNotNull { game ->
         gameWaitingDot(game, accountId)?.let { NavigationDot(it, "game ${game.id.take(8)} \"${game.gameName}\" (" +
             "${if (game.lifecycle == GameLifecycle.ACTIVE) "your move" else if (game.podId != null) "pod challenge" else "invitation"})") }
     } + pods.distinctBy { it.id }.filter { it.id != openPod }.mapNotNull { pod ->

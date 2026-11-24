@@ -279,7 +279,8 @@ object DefinitionChecks {
     }
 
     /** The names the costs of keyword expansions make, by the keyword's JSON type name. */
-    private val keywordCostNames = mapOf("web-slinging" to KeywordExpansions.WEB_SLINGING_RETURNED, "sneak" to KeywordExpansions.SNEAK_RETURNED)
+    private val keywordCostNames = mapOf("web-slinging" to KeywordExpansions.WEB_SLINGING_RETURNED, "sneak" to KeywordExpansions.SNEAK_RETURNED,
+        "casualty-x" to KeywordExpansions.CASUALTY_SACRIFICED)
         .also { check(it.values.toSet() == KeywordExpansions.COST_NAMES) }
 
     private fun checkCounts(what: String, min: Int, max: Int, found: MutableList<String>) {
@@ -377,6 +378,9 @@ object DefinitionChecks {
                 is JsonArray -> element.forEach { visit(it, inMechanics = inMechanics) }
                 is JsonObject -> {
                     nameKeys.forEach { key -> element.string(key)?.let { named += it } }
+                    // neo chunk 05: an exile cost's kept cards are named by its key for the ability too, several exile parts adding up there
+                    // ("Exile this Vehicle and four other …", CR 607.2a)
+                    if (element.typeName() == "exile" && "what" in element && "from" in element) element.string("remember")?.let { named += it }
                     if (element.typeName() == null && "what" in element) element.string("name")?.let {
                         slots += it
                         if (element["divided"] != null) dividedSlots += it

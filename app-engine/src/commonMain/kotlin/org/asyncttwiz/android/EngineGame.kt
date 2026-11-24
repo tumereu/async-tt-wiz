@@ -334,7 +334,11 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
                     AppLog.info("engine", "Loaded again live: the server's local head of this player ${snapshot.localHeads[me]?.take(8)} was " +
                         "behind what the table had shown (${old.localHead.take(8)}): $n events shown again at once, not played back")
                 }
-                takenBack("loaded again from the server's head ${snapshot.headId}", old.tip, old.localHead, loaded.session)
+                // The game itself went back when an undo or branch took back what was shown, or the main line no longer holds
+                // the event the table had shown up to
+                takenBack("loaded again from the server's head ${snapshot.headId}", old.tip, old.localHead, loaded.session,
+                    rewinding = undone != null || snapshot.undoneBy != null || snapshot.takenBack.isNotEmpty() ||
+                        !loaded.session.knows(old.localHead))
                 // Why the device couldn't follow (its own record goes with it)
                 AppLog.info("engine", "Device record before loading again: ${device.recentRecord(12).joinToString(" | ")}")
                 // HIS-110: a reveal is closed only by the player's OK or by being taken back, never by loading again
@@ -1283,7 +1287,26 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         }
         revision(message)
         worker.run {
+            // TRN-142: the play failed to load (its failure is told by [loadFailed]): nothing to show the end on (engine thread,
+            // after the load)
+            if (!this::device.isInitialized) {
+                AppLog.error("game", "End of game ${gameId.take(8)} can't be shown: the ended play didn't load")
+                worker.main(failed)
+                return@run
+            }
+            // TRN-142 (owner, 2026-11-23: the result over the lobby instead of the final board is a fault): opened where the other
+            // player's undo or branch took back what the player had seen, the take-back held for their tap ([hold]) kept the
+            // device from showing the end; what they hadn't watched shows at once, the take-back with it
+            if (heldWork != null) {
+                AppLog.info("game", "End of game ${gameId.take(8)}: the take-back held on the load plays at once to show the end " +
+                    "(${heldWork?.let { "${if (it.undo) "undo" else "branch"} by ${it.by.take(8)}" }})")
+                releaseHeld()
+            }
             val shownEnd = device.showToTheEnd()
+            if (!shownEnd) AppLog.error("game", "End of game ${gameId.take(8)} can't be shown on its board: reload needed " +
+                "${device.needsReload}, take-back held ${device.holding}, own events on their way ${device.session.pending.size}, " +
+                "behind ${device.session.behind}, at ${device.session.tip.take(8)} turn ${device.model.engine.turn.number} " +
+                "${device.model.engine.turn.step}, result ${arcanum.engine.Engine.result(device.model.engine)}")
             publish()
             if (!shownEnd) worker.main(failed)
         }
@@ -1376,7 +1399,8 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             update?.target != null -> "rewind to ${update.target} by ${update.rewoundBy ?: "?"}"
             events.firstOrNull()?.let { it.parentId != head } == true -> "branch by ${events.first().author} at ${events.first().parentId}"
             else -> "own pending events dropped: another event came first"
-        } + " (events ${events.joinToString(",") { it.id }})", tip, local)
+        } + " (events ${events.joinToString(",") { it.id }})", tip, local,
+            rewinding = update?.target != null || events.firstOrNull()?.let { it.parentId != head } == true)
         if (live) device.showPasses()
         device.advance(now)
         // HIS-106 (owner 2026-11-08): the rewind stops at the branch point as playback stops: the other player's new events
@@ -1954,7 +1978,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
                     refused = true
                     // What the tap meant already happened on the newer board: nothing to do and nothing to tell
                     done?.invoke(board)?.also { AppLog.info("engine", "Own $name on board v$seen: already done on board v$published") }
-                        ?: run { staleBoard(name, seen, board); refusedStale(); stale }
+                        ?: run { staleBoard(name, seen, board, same); refusedStale(); stale }
                 }
                 else { inAction = true; try { work() } finally { inAction = false } }
             } finally { timing?.let { it.worked = clock(); it.info = (informationNanos() - info).coerceAtLeast(0) } }
@@ -2050,12 +2074,16 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
     /**
      * Owner, problem report N7FU6Y: one info line in the app log (sent with problem reports) whenever a board already
      * shown is taken back or replaced: [reason] (with the ids involved), the shown tip and local head before ([tip],
-     * [local]) and after ([after]). Engine thread.
+     * [local]) and after ([after]). [rewinding]: the game itself went back (an undo or rewind, a branch), not only the
+     * device's board corrected ([rewinds]). Engine thread.
      */
-    private fun takenBack(reason: String, tip: String, local: String, after: org.asyncttwiz.protocol.game.GameSession = device.session) {
+    private fun takenBack(reason: String, tip: String, local: String, after: org.asyncttwiz.protocol.game.GameSession = device.session,
+        rewinding: Boolean = false) {
         lastTakeBack = "$reason; tip $tip → ${after.tip}"
         takeBacks++
-        AppLog.info("engine", "Shown board taken back: $reason; tip $tip → ${after.tip}, local head $local → ${after.localHead}")
+        if (rewinding) rewinds++
+        AppLog.info("engine", "Shown board taken back: $reason; tip $tip → ${after.tip}, local head $local → ${after.localHead}" +
+            if (rewinding) " (the game went back: an undo, rewind or branch)" else " (the board corrected, the game didn't go back)")
         // CMB-043 (owner notes 2026-11-14 evening): the player's own staging made behind the head belongs to the point it was
         // made at; taken back past it, it goes (else it showed again when the game came back to the same step)
         staging?.let { s ->
@@ -2068,16 +2096,47 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
      * an open cast begun before the latest is dropped (the table went back behind it). Any thread reads. */
     @Volatile var takeBacks = 0L
         private set
+    /**
+     * STK-025, HIS-099 (owner, 2026-11-23: a "The table changed: cast it again." of your own cast is a fault): of [takeBacks],
+     * those where the game itself went back (an undo or rewind, a branch): an open cast begun before the latest is dropped at
+     * once. A board only corrected (the device's own events losing a race to the other player's same moves, the game loaded
+     * again, an own event refused) leaves the cast to be worked out again on the board now. Any thread reads.
+     */
+    @Volatile var rewinds = 0L
+        private set
     /** The latest take-back's words, from where to where, for the log of what it dropped. */
     @Volatile var lastTakeBack = ""
         private set
 
-    /** An own action [what] tapped on a board older than the one published ([seen]: its version): not taken (SYS-011),
-     * the newer board shows. Engine thread. */
-    private fun staleBoard(what: String, seen: Long, board: Shown? = null) = AppLog.info("engine",
-        "Own $what not taken: made on board v$seen (tip ${board?.tip?.take(8)}), the device had published v$published " +
-            "(tip ${device.session.tip.take(8)}, behind ${device.session.behind}, drafting ${device.session.drafting}, pending " +
-            "${device.session.pending.map { "${it.id.take(8)} on ${it.parentId.take(8)}" }}): not the same decision there")
+    /**
+     * An own action [what] tapped on a board older than the one published ([seen]: its version): not taken (SYS-011, SYS-138),
+     * the newer board shows. Logged in full (merge gate 2026-11-24, CoreLoopTest's To combat refused at the start of her own
+     * turn): what was pressed and on which board (its tip and decision), what the device had then (its tip, local head, the
+     * server's head and revision as it knew them, what was still to show, its own events on their way, its decision there),
+     * the last take-back of a shown board, and which check refused it. Engine thread.
+     */
+    private fun staleBoard(what: String, seen: Long, board: Shown? = null,
+        same: (arcanum.engine.state.GameState, arcanum.engine.state.GameState) -> Boolean = GameDevice::sameDecision) {
+        val s = device.session
+        val tapped = board?.board?.engine?.state
+        val why = when {
+            tapped == null -> "the board tapped on has no engine state"
+            s.drafting -> "a draft of the device's own is open"
+            s.behind && !board.behind -> "the device is behind what it showed (${s.buffered.size} events to show: " +
+                "${s.buffered.joinToString { "${it.id.take(8)} by ${it.author.take(8)}" }}), the board tapped on wasn't"
+            !same(tapped, device.model.engine) -> "not the same decision there"
+            else -> "the same decision, yet refused"
+        }
+        AppLog.info("engine", "Own $what not taken: made on board v$seen (tip ${board?.tip?.take(8)}, behind ${board?.behind}, " +
+            "${tapped?.let(::decisionText)}), the device had published v$published (tip ${s.tip.take(8)}, local head " +
+            "${s.localHead.take(8)}, head ${s.head.take(8)} at revision $revision, behind ${s.behind}, drafting ${s.drafting}, pending " +
+            "${s.pending.map { "${it.id.take(8)} on ${it.parentId.take(8)}" }}, ${decisionText(device.model.engine)}); last take-back: " +
+            "${lastTakeBack.ifEmpty { "none" }}; refused: $why")
+    }
+
+    /** Where [s] is and who decides there, for [staleBoard]'s line. */
+    private fun decisionText(s: arcanum.engine.state.GameState): String = "turn ${s.turn.number} ${s.turn.step}, priority " +
+        "${s.priority.holder?.value?.take(8)}, stack ${s.stack.size}, open ${s.pending?.decision?.let { "${it.kind} of ${it.player.value.take(8)}" }}"
 
     /** SYS-012 (smoke 2026-11-04): a stale tap's note goes out with a board of its own, so the table, which reads notes
      * when a board arrives, tells it at once (never left queued until something else changes). Engine thread. */
@@ -2340,9 +2399,10 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** The page (main thread): a board the worker's device published, with the notes published with it, and its take-back
      * count. */
-    internal fun remotePublished(shown: Shown, notes: List<GameDevice.Note>, takeBacks: Long, lastTakeBack: String) {
+    internal fun remotePublished(shown: Shown, notes: List<GameDevice.Note>, takeBacks: Long, lastTakeBack: String, rewinds: Long) {
         this.notes.addAll(notes)
         this.takeBacks = takeBacks
+        this.rewinds = rewinds
         this.lastTakeBack = lastTakeBack
         this.shown = shown
         observer?.shown(shown.version)

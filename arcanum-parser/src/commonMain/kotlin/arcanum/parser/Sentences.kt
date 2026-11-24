@@ -63,6 +63,14 @@ internal class Sentences(
 
     /** Lines that are more than one ability. */
     fun multi(line: String): List<Ability>? {
+        // snc fixes: "Casualty X. The copy isn't legendary and has starting loyalty X." (CR 702.153a, 107.3, 707.9b): X is the power of the
+        // creature sacrificed
+        Snc.CASUALTY_X.matchEntire(line)?.let { m ->
+            val x = Value.Of(arcanum.api.NumericProperty.Power, Objects.Bound(arcanum.api.KeywordExpansions.CASUALTY_SACRIFICED), arcanum.api.Combine.Single)
+            return listOf(arcanum.api.Keyword.CasualtyX(listOfNotNull(
+                arcanum.api.CopyException.Types(removeSupertypes = listOf(Supertype.Legendary)).takeIf { m.groupValues[1].isNotEmpty() },
+                arcanum.api.CopyException.Loyalty(x).takeIf { m.groupValues[2].isNotEmpty() })))
+        }
         mh2Multi(line)?.let { return it } // mh2
         mh3Multi(line)?.let { return it } // mh3
         tdmMulti(line)?.let { return it } // tdm
@@ -76,6 +84,7 @@ internal class Sentences(
         lciMulti(line)?.let { return it } // lci
         mkmMulti(line)?.let { return it } // mkm
         dmrMulti(line)?.let { return it } // dmr
+        neoMulti(line)?.let { return it } // neo
         // one chunk 07: "This creature has trample as long as it has two or fewer oil counters on it. Otherwise, it has hexproof." (two statics, the
         // second while the condition fails)
         One.HAS_AS_LONG_AS_OTHERWISE.matchEntire(line)?.let { m ->
@@ -2485,6 +2494,13 @@ internal class Sentences(
             val subtypes = m.groupValues[1].split(' ').map { it.takeIf { t -> t in RulesWords.subtypes } ?: return null }
             return@flatMap listOf(Mechanic.SetTypes(addSubtypes = subtypes.map { arcanum.api.SubtypeRef.Literal(Subtype(it)) }))
         }
+        // neo chunk 04: "is a black Demon in addition to its other colors and types" (layers 4 and 5, CR 613.1d-e)
+        Neo.IS_COLOR_SUBTYPES_IN_ADDITION_PREDICATE.matchEntire(predicate)?.let { m ->
+            val color = BECOME_COLORS[m.groupValues[1]] ?: return null
+            val subtypes = m.groupValues[2].split(' ').map { it.takeIf { t -> t in RulesWords.subtypes } ?: return null }
+            return@flatMap listOf(Mechanic.SetTypes(addSubtypes = subtypes.map { arcanum.api.SubtypeRef.Literal(Subtype(it)) }),
+                Mechanic.SetColors(listOf(ColorRef.Literal(color)), add = true))
+        }
         // one chunk 10: "can't attack or block"
         if (predicate == "can't attack or block") return@flatMap listOf(Mechanic.CantAttack(), Mechanic.CantBlock(attackers = ObjectFilter.Any))
         listOf(GETS_PT.matchEntire(predicate)?.let { m ->
@@ -3371,6 +3387,15 @@ internal class Sentences(
             val others = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Named(m.groupValues[3]))
             return listOf(CostPart.Exile(CostObjects.Self, from = Zone.Graveyard),
                 CostPart.Exile(CostObjects.Choose(others, count = Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)), from = Zone.Graveyard))
+        }
+        // neo chunk 05: "Exile this Vehicle and four other artifact creatures and/or Vehicles you control" (CR 118.3, 601.2h); the cards are
+        // "exiled with" it when a later ability says so (CR 607.2a)
+        Neo.EXILE_SELF_AND_OTHERS_YOU_CONTROL.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val others = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(m.groupValues[3]) ?: return null)
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            val remember = EXILED_WITH.takeIf { linkedExile }
+            return listOf(CostPart.Exile(CostObjects.Self, from = Zone.Battlefield, remember = remember),
+                CostPart.Exile(CostObjects.Choose(others, count = Value.Fixed(n)), from = Zone.Battlefield, remember = remember))
         }
         // chunk 36: "pay {1}" (in "you may pay {1} and discard a card")
         PAY_MANA.matchEntire(text)?.let { m -> ManaCost.parse(m.groupValues[1])?.let { return listOf(CostPart.Mana(it)) } }
@@ -6691,11 +6716,11 @@ internal class Sentences(
             return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = players), context.thatMuch ?: return@let, source = Objects.Self)))
         }
         // snc chunk 09: "Put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control." (each part
-        // as its own sentence)
+        // read as its own sentence); snc fixes: one instruction with one verb, so all the counters are put at once, one event (CR 608.2c)
         Snc.PUT_COUNTERS_ON_EACH_AND_EACH.matchEntire(sentence)?.let { m ->
             val first = effect("Put ${m.groupValues[1]}.", context) ?: return@let
             val second = effect("Put ${m.groupValues[2]}.", context) ?: return@let
-            return first + second
+            return listOf(Step.Simultaneously(first + second))
         }
         // chunk 26: "Put a loyalty counter on each red planeswalker you control."
         PUT_COUNTERS_ON_EACH.matchEntire(sentence)?.let { m ->
@@ -8521,10 +8546,12 @@ internal class Sentences(
             Step.Do(Effect.Move(Objects.Except(Objects.Bound("found"), Objects.Bound("picked")), Destination(Zone.Library))),
             Step.Do(Effect.Shuffle(Players.You)))
         // gtc chunk 11: "This Aura's controller sacrifices it, then draws two cards." (the activating opponent isn't "you")
-        // snc chunk 05: in an ability the Aura grants, "it" is the enchanted creature and its controller is the Aura's (CR 113.10, 701.21a)
+        // snc fixes: in an ability the Aura grants, "<Aura>'s controller sacrifices it" sacrifices the Aura itself, the nearest object the
+        // sentence names (CR 113.10, 701.21a); the creature it enchants isn't named
         Gtc.AURAS_CONTROLLER_SACRIFICES_DRAWS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || (granterName != null && it.groupValues[1] == granterName) }?.let { m ->
-            val controller = Players.ControllerOf(if (isSelf(m.groupValues[1])) Objects.Self else Objects.Granter)
-            return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = controller)), Step.Do(Effect.Draw(controller, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
+            val aura = if (isSelf(m.groupValues[1])) Objects.Self else Objects.Granter
+            val controller = Players.ControllerOf(aura)
+            return listOf(Step.Do(Effect.Sacrifice(aura, by = controller)), Step.Do(Effect.Draw(controller, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
         }
         // gtc chunk 14: "Shuffle your library, then reveal the top card. If it's a nonland card, you may cast it without paying its
         // mana cost. If it's a land card, you may put it onto the battlefield and return Unexpected Results to its owner's hand."
@@ -9131,6 +9158,8 @@ internal class Sentences(
             objects = Objects.Each(Filters.noun("battle an opponent protects") ?: return null))
         // dmr chunk 07: "this creature deals that much damage to you"
         "you" -> Recipients(players = Players.You)
+        // neo chunk 04: "it deals 1 damage to defending player" in an attack or becomes-blocked trigger (CR 508.5)
+        "defending player" -> Recipients(players = playersIn(text, context) ?: return null)
         // woe chunk 10: "this creature deals 1 damage to that creature" (as "That creature" in [gtcSubject])
         "that creature" -> gtcSubject("That creature", context)?.let { Recipients(objects = it) }
         // rvr chunk 04: Rakdos Firewheeler: "… and 2 damage to up to one target creature or planeswalker." (CR 115.1)
@@ -9332,6 +9361,11 @@ internal class Sentences(
                 ?: Regex("""it's an? ([A-Z]\w+(?: [A-Z]\w+)*) in addition to its other types""").matchEntire(part)?.let { t ->
                     arcanum.api.CopyException.Types(addSubtypes = t.groupValues[1].split(' ').map {
                         arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { w -> w in RulesWords.subtypes } ?: return null)) })
+                }
+                // neo chunk 05: subtypes and card types, "it's a Vehicle artifact in addition to its other types"
+                ?: Regex("""it's an? ([A-Z]\w+(?: [A-Z]\w+)*) ([a-z]+(?: [a-z]+)*) in addition to its other types""").matchEntire(part)?.let { t ->
+                    arcanum.api.CopyException.Types(add = t.groupValues[2].split(' ').map { Filters.CARD_TYPES[it] ?: return null },
+                        addSubtypes = t.groupValues[1].split(' ').map { arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { w -> w in RulesWords.subtypes } ?: return null)) })
                 }
                 // bro chunk 03: "its power and toughness are equal to this creature's power and toughness" (CR 707.9b)
                 ?: Regex("""its power and toughness are equal to (.+)'s power and toughness""").matchEntire(part)
@@ -9931,7 +9965,9 @@ internal class Sentences(
             else -> null
         }
         // blb chunk 07: "defending player" in an attack trigger (CR 506.2)
-        "defending player" -> (context.event as? EventPattern.Attack)?.let { Players.DefendingPlayerOf(Objects.EventObject(EventRole.Object)) }
+        // neo chunk 04: also in a becomes-blocked trigger: the player the blocked creature attacked (CR 508.5)
+        "defending player" -> context.event?.takeIf { it is EventPattern.Attack || it is EventPattern.BecomesBlocked }
+            ?.let { Players.DefendingPlayerOf(Objects.EventObject(EventRole.Object)) }
         // one chunk 05: "its controller": of what "it" names (the event's object in a trigger; a creature that died as it last existed,
         // CR 603.10a, 608.2h), else of the last object target ("Destroy target creature. Its controller …", whether or not it was destroyed)
         "its controller" -> (lastKnownIt(context) ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) })
@@ -10313,9 +10349,12 @@ internal class Sentences(
             return listOf(Step.Do(Effect.AddMana(arcanum.api.ManaProduction(ManaKind.Choose(amount, listOf(ColorRef.Chosen("color")))), Players.You)))
         }
         // blb chunk 12: "This Vehicle becomes an artifact creature until end of turn." (CR 301.7b)
-        Blb.BECOMES_ARTIFACT_CREATURE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+        // neo chunk 05: also "up to one other target Vehicle you control becomes …" (CR 115.3: other than this object)
+        Blb.BECOMES_ARTIFACT_CREATURE.matchEntire(sentence)?.let { m ->
+            val objects = if (isSelf(m.groupValues[1])) Objects.Self
+                else Rvr.UP_TO_ONE_TARGET.matchEntire(m.groupValues[1])?.let { fraObjects(m.groupValues[1], context) } ?: return@let
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(arcanum.api.CardType.Artifact, arcanum.api.CardType.Creature))),
-                Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+                Affected.Objects(objects), arcanum.api.Duration.EndOfTurn)))
         }
         // blb chunk 12: "It gains trample until end of turn." in an activated ability without targets: this permanent
         Blb.IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.takeIf { context.it == null && context.event == null && context.targets.isEmpty() }?.let { m ->
@@ -24085,6 +24124,18 @@ internal class Sentences(
     // ---- neo: Kamigawa: Neon Dynasty wordings (the set's parser tests, sets/neo/NeoChunk*Test.kt)
 
     /** neo: wordings of several sentences read as one. */
+    /** neo chunk 04: "As long as The Reality Chip is attached to a creature, you may play lands and cast spells from the top of your library.":
+     * a condition on a line read as several static abilities, each of them under it (CR 611.3a) */
+    private fun neoMulti(line: String): List<Ability>? {
+        AS_LONG_AS_FIRST.matchEntire(line)?.let { m ->
+            val condition = conditionWithAnd(m.groupValues[1]) ?: return null
+            val rest = m.groupValues[2].replaceFirstChar { it.uppercase() }
+            val inner = multi(rest) ?: finMulti(rest) ?: return null
+            return inner.map { (it as? Ability.Static)?.takeIf { s -> s.condition == null }?.copy(condition = condition, functionsIn = zoneOf(condition)) ?: return null }
+        }
+        return null
+    }
+
     private fun neoWhole(text: String, context: Context): List<Step>? {
         // neo chunk 02: "You may discard up to two cards. If you do, draw that many cards." (that many: the number discarded, CR 608.2c; none
         // discarded draws none)
@@ -24105,6 +24156,16 @@ internal class Sentences(
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))),
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Bound("chosen"),
                     arcanum.api.Combine.Single), Value.Fixed(0))), Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // neo chunk 05: "Create Mechtitan, …. When that token leaves the battlefield, return …." (a delayed trigger the resolution makes, about that
+        // token, CR 603.7a, 603.7c: it triggers once)
+        Neo.CREATE_WHEN_THAT_TOKEN_LEAVES.matchEntire(text)?.let { m ->
+            val create = effect(m.groupValues[1], context) ?: return@let
+            val made = (create.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let
+            val bind = made.bind ?: "token"
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return create.dropLast(1) + Step.Do(made.copy(bind = bind)) + Step.Do(Effect.CreateDelayedTrigger(
+                arcanum.api.Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Bound(bind)), from = Zone.Battlefield)), Instructions(steps = then)))
         }
         return null
     }
@@ -24141,6 +24202,39 @@ internal class Sentences(
             val owned = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.Is(player)))
             return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), bind = "player", together = true, steps = listOf(
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(player)), Affected.Objects(Objects.Each(owned)), arcanum.api.Duration.Indefinitely)))))
+        }
+        // neo chunk 05: "Create a Treasure token and a 1/1 colorless Pilot creature token with "This token crews Vehicles as though …."" (the second
+        // token's quoted ability ends the sentence)
+        Neo.CREATE_TOKEN_AND_TOKEN.matchEntire(sentence)?.let { m ->
+            val first = effect("Create " + m.groupValues[1] + ".", context)
+            val second = first?.let { effect("Create " + m.groupValues[2], context) }
+            if (first != null && second != null) return first + second
+        }
+        // neo chunk 05: "until end of turn, this Vehicle becomes a copy of target nonlegendary creature that crewed it this turn, except it's 4/3, it's a
+        // Vehicle artifact in addition to its other types, and it has flying." (CR 707.2, 707.9b)
+        Neo.UNTIL_EOT_BECOMES_COPY_OF_TARGET_EXCEPT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val except = copyExceptions(m.groupValues[3]) ?: return null
+            val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(target, except)), Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // neo chunk 05: "Create Mechtitan, a legendary 10/10 Construct artifact creature token with flying, vigilance, trample, lifelink, and haste
+        // that's all colors." (CR 111.4, 105.2c)
+        Neo.CREATE_NAMED_LEGENDARY_ALL_COLORS.matchEntire(sentence)?.let { m ->
+            val name = m.groupValues[1]
+            val (types, subtypes) = typesAndSubtypes(m.groupValues[4]) ?: return null
+            val abilities = mshTokenAbilities(m.groupValues[5], setOf(name, "this token", "this creature")) ?: return null
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(arcanum.api.FaceDefinition(name = name,
+                colorIndicator = listOf(Color.White, Color.Blue, Color.Black, Color.Red, Color.Green), supertypes = listOf(Supertype.Legendary),
+                types = types + CardType.Creature, subtypes = subtypes.map { (it as? arcanum.api.SubtypeRef.Literal)?.subtype ?: return null },
+                power = arcanum.api.PrintedNumber.Fixed(m.groupValues[2].toInt()), toughness = arcanum.api.PrintedNumber.Fixed(m.groupValues[3].toInt()),
+                abilities = abilities)), Value.Fixed(1), Players.You)))
+        }
+        // neo chunk 05: "return all cards exiled with this Vehicle except this card to the battlefield tapped under their owners' control." (the
+        // cards its cost exiled, as bound by that cost, CR 607.2a; "this card" is the exiled card it became, CR 400.7; each under its owner's
+        // control, CR 110.2)
+        Neo.RETURN_ALL_EXILED_WITH_EXCEPT_TAPPED_UNDER_OWNERS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) && isSelf(it.groupValues[2]) && linkedExile }?.let {
+            val cards = Objects.Except(Objects.Bound(EXILED_WITH), Objects.SelfAfter)
+            return listOf(Step.Do(Effect.Move(cards, Destination(Zone.Battlefield, tapped = true, controller = Players.OwnerOf(cards)))))
         }
         // neo chunk 02: "they lose the game" in a trigger: the player named before, else the event's player (CR 104.3e)
         if (sentence == "They lose the game." && context.event != null) return listOf(Step.Do(Effect.LoseGame(context.lastPlayer ?: Players.EventPlayer)))

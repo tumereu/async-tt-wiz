@@ -103,7 +103,8 @@ internal object Effects {
                 val batch = scope.batch
                 if (batch != null) {
                     val view = act.view()
-                    val ok = Actions.withoutShielded(act, ids.filter { id -> view[id]?.has { it == Mechanic.Indestructible } != true })
+                    // CR 122.1c: shield counters replace the destruction as the batch moves (Actions.move)
+                    val ok = ids.filter { id -> view[id]?.has { it == Mechanic.Indestructible } != true }
                     batch += Batched(scope, ok.map { PlannedMove(it, Zone.Graveyard, meanings = listOf(Meaning.Destroyed)) }, effect.postBind, effect.noRegeneration)
                 } else {
                     val moved = Actions.destroy(act, cause, ids, effect.noRegeneration)
@@ -1317,7 +1318,11 @@ internal object Effects {
             // spm: the copy's exceptions, after those of a copy it copies (CR 707.9b)
             val kind = if (original.kind == StackItemKind.Spell || original.kind is StackItemKind.SpellCopy) {
                 val copied = (original.kind as? StackItemKind.SpellCopy)?.copied ?: id
-                StackItemKind.SpellCopy(copied, (original.kind as? StackItemKind.SpellCopy)?.except.orEmpty() + effect.except,
+                // snc fixes: "has starting loyalty X" is worked out now and kept (CR 707.9b)
+                val except = effect.except.map { x ->
+                    if (x is arcanum.api.CopyException.Loyalty && x.loyalty !is Value.Fixed) arcanum.api.CopyException.Loyalty(Value.Fixed(scope.value(x.loyalty))) else x
+                }
+                StackItemKind.SpellCopy(copied, (original.kind as? StackItemKind.SpellCopy)?.except.orEmpty() + except,
                     // CR 707.10g, 709.5b: its faces, for the token it becomes even if that spell has left the Stack by then
                     values = (arcanum.engine.view.Copiable(act.state).values(copied) ?: (original.kind as? StackItemKind.SpellCopy)?.values)?.takeIf { it.faces.size > 1 })
             } else original.kind

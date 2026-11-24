@@ -95,6 +95,14 @@ object KeywordExpansions {
             Ability.Triggered(Trigger.On(EventPattern.Cast(ObjectFilter.Is(Objects.Self), by = PlayerFilter.Any)),
                 steps(Effect.CopySpell(Objects.Self, Players.You, newTargets = true)),
                 interveningIf = Condition.Paid(Keyword.Casualty.Kind, times = 1, of = Objects.Self)))
+        // snc fixes: CR 702.153a with X (107.3): any creature with power X; the copy gets its exceptions, X read from the creature sacrificed
+        is Keyword.CasualtyX -> listOf(
+            Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Casualty.Kind, Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.And(listOf(
+                ObjectFilter.Type(CardType.Creature), ObjectFilter.Power(Comparison.AtLeast, Value.Fixed(0)))), Value.Fixed(1)), preBind = CASUALTY_SACRIFICED))),
+                optional = true)), affects = Affected.Objects(Objects.Self)),
+            Ability.Triggered(Trigger.On(EventPattern.Cast(ObjectFilter.Is(Objects.Self), by = PlayerFilter.Any)),
+                steps(Effect.CopySpell(Objects.Self, Players.You, newTargets = true, except = keyword.copyExcept)),
+                interveningIf = Condition.Paid(Keyword.Casualty.Kind, times = 1, of = Objects.Self)))
         // ecl: CR 702.78a: "As an additional cost to cast this spell, you may tap two untapped creatures you control that each share a
         // color with it" and "When you cast this spell, if its conspire cost was paid, copy it. If the spell has any targets, you may
         // choose new targets for the copy."
@@ -880,7 +888,10 @@ object KeywordExpansions {
             Affected.Objects(Objects.Bound(WARP_EXILED)), Duration.Indefinitely))))
 
     /** The names keyword costs make for the spell, which its permanent keeps too (CR 400.7d: "the returned creature"). */
-    val COST_NAMES: Set<String> = setOf(SNEAK_RETURNED, WEB_SLINGING_RETURNED)
+    val COST_NAMES: Set<String> = setOf(SNEAK_RETURNED, WEB_SLINGING_RETURNED, CASUALTY_SACRIFICED)
+
+    /** snc fixes: the creature sacrificed for [Keyword.CasualtyX]: its power is X (CR 702.153a, 107.3, 608.2h). */
+    const val CASUALTY_SACRIFICED: String = "casualty-sacrificed"
 
     /** spm: the alternative cost of web-slinging [cost] (CR 702.188a): [cost] and returning a tapped creature you control to its
      * owner's hand; also what "each legendary spell you cast … has web-slinging" gives those spells. */

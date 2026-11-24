@@ -572,6 +572,15 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 .firstOrNull { it.key == scene.expandedGroup }?.members.orEmpty().filterNotTo(HashSet()) { it in castGlow }
             // ZON-095 (owner notes 2026-11-14): while a cast, a choice or another panel is open the viewer's hand is dimmed
             val handDim = toolkit != null && !runtime.reviewing && toolkit.handDimmed(play)
+            // TBL-128 (owner, report 8KK2M6): and while nobody holds priority; logged when it starts and ends
+            val noPriorityDim = handDim && toolkit?.nobodyHoldsPriority(play) == true
+            val noPriorityDimLogged = remember { booleanArrayOf(false) }
+            LaunchedEffect(noPriorityDim) {
+                if (noPriorityDim == noPriorityDimLogged[0]) return@LaunchedEffect
+                noPriorityDimLogged[0] = noPriorityDim
+                AppLog.info("table", "Hand row of ${accountId.take(8)} " + if (noPriorityDim) "dimmed: nobody holds priority " +
+                    "(taps do nothing, holding inspects)" else "lit again: a player holds priority")
+            }
             // TBL-117 (owner playtest 2026-11-06): the glow of the card a finger is down on grows a little and brightens
             val pressedId by remember(coordinator) { derivedStateOf { preview.pressedId } }
             val pressGlow = rememberPressGlow(pressedId)

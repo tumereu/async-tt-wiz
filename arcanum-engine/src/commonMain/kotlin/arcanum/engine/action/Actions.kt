@@ -138,7 +138,7 @@ internal object Actions {
                 skip = { r, m -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) ||
                     (back != null || enteringFaceDown || m.copyOf != null) && r.source == pm.id && r.effect == null && !r.key.startsWith("back:") &&
                     !r.key.startsWith("copy:") && selfEntering(r.mechanic.event) },
-                extra = backOwn,
+                extra = backOwn + shieldCounterReplacement(act, pm),
                 more = { m -> copiedOwn(act, o, m) },
             )
         }
@@ -527,20 +527,25 @@ internal object Actions {
      * 701.19a) unless [noRegeneration] (CR 701.19c). */
     fun destroy(act: Act, cause: Cause?, ids: List<ObjectId>, noRegeneration: Boolean = false, extra: List<Meaning> = emptyList()): Map<ObjectId, ObjectId> {
         val view = act.view()
-        val destroyable = withoutShielded(act, ids.distinct().filter { id ->
+        val destroyable = ids.distinct().filter { id ->
             act.obj(id)?.zone == Zone.Battlefield && view[id]?.has { it == Mechanic.Indestructible } != true
-        })
+        }
         return move(act, cause, destroyable.map { PlannedMove(it, Zone.Graveyard, meanings = listOf(Meaning.Destroyed) + extra) }, noRegeneration)
     }
 
-    /** CR 122.1c: a permanent with a shield counter that would be destroyed as the result of an effect instead loses a shield counter
-     * (and, CR 701.19 style, all damage marked on it); returns [ids] without those. */
-    fun withoutShielded(act: Act, ids: List<ObjectId>): List<ObjectId> = ids.filter { id ->
-        val o = act.obj(id) ?: return@filter true
-        if (o.counters.none { it.kind == CounterKind.Shield }) return@filter true
-        act.record(Changes.counters(act.state, TargetRef.Object(id), CounterKind.Shield, -1))
-        if (o.damage > 0 || o.deathtouchDamage) act.record(Change.DamageMarked(id, o.damage, 0, o.deathtouchDamage, false))
-        false
+    /** CR 122.1c: the shield counters on a permanent that would be destroyed as the result of an effect make one replacement effect, "instead
+     * remove a shield counter from it" (only that: the damage marked stays). It is one of the event's replacements, so beside a
+     * regeneration shield the permanent's controller chooses which applies first (CR 616.1e). Destruction by state-based actions (lethal
+     * damage, deathtouch) is a game rule, not an effect (CR 701.8b, 704.5g-h): no shield counter replaces it. */
+    private fun shieldCounterReplacement(act: Act, pm: PlannedMove): List<Replacement> {
+        if (Meaning.Destroyed !in pm.meanings || Meaning.StateBased in pm.meanings) return emptyList()
+        val o = act.obj(pm.id)?.takeIf { it.zone == Zone.Battlefield && it.counters.any { c -> c.kind == CounterKind.Shield && c.count > 0 } }
+            ?: return emptyList()
+        val mechanic = Mechanic.Replacement(arcanum.api.EventPattern.Destroyed(arcanum.api.ObjectFilter.Is(arcanum.api.Objects.Self)),
+            instead = arcanum.api.Instructions(steps = listOf(arcanum.api.Step.Do(arcanum.api.Effect.RemoveCounters(arcanum.api.Objects.Self,
+                CounterKind.Shield, arcanum.api.Value.Fixed(1))))))
+        return listOf(Replacement(mechanic, act.controllerOf(pm.id) ?: o.owner, pm.id, Bindings.EMPTY, null, own = false,
+            key = "shield-counter-destroy:${pm.id}", text = "Remove a shield counter instead"))
     }
 
     /** Sacrifices [ids] (CR 701.21): only permanents, and not those that can't be sacrificed. */
@@ -1141,6 +1146,7 @@ internal object Actions {
                     return Evaluator(ProposedBoard(act.board(), mapOf(probe.id to probe)),
                         Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.tokens, probe.id)
                 }
+                var declined = false
                 r.mechanic.modify.forEach { mod ->
                     result = when (mod) {
                         Modification.Skip -> null
@@ -1152,18 +1158,25 @@ internal object Actions {
                         is Modification.AlsoCreate -> tokenValues(act, e, mod.token)?.let { v -> result?.plus(v to e.value(mod.count)) } ?: result
                         // fra: the matching tokens are created as another token instead, as many (CR 614.1a); as a copy of nothing, none (CR 609.3)
                         is Modification.CreateInstead -> result?.mapNotNull { (f, k) -> if (matches(f)) tokenValues(act, e, mod.token)?.let { it to k } else f to k }
-                        // snc: the replacement's controller chooses which token, once for the event (CR 614.1a)
+                        // snc: the replacement's controller chooses which token, once for the event (CR 614.1a); an optional one ("you may
+                        // instead") offers keeping the event's own tokens in the same question (CR 614.5: declined, it isn't applied, Replacements.apply)
                         is Modification.CreateInsteadChosen -> {
                             val options = mod.tokens.mapNotNull { tokenValues(act, e, it) }
                             val labels = options.mapIndexed { i, v -> v.faces.first().name.let { n -> if (options.count { o -> o.faces.first().name == n } > 1) "$n ${i + 1}" else n } }
-                            val chosen = if (options.isEmpty()) null else options[labels.indexOf(act.chooseOption(r.controller, r.source, labels, text = "Create which tokens instead?"))]
-                            result?.mapNotNull { (f, k) -> if (matches(f)) chosen?.let { it to k } else f to k }
+                            val keep = if (r.mechanic.optional) listOf(Replacements.KEEP_ORIGINAL_TOKENS) else emptyList()
+                            val answer = if (options.isEmpty()) null else act.chooseOption(r.controller, r.source, keep + labels, text = "Create which tokens instead?")
+                            if (answer == Replacements.KEEP_ORIGINAL_TOKENS) { declined = true; result }
+                            else {
+                                val chosen = answer?.let { options[labels.indexOf(it)] }
+                                result?.mapNotNull { (f, k) -> if (matches(f)) chosen?.let { it to k } else f to k }
+                            }
                         }
                         is Modification.EntersTapped -> result
                         else -> result
                     }
                 }
-                result
+                // declined: the event exactly as it was, which Replacements.apply reads as not applied
+                if (declined) s else result
             },
             instead = { r, instance -> runInstead(act, r, instance) },
             linked = linked,
@@ -1179,7 +1192,15 @@ internal object Actions {
             val enters = Replacements.candidates(act, cause).filter { r ->
                 Replacements.matches(act, r, Change.Created(listOf(Placed(t, 0))), proposedBoard()).isNotEmpty()
             }
-            var o = t.copy(counters = withCounters.filter { it.second > 0 }.map { (kind, n) -> CounterEntry(kind, n, t.timestamp) })
+            // snc fixes: a planeswalker or battle token enters with its printed loyalty or defense too (CR 306.5b, 310.4b, 111.10: the copy
+            // of a planeswalker spell becoming a token)
+            val printed = t.definition.faces.getOrNull(t.face)?.let { f ->
+                listOfNotNull(
+                    (f.loyalty as? arcanum.api.PrintedNumber.Fixed)?.value?.takeIf { CardType.Planeswalker in f.types && it > 0 }?.let { CounterKind.Loyalty to it },
+                    (f.defense as? arcanum.api.PrintedNumber.Fixed)?.value?.takeIf { CardType.Battle in f.types && it > 0 }?.let { CounterKind.Defense to it })
+            }.orEmpty()
+            var o = t.copy(counters = (printed + withCounters).filter { it.second > 0 }.groupBy({ it.first }, { it.second })
+                .map { (kind, ns) -> CounterEntry(kind, ns.sum(), t.timestamp) })
             // mh3 sweep: and the token's own "enters with" replacements, as it will exist (a copy of a creature with "This creature enters with
             // two +1/+1 counters on it", CR 614.12, 111.10)
             val own = t.definition.faces.getOrNull(t.face)?.let { ownEntering(it) }.orEmpty().filter { !it.optional }.map { r ->

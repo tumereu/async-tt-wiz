@@ -21,7 +21,9 @@ class KeywordSyntaxCompletenessTest {
         // mh3: "~ has annihilator X, where X is …" is read by its own rule
         "AnnihilatorX",
         // lci: "Craft with [materials] [cost]" is read by its own rule
-        "Craft")
+        "Craft",
+        // snc: "Casualty X. The copy isn't legendary and has starting loyalty X." is read by its own rule
+        "CasualtyX")
 
     @Test
     fun parserReadsEveryKeywordTypeExactlyOnce() {

@@ -2312,6 +2312,17 @@ internal class Sentences(
                 condition = arcanum.api.Condition.YourTurn,
                 affects = arcanum.api.Affected.Objects(Objects.Each(Filters.all(cards, where, ObjectFilter.OwnedBy(PlayerFilter.You)))))
         }
+        // snc fixes: "Once each turn, you may play a card from exile with a collection counter on it if it was exiled by an ability you controlled, and
+        // you may spend mana as though it were mana of any color to cast it." (the ability's controller as it exiled the card, CR 113.8; CR 609.4b)
+        Snc.ONCE_PLAY_FROM_EXILE_WITH_COUNTER.matchEntire(line)?.let { m ->
+            val cards = Filters.noun(m.groupValues[3].substringAfter(' ')) ?: return null
+            val counter = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { ObjectFilter.HasCounter(Counters.kind(it) ?: return null, 1) }
+            val by = ObjectFilter.ExiledBy(PlayerFilter.You).takeIf { m.groupValues[5].isNotEmpty() }
+            val how = if (m.groupValues[2] == "play") PlayKind.Play else PlayKind.Cast
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Exile, how, perTurn = 1, holder = PlayerFilter.You, manaAsAnyColor = m.groupValues[6].isNotEmpty())),
+                condition = arcanum.api.Condition.YourTurn.takeIf { m.groupValues[1] != "each turn" },
+                affects = arcanum.api.Affected.Objects(Objects.Each(Filters.all(*listOfNotNull(cards, ObjectFilter.InZone(Zone.Exile), counter, by).toTypedArray()))))
+        }
         ONCE_EACH_TURN_CAST_FROM_GRAVEYARD.matchEntire(line)?.let { m ->
             val cards = Filters.noun(m.groupValues[2].replace(" spell", " card")) ?: return null
             val zone = if (m.groupValues[3] == "your graveyard") Zone.Graveyard else Zone.Library
@@ -7018,7 +7029,11 @@ internal class Sentences(
                 else -> playersIn(m.groupValues[3].removeSuffix("'s"), context) ?: return null
             }
             context.them = Objects.Bound("exiled")
-            return listOf(Step.Do(Effect.Move(Objects.LibraryCards(whose, n, fromTop = true), Destination(Zone.Exile, faceDown = m.groupValues[4].isNotEmpty()), postBind = "exiled")))
+            val move = Step.Do(Effect.Move(Objects.LibraryCards(whose, n, fromTop = true), Destination(Zone.Exile, faceDown = m.groupValues[4].isNotEmpty()), postBind = "exiled"))
+            // snc fixes: "with a collection counter on it" (each card exiled, in exile; CR 122.1)
+            val counter = m.groupValues[6].takeIf { it.isNotEmpty() }?.let { Counters.kind(it) ?: return null }
+                ?: return listOf(move)
+            return listOf(move, Step.Do(Effect.PutCounters(Objects.Bound("exiled"), counter, Value.Fixed(1))))
         }
         // chunk 56: "You may play those cards this turn." (lands too, CR 305.1)
         if (sentence == "You may play those cards this turn.") {
@@ -14427,7 +14442,7 @@ internal class Sentences(
         val YOU_CREATE_A = Regex("""you create an? (.+) token""")
         // woe chunk 07: also "of target opponent's library", "face down"
         // neo chunk 03: also "the top card of each player's library" (one card from every library, CR 401.1)
-        val EXILE_TOP_N = Regex("""Exile (?:the top (\w+) cards|the top card|(that many) cards) (?:of|from the top of) (your|target opponent's|target player's|each player's|each opponent's) library( face down)?\.""")
+        val EXILE_TOP_N = Regex("""Exile (?:the top (\w+) cards|the top card|(that many) cards) (?:of|from the top of) (your|target opponent's|target player's|each player's|each opponent's) library( face down)?( with an? (\S+) counter on it)?\.""")
         val TARGET_OPPONENT_MILLS = Regex("""Target opponent mills (\w+) cards?\.""")
         val UP_TO_ONE_TARGET_GETS = Regex("""(?:Up to one target|(T)arget) (.+) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) until (end of turn|your next turn)\.""")
         val TARGET_GETS_FOR_EACH_UNTIL_EOT = Regex("""Target (.+) gets ([+-]\d+)/([+-]\d+) until end of turn for each (.+)\.""")

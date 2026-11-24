@@ -358,4 +358,56 @@ class SncFixesScenariosTest {
         assertTrue(casts.any { it.way.alternative == null })
         assertTrue(casts.none { it.way == ownAlternative(rhox) })
     }
+
+    private val evelyn = Cards.invent("SncFix Avelyne, the Grasping", "{2}{U/B}{B}{B/R}", "Legendary Creature — Vampire Rogue", """
+        Flash
+        Whenever SncFix Avelyne, the Grasping or another Vampire you control enters, exile the top card of each player's library with a collection counter on it.
+        Once each turn, you may play a card from exile with a collection counter on it if it was exiled by an ability you controlled, and you may spend mana as though it were mana of any color to cast it.
+    """, "2/5")
+    private val collection = CounterKind.Named("collection")
+
+    // CR 122.1, 113.8, 609.4b: the top card of each of three libraries is exiled with a collection counter; Alice casts Bob's green card with black
+    // mana, and only one card a turn (once each turn)
+    @Test
+    fun evelynPlaysOneCollectedCardATurnWithAnyColorMana() = scenario(players = 3) {
+        alice.battlefield(*Array(8) { "Swamp" })
+        alice.hand(evelyn)
+        alice.library(cub)
+        bob.library(bear)
+        carol.library(brute)
+        alice.casts(evelyn)
+        resolveAll()
+        expect {
+            alice.exile has cub
+            bob.exile has bear
+            carol.exile has brute
+            card(bear).counters(collection) shouldBe 1
+        }
+        alice.casts(bear)
+        resolveAll()
+        expect { alice.battlefield has bear }
+        assertFails { alice.casts(cub) }
+    }
+
+    // CR 113.8, 109.5: cards Bob's ability exiled aren't Alice's to play, though they have collection counters and she controls the same ability
+    @Test
+    fun evelynCantPlayCardsAnotherPlayersAbilityExiled() = scenario(players = 3) {
+        alice.battlefield(evelyn, "Swamp", "Swamp", "Swamp")
+        alice.hand(doom)
+        alice.library(cub)
+        bob.battlefield("Swamp", "Swamp", "Swamp", "Swamp", "Swamp")
+        bob.hand(evelyn)
+        bob.library(bear)
+        carol.library(brute)
+        alice.passes()
+        bob.casts(evelyn)
+        resolveAll()
+        expect {
+            alice.exile has cub
+            card(cub).counters(collection) shouldBe 1
+        }
+        val casts = Engine.options(state, alice.id).filterIsInstance<Input.Cast>().map { it.card }
+        assertTrue(card(doom) in casts)
+        assertTrue(casts.none { it == card(cub) || it == card(bear) || it == card(brute) })
+    }
 }

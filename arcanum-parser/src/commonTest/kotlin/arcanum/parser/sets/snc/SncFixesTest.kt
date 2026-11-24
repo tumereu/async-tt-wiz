@@ -74,4 +74,29 @@ class SncFixesTest {
     ) parsesTo abilities(
         static(Mechanic.AlternativeCost(cost = manaCost("{R}{G}"), manaFrom = sub("Treasure"))),
     )
+
+    private val collection = CounterKind.Named("collection")
+
+    // CR 122.1 (the counter put on each exiled card in exile), 113.8 (the controller of the ability that exiled it), 609.4b (mana as though of any
+    // color), 601.2 / 305.1 (play: lands too); once each turn, any turn
+    @Test
+    fun evelynTheCovetous() = card(
+        name = "Avelyne, the Grasping",
+        cost = "{2}{U/B}{B}{B/R}",
+        type = "Legendary Creature — Vampire Rogue",
+        pt = "2/5",
+        text = """
+            Flash
+            Whenever Avelyne or another Vampire you control enters, exile the top card of each player's library with a collection counter on it.
+            Once each turn, you may play a card from exile with a collection counter on it if it was exiled by an ability you controlled, and you may spend mana as though it were mana of any color to cast it.
+        """,
+    ) parsesTo abilities(
+        Keyword.Flash,
+        triggered(enters(or(ObjectFilter.Is(Objects.Self), and(another, sub("Vampire"), you))),
+            doing(Effect.Move(Objects.LibraryCards(Players.Each(PlayerFilter.Any), n(1), fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
+            doing(Effect.PutCounters(Objects.Bound("exiled"), collection, n(1)))),
+        static(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, perTurn = 1, holder = PlayerFilter.You, manaAsAnyColor = true),
+            affects = Objects.Each(and(ObjectFilter.Category(ObjectCategory.Card), ObjectFilter.InZone(Zone.Exile), ObjectFilter.HasCounter(collection, 1),
+                ObjectFilter.ExiledBy(PlayerFilter.You)))),
+    )
 }

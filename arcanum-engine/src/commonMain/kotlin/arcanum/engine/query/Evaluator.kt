@@ -539,6 +539,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // CR 115.7: one target in all ("with a single target"), of [target] when given
             // dft: no abilities at all (CR 113.1)
             ObjectFilter.NoAbilities -> c?.abilities.orEmpty().isEmpty()
+            // snc fixes: exiled by a spell or ability of one of those players (CR 113.8), kept on the card while it stays in exile
+            is ObjectFilter.ExiledBy -> o?.zone == Zone.Exile && o.statuses.status<arcanum.engine.state.ObjectStatus.ExiledBy>()?.let { by ->
+                (!filter.byAbility || !by.spell) && matches(filter.players, by.player)
+            } == true
             // woe: an Adventure in its copiable values, used or not (CR 716.2a, b)
             ObjectFilter.HasAdventure -> arcanum.engine.view.Copiable(state).values(id)?.let { it.layout == arcanum.api.Layout.Adventure && it.faces.size > 1 } == true
             // spm: modified (CR 700.9): a counter on it, an Equipment attached, or an Aura its controller controls attached

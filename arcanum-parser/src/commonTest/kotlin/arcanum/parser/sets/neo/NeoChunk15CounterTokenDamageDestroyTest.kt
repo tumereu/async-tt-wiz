@@ -84,11 +84,11 @@ class NeoChunk15CounterTokenDamageDestroyTest {
     // CR 700.9 (modified): Equipment, Auras you control and counters; the second damage is a step of the same spell (CR 608.2c)
     @Test
     fun spiritFlare() = card(
-        name = "Ember Flare",
+        name = "Kindled Flare",
         cost = "{1}{R}",
         type = "Instant",
         text = """
-            Ember Flare deals 3 damage to target creature or planeswalker. Ember Flare also deals 2 damage to that permanent's controller if you control a modified creature. (Equipment, Auras you control, and counters are modifications.)
+            Kindled Flare deals 3 damage to target creature or planeswalker. Kindled Flare also deals 2 damage to that permanent's controller if you control a modified creature. (Equipment, Auras you control, and counters are modifications.)
         """,
     ) parsesTo abilities(
         spell(

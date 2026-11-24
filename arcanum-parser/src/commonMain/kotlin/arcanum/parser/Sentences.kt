@@ -11946,7 +11946,7 @@ internal class Sentences(
     private fun rtrCondition(text: String): arcanum.api.Condition? {
         // rtr chunk 06: "this enchantment has no charge counters on it"
         // neo chunk 09: also "it" ("Whenever Risona deals combat damage to a player, if it doesn't have an indestructible counter on it")
-        Rtr.SELF_HAS_NO_COUNTERS.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) || it.groupValues[1] == "it" }?.let { m ->
+        Rtr.SELF_HAS_NO_COUNTERS.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) || it.groupValues[1] == "it" && it.groupValues[3].isNotEmpty() }?.let { m ->
             val kind = Counters.kind(m.groupValues[2].ifEmpty { m.groupValues[3] }) ?: return null
             return arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = 1)))
         }

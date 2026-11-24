@@ -27,6 +27,7 @@ ONE Phyrexia: All Will Be One
 OTJ Outlaws of Thunder Junction
 RTR Return to Ravnica
 RVR Ravnica Remastered
+SNC Streets of New Capenna
 SOS Secrets of Strixhaven
 SPM Marvel's Spider-Man
 TDM Tarkir: Dragonstorm

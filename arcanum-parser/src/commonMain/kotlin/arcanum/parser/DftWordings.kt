@@ -45,7 +45,7 @@ internal object Dft {
     val ENTERS_AND_WHENEVER_IT_ATTACKS_WHILE_SADDLED = Regex("""(.+) enters and whenever it attacks while saddled""")
     // dft chunk 05
     val SADDLES_OR_CREWS_DURING_YOUR_MAIN_PHASE = Regex("""(.+) saddles a Mount or crews a Vehicle during your main phase""")
-    val SADDLES_AND_CREWS_AS_THOUGH_GREATER = Regex("""(.+) saddles Mounts and crews Vehicles as though its power were (\d+) greater\.""")
+    val SADDLES_AND_CREWS_AS_THOUGH_GREATER = Regex("""(.+?) (saddles Mounts and )?crews Vehicles as though its power were (\d+) greater\.""")
     val SADDLES_AND_CREWS_USING_TOUGHNESS = Regex("""(.+) saddles Mounts and crews Vehicles using its toughness rather than its power\.""")
     val THAT_MOUNT_OR_VEHICLE = Regex("""That Mount or Vehicle (.+)""")
     val CREATE_X_TOKENS_THEY_HAVE = Regex("""Create X (\d+/\d+ .+? creature) tokens\. The tokens have "(.+)"\.?""")

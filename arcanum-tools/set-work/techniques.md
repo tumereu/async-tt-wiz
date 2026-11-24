@@ -8,6 +8,7 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - Where a rule goes: a single-sentence whole-ability rule at the top of `Sentences.effectRules` (the set's `<set>Effect`
   hook); a wording of several sentences read as one in the set's `<set>Whole`, which sees only bodies with ". " inside;
   a static line that becomes several abilities in `Sentences.multi`. A new table line or slot beats a new rule.
+  `Sentences.effectRules` is at the JVM method size limit and ends calling `effectRulesRest`: split again the same way.
 - "it" follows `context.it`: a rule that moves or exiles an object sets it (`Bound("exiled")`), so a later "it", "that
   card" or "If it's a X" reads the new object (CR 400.7); a return to the battlefield binds `Bound("returned")`. In "When
   this enters", "it" is `EventObject(After)`. After a Move of a target, event object or this card to the battlefield
@@ -93,6 +94,7 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
   when another player makes the choice ("you may have target opponent sacrifice") it stays `May` (CR 608.2d).
 - "you may look ... If you do, ..." is one `Step.May`: a `Step.Pay(steps = [LookAt])` never counts as done.
 - A delayed "return the exiled card" made by the ability that exiled it reads `Bound("exiled")` (the source may be gone).
+  Steps on what an until-leaves return brings back are `Effect.Move.whenReturned` (bound `returned`, CR 400.7, 610.3).
 - "If [condition settled at cast: main phase, kicked, paid], [targeted effect]": those target slots
   are `onlyIf` (CR 601.2c). In "If kicked, ... instead", a slot only one version names is `onlyIf` that version (kicked or
   not); one both name stays unconditional. "Kicker {A} and/or {B}" is two kicker costs, "kicked twice" `Paid(times = 2)`.
@@ -105,6 +107,9 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - Replacements: "dealt damage this way would die this turn, exile it instead" covers only objects actually dealt damage
   (prevented damage isn't dealt, CR 615.1a); "if you would pay life" is `EventPattern.PayLife` with a
   `Replacement.condition`, payability stays CR 119.4; mana multipliers are a `Replacement` on `Tap(forMana = true)`.
+- "mana spent to activate this ability" = `Value.ManaSpent(of = Objects.ThisAbility)`; "as though it were mana of any
+  color" = `MayPlay.manaAsAnyColorOnly` (can't pay {C}), "of any type" `manaAsAnyColor` (CR 106.1b); "mana from a X"
+  judges the source as it made the mana (CR 106.3). "play one of those cards" = `MayPlay(total = 1)`.
 - A target "of an opponent's choice" is `TargetSlot.chosenBy`; "the next N damage ... is dealt to X instead" is
   `Effect.PreventDamage.redirectTo` (a redirection, so unpreventable damage moves too, CR 614.9).
 - Damage triggers pick `EventPattern.Damage.per` (CR 603.2c): `Recipient` for "X is dealt damage", `Source` for "X deals
@@ -150,9 +155,10 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 - Casting never throws for missing mana: test "can't pay" with `decision<Decision.ManaPayment>().suggestion` empty. A spell
   with no legal target throws `IllegalArgumentException`, as does casting without permission or a failed activation
   condition. Test a target limit through `decision<Decision.Targets>().max`, not by over-supplying targets.
-- Auto-answers: a lone legal target (also of an "up to one" slot or a trigger's mode), a lone sacrifice or discard
-  choice, a scry of a one-card library and a cast with one possible payment ask nothing; add a second option to test the
-  decision. Searches always ask `chooses(...)`. An optional "you may pay" asks `YesNo`, then `ManaPayment` even for one land.
+- Auto-answers: a cast's lone legal target, a lone sacrifice or discard choice, a scry of a one-card library and a cast
+  with one possible payment ask nothing; add a second option to test the decision. An activated ability's targets and a
+  trigger's "up to one" slot are asked even with one option: `Answer.Targets(decision<Decision.Targets>().options)`.
+  Searches always ask `chooses(...)`. An optional "you may pay" asks `YesNo`, then `ManaPayment` even for one land.
 - A trigger with targets or a "may": `resolveAll()` after the cast, then `Answer.Targets`, `allPass()`, then
   `Answer.YesNo`; an empty optional slot is `Answer.Targets(emptyList())`. `resolve()` resolves one item, to act before a
   trigger resolves. Modes of a triggered ability with no legal target are unavailable (CR 700.2b).
@@ -227,7 +233,8 @@ signatures are in `<plan>/helpers.md`; set-specific helpers live in each set's `
 
 ## Test conventions
 - Tokens made by one effect (a `ForEach` of only `CreateToken`, a together batch, "each player creates") enter as one
-  event, so "one or more tokens enter" triggers once (CR 608.2f). `DefinitionChecks` demands `together = true` on every
+  event, so "one or more tokens enter" triggers once (CR 608.2f); so are counters put by one instruction, once per holder
+  unless `Trigger.On.acrossHolders` (CR 122.6, 603.2c). `DefinitionChecks` demands `together = true` on every
   `ForEach` over players.
 - A card drawn or returned while a decision of the same resolution is open is a new id the scenario's names don't show:
   pick it by `(id as ObjectId.Card).card` or answer `Answer.Objects((pending as Decision.ChooseObjects).options)`. After

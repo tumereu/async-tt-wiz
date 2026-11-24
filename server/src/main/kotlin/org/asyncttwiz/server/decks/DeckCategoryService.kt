@@ -95,6 +95,6 @@ class DeckCategoryService(private val runtime: ServiceRuntime) {
         /** Every category of [owner]'s. */
         fun all(sql: DSLContext, owner: UUID): List<DeckCategory> = sql.selectFrom(DECK_CATEGORY)
             .where(DECK_CATEGORY.ACCOUNT_ID.eq(owner)).orderBy(DECK_CATEGORY.NAME, DECK_CATEGORY.ID).fetch()
-            .map { DeckCategory(it.id.toString(), it.name!!, it.parentId?.toString()) }
+            .map { DeckCategory(it.id.toString(), it.name, it.parentId?.toString()) }
     }
 }

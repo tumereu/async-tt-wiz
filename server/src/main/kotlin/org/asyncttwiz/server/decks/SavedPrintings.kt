@@ -67,7 +67,7 @@ object SavedPrintings {
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val list = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(deck)).forUpdate().fetchOne() ?: return@transaction
             val rows = sql.selectFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.eq(deck)).orderBy(DECK_ENTRY.POSITION).fetch()
-                .map { Row(it.section!!, it.printingId, it.name!!, it.quantity!!) }
+                .map { Row(it.section, it.printingId, it.name, it.quantity) }
             val (next, changed) = resolved(rows)
             if (next == rows) return@transaction
             sql.deleteFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.eq(deck)).execute()
@@ -84,7 +84,7 @@ object SavedPrintings {
             val sql = DSL.using(connection, SQLDialect.POSTGRES)
             val list = sql.selectFrom(SAVED_CUBE).where(SAVED_CUBE.ID.eq(cube)).forUpdate().fetchOne() ?: return@transaction
             val rows = sql.selectFrom(CUBE_ENTRY).where(CUBE_ENTRY.CUBE_ID.eq(cube)).orderBy(CUBE_ENTRY.POSITION).fetch()
-                .map { Row(it.section!!, it.printingId, it.name!!, it.quantity!!) }
+                .map { Row(it.section, it.printingId, it.name, it.quantity) }
             val (next) = resolved(rows)
             if (next == rows) return@transaction
             sql.deleteFrom(CUBE_ENTRY).where(CUBE_ENTRY.CUBE_ID.eq(cube)).execute()

@@ -759,7 +759,16 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** The least X may be ("X can't be 0", CR 107.3). */
     private fun xMinimum(): Int = if (!isSpell) (ability as? Ability.Activated)?.rules?.minimumX ?: 0 // tla: an activated ability's own
         else snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }
-            .filterIsInstance<Mechanic.XAtLeast>().maxOfOrNull { it.min } ?: 0
+            .filterIsInstance<Mechanic.XAtLeast>().filter { m -> m.castWith.let { it == null || castWith(it) } }.maxOfOrNull { it.min } ?: 0
+
+    /** mid: cast with [kind]'s alternative cost, or with the permission that keyword gives ("If you cast this spell this way" after a flashback
+     * cost, CR 702.34a). */
+    private fun castWith(kind: arcanum.api.KeywordKind): Boolean {
+        if (alternative?.second?.keyword == kind) return true
+        val abilities = plain.view[itemId]?.characteristics?.abilities.orEmpty()
+        return generateSequence(way.permission?.ability) { (it as? AbilityOrigin.Expansion)?.keyword }
+            .any { origin -> (abilities.firstOrNull { it.origin == origin }?.ability as? Keyword)?.kind == kind }
+    }
 
     /** CR 700.2e: when another player chooses the modes ("an opponent chooses one —") and several could, the controller first
      * picks which one. */

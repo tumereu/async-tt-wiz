@@ -109,7 +109,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
     /** [viewer]: whose list it is; a play whose state is the engine's says whose move it is per viewer (I-D56 §7). */
     private fun summary(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord, viewer: UUID? = null): GameSummary {
         if (game.lifecycle != "ACTIVE") return summary(sql, game, null as String?)
-        return summary(sql, game, org.asyncttwiz.server.game.PlayStore.read(sql, game.id!!)?.board?.effectiveAttentionHolder, viewer)
+        return summary(sql, game, org.asyncttwiz.server.game.PlayStore.read(sql, game.id)?.board?.effectiveAttentionHolder, viewer)
     }
 
     /** Execution already owns the locked game row and the reduced board. Do not reload either. */
@@ -137,7 +137,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
             else engine.firstOrNull { it[0] == viewer.toString() && it[1] == "true" }?.get(0) ?: engine.firstOrNull { it[1] == "true" }?.get(0)
         val activity = engine?.firstOrNull { it[0] == viewer.toString() }?.getOrNull(2)?.takeIf { it.isNotEmpty() }
             ?.let { java.time.Instant.parse(it).toString() }
-        return GameSummary(game.id.toString(), game.gameName!!, game.createdAt!!.toInstant().toString(),
+        return GameSummary(game.id.toString(), game.gameName, game.createdAt!!.toInstant().toString(),
             AccountIdentity(game.inviterId.toString(), identities.value2()!!,
                 identities[inviter.AVATAR_SCRYFALL_ID]?.let { Avatar(it.toString(), identities[inviter.AVATAR_FACE] ?: 0) }),
             AccountIdentity(game.recipientId.toString(), identities.value3()!!,
@@ -223,14 +223,14 @@ class LobbyService(private val runtime: ServiceRuntime) {
         return games.mapNotNull { game -> StoredData.orSkip("game", game.id) {
             val row = identities.getValue(game.id)
             val engine = row.value9()?.split(",")?.map { it.split("|") }
-            val play = plays[game.id]?.let { payload -> StoredData.decode("game play", game.id!!) { GameWire.stored(PlayState.serializer(), payload) } }
+            val play = plays[game.id]?.let { payload -> StoredData.decode("game play", game.id) { GameWire.stored(PlayState.serializer(), payload) } }
             val holder = if (engine != null)
                 engine.firstOrNull { it[0] == viewer.toString() && it[1] == "true" }?.get(0) ?: engine.firstOrNull { it[1] == "true" }?.get(0)
             else if (game.lifecycle != "ACTIVE") null
-            else (play ?: org.asyncttwiz.server.game.PlayStore.read(sql, game.id!!))?.board?.effectiveAttentionHolder
+            else (play ?: org.asyncttwiz.server.game.PlayStore.read(sql, game.id))?.board?.effectiveAttentionHolder
             val activity = engine?.firstOrNull { it[0] == viewer.toString() }?.getOrNull(2)?.takeIf { it.isNotEmpty() }
                 ?.let { java.time.Instant.parse(it).toString() }
-            GameSummary(game.id.toString(), game.gameName!!, game.createdAt!!.toInstant().toString(),
+            GameSummary(game.id.toString(), game.gameName, game.createdAt!!.toInstant().toString(),
                 AccountIdentity(game.inviterId.toString(), row.value3()!!,
                     row.value5()?.let { Avatar(it.toString(), row.value6() ?: 0) }),
                 AccountIdentity(game.recipientId.toString(), row.value4()!!,
@@ -271,7 +271,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
                 if (original.accountId != actor || original.kind != kind || original.scope != "account" || original.intentDigest != digest)
                     return@transaction error(409, "request_conflict")
                 val outcome = sql.selectFrom(ACCOUNT_REQUEST).where(ACCOUNT_REQUEST.REQUEST_ID.eq(id)).fetchSingle()
-                return@transaction Result(outcome.status!!, outcome.response!!)
+                return@transaction Result(outcome.status, outcome.response)
             }
             val result = action(sql, actor)
             sql.insertInto(ACCOUNT_REQUEST).set(ACCOUNT_REQUEST.REQUEST_ID, id).set(ACCOUNT_REQUEST.STATUS, result.status)

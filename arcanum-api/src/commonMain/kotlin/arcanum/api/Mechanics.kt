@@ -387,8 +387,12 @@ sealed interface Mechanic {
     @Serializable @SerialName("additional-activation-cost") data class AdditionalActivationCost(val cost: Cost, val manaAbilitiesOnly: Boolean = false) : Mechanic
     /** "You can't spend mana to cast this spell." */
     @Serializable @SerialName("cant-spend-mana") data object CantSpendMana : Mechanic
-    /** "X can't be [lessThan − 1]" ("X can't be 0"). */
-    @Serializable @SerialName("x-at-least") data class XAtLeast(val min: Int) : Mechanic
+    /** "X can't be [lessThan − 1]" ("X can't be 0", CR 107.3). [castWith] (mid): only when the spell is cast with that keyword's
+     * permission or alternative cost ("Flashback—{3}{R}, Remove X loyalty counters …. If you cast this spell this way, X can't be 0."). */
+    @Serializable @SerialName("x-at-least") data class XAtLeast(
+        val min: Int,
+        @Serializable(with = KeywordKindSerializer::class) val castWith: KeywordKind? = null,
+    ) : Mechanic
     // ecl
     /** "X can't be greater than [max]" (CR 107.3a): the X chosen for this spell, worked out as the choice is made ("the greatest
      * toughness among creatures you control"). */

@@ -667,7 +667,8 @@ internal object Filters {
     private val SNC_BLOCKING_THIS_CREATURE = Regex("""(.+?) (?:that's )?blocking this creature""")
     private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or (?:an? )?(\w+)""")
     // blb chunk 11
-    private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with (toughness greater than its power|power equal to its toughness)""")
+    // vow chunk 01: also "creatures that each have toughness greater than their power"
+    private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) (?:with|that each have) (toughness greater than (?:its|their) power|power equal to its toughness)""")
     // blb chunk 09
     private val OWN_IN_EXILE_AND_GRAVEYARD = Regex("""(.+) you own in exile and in your graveyard""")
     // blb chunk 08
@@ -693,7 +694,8 @@ internal object Filters {
     // trk sweep: every "with …" qualifier, not only mana value, power or toughness and keywords (counters, {X}, total power and toughness)
     private val OR_AN_ALTERNATIVE = Regex(" or an? | card or ")
     private val OR_LIST_NOT_COMPARISON = Regex(""",? or (?!less\b|greater\b|more\b|fewer\b)|, """)
-    private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:,? or [a-z ]+)+|[a-z]+)""")
+    // vow chunk 01: also "with flying, deathtouch, or lifelink"
+    private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:(?:,| or|, or) [a-z ]+)+|[a-z]+)""")
     // chunk 47
     private val WITH_KEYWORD = Regex("""(.+) with (\w+)""")
     /** Keywords named by a bare word in "with <keyword>" though written with a number ("toxic 1"). */
@@ -1574,7 +1576,8 @@ internal object Conditions {
             return if (m.groupValues[2] == "wasn't") Condition.Not(was) else was
         }
         // chunk 32: "you've discarded a card this turn"
-        if (text == "you've discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any), atLeast = 1, measure = Measure.Events)
+        // vow chunk 01: also "you discarded a card this turn"
+        if (text == "you've discarded a card this turn" || text == "you discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any), atLeast = 1, measure = Measure.Events)
         // dmu chunk 06: "a player discarded a card this turn" (any player)
         if (text == "a player discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.Any, cards = ObjectFilter.Any), atLeast = 1, measure = Measure.Events)
         // chunk 33: "it was kicked", "this creature was kicked" (CR 702.33d); dmu chunk 01: "it was kicked twice" (both of two kicker costs, CR 702.33b, d)

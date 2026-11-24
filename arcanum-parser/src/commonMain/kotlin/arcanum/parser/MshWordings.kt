@@ -95,7 +95,8 @@ internal object Msh {
     val INFINITY = Regex("""∞ — (.+)""")
     val HARNESS = Regex("""Harness (.+)\.""")
     val EXILE_THEN_RETURN = Regex("""[Ee]xile (up to one )(other )?target (.+?), then return (?:that card|it) to the battlefield( tapped)? under its owner's control\.""")
-    val AND_COUNTER_ON_SELF = Regex("""(.+?),? and (?:put )?an? (\S+) counter on (this \w+)\.""")
+    // vow chunk 01: also by name ("… and put a bloodline counter on Edgar Markov's Coffin")
+    val AND_COUNTER_ON_SELF = Regex("""(.+?),? and (?:put )?an? (\S+) counter on (this \w+|[A-Z][^.]+)\.""")
 
     // msh chunk 06: Equipment and Auras
     val EQUIP_WORTHY = Regex("""Equip worthy (\{[^}]+\})""")

@@ -84,7 +84,11 @@ internal object EventMatcher {
             val spell = if (e.board.state.stackItems.containsKey(item.id)) pattern.spell else castAsSpell(pattern.spell)
             // dmu fixes: and the objects it targeted as it was cast, read later as last known if they have left (CR 601.2c, 608.2h)
             val targeted = item.targets.values.flatten().mapNotNull { (it as? TargetRef.Object)?.id }.distinct()
-            if (e.matches(spell, item.id) && e.matches(pattern.by, item.controller) && (pattern.from == null || from == pattern.from))
+            // vow chunk 01: a named object ("you play a card exiled with this creature") is the card that was cast, before it moved to the
+            // Stack (CR 400.7)
+            val before = (item.id as? ObjectId.Card)?.takeIf { pattern.spell is ObjectFilter.Is && it.zoneChanges > 0 }?.let { ObjectId.Card(it.card, it.zoneChanges - 1) }
+            if ((e.matches(spell, item.id) || before != null && e.matches(pattern.spell, before)) && e.matches(pattern.by, item.controller) &&
+                (pattern.from == null || from == pattern.from))
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(item.id))) +
                     listOfNotNull(targeted.takeIf { it.isNotEmpty() }?.let { RoleObjects(EventRole.Targeted, it) }), listOf(item.controller))) else emptyList()
         } else emptyList()
@@ -154,7 +158,9 @@ internal object EventMatcher {
             .map { m -> moveEvent(e, m, proposed, Zone.Stack, EventRole.Before) } +
             ((change as? Change.StackItemRemoved)?.takeIf { Meaning.Countered in it.meanings && e.matches(pattern.objects, it.item.id) }
                 ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.item.id))), listOf(it.item.controller))) }.orEmpty())
-        is EventPattern.PlayLand -> moves(change).filter { Meaning.PlayedLand in it.meanings && e.matches(pattern.lands, it.after.id) &&
+        // vow chunk 01: a named object ("a card exiled with this creature") is the card before it moved (CR 400.7)
+        is EventPattern.PlayLand -> moves(change).filter { Meaning.PlayedLand in it.meanings &&
+            (e.matches(pattern.lands, it.after.id) || pattern.lands is ObjectFilter.Is && e.matches(pattern.lands, it.before.id)) &&
             e.matches(pattern.players, it.after.controller ?: it.after.owner) &&
             // spm: "play a land from exile", "from anywhere other than your hand"
             (pattern.from == null || it.from == pattern.from) && (pattern.notFrom == null || it.from != pattern.notFrom) }

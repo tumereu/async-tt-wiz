@@ -577,6 +577,26 @@ internal object Payment {
 
     // ---- Finishing
 
+    /** neo: the values inside the [arcanum.api.Value.AsCast] values in [instructions], wherever they are nested (found in its JSON form: a
+     * value can sit in any effect, mechanic or filter). */
+    private fun asCastValues(instructions: arcanum.api.Instructions): List<arcanum.api.Value> {
+        val json = kotlinx.serialization.json.Json.encodeToJsonElement(arcanum.api.Instructions.serializer(), instructions)
+        val found = mutableListOf<arcanum.api.Value>()
+        fun walk(e: kotlinx.serialization.json.JsonElement) {
+            when (e) {
+                is kotlinx.serialization.json.JsonArray -> e.forEach(::walk)
+                is kotlinx.serialization.json.JsonObject -> {
+                    val type = (e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                    if (type == "value-as-cast") e["value"]?.let { found += kotlinx.serialization.json.Json.decodeFromJsonElement(arcanum.api.Value.serializer(), it) }
+                    e.values.forEach(::walk)
+                }
+                else -> Unit
+            }
+        }
+        walk(json)
+        return found.distinct()
+    }
+
     /** The [arcanum.api.Condition.AsCast] conditions in [instructions], wherever they are nested (woe, otj). */
     private fun asCastConditions(instructions: arcanum.api.Instructions): List<arcanum.api.Condition> {
         fun of(c: arcanum.api.Condition): List<arcanum.api.Condition> = when (c) {
@@ -621,9 +641,16 @@ internal object Payment {
             if (conditions.isEmpty()) emptyList()
             else recorder.snapshot().evaluator(plan.player, self = id, names = names, stackItem = plan.item).let { e -> conditions.filter { e.holds(it) } }
         }
+        // neo: CR 601.2i: "for each modified creature you controlled as you cast this spell" is counted now, once
+        val counted = asCastValues(plan.instructions).let { values ->
+            if (values.isEmpty()) emptyList()
+            else recorder.snapshot().evaluator(plan.player, self = id, names = names, stackItem = plan.item).let { e ->
+                values.map { arcanum.engine.state.CountedAsCast(it, e.value(it)) } }
+        }
         val facts = o.castOrNone.copy(
             castFrom = plan.castFrom,
             heldAsCast = asCast,
+            countedAsCast = counted,
             x = plan.choices.announced["X"],
             manaSpent = spentByKind(spent),
             manaSources = spent.mapNotNull { it.source },

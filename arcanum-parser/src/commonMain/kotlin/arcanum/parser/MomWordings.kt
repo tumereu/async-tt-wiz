@@ -188,7 +188,8 @@ internal object MomPhrases {
     }
 
     // mom chunk 01: Ashen Reaper "a permanent was put into a graveyard from the battlefield this turn" (any player's, CR 700.4)
-    private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD_THIS_TURN = Regex("""an? (.+?) was put into a graveyard from the battlefield this turn""")
+    // neo chunk 10: also "an enchantment was put into your graveyard from the battlefield this turn" (one you own, CR 400.3)
+    private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD_THIS_TURN = Regex("""an? (.+?) was put into (a|your) graveyard from the battlefield this turn""")
 
     private val OPPONENT_HAS_CARDS_IN_GRAVEYARD = Regex("""an opponent has (\w+) or more cards in their graveyard""")
     // mom chunk 11: Sandstalker Moloch "an opponent cast a blue and/or black spell this turn"
@@ -236,7 +237,9 @@ internal object MomPhrases {
             return Condition.HappenedThisTurn(EventPattern.CountersPut(objects, Counters.kind(m.groupValues[1]) ?: return null), atLeast = 1, measure = Measure.Events)
         }
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD_THIS_TURN.matchEntire(text)?.let { m ->
-            return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.noun(m.groupValues[1]) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard),
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val objects = if (m.groupValues[2] == "your") Filters.all(noun, ObjectFilter.OwnedBy(PlayerFilter.You)) else noun
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(objects, from = Zone.Battlefield, to = Zone.Graveyard),
                 atLeast = 1, measure = Measure.Events)
         }
         return null

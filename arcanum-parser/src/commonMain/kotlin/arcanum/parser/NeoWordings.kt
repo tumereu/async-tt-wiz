@@ -13,6 +13,24 @@ import arcanum.api.Zone
 
 /** Regular expressions of Kamigawa: Neon Dynasty (neo) wordings read in [Sentences]. */
 internal object Neo {
+    // neo chunk 10: Kotose, the Silent Spider
+    val EXILE_SEARCH_SAME_NAME_PLAY_ONE = Regex("""[Ee]xile target (.+?) from an opponent's graveyard\. Search that player's graveyard, hand, and library for any number of cards with the same name as that card and exile them\. Then that player shuffles\. For as long as you control (.+?), you may play one of the exiled cards, and you may spend mana as though it were mana of any color to cast it\.""")
+    // neo chunk 10: Discover the Impossible
+    val LOOK_EXILE_FACE_DOWN_CAST_IF_ELSE_HAND = Regex("""Look at the top (\w+) cards of your library\. Exile one of them face down and put the rest on the bottom of your library in a random order\. You may cast the exiled card without paying its mana cost if it's an? (.+? spell with mana value \d+ or less)\. If you don't, put that card into your hand\.""")
+    // neo chunk 10: "Up to X target creatures phase out."
+    val UP_TO_N_TARGET_PHASE_OUT = Regex("""Up to (\w+) target (.+) phase out\.""")
+    // neo chunk 10: "For each of them, put your choice of a reach counter, a vigilance counter, or a trample counter on it."
+    val FOR_EACH_OF_THEM_CHOICE_OF_COUNTERS = Regex("""For each of them, put your choice of (an? \S+ counter(?:, an? \S+ counter)*,? or an? \S+ counter) on it\.""")
+    // neo chunk 10: "Tatsunari and target Frog you control can't be blocked this turn except by creatures with flying or reach."
+    val SELF_AND_TARGET_CANT_BE_BLOCKED_EXCEPT_BY = Regex("""(.+?) and target (.+?) can't be blocked this turn except by (creatures with .+)\.""")
+    // neo chunk 10: "artifact and enchantment cards" (after "all")
+    val TYPE_AND_TYPE_CARDS = Regex("""^([a-z]+) and ([a-z]+) cards$""")
+    // neo chunk 10: "Each nontoken creature you control gets +1/+1 for each other creature you control with the same name as that creature."
+    val EACH_GETS_FOR_EACH_OTHER_SAME_NAME = Regex("""Each (.+?) gets \+(\d+)/\+(\d+) for each other (.+?) with the same name as that creature\.""")
+    // neo chunk 10: "modified creature you controlled as you cast this spell" (after "for each")
+    val YOU_CONTROLLED_AS_YOU_CAST = Regex("""(.+?) you controlled as you cast this spell""")
+    // neo chunk 10: "The first activated ability of an artifact you activate each turn costs {2} less to activate."
+    val FIRST_ABILITY_OF_EACH_TURN_COSTS_LESS = Regex("""The first activated ability of an? (.+?) you activate each turn costs ((?:\{[^}]+\})+) less to activate\.""")
     // neo chunk 04: "Equipped creature has base power and toughness 5/5, has menace, and is a black Demon in addition to its other colors and types."
     val IS_COLOR_SUBTYPES_IN_ADDITION_PREDICATE = Regex("""is an? (white|blue|black|red|green) ((?:[A-Z]\w+ )*[A-Z]\w+) in addition to its other colors and types""")
     // neo chunk 03: "If you cast a spell this way, pay life equal to its mana value rather than paying its mana cost." (after a permission to play cards)
@@ -83,6 +101,7 @@ internal object Neo {
 
 /** neo: nouns and conditions of Kamigawa: Neon Dynasty wordings, tried by [Filters] and [Conditions]. */
 internal object NeoPhrases {
+    private val CARD_OTHER_THAN_A = Regex("""(cards?) other than an? (.+ card)""")
     // neo chunk 02: "creature dealt damage this turn by a source you controlled" (the creature was dealt it, CR 120.1; the source's controller then)
     private val DEALT_DAMAGE_THIS_TURN_BY = Regex("""(.+?) dealt damage this turn by an? (.+?) you controlled""")
     // neo chunk 02: "creature cards in defending player's graveyard" (in an attack trigger, CR 506.2)
@@ -99,6 +118,10 @@ internal object NeoPhrases {
     private val WITHOUT_A_COUNTER = Regex("""(.+?) that (?:doesn't|don't) have an? (\S+) counters? on (?:it|them)""")
 
     fun noun(phrase: String): ObjectFilter? {
+        // neo chunk 10: "card other than a basic land card" (any card that isn't one)
+        CARD_OTHER_THAN_A.matchEntire(phrase)?.let { m ->
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(Filters.noun(m.groupValues[2]) ?: return null))
+        }
         // neo chunk 03: "Ninja and Rogue creatures you control": creatures of either subtype, as "Ninja or Rogue creatures" (CR 205.3)
         SUBTYPE_AND_SUBTYPE.matchEntire(phrase)?.takeIf { it.groupValues[1] in RulesWords.subtypes && it.groupValues[2] in RulesWords.subtypes }
             ?.let { m -> return Filters.noun("${m.groupValues[1]} or ${m.groupValues[2]} ${m.groupValues[3]}") }

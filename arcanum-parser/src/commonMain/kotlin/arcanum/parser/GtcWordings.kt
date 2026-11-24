@@ -180,7 +180,8 @@ internal object Gtc {
     val FLIP_N_COINS = Regex("""Flip (\w+) coins\.""")
     // lci chunk 05: also several subtypes and "artifact creature" ("a white Gnome Soldier artifact creature token")
     val CREATE_STAR_TOKEN_WITH_QUOTED = Regex("""[Cc]reate an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+(?: [A-Z]\w+)*) ((?:artifact )?creature) token with (?:([a-z, ]+?) and )?"(.+)"\.?""")
-    val OPPONENT_CASTS = Regex("""an opponent casts an? ((?:[a-z]+ )*)spell""")
+    // neo chunk 10: also "an opponent casts an artifact, instant, or sorcery spell"
+    val OPPONENT_CASTS = Regex("""an opponent casts an? ((?:[a-z]+,? )*)spell""")
 
     val RETURN_SELF_TO_YOUR_HAND = Regex("""Return (.+) to your hand\.""")
 

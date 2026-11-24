@@ -38,7 +38,7 @@ internal object Fdn {
     val PUT_SELF_FROM_GRAVEYARD_ON_TOP = Regex("""[Pp]ut this card from your graveyard on top of your library\.""")
     // chunk 09b
     val PLAY_NOT_OWNED_WITH_COUNTERS_ANY_TYPE = Regex("""During your turn, you may play cards you don't own with (\S+) counters on them from exile, and mana of any type can be spent to cast those spells\.""")
-    val EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER = Regex("""[Ee]xile it from their graveyard with an? (\S+) counter on it\.""")
+    val EXILE_IT_FROM_GRAVEYARD_WITH_COUNTER = Regex("""[Ee]xile it(?: from their graveyard)? with an? (\S+) counter on it\.""") // vow chunk 06: "exile it with a croak counter on it"
     val GAINS_AND_GETS_UNTIL_EOT = Regex("""(.+?) gains (.+?) and gets ([+-]\w+)/([+-]\w+) until end of turn\.?""")
     // woe chunk 07: also "That player gains control of target Treasure you control." (the player chosen before)
     // mkm chunk 01: also "any number of target permanents you control"

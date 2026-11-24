@@ -147,7 +147,8 @@ internal object EventMatcher {
             .map { m -> moveEvent(e, m, proposed, Zone.Battlefield, EventRole.Before) }
         // mh2: a creature sacrificed as an exploit ability of an object matching [exploiter] resolves (CR 702.110b)
         is EventPattern.Exploits -> (change as? Change.ZoneChange)?.takeIf { c -> exploitedBy(e, c, pattern.exploiter) }?.let { c ->
-            moves(c).filter { Meaning.Sacrificed in it.meanings }.map { m ->
+            moves(c).filter { Meaning.Sacrificed in it.meanings && (pattern.exploited == null ||
+                Evaluator(LastKnownBoard(e.board), e.ctx).matches(pattern.exploited!!, it.before.id)) }.map { m ->
                 val event = moveEvent(e, m, proposed, Zone.Battlefield, EventRole.Before)
                 event.copy(objects = event.objects + RoleObjects(EventRole.Source, listOfNotNull(c.by?.source)))
             }

@@ -27,4 +27,16 @@ internal object Vow {
     val MAXIMUM_HAND_SIZE_CHANGED_REST_OF_GAME = Regex("""Your maximum hand size is (increased|reduced) by (\w+) for the rest of the game\.""")
     // vow chunk 05: an Aura's "When enchanted creature dies, return this card to the battlefield transformed under your control attached to target opponent."
     val RETURN_THIS_CARD_TO_BATTLEFIELD = Regex("""[Rr]eturn this card to the battlefield( transformed)?(?: under (your|its owner's) control)?(?: attached to target (player|opponent))?\.""")
+    // vow chunk 06: Grolnok, the Omnivore
+    val MAY_PLAY_OWNED_IN_EXILE_WITH_COUNTERS = Regex("""You may play lands and cast spells from among cards you own in exile with (\S+) counters on them\.""")
+    // vow chunk 06: Old Rutstein: "If a land card is milled this way, create a Treasure token." after a mill
+    val IF_CARD_MILLED_THIS_WAY = Regex("""If an? (.+? card) (?:is|was) milled this way, (.+)""")
+    // vow chunk 06: Bride's Gown: "an Equipment named Groom's Finery is attached to a creature you control" (a condition)
+    val NAMED_IS_ATTACHED_TO = Regex("""an? (\S+) named (.+?) is attached to an? (.+)""")
+    // vow chunk 06: Bride's Gown: "Equipped creature gets +2/+0. It gets an additional +0/+2 and has first strike as long as …"
+    val ATTACHED_STATIC_THEN_IT = Regex("""(Equipped creature|Enchanted creature) ([^.]+)\. It ([^.]+\.)""")
+    // vow chunk 06: Mindleech Ghoul
+    val EACH_OPPONENT_EXILES_FROM_HAND = Regex("""[Ee]ach opponent exiles a card from their hand\.""")
+    // vow chunk 06: Screaming Swarm
+    val PUT_SELF_FROM_GRAVEYARD_FROM_TOP = Regex("""[Pp]ut this card from your graveyard into your library (\w+) from the top\.""")
 }

@@ -256,8 +256,11 @@ internal object MshPhrases {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype(by))))
         }
         // msh chunk 04: "you've put one or more +1/+1 counters on Beast this turn" (by your spells and abilities)
-        Msh.YOUVE_PUT_COUNTERS_ON_THIS_TURN.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
-            return Condition.HappenedThisTurn(EventPattern.CountersPut(ObjectFilter.Is(Objects.Self), Counters.kind(m.groupValues[1]) ?: return null,
+        // vow chunk 07: "you've put one or more +1/+1 counters on a creature this turn" (any creature, any controller's)
+        Msh.YOUVE_PUT_COUNTERS_ON_THIS_TURN.matchEntire(text)?.let { m ->
+            val on = if (isSelf(m.groupValues[2])) ObjectFilter.Is(Objects.Self)
+                else Regex("""an? (.+)""").matchEntire(m.groupValues[2])?.let { Filters.noun(it.groupValues[1]) } ?: return@let
+            return Condition.HappenedThisTurn(EventPattern.CountersPut(on, Counters.kind(m.groupValues[1]) ?: return null,
                 causedBy = ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = 1, measure = Measure.Events)
         }
         // msh: "you have fewer than ten cards in hand"

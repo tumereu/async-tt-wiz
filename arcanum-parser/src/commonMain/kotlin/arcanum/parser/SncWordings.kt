@@ -82,5 +82,5 @@ internal object Snc {
     val EXILE_RANDOM_COPY_EACH_EXILED_WITH_CAST = Regex("""Exile an? (.+?) card at random from your graveyard\. Then copy each card exiled with (.+?)\. You may cast any number of the copies without paying their mana costs\.""")
     // snc fixes: "Once each turn, you may play a card from exile with a collection counter on it if it was exiled by an ability you controlled, and you
     // may spend mana as though it were mana of any color to cast it."
-    val ONCE_PLAY_FROM_EXILE_WITH_COUNTER = Regex("""Once (during each of your turns|each turn), you may (play|cast) (an? .+?) from exile(?: with an? (\S+) counter on it)?( if it was exiled by an ability you controlled)?(, and you may spend mana as though it were mana of any (?:color|type) to cast (?:it|that spell))?\.""")
+    val ONCE_PLAY_FROM_EXILE_WITH_COUNTER = Regex("""Once (during each of your turns|each turn), you may (play|cast) (an? .+?) from exile(?: with an? (\S+) counter on it)?( if it was exiled by an ability you controlled)?(, and you may spend mana as though it were mana of any (color|type) to cast (?:it|that spell))?\.""")
 }

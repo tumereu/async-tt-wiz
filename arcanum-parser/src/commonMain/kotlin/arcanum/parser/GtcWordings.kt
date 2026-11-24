@@ -21,7 +21,8 @@ internal object Gtc {
     val EXILE_ALL = Regex("""Exile all (.+)\.""")
     val DRAW_CARDS_EQUAL_TO = Regex("""Draw cards equal to (.+)\.""")
     val TAP_X_TARGETS = Regex("""Tap X target (.+)\.""")
-    val DOESNT_UNTAP_NEXT = Regex("""(That creature|The chosen creature|It|Those creatures|They) (?:doesn't|don't) untap during (?:its|their) controller's next untap step\.""")
+    // vow chunk 08: also "Target creature doesn't untap during its controller's next untap step."
+    val DOESNT_UNTAP_NEXT = Regex("""(That creature|The chosen creature|It|Those creatures|They|[Tt]arget [a-z]+(?: [a-z]+)*?) (?:doesn't|don't) untap during (?:its|their) controller's next untap step\.""")
     val CONTROLLER_CREATES = Regex("""(?:That creature's|Its) controller creates (.+)\.""")
     val MOVE_COUNTER = Regex("""Move (a|an|one|two) (?:(\S+) )?counters? from (.+) onto (.+)\.""") // mh3 chunk 11: "a counter" (any kind)
     val PUT_ON_TOP = Regex("""Put (target .+) on top of its owner's library\.""")

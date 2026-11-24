@@ -731,12 +731,14 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             List(total.waterbend) { ManaPaymentWay.Waterbend }
     }
 
-    /** ecl: the permission it is cast with lets mana be spent as though it were mana of any type (CR 609.4b); mh3: or only
-     * colorless mana as though it were mana of any colour. */
+    /** ecl: the permission it is cast with lets mana be spent as though it were mana of any type (CR 609.4b); snc fixes: or as
+     * though it were mana of any colour (not colorless); mh3: or only colorless mana as though it were mana of any colour. */
     val manaAsAnyColor: Mana.AsAnyColor get() = permission?.first.let { p ->
         when {
-            // trk fixes: every such permission says "mana of any type", so it pays {C} too (CR 106.1b, 609.4b)
+            // trk fixes: "mana of any type" pays {C} too (CR 106.1b, 609.4b)
             p?.manaAsAnyColor == true -> Mana.AsAnyColor.AnyType
+            // snc fixes: "as though it were mana of any color": coloured mana still can't pay {C} (CR 106.1b, 609.4b)
+            p?.manaAsAnyColorOnly == true -> Mana.AsAnyColor.All
             p?.colorlessAsAnyColor == true -> Mana.AsAnyColor.Colorless
             else -> Mana.AsAnyColor.None
         }

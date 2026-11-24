@@ -410,4 +410,111 @@ class SncFixesScenariosTest {
         assertTrue(card(doom) in casts)
         assertTrue(casts.none { it == card(cub) || it == card(bear) || it == card(brute) })
     }
+
+    private val hollowIdol = Cards.invent("SncFix Hollow Idol", "{C}", "Artifact", "")
+
+    // CR 106.1b, 609.4b: colorless isn't a colour, so mana spent "as though it were mana of any color" still can't pay {C}: Alice's black mana
+    // doesn't cast Bob's collected {C} artifact (before the fix it did, as mana of any type)
+    @Test
+    fun evelynsAnyColorManaDoesntPayColorless() = scenario(players = 3) {
+        alice.battlefield(*Array(8) { "Swamp" })
+        alice.hand(evelyn)
+        alice.library(cub)
+        bob.library(hollowIdol)
+        carol.library(brute)
+        alice.casts(evelyn)
+        resolveAll()
+        expect { card(hollowIdol).counters(collection) shouldBe 1 }
+        assertTrue(Engine.options(state, alice.id).filterIsInstance<Input.Cast>().none { it.card == card(hollowIdol) })
+    }
+
+    private val rubyLens = Cards.invent("SncFix Ruby Lens", "{2}", "Artifact", "{T}: Add {R}.")
+    private val emeraldLens = Cards.invent("SncFix Emerald Lens", "{2}", "Artifact", "{T}: Add {G}.")
+    private val gilding = Cards.invent("SncFix Gilded Decree", "{W}", "Enchantment", "Each artifact is a Treasure in addition to its other types.")
+    private val giltPurge = Cards.invent("SncFix Gilt Purge", "{W}", "Instant", "Destroy target enchantment.")
+
+    /** Alice taps both Lenses for {R}{G} while the Decree makes them Treasures, then destroys the Decree: the mana stays in her pool. */
+    private fun Scenario.treasureManaThenNoTreasures() {
+        alice.battlefield(rubyLens, emeraldLens, gilding, "Plains")
+        alice.activates(rubyLens)
+        alice.activates(emeraldLens)
+        alice.casts(giltPurge, target = gilding, paying = listOf("Plains"))
+        resolveAll()
+        expect {
+            alice.graveyard has gilding
+            alice.pool.size shouldBe 2
+        }
+    }
+
+    // CR 106.3, 118.9: mana's source is what produced it, as it was then: the Lenses were Treasures when they made the floating {R}{G}, so it
+    // pays the alternative cost though they aren't Treasures any more
+    @Test
+    fun securityRhoxTakesManaMadeByWhatWasATreasureThen() = scenario {
+        alice.hand(giltPurge, rhox)
+        treasureManaThenNoTreasures()
+        alice.casts(rhox, way = ownAlternative(rhox))
+        resolveAll()
+        expect { alice.battlefield has rhox }
+    }
+
+    // CR 106.3, 118.9: and the other way round: mana made by the Lenses before the Decree made them Treasures wasn't produced by Treasures
+    @Test
+    fun securityRhoxRefusesManaMadeBeforeItsSourceBecameATreasure() = scenario {
+        alice.battlefield(rubyLens, emeraldLens, "Plains")
+        alice.hand(gilding, rhox)
+        alice.activates(rubyLens)
+        alice.activates(emeraldLens)
+        alice.casts(gilding, paying = listOf("Plains"))
+        resolveAll()
+        expect {
+            alice.battlefield has gilding
+            alice.pool.size shouldBe 2
+        }
+        assertTrue(Engine.options(state, alice.id).filterIsInstance<Input.Cast>().none { it.card == card(rhox) && it.way == ownAlternative(rhox) })
+    }
+
+    private val giltBrawler = Cards.invent("SncFix Gilt Brawler", "{1}{R}", "Creature — Human Warrior",
+        "{R}{G}: This creature gets +1/+1 until end of turn. If mana from a Treasure was spent to activate this ability, put a +1/+1 counter on this creature instead.", "2/2")
+
+    // CR 106.3, 602.2b: "if mana from a Treasure was spent" asks what the mana's source was as it produced the mana
+    @Test
+    fun manaFromWhatWasATreasureThenCountsAsTreasureMana() = scenario {
+        alice.battlefield(giltBrawler)
+        alice.hand(giltPurge)
+        treasureManaThenNoTreasures()
+        alice.activates(giltBrawler)
+        resolveAll()
+        expect { card(giltBrawler).counters(CounterKind.PowerToughness(1, 1)) shouldBe 1 }
+    }
+
+    private val rimeRitual = Cards.invent("SncFix Rime Ritual", "{B}", "Snow Instant", "Add {B}{B}{B}.")
+
+    // CR 106.3, 107.4h: a snow spell is the source of the mana it adds, so that mana is snow mana
+    @Test
+    fun manaAddedByASnowSpellIsSnow() = scenario {
+        alice.battlefield("Swamp")
+        alice.hand(rimeRitual)
+        alice.casts(rimeRitual, paying = listOf("Swamp"))
+        resolveAll()
+        expect { alice.pool.map { it.snow } shouldBe listOf(true, true, true) }
+    }
+
+    private val rimeGrove = Cards.invent("SncFix Rime Grove", null, "Snow Land — Forest", "")
+    // "Double the amount of each type of unspent mana you have." (the parser doesn't read it yet)
+    private val echoRitual = Cards.define("SncFix Echo Ritual", arcanum.api.CardDefinition(arcanum.api.Layout.Normal, listOf(arcanum.api.FaceDefinition(
+        "SncFix Echo Ritual", arcanum.api.ManaCost.parse("{G}"), types = listOf(arcanum.api.CardType.Instant), abilities = listOf(arcanum.api.Ability.Spell(
+            arcanum.api.Instructions(steps = listOf(arcanum.api.Step.Do(arcanum.api.Effect.Action(arcanum.api.KeywordAction.Double(
+                arcanum.api.Doubled.Mana(arcanum.api.Players.You))))))))))))
+
+    // CR 701.10f, 106.3, 107.4h: the doubled mana is added by the spell, its source: a non-snow spell's isn't snow, though the mana doubled was
+    @Test
+    fun manaDoubledByANonSnowSpellIsntSnow() = scenario {
+        alice.battlefield(rimeGrove, "Forest")
+        alice.hand(echoRitual)
+        alice.activates(rimeGrove)
+        alice.casts(echoRitual, paying = listOf("Forest"))
+        resolveAll()
+        expect { alice.pool.map { it.snow }.sorted() shouldBe listOf(false, true) }
+    }
 }
+

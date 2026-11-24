@@ -71,7 +71,7 @@ internal object Ecl {
     val NEXT_INSTANT_SORCERY_COPY = Regex("""When you next cast an instant or sorcery spell this turn, copy it\. You may choose new targets for the copy\.""")
     val OWNER_PUTS_TOP_OR_BOTTOM = Regex("""The owner of target (.+?) puts it on their choice of the top or bottom of their library\.""")
     val OWNER_PUTS_SECOND_OR_BOTTOM = Regex("""The owner of target (.+?) puts it into their library second from the top or on the bottom\.""")
-    val TARGET_GAINS_QUOTED = Regex("""[Tt]arget creature gains "(.+)" until end of turn\.""")
+    val TARGET_GAINS_QUOTED = Regex("""[Tt]arget (\w+(?: \w+)*?) gains "(.+)" until end of turn\.""")
     val GAINS_PROTECTION_EACH_COLOR_UNTIL_NEXT_TURN = Regex("""[Tt]arget creature you control gains protection from each color until your next turn\.""")
     val RETURN_ONE_OR_TWO_THEN_IF_CREATE_FOR_EACH = Regex("""Return one or two target (.+?) to their owners' hands\. Then if you control an? (.+?), create (.+?) for each permanent returned to its owner's hand this way\.""")
 
@@ -112,8 +112,9 @@ internal object Ecl {
     val EXILE_UP_TO_ONE_UNTIL_LEAVES = Regex("""[Ee]xile up to one target (.+?) until (.+?) leaves the battlefield\.""")
     val DEALS_TO_ANY_AND_ANY_OTHER = Regex("""(.+?) deals (\d+) damage to any target and (\d+) damage to (?:any other target|each of up to (\w+) other targets)\.""")
     // mom chunk 02: also "3 damage to target opponent and each creature they control" (Urabrask // The Great Work)
-    // trk chunk 10: "… to each opponent and each creature your opponents control."; neo chunk 02: "… and each planeswalker they control."
-    val DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES = Regex("""(.+?) deals (X|\d+) damage to (each opponent|target opponent|target player) and each (creature|planeswalker) (they|your opponents) control\.""")
+    // trk chunk 10: "… to each opponent and each creature your opponents control."; neo chunk 02: "… and each planeswalker they control."; vow chunk
+    // 08: "… and each creature and planeswalker they control."
+    val DEALS_X_TO_EACH_OPPONENT_AND_THEIR_CREATURES = Regex("""(.+?) deals (X|\d+) damage to (each opponent|target opponent|target player) and each (creature and planeswalker|creature|planeswalker) (they|your opponents) control\.""")
     val IT_DEALS_POWER_TO_UP_TO_ONE = Regex("""It deals damage equal to its power to up to one target (.+?)\.""")
     val GAIN_LIFE_EQUAL_TO = Regex("""[Yy]ou gain life equal to (.+)\.""")
     val ENCHANTED_FIGHTS_UP_TO_ONE = Regex("""[Ee]nchanted creature fights up to one target (.+?)\.""")

@@ -464,6 +464,9 @@ internal object Effects {
                 }
                 act.record(Changes.step(act.state, act.state.turn.copy(endingTurn = true)))
             }
+            // vow: CR 732.1: it becomes day or night (from the other one, an event, CR 732.1a); daybound and nightbound permanents transform as
+            // the state-based actions are next checked (arcanum.engine.turn.DayNight.check)
+            is Effect.BecomeDayOrNight -> arcanum.engine.turn.DayNight.set(act.recorder, if (effect.night) Evaluator.NIGHT else Evaluator.DAY)
             // sos: each skip passes over one more of that player's turns (CR 614.10)
             is Effect.SkipNextTurn -> scope.players(effect.players).forEach { p ->
                 act.record(Changes.step(act.state, act.state.turn.copy(skippedTurns = act.state.turn.skippedTurns + p)))
@@ -1371,6 +1374,14 @@ internal object Effects {
 
     // ---- Mana (CR 106)
 
+    /** snc fixes: the source of the mana [scope] adds (CR 106.3: the spell, or the ability's source) as it produces it, and whether
+     * that mana is snow (CR 107.4h: a snow spell's or permanent's). */
+    private fun producing(scope: Scope): Pair<arcanum.engine.view.Characteristics?, Boolean> {
+        val e = scope.eval()
+        val then = scope.self?.let { id -> (e.characteristics(id) ?: e.board.snapshot(id)?.characteristics)?.copy(abilities = emptyList(), identity = null) }
+        return then to (then?.supertypes?.contains(arcanum.api.Supertype.Snow) == true)
+    }
+
     private fun addMana(scope: Scope, player: PlayerId, production: arcanum.api.ManaProduction) {
         val act = scope.act
         val e = scope.eval()
@@ -1406,7 +1417,8 @@ internal object Effects {
             is ManaKind.EachColorAmong -> e.objects(kind.objects).flatMap { e.characteristics(it)?.colors.orEmpty() }.distinct()
         }
         if (colors.isEmpty()) return
-        val units = colors.map { ManaUnit(it, scope.self, restriction = production.restriction, spellGets = production.spellGets,
+        val (then, snow) = producing(scope)
+        val units = colors.map { ManaUnit(it, scope.self, snow = snow, sourceThen = then, restriction = production.restriction, spellGets = production.spellGets,
             keptUntil = production.keptUntil, whenSpent = production.whenSpent, spellGetsIf = production.spellGetsIf, spellGetsUntil = production.spellGetsUntil,
             onlyCostsWithX = production.onlyCostsWithX, words = production.words) }
         act.record(Changes.manaPool(act.state, player, act.state.player(player).manaPool + units, listOf(Meaning.ManaAdded)))
@@ -1997,10 +2009,12 @@ internal object Effects {
                     val power = scope.eval().property(arcanum.api.NumericProperty.Power, id)
                     applyMechanics(scope, listOf(Mechanic.ModifyPowerToughness(Value.Fixed(power), Value.Fixed(0))), null, Duration.EndOfTurn, null, locked = listOf(id))
                 }
-                // CR 701.10e: each of them adds an additional amount of mana equal to the amount of each type they have
+                // CR 701.10f (was cited as 701.10e): each of them adds an additional amount of mana equal to the amount of each type they have; snc fixes: the added
+                // mana's source is this spell or ability's (CR 106.3), and it is snow only if that source is (CR 107.4h)
                 is arcanum.api.Doubled.Mana -> scope.players(what.players).forEach { p ->
                     val pool = act.state.player(p).manaPool
-                    if (pool.isNotEmpty()) act.record(Changes.manaPool(act.state, p, pool + pool.map { arcanum.engine.state.ManaUnit(it.color, snow = it.snow) },
+                    val (then, snow) = producing(scope)
+                    if (pool.isNotEmpty()) act.record(Changes.manaPool(act.state, p, pool + pool.map { arcanum.engine.state.ManaUnit(it.color, scope.self, snow = snow, sourceThen = then) },
                         listOf(arcanum.engine.change.Meaning.ManaAdded)))
                 }
             }

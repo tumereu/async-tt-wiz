@@ -49,7 +49,7 @@ class AppLayoutTest {
     }
 
     // WEB-022, WEB-084, TBL-034: card sizes are kept for each layout, every slider starting at 1×; the desktop layout draws its cards
-    // larger at the same slider sizes (battlefield 2×, hand 5.2×, piles 1.6×, the Stack and panels 2×), the sliders scaling
+    // larger at the same slider sizes (battlefield 4×, hand 5.2×, piles 1.6×, the Stack and panels 2×), the sliders scaling
     // on top, and changing them leaves the phone layout's as they were
     @Test fun cardSizesAreKeptPerLayout() {
         val phone = CardAppearancePreferences(AppPlatform.current)
@@ -59,7 +59,7 @@ class AppLayoutTest {
         assertEquals(1f, phone.read().size(CardArea.HAND))
         assertEquals(1f, desktop.read().cardSize)
         assertEquals(1f, desktop.read().slider(CardArea.HAND))
-        assertEquals(2f, desktop.read().battlefield)
+        assertEquals(4f, desktop.read().battlefield)
         assertEquals(5.2f, desktop.read().size(CardArea.HAND))
         assertEquals(1.6f, desktop.read().size(CardArea.PILES))
         assertEquals(2f, desktop.read().size(CardArea.STACK))
@@ -72,6 +72,6 @@ class AppLayoutTest {
         assertEquals(1f, phone.read().size(CardArea.HAND), "the phone layout's unchanged")
         phone.setSize(1.2f)
         assertEquals(1f, desktop.read().cardSize, "the desktop layout's unchanged")
-        assertEquals(2f, desktop.read().battlefield)
+        assertEquals(4f, desktop.read().battlefield)
     }
 }

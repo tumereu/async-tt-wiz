@@ -44,10 +44,12 @@ data class TableCamera(val x: Float = 0f, val y: Float = 0f, val zoom: Float = 1
  * and limits it): the table's whole width and the margins next to it (in landscape with large hand cards also the room under
  * them). [clearViewport] (TBL-238): the part of it clear of the hands' large cards, which what lies centred or docked on the
  * battlefields keeps to; null: all of it. [panViewport] (TBL-238): a taller room (only its top and bottom count) the
- * battlefields may also be panned in besides [viewport] (in landscape under the large hand cards); null: none. */
+ * battlefields may also be panned in besides [viewport] (in landscape under the large hand cards); null: none. [minZoom]
+ * (TBL-010): the least zoom (the desktop table's lower, [DesktopTable.MIN_ZOOM]). */
 data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val panBounds: TableBounds = bounds,
     val clipViewport: TableBounds? = null, val bottomInset: Float = 0f, val leftInset: Float = 0f,
-    val clearViewport: TableBounds? = null, val panViewport: TableBounds? = null) {
+    val clearViewport: TableBounds? = null, val panViewport: TableBounds? = null,
+    val minZoom: Float = TablePresentation.MIN_ZOOM) {
     val visibleViewport get() = clipViewport ?: viewport
     /** TBL-238: where the battlefields are seen clear of the hands' large cards ([clearViewport], else [visibleViewport]). */
     val clearOfHands get() = clearViewport ?: visibleViewport
@@ -95,7 +97,7 @@ data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val pa
     }
     fun normalize(camera: TableCamera) = TableCamera(camera.x.takeIf { it.isFinite() } ?: 0f,
         camera.y.takeIf { it.isFinite() } ?: 0f,
-        camera.zoom.takeIf { it.isFinite() }?.coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM) ?: 1f)
+        camera.zoom.takeIf { it.isFinite() }?.coerceIn(minZoom, TablePresentation.MAX_ZOOM) ?: 1f)
     /** Bounded, progressively stronger resistance, measured in screen dp regardless of zoom. */
     fun resist(camera: TableCamera): TableCamera {
         val c = normalize(camera)
@@ -124,14 +126,14 @@ data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val pa
      * battlefields' rows fit the height, centred on them, with column 0 still at the left edge as at 1x (WEB-016: on the
      * desktop table [leftInset] from it, right of the seat boxes). */
     fun landscapeHome(): TableCamera {
-        val zoom = (viewport.height / bounds.height).coerceIn(TablePresentation.MIN_ZOOM, 1f)
+        val zoom = (viewport.height / bounds.height).coerceIn(minZoom, 1f)
         return TableCamera((home.x - leftInset) / zoom - home.x, bounds.center.y - home.y, zoom)
     }
     /** TBL-012: the whole table fitted into the viewport (WEB-016: into its part right of [leftInset]), centred there. */
     fun fit(): TableCamera {
         val room = (viewport.width - leftInset).coerceAtLeast(1f)
         val zoom = minOf(room / bounds.width, viewport.height / bounds.height)
-            .coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM)
+            .coerceIn(minZoom, TablePresentation.MAX_ZOOM)
         return clamp(TableCamera(bounds.center.x - home.x - leftInset / (2 * zoom), bounds.center.y - home.y, zoom))
     }
 }
@@ -431,6 +433,7 @@ object TablePresentation {
     /** CMB-001: the id of the empty combat area the collapsed band's chips belong to while the viewer declares
      * attackers with none staged (drawn only, never shared; a creature dropped on a chip's lane is staged there). */
     const val OPENED_COMBAT_AREA = "opened"
+    /** TBL-010: the least zoom (the desktop table's: [DesktopTable.MIN_ZOOM]). */
     const val MIN_ZOOM = .65f
     const val MAX_ZOOM = 2f
     const val HEADER = 48f
@@ -721,7 +724,7 @@ object TablePresentation {
         val world = TableWorld(worldViewport, contentBounds,
             contentBounds.copy(x = worldLeft - 3 * columnPitch, width = contentBounds.width + 6 * columnPitch),
             clipViewport = shownViewport, leftInset = boxInset, clearViewport = clearViewport.takeIf { largeHands },
-            panViewport = panViewport)
+            panViewport = panViewport, minZoom = if (desktop != null) DesktopTable.MIN_ZOOM else MIN_ZOOM)
         // Gestures own resistance/settling. Do not hard-clamp away their overscroll animation here.
         // TBL-121: [landscapeHome] (the table screen): an untouched camera in landscape opens on the whole height
         val camera = if (opening) world.landscapeHome() else world.normalize(ui.camera)

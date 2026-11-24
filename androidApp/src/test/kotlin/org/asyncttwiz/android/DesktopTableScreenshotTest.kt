@@ -422,8 +422,8 @@ class DesktopTableScreenshotTest {
         assertTrue(bobsPiles.size == 3 && bobsPiles.all { it.pileCountBubble(DesktopTable.PILE_BADGE).y >= DesktopTable.FLOAT - DesktopTable.SEAT &&
                 it.bounds.bottom <= DesktopTable.FLOAT },
             "Bob's piles and their bubbles inside his seat header's row: ${bobsPiles.map { it.bounds }}")
-        // WEB-022, WEB-084: battlefield cards 2× (before the opening zoom, TBL-121)
-        assertEquals(2f * 28f, scene.cardWidth / scene.camera.zoom, .5f)
+        // WEB-022, WEB-084: battlefield cards 4× (before the opening zoom, TBL-121)
+        assertEquals(4f * 28f, scene.cardWidth / scene.camera.zoom, .5f)
         // WEB-015, WEB-073, WEB-084 (owner playtest 2026-11-15): her hand a fan at 5.2×, centred between her seat header and the action area,
         // turned and overlapping, the part in view at rest as tall as the action area
         val hand = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == kit.f.a }
@@ -648,21 +648,27 @@ class DesktopTableScreenshotTest {
             "Alice's desktop table in a 1920 × 1080 window at her main phase with her Mountain and Ember Cub out, at the desktop's default sizes: the top row, the seat headers with their piles, her hand and the action area drawn as at 1440 × 900, the battlefields taking the extra room with all six rows in view.")
     }
 
-    // WEB-022, WEB-084, TBL-034, TBL-121: the owner's ask, battlefield cards twice the default (the Card size slider at 2×, on top of
-    // the desktop's own 2×): in a 1440 × 900 window the six rows don't fit even at the opening's least zoom (0.65×), so the
-    // table opens centred on the battlefields and Alice's land row with her Mountain lies below the view
-    @Test fun battlefieldCardsAtTwiceTheDefault() {
-        val preferences = CardAppearancePreferences(org.asyncttwiz.appui.AppPlatform.current, AppLayout.Desktop)
-        // Only the battlefield's: the areas keep their own 1× sliders
-        preferences.customizeAreas(true)
-        preferences.setSize(2f)
-        try {
-            val kit = EngineTableKit()
-            kit.toReadyCub()
-            render(kit)
-            captureShot("$SCREENSHOTS/desktop/table-battlefield-4x.png",
-                "Alice turned on Customize per area and set the Card size slider to 2× on the desktop table (battlefield cards 4× the phone's, twice the default; her hand as before) at her main phase with her Mountain and Ember Cub out: in a 1440 × 900 window the six battlefield rows don't fit even at the opening's least zoom, so the view is centred on the battlefields and her land row with the Mountain lies below it.")
-        } finally { preferences.setSize(1f); preferences.customizeAreas(false) }
+    // WEB-022, WEB-084, TBL-121, TBL-010 (owner 2026-11-24): battlefield cards 4× the phone's by default; in a 1440 × 900 window the
+    // table opens zoomed out below the phone's least zoom so all six rows fit, and zoomed in to 1× Alice's Mountain and Ember Cub
+    // show at their whole 4× size (twice what they were)
+    @Test fun battlefieldCardsAtFourTimesThePhones() {
+        val kit = EngineTableKit()
+        kit.toReadyCub()
+        val opened = scene(kit)
+        val world = assertNotNull(opened.world)
+        assertTrue(opened.camera.zoom < TablePresentation.MIN_ZOOM && opened.camera.zoom > DesktopTable.MIN_ZOOM, "${opened.camera}")
+        for (field in opened.fields) assertTrue(field.gridBounds.y >= world.viewport.y - .5f && field.gridBounds.bottom <= world.viewport.bottom + .5f,
+            "the opening shows all three rows of each battlefield: ${field.gridBounds} in ${world.viewport}")
+        // At 1×, column 0 still right of the seat headers, centred on Alice's battlefield
+        val alices = opened.fields.single { it.owner == kit.f.a }.gridBounds
+        val camera = world.clamp(TableCamera(-world.leftInset, (alices.center.y - world.viewport.center.y) / opened.camera.zoom + opened.camera.y, 1f))
+        kit.toolkit.layoutState.value = kit.toolkit.layoutState.value.copy(camera = camera)
+        assertEquals(4f * 28f, scene(kit).cardWidth, .5f, "4× the phone's 28 dp at 1×")
+        // TBL-034: the Card size slider scales on top of it
+        assertEquals(1.5f * 4f * 28f, scene(kit, appearance = DesktopCardAppearance.copy(cardSize = 1.5f)).cardWidth, .5f)
+        render(kit)
+        captureShot("$SCREENSHOTS/desktop/table-battlefield-4x.png",
+            "Alice's desktop table at her main phase with her Mountain and Ember Cub out, zoomed in to 1× from the opening view (which shows all six battlefield rows): the battlefield cards at the desktop's default 4× the phone's size, twice what they were, her hand and the rest at their usual sizes.")
     }
 
     // WEB-015, WEB-075, CMB-001, CMB-053, CMB-028 (D2): Alice declares attackers: the combat band opens between the battlefields with her staged

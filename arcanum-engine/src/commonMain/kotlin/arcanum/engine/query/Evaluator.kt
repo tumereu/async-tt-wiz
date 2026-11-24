@@ -810,6 +810,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         } ?: 0
         // trk: counted in each player's ledger as a cast finishes (casting.Payment)
         is Value.SpellsCastThisGame -> players(value.players).sumOf { state.ledgers[it]?.get(SPELLS_CAST) ?: 0 }
+        // neo: counted as the spell's casting finished (casting.Payment); a copy wasn't cast (CR 707.10)
+        is Value.AsCast -> ctx.self?.let { facts(it) }?.countedAsCast?.firstOrNull { it.value == value.value }?.amount ?: 0
         is Value.Announced -> (ctx.names[value.name] as? NamedValue.Number)?.value ?: ctx.stackItem?.announced?.get(value.name) ?: 0
         is Value.Bound -> boundNumber(ctx.names[value.name])
         is Value.Remembered -> boundNumber(selfMemory(value.key))

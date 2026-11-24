@@ -109,6 +109,10 @@ sealed interface Value {
     /** How many spells [players] have cast this game, each counted as its casting finishes (CR 601.2i), copies not (CR 707.10):
      * "if this spell is the first spell you've cast this game" is [Condition.AsCast] of this being 1. */
     @Serializable @SerialName("spells-cast-this-game") data class SpellsCastThisGame(val players: Players) : Value
+    // neo
+    /** [value] as this spell's casting finished (CR 601.2i): "for each modified creature you controlled as you cast this spell". It stays
+     * fixed whatever happens later; a copy wasn't cast (CR 707.10), so for one it is 0. */
+    @Serializable @SerialName("value-as-cast") data class AsCast(val value: Value) : Value
     // tla
     /** The amount of unspent mana in the mana pools of [players] ("as long as you have six or more unspent mana", CR 106.4). */
     @Serializable @SerialName("mana-in-pool") data class ManaInPool(val players: Players) : Value

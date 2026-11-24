@@ -111,6 +111,10 @@ data class MergedPart(
 @Serializable
 data class CounterEntry(val kind: CounterKind, val count: Int, val timestamp: Long)
 
+/** neo: [value] was [amount] as the spell was cast ([CastFacts.countedAsCast], CR 601.2i). */
+@Serializable
+data class CountedAsCast(val value: arcanum.api.Value, val amount: Int)
+
 /** [player] has controlled the object continuously since the start of turn [turn] (CR 302.6). */
 @Serializable
 data class ControlSince(val player: PlayerId, val turn: Int)
@@ -147,6 +151,9 @@ data class CastFacts(
     val manaSourcesThen: List<arcanum.engine.view.Characteristics?> = emptyList(),
     /** The [arcanum.api.Condition.AsCast] conditions of its instructions that held as it was cast (CR 601.2i). */
     val heldAsCast: List<arcanum.api.Condition> = emptyList(),
+    // neo
+    /** The [arcanum.api.Value.AsCast] values of its instructions, each as it was as it was cast (CR 601.2i). */
+    val countedAsCast: List<CountedAsCast> = emptyList(),
     /** How many Phyrexian mana symbols of its cost were paid with life as it was cast (compleated, CR 702.150a). */
     val phyrexianPaidWithLife: Int = 0,
     /** Cast at a time a sorcery couldn't have been cast (CR 307.1), or while something resolved. */

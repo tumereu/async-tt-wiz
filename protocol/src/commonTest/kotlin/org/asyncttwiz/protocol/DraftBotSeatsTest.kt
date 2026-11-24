@@ -33,15 +33,15 @@ class DraftBotSeatsTest {
         assertEquals(listOf("bot:1", "bot:2"), PodBots.ids(2))
         assertEquals(AccountIdentity("bot:3", "Bot 3"), PodBots.identity("bot:3"))
         assertNull(PodBots.identity("0b0e1f2a-0000-4000-8000-000000000000"))
-        // DRF-296: up to the engine's limit less two humans; none in Sealed and Arena
-        assertEquals(6, DraftMode.BOOSTER.maxBots)
-        assertEquals(6, DraftMode.ROTISSERIE.maxBots)
-        assertEquals(2, DraftMode.GRID.maxBots)
-        assertEquals(2, DraftMode.WINSTON.maxBots)
+        // DRF-296 (owner, 2026-11-23): up to the engine's limit less the creator, who may draft alone with bots; none in Sealed and Arena
+        assertEquals(7, DraftMode.BOOSTER.maxBots)
+        assertEquals(7, DraftMode.ROTISSERIE.maxBots)
+        assertEquals(3, DraftMode.GRID.maxBots)
+        assertEquals(3, DraftMode.WINSTON.maxBots)
         assertEquals(0, DraftMode.SEALED.maxBots)
         assertEquals(0, DraftMode.ARENA.maxBots)
-        assertEquals(emptyList(), DraftSettings.booster().copy(bots = 6).validate(8))
-        assertEquals(listOf(DraftSettingsIssue.BOTS), DraftSettings.booster().copy(bots = 7).validate(9).filter { it == DraftSettingsIssue.BOTS })
+        assertEquals(emptyList(), DraftSettings.booster().copy(bots = 7).validate(8))
+        assertEquals(listOf(DraftSettingsIssue.BOTS), DraftSettings.booster().copy(bots = 8).validate(9).filter { it == DraftSettingsIssue.BOTS })
         assertTrue(DraftSettingsIssue.BOTS in DraftSettings.arena().copy(bots = 1).validate(3))
         assertTrue(DraftSettingsIssue.BOTS in DraftSettings.sealed().copy(bots = 1).validate(3))
         // Seats count the bots: two humans and two bots fill a Grid, a third human is one too many

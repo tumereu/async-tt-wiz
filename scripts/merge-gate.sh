@@ -77,6 +77,9 @@ begin=$SECONDS
 exec 7>"$locks/master-merge.lock"
 say "waiting for the merge lock ($locks/master-merge.lock)"
 flock 7
+# The gate's own Kotlin daemon (see stage) holds its 5 GB heap until it idles out; left running beside the workers' builds
+# it filled the build slice's memory cap and stalled every build for an hour (2026-11-24), so it stops with the gate.
+trap "pgrep -f -- '^[^ ]*/java .*-Datw.kotlin.daemon=merge-gate .*KotlinCompileDaemon' | xargs -r kill" EXIT
 base=$(git rev-parse refs/heads/master)
 if git merge-base --is-ancestor "$tip_sha" "$base"; then say "$tip is already in master"; exit 0; fi
 

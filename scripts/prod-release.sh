@@ -286,6 +286,9 @@ cleanup() {
     rm -f -- "$scratch/published.json" "$scratch/gradle.log" "$scratch"/github-*
     rm -rf -- "$scratch/old-catalog"
     rmdir "$scratch"
+    # The release's own Kotlin daemon (see build) holds its 6 GB heap until it idles out; left running it filled the
+    # build slice's memory cap under the next builds and stalled them for an hour (2026-11-24).
+    pgrep -f -- '^[^ ]*/java .*-Datw.kotlin.daemon=prod-release .*KotlinCompileDaemon' | xargs -r kill || true
 }
 trap cleanup EXIT
 git worktree add --detach "$worktree" "$commit"

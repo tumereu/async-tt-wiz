@@ -282,6 +282,13 @@ internal object Filters {
         // chunk 20: "artifact and/or enchantment" is either of them
         if (phrase.contains(" and/or ")) return noun(phrase.replace(" and/or ", " or "))
         // chunk 31: "card from a graveyard"
+        // snc chunk 14: "spell, nonland permanent, or card in a graveyard": the zone belongs to the last alternative only when the
+        // alternatives before it are complete nouns of their own (a spell and a permanent are never in a graveyard, CR 110.1, 405.1)
+        FROM_A_GRAVEYARD_LAST_ALTERNATIVE.matchEntire(phrase)?.let { m ->
+            val earlier = m.groupValues[1].split(", ").map { noun(it) ?: return null }
+            val last = noun(m.groupValues[2]) ?: return null
+            return ObjectFilter.Or(earlier + all(last, ObjectFilter.InZone(Zone.Graveyard)))
+        }
         FROM_A_GRAVEYARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard)) }
         // chunk 32: "creature card with power 2 or less", "… with toughness 2 or less"
         // bro chunk 05: not "a Plains card or a creature card with mana value 3 or less": an alternative after " or a" has its own noun and
@@ -637,6 +644,7 @@ internal object Filters {
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) (?:in|from) your graveyard""") // otj chunk 04: "from"
     private val IN_GRAVEYARDS = Regex("""(.+) in graveyards""")
+    private val FROM_A_GRAVEYARD_LAST_ALTERNATIVE = Regex("""(.+(?: spell| permanent| ability)), (?:or )?((?:\w+ )?card) (?:from|in) a graveyard""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) (?:from|in) a graveyard""") // mkm chunk 09: "nonland card in a graveyard"
     // chunk 32
     // dmu chunk 06
@@ -797,7 +805,15 @@ internal object Events {
                 EventPattern.ZoneChange(subject(it, self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
             }
         }
-        return event(text, self)?.let(::listOf)
+        event(text, self)?.let { return listOf(it) }
+        // vow chunk 03: "this creature enters or becomes the target of an Aura spell", "this Aura enters or enchanted creature becomes the
+        // target of an Aura spell" (one ability, two events, CR 603.2): the second event of the same object or of its own subject
+        Vow.ENTERS_OR.matchEntire(text)?.let { m ->
+            val subject = subject(m.groupValues[1], self) ?: return null
+            val second = event("${m.groupValues[1]} ${m.groupValues[2]}", self) ?: event(m.groupValues[2], self) ?: return null
+            return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), second)
+        }
+        return null
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
@@ -1048,12 +1064,17 @@ internal object Events {
         // one chunk 02: "a creature you control becomes the target of a spell" (any player's spell, not an ability)
         BECOMES_TARGET.matchEntire(text)?.let { m ->
             // mh3 chunk 11: no controller, "this creature becomes the target of a spell or ability" (anyone's)
-            val controller = when (m.groupValues[3]) {
+            val controller = when (m.groupValues[4]) {
                 "you control" -> ObjectFilter.ControlledBy(PlayerFilter.You)
                 "an opponent controls" -> ObjectFilter.ControlledBy(PlayerFilter.Opponent)
                 else -> null
             }
-            val spell = if (m.groupValues[2] == "spell") ObjectFilter.Category(arcanum.api.ObjectCategory.Spell) else null
+            // vow chunk 03: "the target of an Aura spell" (CR 303.4a: an Aura spell targets what it will enchant)
+            val spell = when {
+                m.groupValues[3].isNotEmpty() -> Filters.noun(m.groupValues[2]) ?: return@let
+                m.groupValues[2] == "spell" -> ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)
+                else -> null
+            }
             val by = listOfNotNull(spell, controller).let { if (it.isEmpty()) ObjectFilter.Any else it.singleOrNull() ?: ObjectFilter.And(it) }
             return EventPattern.BecomesTarget(subject(m.groupValues[1], self) ?: return null, by = by)
         }
@@ -1366,7 +1387,8 @@ internal object Events {
     // blb chunk 01
     // mom chunk 13: Mirror-Shield Hoplite "a creature you control becomes the target of a backup ability"
     private val BECOMES_TARGET_OF_KEYWORD_ABILITY = Regex("""(.+) becomes the target of an? ([a-z]+) ability""")
-    private val BECOMES_TARGET = Regex("""(.+) becomes the target of a (spell or ability|spell)(?: (you control|an opponent controls))?""")
+    // vow chunk 03: also "an Aura spell" (a spell of that kind)
+    private val BECOMES_TARGET = Regex("""(.+) becomes the target of an? (spell or ability|(?:(\S+) )?spell)(?: (you control|an opponent controls))?""")
     // blb chunk 05
     private val BEGINNING_OF_EACH_OPPONENTS = Regex("""the beginning of each opponent's (upkeep|end step)""")
     private val BEGINNING_OF_ENCHANTED_PLAYERS = Regex("""the beginning of (?:each of )?enchanted player's (upkeep|draw step|end step|postcombat main phases)""")
@@ -1697,8 +1719,9 @@ internal object Conditions {
         if (text == "it wasn't the first land you played this turn")
             return Condition.HappenedThisTurn(EventPattern.PlayLand(players = PlayerFilter.You, lands = ObjectFilter.Any), atLeast = 2, measure = Measure.Events)
         // chunk 41: "this creature is attacking"
+        // vow chunk 03: "this creature is attacking alone" (the only creature declared as an attacker, CR 506.5)
         SELF_IS_ATTACKING.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
-            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
+            return Condition.ObjectMatches(Objects.Self, if (it.groupValues[2].isEmpty()) ObjectFilter.HasStatus(arcanum.api.Status.Attacking) else ObjectFilter.AttackingAlone)
         }
         // snc chunk 04: "enchanted creature is attacking alone" (the only creature declared as an attacker, CR 506.5), "equipped creature is attacking"
         Snc.ATTACHED_IS_ATTACKING.matchEntire(text)?.let { m ->
@@ -1895,7 +1918,7 @@ internal object Conditions {
     // chunk 21
     private val SELF_IS_UNTAPPED = Regex("""(.+) is untapped""")
     // chunk 41
-    private val SELF_IS_ATTACKING = Regex("""(.+) is attacking""")
+    private val SELF_IS_ATTACKING = Regex("""(.+?) is attacking( alone)?""")
     // chunk 42
     private val THERE_ARE_N_OR_MORE = Regex("""there are (\w+) or more (.+)""")
     private val YOU_HAVE_N_OR_MORE_IN_GRAVEYARD = Regex("""you have (\w+) or more (.+ in your graveyard)""")

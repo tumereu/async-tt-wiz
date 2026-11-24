@@ -318,7 +318,7 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
     // lobby as a side panel, on the desktop too (as its pod screens' and games list's chats)
     val chatGame = state.detail?.takeIf { state.chatOpen && state.listChat == null && gameChatOpen(it) }
     val podChat = LocalPodChat.current
-    val podId = state.detail?.takeIf(::gameChatOpen)?.podId
+    val podId = state.detail?.takeIf(::gameChatOpen)?.chatPodId
     if (podChat != null && podId != null) PodChatRefresh(podChat, podId, chatGame != null, "game lobby")
     if (chatGame != null) {
         Dialog(onDismissRequest = controller::closeChat, properties = edgeToEdgeDialogProperties()) {
@@ -334,9 +334,10 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
 @Composable
 private fun LobbyChatButton(controller: LobbyController, game: GameSummary, accountId: String) {
     val podChat = LocalPodChat.current
-    val podView = game.podId?.let { id -> podChat?.views?.get(id) }?.takeIf { !it.unavailable }
+    val podId = game.chatPodId
+    val podView = podId?.let { id -> podChat?.views?.get(id) }?.takeIf { !it.unavailable }
     val podUnread = podView?.unread(accountId) ?: 0
-    val podAvailable = podChat != null && game.podId != null && podChat.views[game.podId]?.unavailable != true
+    val podAvailable = podChat != null && podId != null && podChat.views[podId]?.unavailable != true
     val gameUnread = controller.state.chat.unread
     val unread = ChatTabs.buttonUnread(gameUnread, podUnread)
     Box {

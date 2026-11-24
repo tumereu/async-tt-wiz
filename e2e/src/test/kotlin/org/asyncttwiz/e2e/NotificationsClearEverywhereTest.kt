@@ -127,6 +127,45 @@ class NotificationsClearEverywhereTest : E2e() {
         assertTrue(game.invitationHeld)
     }
 
+    // DRF-135, DRF-138, LOB-242 (owner, 2026-11-22): Bob's second phone shows Alice's pod challenge, which replaced his "Draft
+    // complete: build your deck"; he declines it on his first phone, from his Games list, his deck still not submitted; the
+    // server queues a clear for his push installation, and the second phone's next poll clears the pod's notification
+    @Test fun aPodChallengeDeclinedOnOnePhoneClearsOnTheOther() {
+        launchPlayers()
+        val phone = SecondPhone(bob.account)
+        val generation = phone.registerPush()
+        phone.poll() // the feed's first page: nothing shown from it
+        val name = "E2E declined challenge ${UUID.randomUUID().toString().take(6)}"
+        val pod = ServerSetup.draftedPod(alice.account, bob.account, name)
+        val key = "pod:$pod"
+        waitUntil("Bob's second phone shows Draft complete") {
+            phone.pollNowAndThen(); phone.title(key)?.startsWith("Draft complete") == true
+        }
+        ServerSetup.submitPodDeck(alice.account, pod)
+        val game = ServerSetup.challenge(alice.account, bob.account, pod, "$name game")
+        waitUntil("the challenge in the pod's notification") {
+            phone.pollNowAndThen(); phone.title(key)?.contains("challenged you") == true
+        }
+
+        // Bob declines it on his first phone, from the Games list
+        bob.lobby.refresh()
+        bob.auth.navigate(org.asyncttwiz.android.ShellDestination.GAMES)
+        val decline = hasAnyChild(hasContentDescription("Decline invitation")) and isEnabled()
+        waitUntil("the challenge in Bob's list") { bob.showsText("$name game") && bob.shows(decline) }
+        bob.node(decline).performClick()
+        waitUntil("the challenge declined") {
+            E2eStack.query("SELECT state FROM invitation WHERE id = '${game.invitationId}'").contains("DECLINED")
+        }
+        assertTrue(!ServerSetup.pod(bob.account, pod).submitted, "his deck still waits to be built")
+
+        waitUntil("a clear queued for Bob's push installation") {
+            E2eStack.query("SELECT kind FROM activity_push WHERE generation = '$generation' AND game_id = '$pod'").contains("CLEAR_POD")
+        }
+        assertTrue(key in phone.shown(), "still shown until the phone hears of it")
+        phone.poll()
+        assertEquals(emptySet(), phone.shown().filter { it == key }.toSet(), "the declined challenge's notification cleared")
+    }
+
     // LOB-242, LOB-243, LOB-078: Alice invites Bob; his second phone shows the invitation's notification; Bob accepts it in the
     // app on his first phone; the server queues a clear for his installation with a push token, and the second phone's next
     // poll clears the notification

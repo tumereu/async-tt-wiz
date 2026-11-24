@@ -15,6 +15,10 @@ data class PodChatOutgoing(val requestId: String, val text: String, val failed: 
  * [read] the server's read state for the viewer, [seen] the newest ordinal the viewer has seen here since (not yet on the
  * server), the unsent [draft] and sends on their way. [unavailable]: the server refused it (not a member, or no pod).
  */
+/** LOB-145, DRF-039 (owner, 2026-11-23): the pod whose chat a pod game's chat has beside its own: none once a cancelled draft
+ * orphaned the game from its pod. */
+val GameSummary.chatPodId: String? get() = podId?.takeUnless { podOrphaned }
+
 data class PodChatView(val podId: String, val messages: List<PodChatMessage> = emptyList(),
     val authors: Map<String, AccountIdentity> = emptyMap(), val read: PodChatRead? = null, val seen: Long = 0,
     val outgoing: List<PodChatOutgoing> = emptyList(), val draft: String = "", val unavailable: Boolean = false) {

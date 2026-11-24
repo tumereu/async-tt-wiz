@@ -57,7 +57,7 @@ internal object Dft {
     val CANT_ATTACK_OR_BLOCK_UNLESS = Regex("""(.+) can't attack or block unless (.+)\.""")
     val THAT_TOKEN_ATTACKS_THIS_COMBAT = Regex("""That token (?:gains ([a-z ,]+) until end of turn and )?attacks this combat if able\.""")
     val DEALS_TO_EACH_PLAYER_WITHOUT_MAX_SPEED = Regex("""(.+?) deals (\d+) damage to each player who doesn't have max speed\.""")
-    val GET_X_WHERE = Regex("""(.+) gets? \+X/\+(\d+), where X is (.+)\.""") // mh3 chunk 08: "Equipped creature gets +X/+1"
+    val GET_X_WHERE = Regex("""(.+) gets? \+X/\+(\d+|X), where X is (.+)\.""") // vow chunk 03: "Enchanted creature gets +X/+X" // mh3 chunk 08: "Equipped creature gets +X/+1"
     val COST_X_LESS_WHERE = Regex("""(.+) cost \{X\} less to cast, where X is (.+)\.""")
     val A_AND_B_YOU_CONTROL_GAIN_UNTIL_EOT = Regex("""(\w+) and (\w+) you control gain ([a-z ,]+) until end of turn\.""")
     // dft chunk 08

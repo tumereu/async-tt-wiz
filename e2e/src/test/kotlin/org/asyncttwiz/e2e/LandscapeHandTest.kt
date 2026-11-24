@@ -3,6 +3,12 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.doubleClick
+import androidx.compose.ui.test.click
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import org.asyncttwiz.android.CardAppearancePreferences
+import org.asyncttwiz.android.CardArea
+import org.asyncttwiz.appui.AppPlatform
 import org.junit.Test
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
@@ -56,5 +62,35 @@ class LandscapeHandTest : E2e() {
         alice.handCard("Mountain").performTouchInput { doubleClick() }
         waitUntil("the second Mountain on the battlefield") { alice.field("Mountain").size == 2 }
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
+    }
+
+    // TBL-238, TBL-144 (owner 2026-11-24): with large hand cards (2.5x) in landscape Alice's battlefield is seen down to the bottom
+    // bar, under her hand cards, which stand above the bar over it; a tap on a card's part above the bar raises it, a second plays it
+    @Config(qualifiers = "w892dp-h412dp-land-mdpi")
+    @Test fun largeHandCardsStandOverTheBattlefield() {
+        val sizes = CardAppearancePreferences(AppPlatform.current)
+        sizes.customizeAreas(true)
+        sizes.setSize(2.5f, CardArea.HAND)
+        try {
+            startGame(deal = { a, _ -> "Mountain" in hand(a) })
+            bothOpen()
+            alice.tap("Keep")
+            bob.tap("Keep")
+            waitUntil("Alice's Main 1", along = listOf(bob)) { alice.inOwnMain() }
+            val bar = 412f - 56f
+            val field = alice.battlefieldBounds()
+            assertEquals(bar, field.bottom, .5f, "her battlefield seen down to the bar: ${alice.screen()}")
+            fun mountain() = alice.nodes(hasContentDescription("Mountain, owner ${alice.name}, ", substring = true)).fetchSemanticsNodes()
+                .map { it.boundsInRoot }.filter { it.bottom > bar }.minBy { it.left }
+            val card = mountain()
+            assertTrue(card.top < bar - 30f, "the card stands above the bar: $card")
+            fun tapAbove(c: Rect) = alice.table().performTouchInput { click(Offset(c.center.x - field.left, c.top + 8f - field.top)) }
+            waitUntil("Alice's game settled") { alice.settled(this) }
+            tapAbove(card)
+            waitUntil("the Mountain raised") { mountain().top < card.top - 10f && alice.settled(this) }
+            tapAbove(mountain())
+            waitUntil("the Mountain on the battlefield") { alice.field("Mountain").isNotEmpty() }
+            assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
+        } finally { sizes.setSize(1f, CardArea.HAND); sizes.customizeAreas(false) }
     }
 }

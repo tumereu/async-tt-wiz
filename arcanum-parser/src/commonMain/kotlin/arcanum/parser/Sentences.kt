@@ -63,6 +63,14 @@ internal class Sentences(
 
     /** Lines that are more than one ability. */
     fun multi(line: String): List<Ability>? {
+        // snc fixes: "Casualty X. The copy isn't legendary and has starting loyalty X." (CR 702.153a, 107.3, 707.9b): X is the power of the
+        // creature sacrificed
+        Snc.CASUALTY_X.matchEntire(line)?.let { m ->
+            val x = Value.Of(arcanum.api.NumericProperty.Power, Objects.Bound(arcanum.api.KeywordExpansions.CASUALTY_SACRIFICED), arcanum.api.Combine.Single)
+            return listOf(arcanum.api.Keyword.CasualtyX(listOfNotNull(
+                arcanum.api.CopyException.Types(removeSupertypes = listOf(Supertype.Legendary)).takeIf { m.groupValues[1].isNotEmpty() },
+                arcanum.api.CopyException.Loyalty(x).takeIf { m.groupValues[2].isNotEmpty() })))
+        }
         mh2Multi(line)?.let { return it } // mh2
         mh3Multi(line)?.let { return it } // mh3
         tdmMulti(line)?.let { return it } // tdm
@@ -810,12 +818,14 @@ internal class Sentences(
         // it remains exiled. Mana of any type can be spent to cast a spell this way." (the damaging creature's controller, CR 406.3)
         if (Dft.LOOKS_AT_TOP_EXILES_FACE_DOWN_MAY_PLAY.matches(text) && context.event is EventPattern.Damage) {
             // the creature named now, so the permission (an effect that lasts) knows whose it is (CR 611.2c)
-            val controller = Players.ControllerOf(Objects.Bound("creature"))
+            // vow chunk 05: the controller is kept by name too, so a later control change doesn't move the permission (CR 608.2h)
+            val controller = Players.Bound("controller")
             return listOf(Step.Bind(Objects.EventObject(EventRole.Source), "creature"),
-                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.EventPlayer, Value.Fixed(1), fromTop = true), controller, bind = "looked")),
-                Step.Do(Effect.Move(Objects.Bound("looked"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
-                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(controller), manaAsAnyColor = true)),
-                    Affected.Objects(Objects.Bound("exiled")), arcanum.api.Duration.Indefinitely)))
+                Step.ForEach(arcanum.api.Each.Players(Players.ControllerOf(Objects.Bound("creature"))), bind = "controller", together = true, steps = listOf(
+                    Step.Do(Effect.LookAt(Objects.LibraryCards(Players.EventPlayer, Value.Fixed(1), fromTop = true), controller, bind = "looked")),
+                    Step.Do(Effect.Move(Objects.Bound("looked"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
+                    Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(controller), manaAsAnyColor = true)),
+                        Affected.Objects(Objects.Bound("exiled")), arcanum.api.Duration.Indefinitely)))))
         }
         // dft chunk 12: "Choose target creature, planeswalker, or Vehicle. Mill two cards, then destroy the chosen permanent if its mana value is less than
         // or equal to the number of cards in your graveyard." (compared as it resolves, after the mill)
@@ -5599,6 +5609,18 @@ internal class Sentences(
         // fdn chunk 02: "When enchanted creature dies, return this card to its owner's hand.": by then the Aura is a new object in the graveyard (CR 400.7, 704.5m)
         if (Fdn.RETURN_THIS_CARD_TO_HAND.matches(sentence) && enchantedLeft(context.event))
             return listOf(Step.Do(Effect.Move(Objects.SelfAfter, Destination(Zone.Hand))))
+        // vow chunk 05: "When enchanted creature dies, return this card to the battlefield transformed under your control attached to target opponent."
+        // (the Aura in the graveyard, CR 400.7; it enters back face up, CR 712.14a, attached to the player the effect names, CR 303.4f)
+        Vow.RETURN_THIS_CARD_TO_BATTLEFIELD.matchEntire(sentence)?.takeIf { enchantedLeft(context.event) }?.let { m ->
+            val controller = if (m.groupValues[2] == "your") Players.You else if (m.groupValues[2].isEmpty()) null else Players.OwnerOf(Objects.SelfAfter)
+            val attachedTo = when (m.groupValues[3]) {
+                "" -> null
+                "player" -> Recipients(players = context.targetPlayer())
+                else -> Recipients(players = context.targetOpponent())
+            }
+            return listOf(Step.Do(Effect.Move(Objects.SelfAfter, Destination(Zone.Battlefield, controller = controller, attachedTo = attachedTo,
+                transformed = m.groupValues[1].isNotEmpty()))))
+        }
         // fdn chunk 06: "return target creature card with mana value less than or equal to Alesha's power from your graveyard to the battlefield"
         // (her power, or as it last existed if she left: CR 608.2h, 113.7a)
         Fdn.RETURN_MANA_VALUE_AT_MOST_SELF_POWER.matchEntire(sentence)?.let { m ->
@@ -6695,11 +6717,11 @@ internal class Sentences(
             return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = players), context.thatMuch ?: return@let, source = Objects.Self)))
         }
         // snc chunk 09: "Put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control." (each part
-        // as its own sentence)
+        // read as its own sentence); snc fixes: one instruction with one verb, so all the counters are put at once, one event (CR 608.2c)
         Snc.PUT_COUNTERS_ON_EACH_AND_EACH.matchEntire(sentence)?.let { m ->
             val first = effect("Put ${m.groupValues[1]}.", context) ?: return@let
             val second = effect("Put ${m.groupValues[2]}.", context) ?: return@let
-            return first + second
+            return listOf(Step.Simultaneously(first + second))
         }
         // chunk 26: "Put a loyalty counter on each red planeswalker you control."
         PUT_COUNTERS_ON_EACH.matchEntire(sentence)?.let { m ->
@@ -8525,10 +8547,12 @@ internal class Sentences(
             Step.Do(Effect.Move(Objects.Except(Objects.Bound("found"), Objects.Bound("picked")), Destination(Zone.Library))),
             Step.Do(Effect.Shuffle(Players.You)))
         // gtc chunk 11: "This Aura's controller sacrifices it, then draws two cards." (the activating opponent isn't "you")
-        // snc chunk 05: in an ability the Aura grants, "it" is the enchanted creature and its controller is the Aura's (CR 113.10, 701.21a)
+        // snc fixes: in an ability the Aura grants, "<Aura>'s controller sacrifices it" sacrifices the Aura itself, the nearest object the
+        // sentence names (CR 113.10, 701.21a); the creature it enchants isn't named
         Gtc.AURAS_CONTROLLER_SACRIFICES_DRAWS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || (granterName != null && it.groupValues[1] == granterName) }?.let { m ->
-            val controller = Players.ControllerOf(if (isSelf(m.groupValues[1])) Objects.Self else Objects.Granter)
-            return listOf(Step.Do(Effect.Sacrifice(Objects.Self, by = controller)), Step.Do(Effect.Draw(controller, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
+            val aura = if (isSelf(m.groupValues[1])) Objects.Self else Objects.Granter
+            val controller = Players.ControllerOf(aura)
+            return listOf(Step.Do(Effect.Sacrifice(aura, by = controller)), Step.Do(Effect.Draw(controller, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
         }
         // gtc chunk 14: "Shuffle your library, then reveal the top card. If it's a nonland card, you may cast it without paying its
         // mana cost. If it's a land card, you may put it onto the battlefield and return Unexpected Results to its owner's hand."
@@ -8566,9 +8590,12 @@ internal class Sentences(
             return listOf(Step.Do(Effect.DealDamage(to, Value.EventAmount, source = source)))
         }
         // gtc chunk 12: "that player exiles the top card of their library." (kept with this creature, CR 607.2a)
-        if (sentence == "That player exiles the top card of their library.")
+        if (sentence == "That player exiles the top card of their library.") {
+            // vow chunk 05: a later "that card" is the exiled card, a new object (CR 400.7)
+            context.it = Objects.Bound("exiled")
             return listOf(Step.Do(Effect.Move(Objects.LibraryCards(Players.EventPlayer, Value.Fixed(1), fromTop = true), Destination(Zone.Exile), postBind = "exiled"))) +
                 remembered(Objects.Bound("exiled"))
+        }
         // gtc chunk 15: "copy that ability. You may choose new targets for the copy." (CR 707.10)
         if (sentence == "Copy that ability.") {
             context.copied = true
@@ -10999,14 +11026,22 @@ internal class Sentences(
         // (chunk 56's rule exiles the top N as "them"); "that card" is one chosen from them
         Blb.MAY_PLAY_THOSE.matchEntire(sentence)?.let { m ->
             // otj chunk 12r: "it" as "that card"
-            val cards = (if (m.groupValues[2] == "that card" || m.groupValues[2] == "it") context.it ?: context.them else context.them ?: context.it) ?: return null
+            val cards = (if (m.groupValues[3] == "that card" || m.groupValues[3] == "it") context.it ?: context.them else context.them ?: context.it) ?: return null
             val duration = when (m.groupValues[1]) {
                 "Until end of turn" -> arcanum.api.Duration.EndOfTurn
                 "Until the end of your next turn" -> arcanum.api.Duration.UntilEndOfYourNextTurn
                 else -> return null
             }
-            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)),
-                Affected.Objects(cards), duration)))
+            // vow chunk 05: "you may spend mana as though it were mana of any color to cast that spell" (CR 609.4b)
+            val anyColor = m.groupValues[4].isNotEmpty()
+            if (m.groupValues[2] == "you") return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You,
+                manaAsAnyColor = anyColor)), Affected.Objects(cards), duration)))
+            // vow chunk 05: "that creature's controller" (the event's creature, as it last existed if it left, CR 608.2h) is found as the ability
+            // resolves and kept by name: the permission is theirs for its whole duration (CR 611.2c)
+            val creature = context.that ?: return null
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.ControllerOf(creature)), bind = "player", together = true, steps = listOf(
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(Players.Bound("player")),
+                    manaAsAnyColor = anyColor)), Affected.Objects(cards), duration)))))
         }
         // blb chunk 04: "Draw cards equal to the number of stash counters on this enchantment."
         // one chunk 09: "… counters on it" in a dies trigger: the creature as it last existed (CR 603.10a)
@@ -13737,7 +13772,8 @@ internal class Sentences(
         // trk: also without "of your library"
         val REST_ON_BOTTOM_RANDOM = Regex("""Put the rest on the bottom(?: of your library)? in a random order\.""")
         val ADD_EITHER_FOR_EACH = Regex("""Add \{([WUBRG])\} or \{([WUBRG])\} for each (.+)\.""")
-        val MAY_PLAY_THOSE = Regex("""(Until end of turn|Until the end of your next turn), you may play (those cards|that card|them|it)\.""")
+        // vow chunk 05: "that creature's controller may play that card and they may spend mana as though it were mana of any color to cast that spell"
+        val MAY_PLAY_THOSE = Regex("""(Until end of turn|Until the end of your next turn), (you|that creature's controller) may play (those cards|that card|them|it)( and (?:you|they) may spend mana as though it were mana of any color to cast (?:that spell|it|those spells))?\.""")
         val DRAW_EQUAL_TO_COUNTERS = Regex("""Draw cards equal to the number of (\S+) counters on (.+)\.""")
         // blb chunk 03
         val YOU_SACRIFICE_ONE_OR_MORE = Regex("""you sacrifice one or more (.+)""")
@@ -20029,12 +20065,14 @@ internal class Sentences(
         // mkm chunk 09: "its controller may exile that many cards from the top of their library. They may play those cards until the end of their next
         // turn." after "Whenever a creature is dealt damage" (the creature's controller, as it last existed if it has left, CR 608.2h)
         if (Mkm.CONTROLLER_MAY_EXILE_THAT_MANY_PLAY_UNTIL_NEXT_TURN.matches(text) && context.event is EventPattern.Damage) {
-            val controller = Players.ControllerOf(Objects.Bound("creature"))
+            // vow chunk 05: the controller is kept by name too, so a later control change doesn't move the permission (CR 608.2h)
+            val controller = Players.Bound("controller")
             return listOf(Step.Bind(Objects.EventObject(EventRole.Object), "creature"),
-                Step.May(listOf(
-                    Step.Do(Effect.Move(Objects.LibraryCards(controller, Value.EventAmount, fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
-                    Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(controller))),
-                        Affected.Objects(Objects.Bound("exiled")), arcanum.api.Duration.UntilEndOfNextTurnOf(controller)))), player = controller))
+                Step.ForEach(arcanum.api.Each.Players(Players.ControllerOf(Objects.Bound("creature"))), bind = "controller", together = true, steps = listOf(
+                    Step.May(listOf(
+                        Step.Do(Effect.Move(Objects.LibraryCards(controller, Value.EventAmount, fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
+                        Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(controller))),
+                            Affected.Objects(Objects.Bound("exiled")), arcanum.api.Duration.UntilEndOfNextTurnOf(controller)))), player = controller))))
         }
         // mkm chunk 09: "Target opponent exiles the top X cards of their library face down. You may look at and play those cards for as long as they remain
         // exiled. If you cast a spell this way, you may spend mana as though it were mana of any type to cast it." (CR 406.3, 609.4b)

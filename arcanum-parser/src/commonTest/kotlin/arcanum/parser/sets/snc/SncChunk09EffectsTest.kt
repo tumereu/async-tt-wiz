@@ -166,7 +166,7 @@ class SncChunk09EffectsTest {
         spell(counters(target("creature")), doing(Effect.PhaseOut(target("creature"))), targets = listOf(slot("creature", creature))),
     )
 
-    // CR 122.1, 122.6 (counters on each)
+    // CR 122.1, 122.6 (counters on each), 608.2c (one instruction, one verb: all the counters are put at once, one event)
     @Test
     fun brokersAscendancy() = card(
         name = "Dealers Supremacy",
@@ -175,8 +175,9 @@ class SncChunk09EffectsTest {
         text = "At the beginning of your end step, put a +1/+1 counter on each creature you control and a loyalty counter on each planeswalker you control.",
     ) parsesTo abilities(
         triggered(stepBegins(TurnStep.End, PlayerFilter.You),
-            counters(Objects.Each(creatureYouControl)),
-            counters(Objects.Each(and(planeswalker, you)), kind = CounterKind.Loyalty)),
+            Step.Simultaneously(listOf(
+                counters(Objects.Each(creatureYouControl)),
+                counters(Objects.Each(and(planeswalker, you)), kind = CounterKind.Loyalty)))),
     )
 
     // CR 122.1 (a counter of any kind), 118.3, 608.2d ("you may … If you do")

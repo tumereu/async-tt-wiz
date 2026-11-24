@@ -92,9 +92,9 @@ class SncChunk05EnchantEquipScenariosTest {
     private fun treasures(player: arcanum.engine.scenario.ScenarioPlayer): Int = player.battlefield.names.count { it == "Treasure Token" }
 
     // CR 508.1c, 509.1a, 113.10, 602.5d, 701.21a: the creature's controller activates the granted ability at sorcery speed; the Aura's
-    // controller sacrifices only what they control, so an opponent's creature stays, yet they draw
+    // controller sacrifices the Aura ("it") and draws, freeing the creature
     @Test
-    fun leashOnAnOpponentsCreatureLetsItsControllerPayToGiveYouACard() = scenario {
+    fun leashOnAnOpponentsCreatureLetsItsControllerPayToBeFreed() = scenario {
         turn(number = 2, active = bob)
         alice.battlefield(leash)
         bob.battlefield(ogre, "Plains", "Plains", "Plains", "Plains", "Plains", "Plains", "Plains")
@@ -103,21 +103,24 @@ class SncChunk05EnchantEquipScenariosTest {
         bob.activates(ogre)
         resolveAll()
         expect {
+            leash.zone shouldBe Zone.Graveyard
             ogre.zone shouldBe Zone.Battlefield
             alice.hand.size shouldBe 1
+            bob.hand.size shouldBe 0
         }
     }
 
-    // CR 701.21a: its controller is the Aura's controller: the creature is sacrificed and they draw
+    // CR 701.21a: "it" is the Aura: on your own creature the Aura is sacrificed, the creature stays, and you draw
     @Test
-    fun leashOnYourOwnCreatureSacrificesItAndDraws() = scenario {
+    fun leashOnYourOwnCreatureSacrificesTheAuraAndDraws() = scenario {
         alice.battlefield(leash, ogre, "Plains", "Plains", "Plains", "Plains", "Plains", "Plains", "Plains")
         attach(leash, ogre)
         alice.library("Island", "Island")
         alice.activates(ogre)
         resolveAll()
         expect {
-            ogre.zone shouldBe Zone.Graveyard
+            leash.zone shouldBe Zone.Graveyard
+            ogre.zone shouldBe Zone.Battlefield
             alice.hand.size shouldBe 1
         }
     }

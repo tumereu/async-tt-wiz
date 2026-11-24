@@ -155,14 +155,16 @@ class MkmChunk09EffectsTest {
         cost = "{R}{R}",
         type = "Enchantment",
         text = "Whenever a creature is dealt damage, its controller may exile that many cards from the top of their library. They may play those cards until the end of their next turn.",
-    ) parsesTo Players.ControllerOf(Objects.Bound("creature")).let { controller ->
+    // CR 608.2h: "its controller" is found once, as the trigger resolves, and kept for the lasting permission
+    ) parsesTo Players.Bound("controller").let { controller ->
         abilities(
             triggered(on(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = creature), per = arcanum.api.DamageOccurrence.Recipient)),
                 Step.Bind(Objects.EventObject(EventRole.Object), "creature"),
-                Step.May(listOf(
-                    doing(Effect.Move(Objects.LibraryCards(controller, Value.EventAmount, fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
-                    doing(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(controller))),
-                        Affected.Objects(Objects.Bound("exiled")), Duration.UntilEndOfNextTurnOf(controller)))), controller)),
+                Step.ForEach(arcanum.api.Each.Players(Players.ControllerOf(Objects.Bound("creature"))), bind = "controller", together = true, steps = listOf(
+                    Step.May(listOf(
+                        doing(Effect.Move(Objects.LibraryCards(controller, Value.EventAmount, fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
+                        doing(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(controller))),
+                            Affected.Objects(Objects.Bound("exiled")), Duration.UntilEndOfNextTurnOf(controller)))), controller)))),
         )
     }
 

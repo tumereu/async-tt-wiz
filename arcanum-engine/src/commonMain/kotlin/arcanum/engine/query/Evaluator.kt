@@ -181,7 +181,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ?: ctx.self?.let { s -> state.stackItems[s]?.targets?.get(objects.slot)?.filterIsInstance<TargetRef.Object>()?.map { it.id } }.orEmpty()
         // spm: a name a keyword's cost made for the spell is kept by the permanent it became ("the returned creature")
         is Objects.Bound -> boundObjects(ctx.names[objects.name]
-            ?: selfMemory(objects.name).takeIf { objects.name in arcanum.api.KeywordExpansions.COST_NAMES })
+            ?: selfMemory(objects.name).takeIf { objects.name in arcanum.api.KeywordExpansions.COST_NAMES }
+            // snc fixes: and, for a spell's own triggered ability while it is on the Stack ("When you cast this spell"), the spell's
+            ?: ctx.self?.takeIf { objects.name in arcanum.api.KeywordExpansions.COST_NAMES }?.let { state.stackItems[it]?.names?.get(objects.name) })
         is Objects.Remembered -> boundObjects(selfMemory(objects.key))
         // inr chunk 05: an effect that outlasts its trigger finds the event's objects by name ("it doesn't untap during its controller's
         // next untap step" after an attack trigger)
@@ -250,9 +252,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
      * it names none; both for "spell or creature", ecl). */
     fun inZonesOf(filter: ObjectFilter): List<ObjectId> {
         // rvr: "a card from their hand or a permanent they control": each alternative looks where it names, or where it would alone
-        val mixed = filter is ObjectFilter.Or && filter.any.any { zonesIn(it).isEmpty() } && filter.any.any { zonesIn(it).isNotEmpty() }
-        val own = if (mixed) (filter as ObjectFilter.Or).any.flatMap { zonesIn(it).ifEmpty { defaultZones(it) } }.toSet()
-            else zonesIn(filter).ifEmpty { defaultZones(filter) }
+        val own = mixedZones(filter) ?: zonesIn(filter).ifEmpty { defaultZones(filter) }
         val zones = own + prospectiveZones(filter)
         return zones.flatMap { zone ->
             when (zone) {
@@ -1158,6 +1158,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.Not -> (filter.filter as? ObjectFilter.InZone)?.let { n -> GAME_ZONES - n.zone } ?: emptySet()
             else -> emptySet()
         }
+
+        /** For an "or" filter whose alternatives name zones only in part ("spell, nonland permanent, or card in a graveyard"), each
+         * alternative looks where it names, or where it would alone; null for any other filter. */
+        fun mixedZones(filter: ObjectFilter): Set<Zone>? =
+            if (filter is ObjectFilter.Or && filter.any.any { zonesIn(it).isEmpty() } && filter.any.any { zonesIn(it).isNotEmpty() })
+                filter.any.flatMap { zonesIn(it).ifEmpty { defaultZones(it) } }.toSet()
+            else null
 
         private val GAME_ZONES = setOf<Zone>(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)
 

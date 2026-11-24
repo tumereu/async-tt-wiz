@@ -92,7 +92,8 @@ internal object Dft {
     // otj chunk 07: also "an outlaw was sacrificed this way" (the cost's sacrificed object)
     val SACRIFICED_WAS = Regex("""the sacrificed permanent was an? (\w+)|an? (\w+) was sacrificed this way""")
     // dft chunk 13
-    val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""Choose (target|two target) (.+?)\. (You may sacrifice|Sacrifice) an? (.+?)\. If you do, return the chosen cards? to the battlefield( tapped)?\.""") // mh3 chunk 11: two targets, a mandatory sacrifice, tapped
+    // neo chunk 09: "choose …" in a trigger, "a permanent that shares a card type with the chosen card", "from your graveyard", 'and it gains "…"'
+    val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""[Cc]hoose (target|two target) (.+?)\. (You may sacrifice|Sacrifice) an? (.+?)\. If you do, return the chosen cards? (?:from your graveyard )?to the battlefield( tapped)?(?: and it gains "(.+)")?\.?""") // mh3 chunk 11: two targets, a mandatory sacrifice, tapped
     // rvr chunk 03: also "there is an additional combat phase followed by an additional main phase"
     val AFTER_THIS_MAIN_PHASE_COMBATS = Regex("""After this main phase, there (?:are (\w+) additional combat phases|is an additional combat phase followed by an additional main phase)\.""")
     val EACH_COMBAT_THIS_TURN_UNTAP_ATTACKED = Regex("""At the beginning of each combat this turn, untap all (.+?) that attacked this turn\.""")

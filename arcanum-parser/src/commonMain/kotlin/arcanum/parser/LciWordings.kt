@@ -52,7 +52,7 @@ internal object Lci {
     val YOU_UNTAP_DURING_YOUR_UNTAP_STEP = Regex("""you untap one or more (.+?) during your untap step""")
     val CREATE_TOKEN_BASE_PT_EQUAL_TO_TOTAL_POWER = Regex("""[Cc]reate an? ((?:white|blue|black|red|green|colorless)(?: and \w+)? [A-Z][A-Za-z ]+? creature) token with base power and toughness each equal to the total power of those creatures\.""")
     // lci chunk 08
-    val YOURE_DEALT_DAMAGE = Regex("""you're dealt (combat )?damage""")
+    val YOURE_DEALT_DAMAGE = Regex("""you're dealt (combat )?damage|(combat )?damage is dealt to you""") // neo chunk 09: "combat damage is dealt to you"
     val ATTACKING_PLAYER_GAINS_CONTROL_AND_UNTAPS = Regex("""[Tt]he attacking player gains control of (.+?) and untaps it\.""")
     // lci chunk 09: also "you put a Cave onto the battlefield this way"
     val YOU_EXILED_CARD_THIS_WAY = Regex("""you (?:exiled an? (.+?) card|put an? (.+?) onto the battlefield) this way""")

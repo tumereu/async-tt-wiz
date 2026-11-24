@@ -30,7 +30,7 @@ internal object Mh2 {
     val YOU_AND_HAVE_PROTECTION_FROM_CHOSEN_CARD_TYPE = Regex("""You and (.+) have protection from the chosen card type\.""")
     val IS_ON_BATTLEFIELD_OR_IN_YOUR_GRAVEYARD = Regex("""(.+) is on the battlefield or in your graveyard""")
     val EXILE_TARGET_FROM_YOUR_GRAVEYARD = Regex("""Exile target (.+? card) from your graveyard\.""")
-    val EXILED_CARDS_NUMBER = Regex("""the exiled card's (power|toughness)""")
+    val EXILED_CARDS_NUMBER = Regex("""the exiled card's (power|toughness|mana value)""") // neo chunk 07: mana value
     val PUT_THAT_MANY_COUNTERS_ON = Regex("""([Yy]ou may )?[Pp]ut that many (\S+) counters on (.+)\.""")
     // mh2 chunk 03
     val X_TARGET_GAIN_UNTIL_EOT = Regex("""X target (.+?) gain (.+) until end of turn\.""")

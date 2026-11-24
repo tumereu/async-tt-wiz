@@ -344,4 +344,8 @@ sealed interface Duration {
     /** "until the end of their next turn": ends as the next turn of [players] (one player) ends; about you it is
      * [UntilEndOfYourNextTurn]. Fixed as the effect is created (CR 611.2c). */
     @Serializable @SerialName("end-of-next-turn-of") data class UntilEndOfNextTurnOf(val players: Players) : Duration
+    // vow
+    /** "During that turn, …" after taking an extra turn: applies only during the extra turn named [turn] ([Effect.ExtraTurn.mark]) and
+     * ends as that turn ends (CR 500.7, 611.2a). */
+    @Serializable @SerialName("during-turn") data class DuringTurn(val turn: String) : Duration
 }

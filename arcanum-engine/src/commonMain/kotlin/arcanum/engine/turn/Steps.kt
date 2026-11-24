@@ -457,6 +457,10 @@ internal object Steps {
             val players = Snapshot(recorder.state).evaluator(e.controller, e.source, e.names).players((e.duration as Duration.UntilEndOfNextTurnOf).players)
             if (s.turn.active in players) recorder.record(Change.EffectRemoved(e))
         }
+        // vow: "during that turn" ends as that extra turn does (CR 500.7)
+        recorder.state.effects.values.toList().filter { e -> (e.duration as? Duration.DuringTurn)?.let { d ->
+            (e.names[d.turn] as? arcanum.engine.state.NamedValue.Name)?.name == s.turn.extraTurnKey } == true && s.turn.extraTurnKey != null }
+            .forEach { recorder.record(Change.EffectRemoved(it)) }
         // The marks that last until the end of the turn (saddled, CR 702.171b)
         s.battlefield.forEach { id ->
             s.obj(id)?.marks.orEmpty().filter { arcanum.api.MarkClear.EndOfTurn in arcanum.api.MarkRules.of(it).clears }

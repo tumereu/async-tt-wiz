@@ -131,6 +131,8 @@ internal object Layers {
                 (entry.change as? arcanum.engine.change.Change.StackItemAdded)?.let { it.item.id == n && arcanum.engine.change.Meaning.Cast in it.meanings } == true
             } } == true
         }
+        // vow: "during that turn": only while the extra turn of that name is the current turn (CR 500.7, 611.2a)
+        is Duration.DuringTurn -> (effect.names[d.turn] as? arcanum.engine.state.NamedValue.Name)?.name.let { it != null && it == state.turn.extraTurnKey }
         else -> true
     }
 

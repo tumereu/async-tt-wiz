@@ -352,7 +352,7 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
         answering?.invoke() ?: cast.cast(); Unit
     }
     val onMain = MainButtonAction(MainAction(label, if (flow.activation) Icons.Outlined.Bolt else Icons.Outlined.AutoAwesome, refusal,
-        "$label ${source.name}", go))
+        "$label ${source.name}", run = go))
     Column(Modifier.fillMaxWidth()
         .then(if (cast.hidden) Modifier else Modifier.pointerInput(Unit) {}.semantics { contentDescription = "Cast panel" })
         .drawBehind {

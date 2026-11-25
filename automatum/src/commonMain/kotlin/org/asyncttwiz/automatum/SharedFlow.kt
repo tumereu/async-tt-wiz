@@ -87,15 +87,49 @@ class SharedFlow private constructor(
     /**
      * Declares what ATW's lanes hold (the step button in the declare attackers or blockers step, CR 508.1, 509.1), with
      * the attacker's choices ([CombatFlow.withChoices]); with [autotap] the mana of costs to attack or block is paid with the engine's suggestion (CR 508.1h, 509.1d),
-     * as [pick] takes it from the payment.
+     * as [pick] takes it from the payment. CMB-098: [paying], the costs panel's payment of the declaration's mana (CR 508.1h–j,
+     * 509.1d–f), is made with exactly those uses instead.
      * @throws CombatRefused when the engine refuses the declaration (nothing changes).
+     * @throws IllegalArgumentException when [paying] is given and doesn't pay it, or the declaration asks no payment.
      */
-    fun declare(autotap: Boolean = false, pick: (Decision.ManaPayment) -> List<ManaUse> = { it.suggestion }): EngineRun = call().apply {
+    fun declare(autotap: Boolean = false, pick: (Decision.ManaPayment) -> List<ManaUse> = { it.suggestion },
+        paying: List<ManaUse>? = null): EngineRun = call().apply {
+        declareLanes(this, autotap && paying == null, pick)
+        if (paying != null) {
+            val asked = requireNotNull(pending?.decision as? Decision.ManaPayment) { "The declaration asks no payment" }
+            perform(Input.Answer(asked.id, Answer.ManaPayment(paying)))
+        }
+    }
+
+    /** The lanes' declaration with the attacker's choices made on [run], its costs' mana paid by itself with [autotap]. */
+    private fun declareLanes(run: EngineRun, autotap: Boolean, pick: (Decision.ManaPayment) -> List<ManaUse> = { it.suggestion }) {
         val (attacks, blocks) = CombatFlow.lanes(board.combat)
+        val s = run.working
         // CMB-036–CMB-038: with the attacker's choices; CMB-037: with [autotap] the costs' mana is paid by itself (I-D47)
-        if (Engine.options(working, working.turn.active, EnginePreferences.of(working)).any { it is Input.DeclareAttackers })
-            CombatFlow.declareAttackers(this, CombatFlow.withChoices(attacks, board), autotap, pick)
-        else CombatFlow.declareBlockers(this, blocks, autotap, pick)
+        if (Engine.options(s, s.turn.active, EnginePreferences.of(s)).any { it is Input.DeclareAttackers })
+            CombatFlow.declareAttackers(run, CombatFlow.withChoices(attacks, board), autotap, pick)
+        else CombatFlow.declareBlockers(run, blocks, autotap, pick)
+    }
+
+    /**
+     * CMB-098 (CR 508.1h, 509.1d): while attackers or blockers are awaited, the payment declaring what the lanes hold (with the
+     * attacker's choices) asks of the declaring player, the mana of all its costs as one payment, which the costs panel makes
+     * before anything is declared; null when nothing is declared now, the declaration asks no mana or the engine refuses it.
+     */
+    private val declarationPayment: Decision.ManaPayment? by lazy {
+        if (decision != null) return@lazy null
+        val player = declaring ?: return@lazy null
+        try {
+            call().run {
+                declareLanes(this, autotap = false)
+                (pending?.decision as? Decision.ManaPayment)?.takeIf { it.player.value == player }
+            }
+        } catch (_: IllegalArgumentException) {
+            // A refused declaration too ([CombatRefused])
+            null
+        } catch (_: IllegalStateException) {
+            null
+        }
     }
 
     /**
@@ -189,9 +223,13 @@ class SharedFlow private constructor(
     /**
      * STK-049 (owner gallery review, 2026-11-06): the payment the open "you may pay" of a mana cost goes on to (CR 118.12:
      * "unless … pays {R}", "you may pay {2}"), asked with it in one panel whose "Don't pay" answers no; null when the open
-     * decision is no such question, its cost can't be paid, or paying it asks nothing (worked out once per flow).
+     * decision is no such question, its cost can't be paid, or paying it asks nothing (worked out once per flow). CMB-098: with
+     * no decision open while a declaration is awaited, the payment declaring what the lanes hold asks, which the costs panel
+     * makes before anything is declared.
      */
-    val payment: Decision.ManaPayment? by lazy {
+    val payment: Decision.ManaPayment? by lazy { mayPayment ?: declarationPayment }
+
+    private val mayPayment: Decision.ManaPayment? by lazy {
         val open = decision as? Decision.May ?: return@lazy null
         val cost = open.cost ?: return@lazy null
         if (!open.payable || cost.parts.isEmpty() || cost.parts.any { it !is arcanum.api.CostPart.Mana }) return@lazy null
@@ -223,10 +261,12 @@ class SharedFlow private constructor(
      * as given (a way the player chose for a source, STK-024). */
     fun fill(pinned: List<ManaUse>, removed: List<ManaUse>, exact: List<ManaUse> = emptyList()): List<ManaUse> {
         if (decision is Decision.ManaPayment) return CastScreen.fillPayment(state, pinned, removed, exact)
-        val open = decision as? Decision.May ?: return emptyList()
+        val open = decision as? Decision.May
+        if (open == null && declarationPayment == null) return emptyList()
         return try {
             call().run {
-                perform(Input.Answer(open.id, Answer.YesNo(true)))
+                // CMB-098: the declaration's payment, the lanes declared first
+                if (open != null) perform(Input.Answer(open.id, Answer.YesNo(true))) else declareLanes(this, autotap = false)
                 CastScreen.fillPayment(working, pinned, removed, exact)
             }
         } catch (_: IllegalArgumentException) {
@@ -243,7 +283,12 @@ class SharedFlow private constructor(
         val open = decision as? Decision.ManaPayment
         if (open == null && payment == null) return false
         val pays = try {
-            if (open != null) Engine.perform(state, Input.Answer(open.id, Answer.ManaPayment(uses)), EnginePreferences.of(state)) else payMay(uses)
+            when {
+                open != null -> Engine.perform(state, Input.Answer(open.id, Answer.ManaPayment(uses)), EnginePreferences.of(state))
+                decision is Decision.May -> payMay(uses)
+                // CMB-098: the lanes declared and their payment made with [uses]
+                else -> declare(paying = uses)
+            }
             true
         } catch (_: IllegalArgumentException) {
             false

@@ -40,8 +40,9 @@ sealed interface SharedOp {
         val keep: List<ManaUse> = emptyList()) : SharedOp
     /** [player] passes priority ("Let it resolve", CR 117.3d). */
     @Serializable @SerialName("pass") data class Pass(val player: String) : SharedOp
-    /** The step arrow (TRN-057): the holder passes, or the lanes' declaration is made ([autotap]: its costs' mana paid by itself). */
-    @Serializable @SerialName("step") data class Step(val autotap: Boolean) : SharedOp
+    /** The step arrow (TRN-057): the holder passes, or the lanes' declaration is made ([autotap]: its costs' mana paid by itself;
+     * CMB-098: [mana], the costs panel's payment of its mana, made with exactly these uses). */
+    @Serializable @SerialName("step") data class Step(val autotap: Boolean, val mana: List<ManaUse>? = null) : SharedOp
     /** Who declares attackers or blockers on the board named now ([SharedAnswer.Declaring]). */
     @Serializable @SerialName("declaring") data object Declaring : SharedOp
     /** The open decision [decision] answered with [answer] and the orders after it ([then], I-D48). */
@@ -73,7 +74,8 @@ sealed interface SharedOp {
  * something on the Stack and nothing to decide; [holder]: who holds it now with nothing to decide (an empty Stack too, the
  * active player in an untap step); [declaring]: who declares attackers or blockers now; [early]: an early answer for the open
  * decision is given; [division]: the open division of combat damage; [listed]: the engine's listed answers (names only of what
- * the decider may see); [payment]: the payment an open "you may pay" goes on to (STK-049); [visible]: the objects the viewer may
+ * the decider may see); [payment]: the payment an open "you may pay" goes on to (STK-049), or with no decision open the payment
+ * declaring what the lanes hold asks (CMB-098, the costs panel's); [visible]: the objects the viewer may
  * be shown (I-D27); [left]: the open choice's options that have left but were face up (shown by what they were); [mana]: the
  * mana the open payment is made with now (Autotap's suggestion, or the picks kept) and [paid] whether it pays.
  */

@@ -170,7 +170,7 @@ class SharedSessions(private val viewer: String, private val log: EngineLog = En
                     if (f.priority != op.player) throw Refused("${if (op.player == viewer) "You don't" else "They don't"} hold priority now.")
                     f.pass(op.player)
                 }
-                is SharedOp.Step -> pressed(f, op.autotap, stacks)
+                is SharedOp.Step -> pressed(f, op.autotap, op.mana, stacks)
                 is SharedOp.Give -> open(f, op.decision) {
                     // A division of combat damage (I-D29): the damage is dealt and the game goes on through the steps (I3)
                     val answer = op.answer
@@ -210,8 +210,9 @@ class SharedSessions(private val viewer: String, private val log: EngineLog = En
     }
 
     /** The engine call a press of the step button makes on [flow]: the holder passes (with something on the Stack it is
-     * "Resolve", I-D46 d), or the lanes' declaration is made. */
-    private fun pressed(flow: SharedFlow, autotap: Boolean, stacks: () -> List<List<String>>?): EngineRun {
+     * "Resolve", I-D46 d), or the lanes' declaration is made: CMB-098, its costs' mana paid with [mana] when the costs panel
+     * gives it. */
+    private fun pressed(flow: SharedFlow, autotap: Boolean, mana: List<ManaUse>?, stacks: () -> List<List<String>>?): EngineRun {
         if (CombatStackRules.stack(flow.board).cards.isNotEmpty()) {
             val holder = flow.priority ?: throw Refused(STACK_WAITING)
             return flow.pass(holder)
@@ -219,7 +220,12 @@ class SharedSessions(private val viewer: String, private val log: EngineLog = En
         val holder = flow.holder
         val declaring = if (holder == null) flow.declaring else null
         if (holder == null && declaring == null) throw Refused(CANT_GO_ON)
-        return if (holder != null) flow.step(holder) else flow.declare(autotap) { suggestion(flow, it, stacks) }
+        if (holder != null) return flow.step(holder)
+        if (mana != null) {
+            AppLog.info("combat", "Declaration with the costs panel's payment of ${flow.payment?.cost}: ${mana.joinToString { ManaWays.label(it) }}")
+            if (!flow.pays(mana)) throw Refused(NOT_PAID)
+        }
+        return flow.declare(autotap, { suggestion(flow, it, stacks) }, mana)
     }
 
     /** A refusal with its message for the player (null: none). */
@@ -231,6 +237,8 @@ class SharedSessions(private val viewer: String, private val log: EngineLog = En
         const val STACK_WAITING = "Let the Stack resolve before changing the step."
         const val TAKE_OVER = "Automatum can't take over this board."
         const val CANT_GO_ON = "Automatum couldn't go on from here."
+        /** CMB-098: the costs panel's payment no longer pays what the declaration asks. */
+        const val NOT_PAID = "The chosen sources don't pay the costs any more: look at the payment again."
     }
 }
 

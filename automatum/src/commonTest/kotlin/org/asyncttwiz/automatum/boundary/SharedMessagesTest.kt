@@ -74,13 +74,15 @@ class SharedMessagesTest {
         assertEquals(scry, shown.decision)
     }
 
-    // Every step of a shared-flow session and every answer comes back the same from its text
+    // Every step of a shared-flow session and every answer comes back the same from its text (CMB-099: the costs panel's
+    // declaration with its payment's mana too)
     @Test fun everySharedStepComesBackTheSameFromItsText() {
         val use = ManaUse.Life(2)
         val taps = ManaTapsWire(tapped = listOf(use), outs = listOf(use))
         val card = TargetRef.Object(ObjectId.Card(arcanum.engine.state.CardId("alice.1"), 2))
         val ops = listOf(
             SharedOp.Show(autotap = true), SharedOp.Show(false, "d7", listOf(use)), SharedOp.Pass(bob), SharedOp.Step(true),
+            SharedOp.Step(false, listOf(use)),
             SharedOp.Declaring, SharedOp.Give("d7", Answer.Targets(listOf(card)), listOf(Answer.Objects(listOf(card.id)))),
             SharedOp.Give("d8", Answer.Division(listOf(arcanum.engine.decision.Share(card, 3)))),
             SharedOp.Replacements("d9", listOf(ReplacementOption(1, card.id, "If it would die, exile it instead."), ReplacementOption(0, null, null))),

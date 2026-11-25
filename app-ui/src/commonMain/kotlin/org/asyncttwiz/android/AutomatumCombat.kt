@@ -93,6 +93,43 @@ class CombatController(
     /** CMB-029: the eye hid the preview's numbers. */
     var numbersHidden by mutableStateOf(false); private set
 
+    // ---- CMB-098: the costs panel of the viewer's own declaration (personal UI, nothing of it is shared)
+
+    /** The combat step ([step]) the costs panel was opened in, null while it is closed. */
+    private var costs by mutableStateOf<String?>(null)
+
+    /** CMB-098: whether the costs panel is open on [play]'s board: opened in this declaration step, which still awaits the
+     * declaration (nobody holds priority, CMB-047, and no choice is open). */
+    fun costPanelOpen(play: TableBoard): Boolean = costs != null && costs == step(play) && declarationAwaited(play)
+
+    private fun declarationAwaited(play: TableBoard): Boolean = play.board.priority?.holder == null && !play.flowOpen &&
+        TurnPosition.of(play.board.turn).let { it == TurnPosition.DECLARE_ATTACKERS || it == TurnPosition.DECLARE_BLOCKERS }
+
+    /** CMB-098: the main button's declaration asks the costs panel first: it opens on [play]'s board. */
+    fun openCosts(play: TableBoard) {
+        val (attacks, blocks) = CombatFlow.lanes(play.board.combat)
+        AutomatumLog.flow(play.gameId, "combat", "costs panel", "opened (turn ${play.board.turn.number}, ${play.board.turn.step}): " +
+            if (TurnPosition.of(play.board.turn) == TurnPosition.DECLARE_ATTACKERS) "attackers ${attacks.map { it.cardId }}, " +
+                "optional costs chosen ${CombatFlow.attackChoices(play.board).values.filter { it.paying.isNotEmpty() }.associate { it.cardId to it.paying }}"
+            else "blocks ${blocks.map { "${it.blockerId}→${it.attackerId}" }}")
+        costs = step(play)
+        selection = null; picking = null
+    }
+
+    /** CMB-098: the costs panel closes ([why]: Back, the declaration made, the step over). */
+    fun closeCosts(play: TableBoard?, why: String) {
+        if (costs == null) return
+        AutomatumLog.flow(play?.gameId ?: "?", "combat", "costs panel", "closed: $why")
+        costs = null
+    }
+
+    /** CMB-098: closes a costs panel left open from a declaration [play]'s board no longer awaits (it was made, the step or turn
+     * went on, an undo took the game back). */
+    fun noteBoard(play: TableBoard) {
+        if (costs != null && !costPanelOpen(play)) closeCosts(play, "the declaration it was opened for is no longer awaited " +
+            "(turn ${play.board.turn.number}, ${play.board.turn.step}, priority ${play.board.priority?.holder?.take(8)})")
+    }
+
     fun select(card: String?) { selection = card?.let { it to step(board()) } }
     fun clearSelection() { selection = null; picking = null }
     /** CMB-036, CMB-038: the viewer stops picking for a staged attacker (its selection stays). */
@@ -128,7 +165,8 @@ class CombatController(
         return changeChoice(play, attacker) { it.copy(band = band) }
     }
 
-    /** CMB-037: [attacker] pays the optional cost to attack [key] (exert), or no longer does. */
+    /** CMB-037, CMB-098: [attacker] pays the optional cost to attack [key] (exert), or no longer does: a tap on its card in
+     * the costs panel. */
     fun toggleOptional(attacker: String, key: String): Boolean = current()?.let { play ->
         changeChoice(play, attacker) { c -> c.copy(paying = if (key in c.paying) c.paying - key else c.paying + key) } } ?: false
 
@@ -304,6 +342,8 @@ class CombatController(
      * creatures that may attack that target; blockers while they are awaited, in the pair of attackers they may block.
      */
     fun draftRefusal(play: TableBoard, sources: List<String>, role: CombatRole, pairId: String?, attackTarget: String?): String? {
+        // CMB-098: the staging changes only back at it, never under the open costs panel
+        if (costPanelOpen(play)) return COSTS_OPEN
         val shown = choices(play)
         if (working(shown)) return WORKING_OUT
         val choices = shown.choices
@@ -360,6 +400,8 @@ class CombatController(
         const val DECLARED = "Attackers and blockers are already declared."
         const val DECLARED_ATTACKERS = "Attackers are already declared."
         const val WORKING_OUT = "Automatum is still working out this combat: try again in a moment."
+        /** CMB-098: why the staging can't change while the costs panel is open. */
+        const val COSTS_OPEN = "Go Back to staging to change it."
         /** What [choices] gives while the board's combat isn't worked out yet (an identity, never equal to a result). */
         private val WORKING = CombatShown(CombatShown.NONE.choices)
     }
@@ -370,6 +412,8 @@ class CombatController(
 @Composable
 fun AutomatumCombatHost(toolkit: TableToolkitController, play: TableBoard) {
     LaunchedEffect(IdentityKey(play.board)) {
+        // CMB-098: a costs panel whose declaration is no longer awaited closes
+        toolkit.combat.noteBoard(play)
         // In the browser asked of the engine worker beside the game's device, shown when it answers
         if (AutomatumBoards.remoteCombat(play) && AutomatumBoards.cachedCombat(play) == null) { toolkit.combat.load(play); return@LaunchedEffect }
         val shown = AutomatumBoards.cachedCombat(play)
@@ -430,14 +474,17 @@ fun automatumCombatQuickActions(play: TableBoard, context: QuickContext, scope: 
                 val target = context.combatTarget
                 val name = context.combatTargetName.ifEmpty { "target" }
                 val rest = choices.attacks.filter { (card, targets) -> target in targets && card !in staged }.keys.toList()
+                // CMB-098: greyed while the costs panel is open
+                val costs = CombatController.COSTS_OPEN.takeIf { context.costsOpen }
                 add(greyed("Rest → $name", CombatTool.AUTOMATUM_STAGE,
-                    if (rest.isEmpty()) "No other creature can attack $name now." else null, rest))
-                add(greyed("Clear", CombatTool.AUTOMATUM_CLEAR, if (staged.isEmpty()) "Nothing is staged." else null))
+                    costs ?: if (rest.isEmpty()) "No other creature can attack $name now." else null, rest))
+                add(greyed("Clear", CombatTool.AUTOMATUM_CLEAR, costs ?: if (staged.isEmpty()) "Nothing is staged." else null))
             }
             // CMB-034: the defender's blocks
             choices.declaring != null -> if (viewer == choices.declaring) {
                 val blocks = CombatStackRules.blocks(play.board.combat)
-                add(greyed("Clear", CombatTool.AUTOMATUM_CLEAR, if (blocks.isEmpty()) "Nothing blocks yet." else null))
+                add(greyed("Clear", CombatTool.AUTOMATUM_CLEAR, CombatController.COSTS_OPEN.takeIf { context.costsOpen }
+                    ?: if (blocks.isEmpty()) "Nothing blocks yet." else null))
             }
         }
     }

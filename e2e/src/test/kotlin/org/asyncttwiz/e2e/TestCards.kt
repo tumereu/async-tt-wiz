@@ -331,6 +331,12 @@ object TestCards {
     /** CMB-044, CMB-074: a free enchantment whose cost to attack its controller has an X the board defines (their enchantments). */
     val bulwark = card("Ember Bulwark", "Enchantment", "{0}",
         "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of enchantments you control.")
+    /** CMB-098 (CR 508.1g, 701.43d): a free 3/3 with haste and an optional cost to attack, chosen in the costs panel. */
+    val charger = card("Ember Charger", "Creature — Elemental Warrior", "{0}",
+        "Haste\nYou may exert this creature as it attacks. When you do, it gets +1/+1 until end of turn.", "3", "3")
+    /** CMB-098 (CR 509.1d): a free 2/3 with haste whose attack makes each blocker cost {1}, paid in the costs panel. */
+    val tollward = card("Ember Tollward", "Creature — Elemental Angel", "{0}",
+        "Haste\nAs long as this creature is attacking, creatures can't block unless their controller pays {1} for each of those creatures.", "2", "3")
     /** A free Aura (D1: an enchanted creature beside an identical one, told apart on the table). */
     val mantle = card("Ember Mantle", "Enchantment — Aura", "{0}", "Enchant creature\nEnchanted creature gets +1/+1.")
     /** A free edict (D1: the other player picks their creature to sacrifice on the table). */

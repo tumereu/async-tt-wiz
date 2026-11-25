@@ -187,6 +187,61 @@ class EngineCombatTest {
         assertTrue(plains.all { paid.objects.getValue(table.obj(it)).tapped }, "both Plains pay")
     }
 
+    // CMB-098 (CR 508.1h, 508.1i, 508.1j): before anything is declared, the flow of a board awaiting attackers holds the payment the
+    // lanes' declaration asks (the costs panel's): {2} for the staged Bear, nothing declared by looking; picks are filled and checked
+    // around it, and the declaration made with the panel's payment pays with exactly those sources
+    @Test fun theCostsPanelPaysTheDeclarationBeforeItIsMade() {
+        val prison = Cards.invent("Mistward Prison", "{2}{W}", "Enchantment",
+            "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.")
+        val (bear) = table.put(alice, Zone.Battlefield, "Stout Bear")
+        val plains = table.put(alice, Zone.Battlefield, "Plains", "Plains", "Plains")
+        table.put(bob, Zone.Battlefield, prison)
+        val state = table.state()
+        val staged = table.board(state).copy(combat = org.asyncttwiz.protocol.CombatArea(EngineProjection.COMBAT_ID, listOf(
+            org.asyncttwiz.protocol.CombatPair(EngineProjection.pairId(bear), listOf(org.asyncttwiz.protocol.CombatOccurrence(EngineProjection.attackId(bear), bear))))))
+        val flow = SharedFlow.of(state, staged, "game", table::seed)
+        assertNull(flow.decision, "nothing is asked: attackers are awaited")
+        assertEquals(alice, flow.declaring)
+        val payment = assertNotNull(flow.payment, "the declaration's payment")
+        assertEquals("{2}", payment.cost.toString())
+        assertNull(state.combat, "looking declared nothing")
+        // Two of the three Plains picked by hand pay it; one alone doesn't
+        val uses = payment.options.filterIsInstance<arcanum.engine.decision.ManaUse.Ability>()
+            .filter { it.source in plains.map(table::obj) }.distinctBy { it.source }
+        assertEquals(3, uses.size, "each Plains can pay")
+        assertTrue(flow.pays(uses.take(2)), "two Plains pay {2}")
+        assertTrue(!flow.pays(uses.take(1)), "one doesn't")
+        assertEquals(2, flow.fill(uses.take(1), emptyList()).size, "Autotap fills in the rest around a pick")
+        val chosen = uses.drop(1)
+        val declared = flow.declare(paying = chosen).working
+        assertEquals(listOf(table.obj(bear)), declared.combat?.attackers?.map { it.id }, "the Bear attacks")
+        assertEquals(listOf(false, true, true), plains.map { declared.objects.getValue(table.obj(it)).tapped }, "exactly the Plains picked paid")
+        assertNull(declared.pending, "nothing more is asked")
+    }
+
+    // CMB-098 (CR 509.1d): a cost to block is paid the same way before the blockers are declared
+    @Test fun theCostsPanelPaysABlockBeforeItIsMade() {
+        val seraph = Cards.invent("Tollward Seraph", "{2}{W}", "Creature — Angel",
+            "As long as this creature is attacking, creatures can't block unless their controller pays {1} for each of those creatures.", "2/5")
+        val (bear) = table.put(alice, Zone.Battlefield, seraph)
+        val (ogre) = table.put(bob, Zone.Battlefield, "Hill Ogre")
+        val mountains = table.put(bob, Zone.Battlefield, "Mountain", "Mountain")
+        val blocking = toBlockers(declaredAttackers(listOf(LaneAttack(bear))))
+        val board = table.board(blocking).let { b ->
+            val pair = b.combat!!.pairs.single()
+            b.copy(combat = b.combat!!.copy(pairs = listOf(pair.copy(blockers = listOf(org.asyncttwiz.protocol.CombatOccurrence("block-$ogre", ogre))))))
+        }
+        assertEquals(listOf(LaneBlock(ogre, bear)), CombatFlow.lanes(board.combat).second)
+        val flow = SharedFlow.of(blocking, board, "game", table::seed)
+        assertEquals(bob, flow.declaring)
+        val payment = assertNotNull(flow.payment, "the block's payment")
+        assertEquals("{1}", payment.cost.toString())
+        val second = payment.options.filterIsInstance<arcanum.engine.decision.ManaUse.Ability>().last { it.source == table.obj(mountains[1]) }
+        val declared = flow.declare(paying = listOf(second)).working
+        assertEquals(listOf(table.obj(ogre)), declared.combat?.blockers?.map { it.id })
+        assertEquals(listOf(false, true), mountains.map { declared.objects.getValue(table.obj(it)).tapped })
+    }
+
     // CMB-044, CMB-074 (owner-reported 2026-11-11; CR 508.1h): a cost whose X the board defines shows its amount, worked out again
     // when the board changes it: {2} with two enchantments, {3} with three, never "{X}"; the defender reads the same
     @Test fun aCostToAttackWithXShowsItsAmount() {

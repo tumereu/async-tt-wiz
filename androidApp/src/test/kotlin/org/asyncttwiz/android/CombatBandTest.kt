@@ -796,11 +796,11 @@ class CombatBandTest {
         return { who -> phone = who to phone.second + 1; compose.waitForIdle() }
     }
 
-    // CMB-037, TBL-132, TBL-240 (owner, 2026-11-25: the exert toggle, unheld and held, in the gallery; CR 508.1g, 701.43d): Alice
-    // stages her Ember Charger ("You may exert this creature as it attacks. When you do, it gets +1/+1 until end of turn."): an
-    // "Exert" toggle under its copy, off; tapped, on (filled violet, checked); held, the ability's text with what exerting means;
-    // on Bob's table the chip she turned on shows, checked, and takes no touch of its own
-    @Test fun theExertToggleOffOnHeldAndOnTheOtherPhone() {
+    // CMB-037, TBL-132, TBL-240 (owner, 2026-11-25: the exert is chosen in the costs panel, CMB-098; CR 508.1g, 701.43d): Alice
+    // stages her Ember Charger ("You may exert this creature as it attacks. When you do, it gets +1/+1 until end of turn."): no
+    // toggle under its copy; once chosen (as the costs panel's tap does) an amber "Exert" cost chip; held, the ability's text with
+    // what exerting means; on Bob's table the same amber chip, not his to change
+    @Test fun theExertChosenShowsAsAnAmberChipOnBothPhones() {
         val charger = EngineGameFixture.Choices.CHARGER
         val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(charger, "Mountain"))))
         kit.opening()
@@ -813,32 +813,38 @@ class CombatBandTest {
         kit.settle()
         val show = phones(kit)
         show(kit.f.a)
-        val toggle = compose.onNode(hasContentDescription("Exert as it attacks"), useUnmergedTree = true)
-        toggle.assert(hasStateDescription("off"))
+        compose.onNode(hasContentDescription("Exert as it attacks"), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNode(hasContentDescription("Pays Exert"), useUnmergedTree = true).assertDoesNotExist()
         captureShot("$SCREENSHOTS/combat-band/exert-off.png",
-            "Alice staged her Ember Charger (\"You may exert this creature as it attacks\"): under its copy on the band lies an Exert toggle chip, white with an empty box, as it is off.")
-        toggle.performClick()
+            "Alice staged her Ember Charger (\"You may exert this creature as it attacks\"): its copy on the band has no Exert toggle; the exert is chosen in the costs panel the main button opens.")
+        // The costs panel's tap on the Charger's card (CMB-098)
+        assertTrue(kit.toolkit.combat.toggleOptional(card, kit.toolkit.combat.view.choices.optional.getValue(card).single().key))
         kit.settle()
+        kit.toolkit.combat.show(kit.alice.play(), AutomatumBoards.combat(kit.alice.play()))
         show(kit.f.a)
-        toggle.assert(hasStateDescription("on"))
+        val chip = compose.onNode(hasContentDescription("Pays Exert"), useUnmergedTree = true)
+        chip.assertExists()
         captureShot("$SCREENSHOTS/combat-band/exert-on.png",
-            "Alice tapped the Exert chip under her staged Ember Charger's copy: it is on, filled violet with a checked box.")
-        toggle.performTouchInput { down(center) }
-        compose.mainClock.advanceTimeBy(1_000)
-        compose.waitForIdle()
+            "Alice chose to exert her staged Ember Charger in the costs panel: its copy on the band carries an amber Exert cost chip, as a cost it must pay does.")
+        // The table runs a frame clock while a finger is down: the test's clock is moved by hand meanwhile
+        compose.mainClock.autoAdvance = false
+        chip.performTouchInput { down(center) }
+        compose.waitForIdle(); compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle(); compose.mainClock.advanceTimeBy(100)
         compose.onNodeWithText(CHARGER_EXERT, useUnmergedTree = true).assertExists()
         captureShot("$SCREENSHOTS/combat-band/exert-held.png",
-            "Alice holds the Exert chip she turned on: the Charger's ability text shows over the band, with what exerting means, while she holds it.")
-        toggle.performTouchInput { cancel() }
+            "Alice holds the amber Exert chip: the Charger's ability text shows over the band, with what exerting means, while she holds it (the same hold also opens Inspect of the Charger under it).")
+        chip.performTouchInput { cancel() }
+        compose.mainClock.autoAdvance = true
         compose.waitForIdle()
-        // Bob's table: the chip she turned on shows, checked, but isn't his to change
+        // Bob's table: the same amber chip, not his to change
         kit.bobToolkit.combat.show(kit.bob.play(), AutomatumBoards.combat(kit.bob.play()))
         show(kit.f.b)
-        val seen = compose.onNode(hasContentDescription("Exert as it attacks"), useUnmergedTree = true)
+        val seen = compose.onNode(hasContentDescription("Pays Exert"), useUnmergedTree = true)
         seen.assertExists()
         seen.assert(androidx.compose.ui.test.SemanticsMatcher.keyNotDefined(androidx.compose.ui.semantics.SemanticsProperties.StateDescription))
         captureShot("$SCREENSHOTS/combat-band/exert-other-player.png",
-            "Bob's table while Alice declares attackers: her staged Ember Charger's copy shows the Exert chip she turned on, filled violet and checked; it isn't his to change, so a hold on it inspects the card.")
+            "Bob's table while Alice declares attackers: her staged Ember Charger's copy shows the amber Exert chip she chose; it isn't his to change.")
     }
 
     // CMB-001, CMB-007 (owner, 2026-11-05): the open band in landscape

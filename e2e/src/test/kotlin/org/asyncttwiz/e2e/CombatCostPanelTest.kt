@@ -49,10 +49,13 @@ class CombatCostPanelTest : E2e() {
         alice.tagged(COSTS_OPTIONAL_TAG).performClick()
         waitUntil("the exert paid: ${alice.screen()}") { alice.shows(hasTestTag(COSTS_OPTIONAL_TAG) and hasStateDescription("paid")) }
         waitUntil("the amber Exert chip on Bob's phone", along = listOf(alice)) { bob.shows(hasContentDescription("Pays Exert")) }
+        val life = alice.state.player(bob.me).life
         alice.tap("Attack")
-        waitUntil("the Charger attacking, exerted", along = listOf(bob)) {
+        // Exerted, the 3/3 got +1/+1 ("When you do") and doesn't untap next turn
+        waitUntil("the Charger attacked exerted, dealing 4", along = listOf(bob)) {
+            goOn(alice); goOn(bob)
             val charger = alice.field("Ember Charger").single()
-            alice.state.combat?.attackers?.map { it.id } == listOf(charger) &&
+            alice.state.player(bob.me).life == life - 4 &&
                 arcanum.engine.Engine.view(alice.state)[charger]?.mechanics.orEmpty().any { it.mechanic == arcanum.api.Mechanic.DoesntUntap }
         }
         assertFalse(alice.costsPanel(), "the panel closed")
@@ -100,18 +103,24 @@ class CombatCostPanelTest : E2e() {
         assertTrue(alice.state.combat == null && alice.state.turn.step == TurnStep.DeclareAttackers, "nothing declared")
         alice.declare("Attack (1)", this)
         waitUntil("the costs panel again") { alice.costsPanel() && alice.shows(hasContentDescription(owed)) }
-        // The Mountains lie in one stack: a tap on it adds its topmost one not paying yet (TBL-130), which then lies apart
-        alice.battlefieldCard("Mountain").performClick()
-        waitUntil("one Mountain paying: ${alice.screen()}") {
-            alice.shows(hasContentDescription("Not paid: Not enough to pay {2}: produce more mana on the board."))
+        // The panel covers her battlefield: the eye hides it to tap the Mountains there (CMB-100, STK-157). They lie in one stack: a
+        // tap on it adds its topmost one not paying yet (TBL-130), which then lies apart
+        fun onTable(what: String, done: () -> Boolean) {
+            alice.tap("Hide costs panel")
+            waitUntil("the costs panel hidden") { alice.showsControl("Show costs panel") }
+            run(skip = java.time.Duration.ofSeconds(1))
+            alice.battlefieldCard("Mountain").performClick()
+            run(skip = java.time.Duration.ofSeconds(1))
+            alice.tap("Show costs panel")
+            waitUntil("$what: ${alice.screen()}") { done() }
         }
-        run(skip = java.time.Duration.ofSeconds(1))
-        alice.battlefieldCard("Mountain").performClick()
-        waitUntil("paid by the two Mountains, Attack usable: ${alice.screen()}") { alice.mainSays("Attack") && !alice.shows(hasContentDescription(owed)) }
+        onTable("one Mountain paying") { alice.shows(hasContentDescription("Not paid: Not enough to pay {2}: produce more mana on the board.")) }
+        onTable("paid by the two Mountains") { alice.showsText("Outlined sources pay. Tap sources on the table to change them.") }
+        val life = alice.state.player(bob.me).life
         alice.tap("Attack")
-        waitUntil("the Pup attacking, both Mountains tapped for it", along = listOf(bob)) {
-            alice.state.combat?.attackers?.map { it.id } == alice.field("Ash Pup") &&
-                alice.field("Mountain").all { alice.state.obj(it)?.tapped == true }
+        waitUntil("the Pup attacked, both Mountains tapped for it", along = listOf(bob)) {
+            goOn(alice); goOn(bob)
+            alice.state.player(bob.me).life == life - 1 && alice.field("Mountain").all { alice.state.obj(it)?.tapped == true }
         }
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
@@ -155,11 +164,21 @@ class CombatCostPanelTest : E2e() {
         waitUntil("Bob's costs panel: ${bob.screen()}") {
             bob.costsPanel("block") && bob.shows(hasContentDescription("Not paid: Still owed {1}: produce the mana on the board."))
         }
+        // The panel covers his battlefield: the eye hides it to tap his Mountain there
+        bob.tap("Hide costs panel")
+        waitUntil("Bob's costs panel hidden") { bob.showsControl("Show costs panel") }
+        run(skip = java.time.Duration.ofSeconds(1))
         bob.battlefieldCard("Mountain").performClick()
-        waitUntil("paid by his Mountain: ${bob.screen()}") { bob.mainSays("Block") }
+        run(skip = java.time.Duration.ofSeconds(1))
+        bob.tap("Show costs panel")
+        waitUntil("paid by his Mountain: ${bob.screen()}") { bob.showsText("Outlined sources pay. Tap sources on the table to change them.") }
+        val life = bob.state.player(bob.me).life
         bob.tap("Block")
-        waitUntil("the Pup blocking, the Mountain tapped for it", along = listOf(alice)) {
-            bob.state.combat?.blockers?.map { it.id } == bob.field("Ash Pup") && bob.field("Mountain").all { bob.state.obj(it)?.tapped == true }
+        // The 1/1 Pup blocked the 2/3 Tollward and died; Bob took no damage
+        waitUntil("the Pup blocked and died, the Mountain tapped for it", along = listOf(alice)) {
+            goOn(alice); goOn(bob)
+            bob.field("Ash Pup").isEmpty() && bob.state.player(bob.me).life == life &&
+                bob.field("Mountain").all { bob.state.obj(it)?.tapped == true } && bob.state.turn.step != TurnStep.DeclareBlockers
         }
         assertFalse(alice.refusalSeen || bob.refusalSeen, "no refusal: ${alice.shownTexts} ${bob.shownTexts}")
     }

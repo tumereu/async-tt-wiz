@@ -20,6 +20,12 @@ Changes the owner wants but that are not built yet. The feature catalog
 - Splash rule: a card with exactly one off-colour coloured pip that is strong enough (top ~10% of its set by GIH WR; by the heuristic where unrated) gets a much smaller off-colour penalty (about -4 instead of -16); one splash colour at most; two or more off-colour pips keep the full penalty. The colour penalty also weighs against the card's strength, so a large gap can beat colour (e.g. a bomb opened at the first pick of packs 2 and 3).
 - Warning: in a pod whose set has no ratings, or a cube or multiset draft, bot seats show a warning icon (setup's bot rows and Add bot, and the bots among a started pod's members) whose hold says bots pick less well here because there are no card ratings for this set (or for cubes and mixed drafts). Catalog: DRF-292, DRF-296..DRF-298 and new entries; the burn choice (DRF-301 area) uses the same values.
 
+### Landscape hand as a turning fan (owner, 2026-11-25; after the draft bots; replaces the look of gallery 571)
+
+- In landscape your hand becomes a fan like the desktop's (WEB-073, WEB-074, WEB-103): between your piles and the action area (TBL-144's layout otherwise kept), cards turned a little and overlapping, standing over the battlefield and partly below the screen's bottom, no hand-row background; cards from other zones at its right end after the divider (ZON-079). Portrait keeps its row.
+- As many cards as fit with each still easy to tap (about 9 on a narrow phone, 12 on a wide one) make a still fan. With more, a sideways drag turns the fan like a wheel (a flick carries on a little and slows down); cards turned away sink below the screen's bottom along the curve, no fade. It stops at the ends (the first card no further right than the fan's right end, the last no further left than its left end; never wraps; the hand keeps its order, ZON-081). A small "+N" at an end with cards turned away; the hand count stays. Up or down drags a card as now (ZON-077); tap, double-tap and hold unchanged. A raised card stays raised when turned away. A drawn card lands in its place; if that is turned away the "+N" counts it, and the fan doesn't turn by itself.
+- Catalog: ZON-081, TBL-144, TBL-238 (the hand row part) and new entries; gallery 571 re-recorded; e2e covers turning and playing from a turned fan.
+
 ### Earlier
 
 Playtest and gallery notes (owner, 2026-11-11):

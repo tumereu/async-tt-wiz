@@ -1,0 +1,1 @@
+mod: An undo request from the other player now waits until you have caught up to where they asked it from; the catch-up plays as usual meanwhile.

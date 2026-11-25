@@ -87,7 +87,7 @@ class ShownEncoder(val gameId: String, private val codec: EngineJson) {
             lineDelta, shown.held.size, transition, shown.needsReload, shown.pausing, shown.takingBack, shown.reveal, olderDelta,
             shown.olderComplete, shown.show, shown.showDone, shown.takeBack?.let { HeldWire(it.by, it.undo) }, shown.branchStop,
             turnChange, shown.combatHold, shown.ownActionShown, shown.opponentAt, shown.moments, shown.ownStepHeld, shown.coming, noted,
-            rest = rest)
+            rest = rest, requestHeld = shown.requestHeld)
         // Both sides keep the events of the page's mirror line, the shown line and the older history loaded
         events.retain(retained(shadow.lineIds, lineIds, olderIds))
         return out
@@ -245,7 +245,7 @@ class ShownDecoder(private val gameId: String, private val codec: EngineJson, pr
             w.localHead, w.drafting, w.request, w.indicator, w.undoTarget, lineEvents, lineEvents.take(w.held), transition, w.needsReload,
             w.pausing, w.takingBack, w.reveal, olderIds.map(events::get), w.olderComplete, w.show, w.showDone,
             w.takeBack?.let { EngineGame.Held(it.by, it.undo) }, w.branchStop, turnChange, w.combatHold, w.ownActionShown, w.opponentAt,
-            w.moments, w.ownStepHeld, w.coming, state, rest)
+            w.moments, w.ownStepHeld, w.coming, state, rest, w.requestHeld)
         val notes = w.notes.map { it.restored(events::get) }
         events.retain(ShownEncoder.retained(mirror.events, lineIds, olderIds))
         return Decoded(shown, notes)

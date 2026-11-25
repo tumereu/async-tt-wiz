@@ -344,20 +344,25 @@ private fun aboutObjects(flows: SharedFlowController, flow: SharedShown, decisio
 }
 
 /**
- * STK-030 (owner playtest 2026-11-06): the sentence an open question of a resolution or a trigger asks about, shown under
- * its title without holding: an ability's whole text (a keyword's trigger as its keyword's printed line), a spell's
- * sentence of what is chosen ([askedSentence]); null where the question's own words are that sentence ([hasOwnText]) or
- * the viewer may not see the source.
+ * STK-030 (owner playtest 2026-11-06), STK-181 (owner gallery review 2026-11-25: every choice shows its ability's whole text):
+ * the text an open question of a resolution or a trigger asks about, shown under its title without holding: an ability's
+ * whole text (a keyword's trigger as its keyword's printed line), a resolving spell's whole text ([spellText]), a
+ * permanent's ability naming what is chosen ([askedAbilities]). An ability's question with words of its own ([hasOwnText])
+ * has none here: its source's words ([ChoiceSourceWords]) show its text above them; a spell's or a permanent's still shows
+ * it. None for triggers or replacements to order (each row has its line; a replacement's source is what it affects, not an
+ * ability) or a skipped step (its text is its own), nor where the viewer may not see the source.
  */
 private fun askedLine(flows: FlowQuestions, flow: SharedShown, play: TableBoard, decision: Decision, source: ChoiceCardData?): String? {
-    if (hasOwnText(decision)) return null
+    if (decision is Decision.OrderTriggers || decision is Decision.ChooseReplacement || decision is Decision.Manual) return null
+    val own = hasOwnText(decision)
     val item = decisionItem(flow, decision)
     val sourceCard = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem }
     if (sourceCard?.let(flows::shown) == false) return null
-    if (item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered)) return itemText(flows, play, item)
+    if (item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered)) return if (own) null else itemText(flows, play, item)
     // An ability being put on the Stack (its targets and modes, CR 603.3d): its token carries its text
-    source?.ability?.text?.takeIf { it.isNotBlank() }?.let { return it }
-    return askedSentence(sourceCard?.let { rulesTextOf(play, flows.atwCard(it)) }, decision)
+    source?.ability?.text?.takeIf { it.isNotBlank() }?.let { return if (own) null else it }
+    val text = sourceCard?.let { rulesTextOf(play, flows.atwCard(it)) }
+    return if (item != null) spellText(text) else askedAbilities(text, decision)
 }
 
 /**
@@ -377,17 +382,23 @@ fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden
     val slot = remember(decision.id) { DockSlot() }
     // STK-049 (owner gallery review, 2026-11-06): a "you may pay" of mana is its payment, with "Don't pay" beside Pay
     val payment = questions.paymentAfter(decision)
-    val askedLine = if (payment != null && decision is Decision.May) decision.text else line
+    val pays = payment != null && decision is Decision.May
+    val askedLine = if (pays) decision.text else line
     val words = ChoiceSourceWords.of(source, copy)
-    // E12: an ability's whole text shows once, also where it is the sentence the question asks about
-    val abilityText = words?.text?.takeIf { it != askedLine?.trim() }
+    // E12: an ability's whole text shows once, also where it is the sentence the question asks about; STK-181 (owner 2026-11-25):
+    // a spell's whole text shows above its payment's "you may pay" as an ability's does
+    val abilityText = (words?.text ?: line?.takeIf { pays })?.takeIf { it != askedLine?.trim() }
     // STK-181 (owner 2026-11-22, F1): a question that only repeats clauses of the ability text above it isn't shown
     val shownLine = askedLine?.takeUnless { QuestionLine.repeats(it, abilityText) }
+    // The source's text the panel shows above the choice (an ability's, or a spell's as its line)
+    val shownText = abilityText ?: shownLine?.takeIf { !pays }
     // F1: nor is a "you may" of the choice itself (OpenSection's) that repeats them
-    val ownRepeats = decision is Decision.May && payment == null && QuestionLine.repeats(decision.text, abilityText)
+    val ownRepeats = decision is Decision.May && payment == null && QuestionLine.repeats(decision.text, shownText)
     LaunchedEffect(decision.id) {
+        // STK-181 (owner 2026-11-25): what text the panel showed, so a report of it explains itself
         AppLog.info("decision", "Choice panel of ${decision.id.value} (${decision.kind}): from ${words?.name ?: "no source named"}" +
-            (if (copy) " (for a copy)" else "") + ", ability text ${if (words?.text == null) "none" else if (abilityText == null) "as its question" else "shown"}" +
+            (if (copy) " (for a copy)" else "") + ", ability text ${abilityText?.let { "\"${it.take(160)}\"" } ?: if (words?.text == null) "none" else "as its question"}" +
+            ", line ${shownLine?.let { "\"${it.take(160)}\"" } ?: "none"}" +
             (if (askedLine != null && shownLine == null || ownRepeats) ", question repeats the ability text: not shown" else ""))
     }
     AutomatumDockPanel("Automatum choice", hidden, toggleHidden, "Automatum panel", buttons = { slot.buttons?.invoke(this) }) {
@@ -407,7 +418,7 @@ fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden
         }
         if (about.isNotEmpty()) AboutRow("About", about.map { AboutItem.Card(choiceCardOf(questions, play, viewer, it)) }, inspector)
         (if (payment != null) PAY_OR_DECLINE else choiceHint(decision))?.let { ChoiceHintText(it) }
-        CompositionLocalProvider(LocalChoiceFrame provides LocalChoiceFrame.current.copy(headed = true, shownText = abilityText)) {
+        CompositionLocalProvider(LocalChoiceFrame provides LocalChoiceFrame.current.copy(headed = true, shownText = shownText)) {
             when {
                 decision is Decision.ManaPayment -> {
                     ManaSection(questions, questions, play, decision)
@@ -456,7 +467,9 @@ private fun FlowPayBar(flows: SharedFlowController, flow: SharedShown, play: Tab
     // STK-178 (owner 2026-11-21, E12): the source named under the title, and an ability's whole text as the sentence, as a target
     // bar draws it
     val words = ChoiceSourceWords.of(source, forCopy(flow, decision))
-    val line = words?.text ?: if (decision is Decision.May) decision.text else askedLine(flows, flow, play, decision, source)
+    // STK-181 (owner 2026-11-25): a spell's whole text too, its "you may pay" being part of it
+    val line = words?.text ?: askedLine(flows, flow, play, decision, source) ?: (decision as? Decision.May)?.text
+    LaunchedEffect(decision.id) { AppLog.info("decision", "Pay bar of ${decision.id.value}: text ${line?.let { "\"${it.take(160)}\"" } ?: "none"}") }
     AutomatumDockBar("Pay on the table", eye = true) {
         TargetBarTitle(choiceWhat(payment), line, if (flows.paid) "Paid" else "Not paid yet", source = words?.name)
         // Pool mana and life, which the table can't show, as chips

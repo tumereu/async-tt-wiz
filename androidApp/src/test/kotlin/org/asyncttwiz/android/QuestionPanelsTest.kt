@@ -364,16 +364,19 @@ class QuestionPanelsTest {
             "The legend rule: the panel is titled \"Legend rule\", says \"Tap the Mountain to keep; the others go to the graveyard.\", shows the two cards and Keep.")
     }
 
-    // STK-030, STK-181, STK-023, STK-136, STK-047, STK-142: a spell's question shows its sentences naming what is chosen, else its whole text
-    @Test fun aSpellsQuestionShowsTheSentenceItAsksAbout() {
+    // STK-030, STK-181, STK-023, STK-136, STK-047, STK-142 (owner gallery review 2026-11-25: every choice shows its ability's whole
+    // text): a spell's question shows the spell's whole text; a permanent's the abilities naming what is chosen, else its whole text
+    @Test fun aSpellsQuestionShowsItsWholeText() {
         val text = "Ember Burst deals X damage to any target.\nYou gain 1 life."
-        val x = Decision.Announce(id("x"), kit.me, null, "X", 0)
-        assertEquals("Ember Burst deals X damage to any target.", askedSentence(text, x))
-        val targets = Decision.Targets(id("t"), kit.me, null, "any", emptyList(), 1, 1)
-        assertEquals("Ember Burst deals X damage to any target.", askedSentence(text, targets))
+        assertEquals("Ember Burst deals X damage to any target.\nYou gain 1 life.", spellText(text))
+        assertEquals(null, spellText(null))
+        val permanent = "Flying\nAs this creature enters, choose a color. It gets +1/+1 while you control a permanent of that color."
         val color = Decision.ChooseColor(id("c"), kit.me, null, arcanum.api.Color.all)
-        assertEquals("Ember Burst deals X damage to any target. You gain 1 life.", askedSentence(text, color))
-        assertEquals(null, askedSentence(null, color))
+        assertEquals("As this creature enters, choose a color. It gets +1/+1 while you control a permanent of that color.",
+            askedAbilities(permanent, color))
+        val x = Decision.Announce(id("x"), kit.me, null, "X", 0)
+        assertEquals(permanent, askedAbilities(permanent, x))
+        assertEquals(null, askedAbilities(null, color))
     }
 
     // STK-030, SYS-064: a step Automatum can't do: its text, skipped

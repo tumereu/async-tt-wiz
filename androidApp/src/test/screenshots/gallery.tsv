@@ -394,7 +394,7 @@ number	item	screenshot	catalog	decisions	sequence
 569	Payment with restricted mana in the pool: the Gildleaf Shard's mana (creature spells only) has the violet sparkle, held to show its restriction in its own words with its source	cast-panel/pool-mana-restricted.png	STK-228 TBL-136 TBL-120	ManaPayment
 570	Pod setup of a solo draft: the creator alone with two bots, warned that there is no one to play against	draft/setup-solo.png	DRF-296 DRF-301 DRF-035		
 571	Landscape with large hand cards: the battlefield seen beside and under your hand's fan, its cards standing over it, no hand row behind them	battlefield/under-large-hand-landscape.png	TBL-238 TBL-144 ZON-138		
-572	Pile choice for the player who chooses: a face-up pile drawn as its cards, a face-down pile as card backs, each with its count and a Choose button	choice-source/pile-choice.png	STK-229 STK-044	ChooseOption	
+572	Pile choice for the player who chooses: the spell's whole text under the title (owner-reported fix), a face-up pile drawn as its cards, a face-down pile as card backs, each with its count and a Choose button	choice-source/pile-choice.png	STK-229 STK-181 STK-044	ChooseOption	
 573	Side menu (portrait drawer): one list of five above the buttons, one of each: your move red, a pod invitation blue, a deck to build green, a game without a dot, the challenge you can't accept yet last	side-menu/drawer-mix.png	LOB-018 LOB-269 LOB-267 LOB-025		Side menu list
 574	Side menu: with eight games and pods, only the five most important show	side-menu/drawer-five-of-many.png	LOB-018 LOB-267		Side menu list
 575	Side menu at a game's table: the open game keeps its place first, highlighted, without its dot	side-menu/drawer-open-game.png	LOB-018 LOB-269		Side menu list
@@ -452,3 +452,7 @@ number	item	screenshot	catalog	decisions	sequence
 646	Rating chip colours, default: gold, pale gold, light grey, grey, dark grey	draft/rating-colours-gold-to-grey.png	DRF-315		Rating chip colours
 647	Rating chip colours, option 2 (medals): gold, silver, bronze, grey, dark grey	draft/rating-colours-medals.png	DRF-315		Rating chip colours
 648	Rating chip colours, option 3: gold, violet, light grey, grey, dark grey	draft/rating-colours-gold-violet-grey.png	DRF-315		Rating chip colours
+660	Choice ability text: separating piles shows the spell's whole text under "Separate into piles"	choice-text/separate-piles.png	STK-181 STK-043	ChooseObjects	Choice ability text
+661	Choice ability text: a spell's search shows the spell's whole text under the search's title (before: none)	choice-text/spell-search.png	STK-181 STK-056	ChooseObjects	Choice ability text
+662	Choice ability text: a spell's "you may" shows the spell's whole text, its own words not repeated (before: only the "you may" sentence)	choice-text/spell-may.png	STK-181 STK-182	May	Choice ability text
+663	Choice ability text: the cast panel's X shows the spell's whole text, both sentences (before: only the first)	choice-text/cast-x.png	STK-136 STK-181 STK-023	Announce	Choice ability text

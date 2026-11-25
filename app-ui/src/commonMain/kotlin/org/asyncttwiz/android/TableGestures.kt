@@ -11,6 +11,11 @@ data class TableGesturePreview(val pressedId: String? = null, val scope: TableSc
 
 /** TBL-042: two taps within this long (and 32 dp) are a double tap. */
 const val DOUBLE_TAP_MILLIS = 400L
+/** ZON-139: how long a flicked fan takes to slow down (its time constant): it carries on the finger's speed times this. */
+const val FAN_GLIDE_SECONDS = .12f
+/** ZON-139: the finger's moves this recent tell its speed as it lets go of the fan; slower than [MIN_FLICK] dp/s is no flick. */
+private const val FLICK_WINDOW_MILLIS = 100L
+private const val MIN_FLICK = 150f
 
 /** The ONLY pointer arbiter on the table, including docks/hands. Scene, preview and gesture distances
  * are dp; hosts convert raw pointer pixels with [pointFromPixels], including pan deltas/centroids. */
@@ -28,7 +33,7 @@ class TableGestureCoordinator(
 ) {
     init { require(density.isFinite() && density > 0f) }
     fun pointFromPixels(x: Float, y: Float) = TablePoint(x / density, y / density)
-    private enum class Phase { PRESS, DRAG, SCROLL, HOLD, TRANSFORM, PAN, HAND_PAN }
+    private enum class Phase { PRESS, DRAG, SCROLL, HOLD, TRANSFORM, PAN, HAND_PAN, FAN_TURN }
     private data class Capture(val item: TableItem?, val start: TablePoint, val time: Long,
         val scope: TableScope?, val viewport: TableViewport?, var phase: Phase = Phase.PRESS,
         var point: TablePoint = start, var double: Boolean = false, val sources: Map<String, TableMoveSource> = emptyMap(),
@@ -37,7 +42,9 @@ class TableGestureCoordinator(
         /** ZON-081: where a hand pan started (its scroll plus the pull past its end shown then). */
         var handStart: Float = 0f,
         /** TBL-104: where the finger was when the hold began. */
-        var holdStart: TablePoint? = null)
+        var holdStart: TablePoint? = null,
+        /** ZON-139: the finger's last few sideways places while it turns the landscape fan (time, x), for its flick. */
+        val turnSamples: ArrayDeque<Pair<Long, Float>> = ArrayDeque())
     private data class Tap(val capture: Capture, val deadline: Long, val shown: Boolean)
     private var capture: Capture? = null
     private var transformRegion: String? = null
@@ -90,6 +97,16 @@ class TableGestureCoordinator(
     private var handSpring: HandSpring? = null
     /** The pull past its end each hand shows now (dp, by viewport id). */
     private val handPull = mutableMapOf<String, Float>()
+    /** ZON-139 (owner, 2026-11-25): the landscape fan carrying on after a flick, slowing down onto a whole card ([to]) from
+     * [from] (dp of turn), started at [start]; [flick]: the finger's speed (dp/s) as it let go, for the log. */
+    private data class FanGlide(val viewport: String, val from: Float, val to: Float, val turning: HandFan.Turning,
+        val flick: Float, val began: Float, var start: Long? = null)
+    private var fanGlide: FanGlide? = null
+    /** ZON-139: the turn the landscape fan shows now while a finger or a glide turns it (dp, by viewport id; none at rest). */
+    private val fanTurn = mutableMapOf<String, Float>()
+    /** ZON-139: a glide a touch stopped, from where it stopped ([FanGlide.from]): a turn starting with that touch starts there;
+     * any other gesture lets the fan settle on a whole card from there as it ends. */
+    private var stoppedTurn: FanGlide? = null
     var preview = TableGesturePreview(); private set
     var capturedActions: TableIntent.Actions? = null; private set
     var actionItem: TableItem? = null; private set
@@ -97,7 +114,7 @@ class TableGestureCoordinator(
     var tapOnHand: Boolean = false; private set
     /** Where the last tap was. */
     var tapPoint: TablePoint = TablePoint(0f, 0f); private set
-    val busy get() = capture != null || pending != null || spring != null || handSpring != null
+    val busy get() = capture != null || pending != null || spring != null || handSpring != null || fanGlide != null
     // The hand row background previews nothing; its cards have their own items.
     private fun peekId(item: TableItem?) = item?.cardId ?: item?.cards?.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND }
     val peeking get() = holdInspects && capture?.let { it.phase == Phase.HOLD && peekId(it.item) != null } == true
@@ -139,6 +156,13 @@ class TableGestureCoordinator(
         gestureWorld = if (spring == null) world?.holding(scene.camera) else world
         spring = null
         handSpring = null
+        // ZON-139: a finger down stops a gliding fan where it is
+        stoppedTurn = fanGlide?.let { g ->
+            val at = fanTurn.remove(g.viewport) ?: g.from
+            fanLog("stopped by a touch", g.viewport, g.turning, g.began, at, g.flick)
+            g.copy(from = at, to = g.turning.settled(at), flick = 0f, began = at, start = null)
+        }
+        fanGlide = null
         transforming = false; transformRegion = null
         navigationCamera = gestureWorld?.unresist(scene.camera) ?: scene.camera
         val item = hitAt(point)
@@ -196,6 +220,19 @@ class TableGestureCoordinator(
             if (seconds >= .65f) { handSpring = null; pull(s.viewport, 0f) }
             else pull(s.viewport, s.from * (1f + 16f * seconds) * exp(-16f * seconds))
         }
+        fanGlide?.let { g ->
+            val start = g.start ?: time.also { g.start = it }
+            val seconds = ((time - start).coerceAtLeast(0) / 1000f)
+            // It leaves at about the finger's speed and slows down, onto a whole card
+            val remaining = exp(-seconds / FAN_GLIDE_SECONDS)
+            val at = g.to + (g.from - g.to) * remaining
+            if (abs(at - g.to) < .5f || seconds >= 6 * FAN_GLIDE_SECONDS) {
+                fanGlide = null
+                turnFan(g.viewport, g.to)
+                fanTurn.remove(g.viewport)
+                fanLog(if (g.flick != 0f) "flicked" else "settled", g.viewport, g.turning, g.began, g.to, g.flick)
+            } else turnFan(g.viewport, at)
+        }
         val p = pending
         if (p != null && time >= p.deadline) { pending = null; if (!p.shown) single(p.capture) }
         val c = capture ?: return
@@ -226,6 +263,13 @@ class TableGestureCoordinator(
             // Crossing slop wins over hold even when a delayed input frame arrives after its deadline.
             pending = null
             c.phase = when {
+                // ZON-139 (owner, 2026-11-25): a sideways drag on your landscape hand's fan (a card's too) turns it; a still
+                // fan stays as it is (up or down drags a card, ZON-077)
+                c.viewport?.turn != null && abs(dx) > abs(dy) && !c.double -> Phase.FAN_TURN.also {
+                    c.handStart = stoppedTurn?.takeIf { it.viewport == c.viewport.id }?.from ?: c.viewport.turn.value
+                    stoppedTurn = null
+                    c.turnSamples.addLast(time to point.x)
+                }
                 // ZON-081 (I-D50): with Automatum on a drag on a hand that first moves sideways pans it (a card's too)
                 c.viewport?.hand == true && abs(dx) > abs(dy) && !c.double -> Phase.HAND_PAN.also {
                     c.handStart = c.viewport.scroll + (handPull[c.viewport.id] ?: 0f)
@@ -255,6 +299,12 @@ class TableGestureCoordinator(
                 val over = raw - scroll
                 if (port.maxScroll > 0f) emit(TableIntent.Scroll(port.id, scroll))
                 pull(port.id, over / (2f + abs(over) / 96f))
+            }
+            Phase.FAN_TURN -> c.viewport?.turn?.let { turn ->
+                // ZON-139: it stops at its ends (never past them, never round)
+                if (turn.turns) turnFan(c.viewport.id, (c.handStart - dx).coerceIn(turn.min, turn.max))
+                c.turnSamples.addLast(time to point.x)
+                while (c.turnSamples.size > 2 && time - c.turnSamples.first().first > FLICK_WINDOW_MILLIS) c.turnSamples.removeFirst()
             }
             Phase.PAN -> navigate(c.camera.copy(x = c.camera.x - dx / c.camera.zoom, y = c.camera.y - dy / c.camera.zoom), elastic = true)
             Phase.SCROLL -> c.viewport?.let { p -> if (p.maxScrollY > 0 && (p.id.startsWith("cardPanel/") || abs(dy) > abs(dx)))
@@ -324,8 +374,12 @@ class TableGestureCoordinator(
                     c.destination?.let { d -> emit(TableIntent.Move(c.scope, d, c.sources, drag = true, fromHandRow = c.item.handZone != null)) }
             }
             Phase.HOLD -> if (holdInspects && peekId(c.item) != null) emit(TableIntent.Peek(null, released = true))
+            Phase.FAN_TURN -> c.viewport?.turn?.takeIf { it.turns }?.let { turn -> glideFan(c, turn, time) }
             else -> Unit
         }
+        // ZON-139: a fan a touch stopped mid-glide settles on a whole card once that touch, not a turn, ends
+        stoppedTurn?.let { if (it.to != it.from) fanGlide = it }
+        stoppedTurn = null
         settleCamera()
         preview = TableGesturePreview()
     }
@@ -336,6 +390,7 @@ class TableGestureCoordinator(
         pendingCleared = "secondPointer"; pending = null
         if (capture?.phase == Phase.HOLD && holdInspects) emit(TableIntent.Peek(null))
         held(false)
+        capture?.let(::restFan)
         capture?.phase = Phase.TRANSFORM
         preview = TableGesturePreview()
         if (!transforming) {
@@ -390,6 +445,45 @@ class TableGestureCoordinator(
         scene = scene.copy(camera = camera) // coalesce rapid pointer frames without losing personal navigation deltas
         emit(TableIntent.Camera(camera))
     }
+    /** ZON-139: shows the landscape fan [viewport] turned [value] dp. */
+    private fun turnFan(viewport: String, value: Float) {
+        fanTurn[viewport] = value
+        emit(TableIntent.Scroll(viewport, value))
+    }
+    /** ZON-139: the fan let go: a flick carries it on a little, slowing down; it always comes to rest on a whole card. */
+    private fun glideFan(c: Capture, turn: HandFan.Turning, time: Long) {
+        val port = c.viewport ?: return
+        val from = fanTurn[port.id] ?: turn.value
+        val first = c.turnSamples.firstOrNull()
+        val last = c.turnSamples.lastOrNull()
+        // dp/s the finger moved sideways over its last moments (0 when it rested before letting go)
+        val flick = if (first == null || last == null || last.first - first.first <= 0 || time - last.first > FLICK_WINDOW_MILLIS) 0f
+            else (last.second - first.second) / ((last.first - first.first) / 1000f)
+        val carried = if (abs(flick) < MIN_FLICK) 0f else -flick * FAN_GLIDE_SECONDS
+        val to = turn.settled(from + carried)
+        if (abs(to - from) < .5f) {
+            turnFan(port.id, to); fanTurn.remove(port.id)
+            fanLog("turned", port.id, turn, c.handStart, to, 0f)
+            return
+        }
+        fanGlide = FanGlide(port.id, from, to, turn, if (carried == 0f) 0f else flick, c.handStart)
+    }
+    /** ZON-139: a turn ended without letting go (a second finger, a cancel): the fan rests on the nearest whole card. */
+    private fun restFan(c: Capture) {
+        if (c.phase != Phase.FAN_TURN) return
+        val turn = c.viewport?.turn ?: return
+        val at = fanTurn.remove(c.viewport.id) ?: return
+        val to = turn.settled(at)
+        turnFan(c.viewport.id, to); fanTurn.remove(c.viewport.id)
+        fanLog("turned (interrupted)", c.viewport.id, turn, c.handStart, to, 0f)
+    }
+    /** ZON-139 (logging rule): one line for each turn of the fan once it rests: from where to where, and what is turned away. */
+    private fun fanLog(how: String, viewport: String, turn: HandFan.Turning, from: Float, to: Float, flick: Float) {
+        val (left, right) = turn.hidden(to)
+        AppLog.info("table", "Hand fan $how ($viewport): first card in view ${turn.first(from)} -> ${turn.first(to)} of " +
+            "${turn.cards.size} (${turn.slots} in view" + (if (flick != 0f) ", flick ${flick.toInt()} dp/s" else "") + "); " +
+            "turned away left ${left.size} $left, right ${right.size} $right")
+    }
     private fun pull(viewport: String, offset: Float) {
         if (offset == 0f) handPull.remove(viewport) else handPull[viewport] = offset
         emit(TableIntent.Overscroll(viewport, offset))
@@ -413,6 +507,9 @@ class TableGestureCoordinator(
     }
     fun cancel() {
         if (capture?.phase == Phase.HOLD && holdInspects) emit(TableIntent.Peek(null))
+        capture?.let(::restFan)
+        stoppedTurn?.let { if (it.to != it.from) fanGlide = it }
+        stoppedTurn = null
         held(false)
         if (capture?.double == true && capture?.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:cancelled")
         capture = null; pendingCleared = "cancelled"; pending = null; preview = TableGesturePreview()

@@ -702,21 +702,25 @@ class TableGesturesTest {
             val scene = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", width, height, landscape)
             val field = scene.fields.single { it.owner == "a" }
             assertTrue(field.bounds.height > 0)
-            val hand = scene.items.single { it.cardId == "a/HAND/2" }
+            // ZON-139: on a 640 dp wide landscape screen the fan holds fewer cards: a card in view
+            val hand = scene.items.single { it.cardId == "a/HAND/2" }.takeIf { it.visible.isNotEmpty() }
+                ?: scene.items.first { it.zone == PlayZone.HAND && it.owner == "a" && it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }
+            val handId = assertNotNull(hand.cardId)
             assertFalse(hand.covered)
-            val start = hand.visible.first().center
+            // ZON-138: a card of the landscape fan is found by its own part of the fan
+            val start = hand.handSlot?.center ?: hand.visible.first().center
             // The right-edge midpoint is now the screen-fixed Stack, not empty battlefield.
             val destination = TablePoint(field.bounds.x + 5 * TablePresentation.GRID, field.bounds.center.y)
             val events = mutableListOf<TableIntent>()
             val coordinator = TableGestureCoordinator(events::add)
             coordinator.update(scene, true)
-            // ZON-081: a hand card is dragged by first moving up (sideways pans the hand)
+            // ZON-081, ZON-141: a hand card is dragged by first moving up (sideways pans the hand, or turns the landscape fan)
             coordinator.down(start, 0); coordinator.move(TablePoint(start.x, start.y - 20f), 40)
             coordinator.move(destination, 80); coordinator.up(destination, 100)
             val move = events.filterIsInstance<TableIntent.Move>().single()
             assertEquals("a/BATTLEFIELD", (move.destination as TableDestination.Grid).containerId)
-            assertEquals(listOf("a/HAND/2"), move.scope.cardIds)
-            assertEquals("a/HAND", move.sources.getValue("a/HAND/2").containerId)
+            assertEquals(listOf(handId), move.scope.cardIds)
+            assertEquals("a/HAND", move.sources.getValue(handId).containerId)
             assertTrue(events.none { it is TableIntent.Actions })
             events.clear()
             val card = scene.items.single { it.cardId == "a/BATTLEFIELD/2" }.visible.first().center

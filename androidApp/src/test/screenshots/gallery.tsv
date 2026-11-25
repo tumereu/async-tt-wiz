@@ -393,7 +393,7 @@ number	item	screenshot	catalog	decisions	sequence
 568	Pod setup: the ✕ on Bob's row asks "Remove Bob from Bot night?"	draft/setup-remove-member.png	DRF-308		
 569	Payment with restricted mana in the pool: the Gildleaf Shard's mana (creature spells only) has the violet sparkle, held to show its restriction in its own words with its source	cast-panel/pool-mana-restricted.png	STK-228 TBL-136 TBL-120	ManaPayment
 570	Pod setup of a solo draft: the creator alone with two bots, warned that there is no one to play against	draft/setup-solo.png	DRF-296 DRF-301 DRF-035		
-571	Landscape with large hand cards: the battlefield seen under the hand, the hand cards drawn over it, the hand row white only in the bar	battlefield/under-large-hand-landscape.png	TBL-238 TBL-144		
+571	Landscape with large hand cards: the battlefield seen beside and under your hand's fan, its cards standing over it, no hand row behind them	battlefield/under-large-hand-landscape.png	TBL-238 TBL-144 ZON-138		
 572	Pile choice for the player who chooses: a face-up pile drawn as its cards, a face-down pile as card backs, each with its count and a Choose button	choice-source/pile-choice.png	STK-229 STK-044	ChooseOption	
 573	Side menu (portrait drawer): one list of five above the buttons, one of each: your move red, a pod invitation blue, a deck to build green, a game without a dot, the challenge you can't accept yet last	side-menu/drawer-mix.png	LOB-018 LOB-269 LOB-267 LOB-025		Side menu list
 574	Side menu: with eight games and pods, only the five most important show	side-menu/drawer-five-of-many.png	LOB-018 LOB-267		Side menu list
@@ -409,3 +409,16 @@ number	item	screenshot	catalog	decisions	sequence
 584	Exert toggle on the other player's table: shown checked, not theirs to change	combat-band/exert-other-player.png	CMB-037 TBL-240		Exert toggle
 585	Attack cost chip unheld: the amber {2} chip on a staged attacker's copy (as 216)	combat-band/attack-cost.png	CMB-044		Attack cost chip
 586	Attack cost chip held: the ability that makes the attacker pay it, with Inspect of the card opened by the same hold	combat-band/attack-cost-held.png	CMB-044 TBL-240		Attack cost chip
+600	Landscape hand fan: five cards at the default size make a still fan at the bottom of the bar, a fifth of each below the screen (choice: the default size stays small)	hand/landscape-fan-small.png	ZON-138 TBL-144		Landscape hand fan
+601	Landscape hand fan: 2.5x cards stand over the battlefield, the bottom fifth of each below the screen (choice: a fifth hidden)	hand/landscape-fan-large-cards.png	ZON-138 TBL-238		Landscape hand fan
+602	Landscape hand fan: full at its limit with 2.5x cards (7 on an 892 dp screen), still, no +N	hand/landscape-fan-full.png	ZON-139		Landscape hand fan
+603	Landscape hand fan: the limit at the default size on an 892 dp screen (choice: at least 20 dp of each card, 10 here)	hand/landscape-fan-limit-892.png	ZON-139		Landscape hand fan
+604	Landscape hand fan: the limit on a narrow phone (780 x 360 dp): 6 cards	hand/landscape-fan-limit-narrow.png	ZON-139		Landscape hand fan
+605	Landscape hand fan: the limit on a wide phone (960 x 412 dp): 13 cards	hand/landscape-fan-limit-wide.png	ZON-139		Landscape hand fan
+606	Landscape hand fan: ten cards at its start, the rest turned away below the screen, a small +N at the right end (choice: white on dark teal at the end's bottom)	hand/landscape-fan-turning-start.png	ZON-139 ZON-140		Landscape hand fan
+607	Landscape hand fan: turned to the middle, a +N at each end	hand/landscape-fan-turning-middle.png	ZON-139 ZON-140		Landscape hand fan
+608	Landscape hand fan: a raised card pops out along its turn, whole in view	hand/landscape-fan-raised.png	ZON-141 ZON-079		Landscape hand fan
+609	Landscape hand fan: a raised card turned away stays raised, popped out over the end it went past (choice)	hand/landscape-fan-raised-turned-away.png	ZON-141		Landscape hand fan
+610	Landscape hand fan: a card castable from the graveyard stays at the right end after the divider while the hand turns (choice: outside the turning part)	hand/landscape-fan-other-zones.png	ZON-138 ZON-079		Landscape hand fan
+611	Clip: turning the landscape hand fan with a flick: it carries on, slows down and rests on a whole card (choice: how far and always on a whole card)	clips/landscape-fan-flick.webp	ZON-139		Landscape hand fan
+612	Landscape hand fan: the other player's hand stays a row of card backs in the top bar while yours is a fan (open question: make it a fan of backs too?)	hand/landscape-fan-opponent-row.png	ZON-126 ZON-138		Landscape hand fan

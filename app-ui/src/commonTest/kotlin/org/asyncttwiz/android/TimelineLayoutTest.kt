@@ -6,7 +6,7 @@ import kotlin.test.*
 
 class TimelineLayoutTest {
     // HIS-001, HIS-007, HIS-169: play mode's bottom bar is only the controls; timeline mode's panel adds its strip in portrait, the
-    // HUD sitting right above either; in landscape both are one row, your hand in it (TBL-009, TBL-144), and nothing moves
+    // HUD sitting right above either; in landscape both are one row, your hand's fan in it (TBL-009, TBL-144, ZON-138), and nothing moves
     @Test fun theHudSitsAboveThePlayBarOrTheTimelinePanelInBothOrientationsAtEveryZoom() {
         for ((width, height, landscape) in listOf(Triple(360f, 640f, false), Triple(412f, 892f, false),
             Triple(640f, 360f, true), Triple(892f, 412f, true))) for (zoom in listOf(.65f, 1f, 2f)) {
@@ -31,10 +31,12 @@ class TimelineLayoutTest {
             for ((scene, timeline) in listOf(normal to false, review to true)) {
                 for (item in scene.items) if (item.zone == PlayZone.BATTLEFIELD)
                     assertTrue(item.visible.all { it.bottom <= scene.world!!.visibleViewport.bottom })
-                val bottom = (scene.items.filter { it.viewport == "a/HAND" }.map { it.bounds.bottom } +
-                    scene.viewports.filter { !landscape && it.id == "dock/a" }.map { it.bounds.bottom }).max()
+                // ZON-138: in landscape your hand's fan reaches the screen's bottom (its cards partly below it)
+                val bottom = if (landscape) scene.items.single { it.id == "a/HAND" }.bounds.bottom
+                    else (scene.items.filter { it.viewport == "a/HAND" }.map { it.bounds.bottom } +
+                        scene.viewports.filter { it.id == "dock/a" }.map { it.bounds.bottom }).max()
                 val panelTop = height - tableBottomHeight(landscape, timeline)
-                assertEquals(if (landscape) height - 4f else panelTop, bottom, .001f)
+                assertEquals(if (landscape) height else panelTop, bottom, .001f)
                 assertFalse(scene.worldInput(TablePoint(scene.world!!.visibleViewport.center.x, panelTop + 1)))
             }
             assertEquals(normal, TablePresentation.scene(TableFixture.game, tableBoard(play), "a", width, height, landscape, layout))

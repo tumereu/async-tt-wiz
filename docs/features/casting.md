@@ -17,7 +17,7 @@ it without a trace.
 
 ## Raising a hand card
 
-- **ZON-079** Your hand has no menu: a tap raises your card a little (on the desktop table it pops out of the fan along its turn until whole in view, WEB-015). A card you can't use now isn't raised, only shaken; the other player's hand cards ignore taps. (r64)
+- **ZON-079** Your hand has no menu: a tap raises your card a little (in the fan, on the desktop table and in landscape, it pops out along its turn until whole in view, WEB-103, ZON-138). A card you can't use now isn't raised, only shaken; the other player's hand cards ignore taps. (r64, owner 2026-11-25)
 - **ZON-101** A raised hand card outlines in amber the sources Autotap would tap for its regular cast, for its smallest cost only where it can have several (ZON-080; in a stack of identical sources its topmost ones, TBL-130; none for a land or a pool-paid cast; while a chip is held, that chip's, ZON-080). (r64)
 - **ZON-102** A second tap on the raised card casts or plays it at once when that is all it can do now (its regular cast, a greyed way beside it being no choice, asking nothing before its payment); otherwise it opens the card's cast panel (STK-023, ZON-082) and never picks a chip, the chips flashing once over the panel as it opens, a hint that a chip casts directly. (r64)
 - **ZON-103** Tapping elsewhere or another hand card lowers the raised card, as do casting it and its leaving the hand; board changes refresh its chips and outlines. It moves at hand-move speed. (r64)

@@ -125,8 +125,8 @@ class CardSettingsUiTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeSizeExtremes() { screenshots(true) }
 
-    // TBL-238 (owner 2026-11-24): in landscape with hand cards taller than the bar the battlefield is seen under them, the hand
-    // cards drawn over it and the hand row white only in the bar; the rows may be panned there
+    // TBL-238, ZON-138 (owner 2026-11-24, 2026-11-25): in landscape with hand cards taller than the bar the battlefield is seen under
+    // them, your hand's fan drawn over it without a hand row behind it; the rows may be panned there
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeBattlefieldUnderLargeHandCards() {
         // Alice's side with six Forests (two of them tapped) besides her creatures, so her land row reaches under her hand
@@ -176,8 +176,8 @@ class CardSettingsUiTest {
             assertTrue(under.all { card -> card.visible.none { part -> handCards.any { part.intersection(it.bounds)?.let { i -> i.width > .01f && i.height > .01f } == true } } })
             captureShot("$SCREENSHOTS/battlefield/under-large-hand-landscape.png",
                 "Landscape table with hand cards at 2.5x, zoomed to 2x and panned until Alice's Forests lie at her hand cards' height: " +
-                    "the battlefield shows beside, between and under her hand cards, which are drawn over it, and her hand row is " +
-                    "white only in the bottom bar.")
+                    "the battlefield shows beside and under her hand's fan, whose cards stand over it, turned a little and partly below the " +
+                    "screen, with no white hand row behind them.")
         } finally { preferences.setSize(1f, CardArea.HAND); preferences.customizeAreas(false) }
     }
 

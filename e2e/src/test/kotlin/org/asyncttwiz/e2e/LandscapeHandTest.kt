@@ -20,9 +20,10 @@ import kotlin.test.assertTrue
  * strip's height. Everything the hand does stays.
  */
 class LandscapeHandTest : E2e() {
-    // TBL-009, TBL-144, ZON-079, ZON-102, ZON-004, ZON-104 (owner, 2026-11-08): in landscape Alice's hand sits in the bottom bar, after her piles and
-    // before Undo and the quick actions, the battlefield reaching down to the bar; a tap raises a card there and a second
-    // plays it, a double tap plays a land
+    // TBL-009, TBL-144, ZON-079, ZON-102, ZON-004, ZON-104, ZON-138 (owner, 2026-11-08, 2026-11-25): in landscape Alice's hand is a
+    // fan in the bottom bar, after her piles and before Undo and the quick actions (its cards' part in view in the bar, the rest
+    // below the screen), the battlefield reaching down to the bar; a tap raises a card there and a second plays it, a double tap
+    // plays a land
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun theHandInTheBottomBarPlaysAsInPortrait() {
         // The deal follows each run's random account ids (per-player random streams since 336be95d5): Bob's Mountain is asked for,
@@ -39,7 +40,7 @@ class LandscapeHandTest : E2e() {
         assertEquals(alice.state.player(alice.me).hand.size, cards.size, "her whole hand in the bottom bar: ${alice.screen()}")
         val undo = alice.control("Undo").fetchSemanticsNode().boundsInRoot
         val library = alice.node(hasContentDescription("${alice.name} library,", substring = true)).fetchSemanticsNode().boundsInRoot
-        assertTrue(cards.all { it.top >= bar && it.bottom <= 412f }, "inside the bar: $cards")
+        assertTrue(cards.all { it.top >= bar && it.bottom <= 412f }, "their part in view inside the bar: $cards")
         assertTrue(cards.all { it.left > library.right && it.right < undo.left }, "between her piles and the controls: $cards")
         assertTrue(alice.battlefieldBounds().bottom > bar - 12f, "the battlefield reaches the bar: ${alice.battlefieldBounds()}")
         fun centre(row: List<androidx.compose.ui.geometry.Rect>) = (row.minOf { it.left } + row.maxOf { it.right }) / 2
@@ -48,7 +49,7 @@ class LandscapeHandTest : E2e() {
         // A tap raises a Mountain in the bar; a second plays it
         alice.playFromHand("Mountain", this)
         waitUntil("the Mountain on the battlefield") { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
-        // The hand's row stays where it was (the cards left centred in it)
+        // The hand's fan stays where it was (the cards left centred in it)
         assertEquals(handCentre, centre(handBounds()), .5f)
         // In her next turn a double tap plays the other Mountain
         alice.hold("To combat")
@@ -64,36 +65,38 @@ class LandscapeHandTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    // TBL-238, TBL-144 (owner 2026-11-24): with large hand cards (2.5x) in landscape Alice's battlefield is seen down to the bottom
-    // bar, under her hand cards, which stand above the bar over it; a tap on a card's part above the bar raises it, a second plays it
+    // TBL-238, TBL-144, ZON-138 (owner 2026-11-24, 2026-11-25): with large hand cards (2.5x) in landscape Alice's battlefield is seen
+    // down to the bottom bar, under her hand's fan, whose cards stand above the bar over it (their bottom fifth below the screen); a
+    // tap on a card's part above the bar raises it, a second plays it
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun largeHandCardsStandOverTheBattlefield() {
         val sizes = CardAppearancePreferences(AppPlatform.current)
         sizes.customizeAreas(true)
         sizes.setSize(2.5f, CardArea.HAND)
         try {
-            // At 2.5x her hand row shows its first three cards whole (the rest scroll into view): a Mountain among them (before,
-            // any Mountain: a deal with both further right timed out, nothing to tap in view)
+            // At 2.5x her fan holds her whole opening hand (ZON-139): a Mountain among her first three cards, as before (a deal with
+            // both further right timed out when her hand was a row)
             startGame(deal = { a, _ -> "Mountain" in hand(a).take(3) })
             bothOpen()
             alice.tap("Keep")
             bob.tap("Keep")
             waitUntil("Alice's Main 1", along = listOf(bob)) { alice.inOwnMain() }
             val bar = 412f - 56f
-            // Her leftmost Mountain in her hand (in the bar's height), once laid out at the 2.5x hand size (100 dp tall)
+            // Her leftmost Mountain in her hand (in the bar's height), once laid out at the 2.5x hand size (100 dp tall, 80 of it in view)
             fun mountain(): Rect? = alice.nodes(hasContentDescription("Mountain, owner ${alice.name}, ", substring = true))
-                .fetchSemanticsNodes().map { it.boundsInRoot }.filter { it.bottom > bar && it.height > 90f }.minByOrNull { it.left }
+                .fetchSemanticsNodes().map { it.boundsInRoot }.filter { it.bottom > bar && it.height > 75f }.minByOrNull { it.left }
             fun field() = runCatching { alice.battlefieldBounds() }.getOrNull()
-            // (before, the battlefield stopped 4 dp above the hand cards)
+            // (before, the battlefield stopped 4 dp above the hand cards; the fan stands lower than the row did, ZON-138)
             waitUntil("Alice's 2.5x hand laid out, her battlefield seen under it") {
                 val card = mountain(); val field = field()
-                card != null && field != null && card.top < bar - 30f && field.bottom > card.top + 10f && field.bottom <= bar + .5f &&
+                card != null && field != null && card.top < bar - 20f && field.bottom > card.top + 5f && field.bottom <= bar + .5f &&
                     alice.settled(this)
             }
             val card = mountain()!!
+            // (on the card's own part of the fan, its left part: the card beside it overlaps its right part)
             fun tapAbove(c: Rect) {
                 val field = alice.battlefieldBounds()
-                alice.table().performTouchInput { click(Offset(c.center.x - field.left, c.top + 8f - field.top)) }
+                alice.table().performTouchInput { click(Offset(c.left + 12f - field.left, c.top + 8f - field.top)) }
             }
             tapAbove(card)
             waitUntil("the Mountain raised") { mountain()?.let { it.top < card.top - 10f } == true && alice.settled(this) }

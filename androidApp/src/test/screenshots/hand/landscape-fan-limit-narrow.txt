@@ -1,0 +1,1 @@
+Landscape table on a narrow phone (780 x 360 dp) at the default hand size: Alice's 6 cards, the most a still fan holds there with at least 20 dp of each in view (the controls take half the bar).

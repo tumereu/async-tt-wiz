@@ -41,17 +41,19 @@ class ChatPresentationTest {
         local.presented(messages, setOf("12")) // own visible message also advances the position
         assertEquals(0, local.presentation(game.id, "a", messages, emptyList()).unread)
     }
-    // LOB-070
-    @Test fun draftIsPrivateNotAcceptedAndCannotSilentlyRebindToFreshPlay() {
+    // LOB-070 (owner 2026-11-25): a draft is private and kept per game; it sends whatever play it was written in
+    @Test fun draftIsPrivateKeptPerGameAndAlwaysSends() {
         val local = GameChat(); local.compose(game, "  next\nmessage  ")
         val p = local.presentation(game.id, "a", emptyList(), emptyList())
         assertTrue(p.messages.isEmpty()); assertEquals("  next\nmessage  ", p.draft!!.text)
         assertTrue(p.canSend(game, true)); assertFalse(p.canSend(game, false))
         val next = game.copy(playId = "fresh")
+        assertTrue(local.presentation(game.id, "a", emptyList(), emptyList()).canSend(next, true), "a draft of an earlier play sends")
         local.compose(next, "still original draft")
-        assertFalse(local.presentation(game.id, "a", emptyList(), emptyList()).canSend(next, true))
-        local.compose(next, ""); local.compose(next, "new draft")
+        assertEquals("still original draft", local.presentation(game.id, "a", emptyList(), emptyList()).draft!!.text)
         assertTrue(local.presentation(game.id, "a", emptyList(), emptyList()).canSend(next, true))
+        local.compose(next, ""); assertNull(local.presentation(game.id, "a", emptyList(), emptyList()).draft)
+        local.compose(next, "new draft")
         local.clear(); assertNull(local.presentation(game.id, "b", emptyList(), emptyList()).draft)
         assertEquals(1, local.presentation(game.id, "b", listOf(message("1", "a")), emptyList()).unread)
     }
@@ -65,18 +67,16 @@ class ChatPresentationTest {
         assertFalse(gameChatOpen(lobby.copy(invitationState = InvitationState.DECLINED)))
         assertFalse(gameChatOpen(game.copy(lifecycle = GameLifecycle.CANCELLED)))
     }
-    // LOB-271, LOB-070: a draft written in the lobby sends there and belongs to the play that follows; an earlier play's draft
-    // is stale in the lobby
+    // LOB-271, LOB-070: a draft written in the lobby sends there and in the play that follows; a play's draft sends in the lobby
+    // after it too (owner 2026-11-25)
     @Test fun aLobbyDraftSendsAndCarriesIntoTheNextPlay() {
         val local = GameChat(); local.compose(lobby, "Cube?")
         val draft = local.presentation(game.id, "a", emptyList(), emptyList())
-        assertNull(draft.draft!!.playId)
         assertTrue(draft.canSend(lobby, true))
-        assertTrue(draft.canSend(game, true), "not stale once the game starts")
+        assertTrue(draft.canSend(game, true), "it sends once the game starts")
         local.compose(game, "Cube? GL")
-        assertEquals("play", local.presentation(game.id, "a", emptyList(), emptyList()).draft!!.playId)
         val ended = local.presentation(game.id, "a", emptyList(), emptyList())
-        assertTrue(ended.draft!!.staleIn(lobby))
-        assertFalse(ended.canSend(lobby, true))
+        assertEquals("Cube? GL", ended.draft!!.text)
+        assertTrue(ended.canSend(lobby, true), "sends in the lobby after the play")
     }
 }

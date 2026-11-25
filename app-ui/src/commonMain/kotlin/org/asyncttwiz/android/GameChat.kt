@@ -2,12 +2,8 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 
-/** A typed, unsent message ([playId]: the play it was written in; null: written before the game started, in its lobby,
- * which belongs to the play that follows, LOB-070). */
-data class ChatDraft(val playId: String?, val text: String) {
-    /** LOB-070: a draft from an earlier play must be cleared before writing a new one in [game]. */
-    fun staleIn(game: GameSummary) = playId != null && playId != game.playId
-}
+/** LOB-070: a typed, unsent message, kept per game; it sends whatever play it was written in (owner 2026-11-25). */
+data class ChatDraft(val text: String)
 
 /**
  * LOB-271, LOB-148 (owner, 2026-11-22): whether [game] has a chat to open and write in: in play, and before it starts once
@@ -28,7 +24,7 @@ data class ChatPresentation(val messages: List<ChatMessage> = emptyList(), val o
     /** WEB-138: the other player's bubble on the desktop table ([GameChat.presentation]). */
     val desktopBubble: IncomingChatBubble? = null) {
     fun canSend(game: GameSummary, connected: Boolean) = connected && gameChatOpen(game) &&
-        draft != null && !draft.staleIn(game) && ChatValidation.text(draft.text)
+        draft != null && ChatValidation.text(draft.text)
     /** LOB-139: a quick message can go whenever a typed one could, whatever the draft holds. */
     fun canSendQuick(game: GameSummary, connected: Boolean) = connected && game.lifecycle == GameLifecycle.ACTIVE && game.playId != null
     /** LOB-138: whether the other player has read [message]. */
@@ -53,8 +49,8 @@ class GameChat {
     var inspectedMessages = 0; private set
     fun compose(game: GameSummary, text: String) {
         if (text.isEmpty()) drafts.remove(game.id)
-        // LOB-070: a draft keeps the play it was written in; one written in the lobby takes the play that follows
-        else drafts[game.id] = ChatDraft(drafts[game.id]?.playId ?: game.playId, text)
+        // LOB-070: kept per game until sent or cleared
+        else drafts[game.id] = ChatDraft(text)
     }
     /** A typed message ([fromDraft]) or a quick one ([text]) was sent in [gameId]. */
     fun sent(gameId: String, text: String, fromDraft: Boolean = true) {

@@ -106,7 +106,7 @@ class ChatScreenTest {
         assertEquals(anchor, compose.onNodeWithText("Message 70").fetchSemanticsNode().boundsInRoot)
         compose.onNodeWithText("Message 101").assertDoesNotExist()
 
-        compose.runOnIdle { lobby.seed(lobby.state.copy(chat = lobby.state.chat.copy(draft = ChatDraft(game.playId!!, "Reply")))) }
+        compose.runOnIdle { lobby.seed(lobby.state.copy(chat = lobby.state.chat.copy(draft = ChatDraft("Reply")))) }
         compose.onNodeWithContentDescription("Send").performClick()
         // The existing controller/session tests cover transport. Exercise both UI delivery states.
         val command = GameCommand("reply", GameScope(game.id, playId = game.playId), GameAction.SendChat("Reply"), "stream", "1")
@@ -130,7 +130,7 @@ class ChatScreenTest {
         open()
         compose.onNodeWithContentDescription("Chat messages").performScrollToIndex(30)
         compose.onNodeWithText("Message 100").assertDoesNotExist()
-        compose.runOnIdle { lobby.seed(lobby.state.copy(chat = lobby.state.chat.copy(draft = ChatDraft(game.playId!!, "Reply")))) }
+        compose.runOnIdle { lobby.seed(lobby.state.copy(chat = lobby.state.chat.copy(draft = ChatDraft("Reply")))) }
         compose.onNodeWithContentDescription("Chat message draft")
             .assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.ImeAction,
                 androidx.compose.ui.text.input.ImeAction.Send))

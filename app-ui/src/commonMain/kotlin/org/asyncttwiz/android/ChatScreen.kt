@@ -322,7 +322,7 @@ private fun ChatComposer(draft: String, compose: (String) -> Unit, send: () -> U
         val fieldModifier = Modifier.weight(1f).then(inputModifier).semantics { contentDescription = description }
         if (desktopLayout()) DesktopChatField(draft, compose, send, maySend, fieldModifier)
         else ScreenTextField(draft, compose, fieldModifier, singleLine = false, placeholder = "Message", maxLines = 4,
-            keyboardOptions = imeOptions(ImeAction.Send),
+            keyboardOptions = imeOptions(ImeAction.Send, MessageKeyboard),
             keyboardActions = submitKeyboardActions(maySend, keepKeyboard = true, submit = send))
         ScreenIconButton("Send", "send", send, enabled = maySend)
     }

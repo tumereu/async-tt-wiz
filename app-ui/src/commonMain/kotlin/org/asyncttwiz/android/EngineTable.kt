@@ -1382,7 +1382,8 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
                 }
                 Text("Undoing requires confirmation from $opponent.",
                     style = MaterialTheme.typography.bodySmall)
-                ScreenTextField(message, { message = it.take(500) }, Modifier.fillMaxWidth().testTag("rewind-message"), placeholder = "Message (optional)")
+                ScreenTextField(message, { message = it.take(500) }, Modifier.fillMaxWidth().testTag("rewind-message"), placeholder = "Message (optional)",
+                    keyboardOptions = MessageKeyboard)
             }
         }
         // HIS-207 (release fix 0.3.0: in one column a landscape phone cut the reshuffle line off and hid the message under a

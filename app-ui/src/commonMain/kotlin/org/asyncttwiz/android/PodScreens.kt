@@ -508,7 +508,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         // DRF-165 (owner, 2026-11-11): History is up here on every tab, the Draft tab included; DRF-160 (owner, 2026-11-19): in
         // every draft mode, in the same place: the others' picks where there is no pack passing
         if (detail.settings.mode.draftState) PodHistoryHeaderButton(controller, detail, accountId, definitions, historyColumns)
-        else if (podHasPicksView(detail.settings.mode)) PodPicksHeaderButton(detail, accountId, definitions)
+        else if (podHasPicksView(detail.settings.mode)) PodPicksHeaderButton(detail, accountId, definitions, controller.filters)
         PodChatButton(controller, detail.id, accountId)
         PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide,
             historyColumns.takeIf { detail.settings.mode.draftState })

@@ -251,12 +251,13 @@ private fun ScreenTextFieldDecoration(empty: Boolean, singleLine: Boolean, place
  * Regular-screen dialog. [title] gives every dialog the same heading; [close] adds a title-row ✕ (with that
  * description) only for dialogs without a cancel button. [actions] stay pinned below the scrolling content,
  * right aligned, main action last: use [DialogCancelButton] and [DialogMainButton]. [maxWidth]: how wide it may grow (a
- * landscape dialog laid out in two columns asks for more).
+ * landscape dialog laid out in two columns asks for more). [titleActions]: controls in the title row, before its ✕.
  */
 @Composable
 fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, busyMessage: String? = null,
     error: String? = null, dismissError: () -> Unit = {}, title: String? = null, close: String? = null,
     actions: (@Composable RowScope.() -> Unit)? = null, maxWidth: Dp = 380.dp,
+    titleActions: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit = {}) {
     Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         TrackGameDialogInput()
@@ -272,6 +273,7 @@ fun ScreenDialog(dismiss: () -> Unit, modifier: Modifier = Modifier, busyMessage
                             verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             if (title != null) Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                                titleActions?.invoke(this)
                                 if (close != null) ScreenIconButton(close, "close", dismiss)
                             }
                             content()

@@ -433,3 +433,22 @@ number	item	screenshot	catalog	decisions	sequence
 620	Through the Omenpaths: a set pod in setup, its bots without the warning (the set has card ratings)	draft/omenpaths-setup.png	DRF-312 DRF-314		Through the Omenpaths
 621	Through the Omenpaths: a pick, each card under the name its printing gives it; a double-faced card the card data gives no such name keeps its Oracle names (open question)	draft/omenpaths-pick.png	DRF-312 TBL-138 LOB-150		Through the Omenpaths
 622	Marvel's Spider-Man pod: its bots pick by Through the Omenpaths' ratings, no warning	draft/spider-man-setup.png	DRF-312 DRF-314		Through the Omenpaths
+630	Draft history ratings, Booster: after your own draft each rated card's win rate on a chip at its bottom edge, the citation at the top, By rating beside Returning packs only (choice: on a phone the two chips take a row under the title)	draft/history-ratings-booster.png	DRF-315 DRF-316 DRF-317 DRF-165		Draft history ratings
+631	Draft history ratings, Booster with By rating on: each pack best first, the keep marked wherever it lands	draft/history-ratings-booster-by-rating.png	DRF-316 DRF-207		Draft history ratings
+632	Draft history ratings, Glimpse: keeps and burns marked, every rated card with its chip	draft/history-ratings-glimpse.png	DRF-315 DRF-207		Draft history ratings
+633	Draft history ratings, Custom booster	draft/history-ratings-custom-booster.png	DRF-315 DRF-317 DRF-263		Draft history ratings
+634	Draft history ratings, Arena: By rating in the title row (no Returning packs only)	draft/history-ratings-arena.png	DRF-315 DRF-316 DRF-289		Draft history ratings
+635	Draft history ratings, Winston Picks: only cards seen face up get a chip, card backs none	draft/history-ratings-winston.png	DRF-315 DRF-317 DRF-227		Draft history ratings
+636	Draft history ratings, Winchester Picks opened from the drafted pod's History icon	draft/history-ratings-winchester.png	DRF-315 DRF-160		Draft history ratings
+637	Draft history ratings, Grid Picks	draft/history-ratings-grid.png	DRF-315 DRF-160		Draft history ratings
+638	Draft history ratings, Rochester Picks	draft/history-ratings-rochester.png	DRF-315 DRF-160		Draft history ratings
+639	Draft history ratings, Rotisserie Picks	draft/history-ratings-rotisserie.png	DRF-315 DRF-160		Draft history ratings
+640	Draft history ratings, Picks with By rating on: best first, the unrated card and the card backs after in their order	draft/history-ratings-picks-by-rating.png	DRF-316		Draft history ratings
+641	Draft history ratings: the citation line "Ratings: 17Lands", small and dimmed, heads the scrolling list (here the Winston Picks)	draft/history-ratings-winston.png	DRF-317		Draft history ratings
+642	Draft history ratings: the chip sits inside the card on its bottom edge, centred, not hanging over it (choice)	draft/history-ratings-rotisserie.png	DRF-315		Draft history ratings
+643	Draft history ratings: the cards taken since a pack came back carry chips and sort too (choice)	draft/history-ratings-taken-since.png	DRF-315 DRF-316 DRF-208		Draft history ratings
+644	Draft history ratings in landscape: the title, By rating and Returning packs only on one row (choice)	draft/history-ratings-landscape.png	DRF-316 DRF-209		Draft history ratings
+645	Draft history before your own draft is done: no ratings, no citation and no By rating chip (choice: the chip shows only with ratings)	draft/history-ratings-before-done.png	DRF-315 DRF-119		Draft history ratings
+646	Rating chip colours, default: gold, pale gold, light grey, grey, dark grey	draft/rating-colours-gold-to-grey.png	DRF-315		Rating chip colours
+647	Rating chip colours, option 2 (medals): gold, silver, bronze, grey, dark grey	draft/rating-colours-medals.png	DRF-315		Rating chip colours
+648	Rating chip colours, option 3: gold, violet, light grey, grey, dark grey	draft/rating-colours-gold-violet-grey.png	DRF-315		Rating chip colours

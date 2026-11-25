@@ -136,6 +136,7 @@ still draft, and the pod's members challenge each other to games with their pod 
 - **DRF-074** While drafting each avatar has a badge: a green ✓ when that member can't pick, otherwise how many picks they can make in a row (next-round packs they would open included), "9+" above 9. (r32)
 - **DRF-075** A cogwheel at the header's end opens a floating panel with every view setting, applied live: "Draft · cards per row" (not in Grid), "History · cards per row" (Booster and Glimpse, DRF-165), "Build · columns", "Build · cards side by side". (r60)
 - **DRF-076** Tabs are Draft · Build · Stats while your own draft runs, Draft · Build · Stats · Games once it is done while others still draft (DRF-119), and Build · Stats · Games after the draft, with the pod ⋮ menu as a narrow last tab; Back leaves the pod. (r18; owner, 2026-11-21)
+- **DRF-309** Each tab label stays on one line: where it doesn't fit its tab (four tabs on a narrow screen, large system text) it is drawn smaller instead of wrapping (as TBL-064). (owner, 2026-11-25)
 - **DRF-077** A pod opens on Draft while your own draft runs (DRF-119), on Build until your deck is submitted, then on Games; your own draft ending, also while others still draft, switches it to Build. (r17)
 - **DRF-078** Pod screens refresh quietly in the background (about every 10 s while open), with no loaders over shown data. (r17)
 

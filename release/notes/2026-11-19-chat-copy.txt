@@ -1,1 +1,1 @@
-add: Chat messages can be selected and copied.
+2: Chat messages can be selected and copied.

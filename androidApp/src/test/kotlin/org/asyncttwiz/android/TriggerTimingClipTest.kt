@@ -78,7 +78,7 @@ class TriggerTimingClipTest {
         s.tapOnField(Choices.HARRIER)
         s.run(1_000)
         val answers = listOf(Answer("OK", 1_000))
-        s.clip("trigger-timing/your-attack.webp", CAPTION_YOUR_ATTACK, millis = 7_900, act = { s.tapMain("Attack (2)") },
+        s.clip("trigger-timing/your-attack.webp", CAPTION_YOUR_ATTACK, millis = 6_700, act = { s.tapMain("Attack (2)") },
             during = { s.answer(answers, it) })
     }
 
@@ -87,7 +87,7 @@ class TriggerTimingClipTest {
     @Test fun theOtherPlayersAttackWithAnAttackTrigger() {
         val s = open(TriggerTimingGames.bobsHarrier())
         val kit = s.kit
-        s.clip("trigger-timing/their-attack.webp", CAPTION_THEIR_ATTACK, millis = 6_600, act = {
+        s.clip("trigger-timing/their-attack.webp", CAPTION_THEIR_ATTACK, millis = 5_400, act = {
             val harrier = kit.field(Choices.HARRIER, kit.other, kit.state(kit.f.b)).single()
             kit.bob.send(listOf(Input.DeclareAttackers(kit.other, listOf(Attack(harrier, TargetRef.Player(kit.me))))))
             kit.pump()
@@ -136,14 +136,14 @@ class TriggerTimingClipTest {
     private companion object {
         const val CAPTION_YOUR_ATTACK = "Alice taps Attack (2) with her Ember Raider and Spark Harrier staged (the clip starts 0.3 s " +
             "before the tap) and her table runs on by itself to her second main phase, the test tapping OK on the triggers' order " +
-            "1 s after it is asked: attackers held 1.2 s (the order asked meanwhile), both triggers fly in in 0.34 s, each shown " +
+            "1 s after it is asked: no hold on the attackers (the order asked as they are declared), both triggers fly in in 0.34 s, each shown " +
             "1.25 s and flying 0.25 s to the Stack, the Harrier's arrow to Bob grown and read in 0.65 s while the Raider's shows, " +
             "each resolution's effect about 0.35 s with the 0.33 s playback pause after it (Bob's passes resolve them), damage " +
-            "held 1.2 s, the band closing in 0.35 s: about 7.3 s in all."
+            "held 1.2 s, the band closing in 0.35 s: about 6.1 s in all."
         const val CAPTION_THEIR_ATTACK = "Bob attacks Alice with his Spark Harrier (the clip starts 0.3 s before his attack reaches " +
-            "her phone) and her phone plays it back to his second main phase: attackers held 1.2 s, his trigger flies in in " +
+            "her phone) and her phone plays it back to his second main phase: no hold on the attackers, his trigger flies in in " +
             "0.29 s, shown 1.25 s and flying 0.25 s to the Stack, its arrow to Alice grown and read in 0.65 s, its effect about " +
-            "0.35 s with the 0.33 s playback pause, damage held 1.2 s, the band closing in 0.35 s: about 6 s in all."
+            "0.35 s with the 0.33 s playback pause, damage held 1.2 s, the band closing in 0.35 s: about 4.8 s in all."
         const val CAPTION_YOUR_CHAIN = "Alice casts a Kindle Herald with her Kindle Warden out (the test raised it with a tap; the " +
             "clip starts 0.3 s before the tap that casts it) and her table runs on until her move again, the test tapping OK on " +
             "the triggers' order 1 s after it is asked: the spell resolves at once, the Herald's and the Warden's triggers fly in " +

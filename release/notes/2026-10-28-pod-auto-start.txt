@@ -1,1 +1,1 @@
-add: A pod can start the draft by itself as soon as everyone invited has accepted.
+2: A pod can start the draft by itself as soon as everyone invited has accepted.

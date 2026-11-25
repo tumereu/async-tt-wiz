@@ -1,1 +1,1 @@
-add: While you declare attackers or blockers the combat area between the battlefields turns orange and glows with waves of light, a note says abilities can't be used now, and cards that can't attack or block are dimmed
+2: While you declare attackers or blockers the combat area between the battlefields turns orange and glows with waves of light, a note says abilities can't be used now, and cards that can't attack or block are dimmed

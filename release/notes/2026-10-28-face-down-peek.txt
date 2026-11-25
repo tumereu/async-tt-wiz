@@ -1,1 +1,1 @@
-fix: Ordinary inspecting never shows the front of a face-down card to the opponent.
+2: Ordinary inspecting never shows the front of a face-down card to the opponent.

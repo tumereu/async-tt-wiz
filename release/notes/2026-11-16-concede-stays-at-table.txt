@@ -1,1 +1,1 @@
-fix: After a concession both players stay at the table with the result until both have pressed OK; one of them was sometimes taken to the game's lobby at once.
+2: After a concession both players stay at the table with the result until both have pressed OK; one of them was sometimes taken to the game's lobby at once.

@@ -1,1 +1,1 @@
-mod: In a grid draft, the grid you picked from fades away while your next grid slides up into its place.
+2: In a grid draft, the grid you picked from fades away while your next grid slides up into its place.

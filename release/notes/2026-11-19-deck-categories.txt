@@ -1,1 +1,1 @@
-add: Deck categories: sort your saved decks into categories, which can hold categories of their own, and choose a deck's category in its editor.
+2: Deck categories: sort your saved decks into categories, which can hold categories of their own, and choose a deck's category in its editor.

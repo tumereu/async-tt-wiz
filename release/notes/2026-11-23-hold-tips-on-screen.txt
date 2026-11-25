@@ -1,1 +1,1 @@
-fix: The tip you see when holding a button or a mana stays fully on screen near the edges instead of running off it.
+2: The tip you see when holding a button or a mana stays fully on screen near the edges instead of running off it.

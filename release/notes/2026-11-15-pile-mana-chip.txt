@@ -1,1 +1,1 @@
-mod: While you cast, a pile of lands paying shows one chip with all the mana it makes, and the cast panel no longer names sources it hides: hide the panel or move the table to see them.
+2: While you cast, a pile of lands paying shows one chip with all the mana it makes, and the cast panel no longer names sources it hides: hide the panel or move the table to see them.

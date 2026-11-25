@@ -1017,16 +1017,15 @@ class GameDevice(
     @kotlinx.serialization.Serializable sealed interface ViewMoment { val event: String }
 
     /**
-     * HIS-113 (owner, 2026-11-08): a combat holds this player's view as a play shown does, for the same time ([showPlays]),
-     * whoever's combat it is, live and in catch-up playback: once when the attackers show and once on the damage (each
-     * combat damage step that deals any). The table ends it ([dismissCombatHold]) when its time is up or the player taps the
-     * table. Declaring no attackers holds nothing. Personal: nothing is sent, and the game never waits for it.
+     * HIS-113 (owner, 2026-11-08, 2026-11-25): a combat holds this player's view as a play shown does, for the same time
+     * ([showPlays]), whoever's combat it is, live and in catch-up playback: on the damage (each combat damage step that deals
+     * any). Declaring attackers holds nothing. The table ends it ([dismissCombatHold]) when its time is up. Personal: nothing is
+     * sent, and the game never waits for it.
      */
     @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("combat") data class CombatHold(override val event: String, val kind: CombatMoment) : ViewMoment
 
     /** What a combat holds the view on (HIS-113). */
     @kotlinx.serialization.Serializable sealed interface CombatMoment {
-        @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("attackers") data object Attackers : CombatMoment
         @kotlinx.serialization.Serializable @kotlinx.serialization.SerialName("damage") data object Damage : CombatMoment
     }
 
@@ -3378,7 +3377,7 @@ class GameDevice(
 
         /**
          * HIS-112, HIS-113: what holds [viewer]'s view in [event], in the order it happened: the plays shown ([showsIn]) and
-         * the combat's moments: attackers declared, and each combat damage step that deals damage.
+         * each combat damage step that deals damage (owner 2026-11-25: declaring attackers holds nothing).
          */
         fun momentsIn(event: GameEvent, viewer: PlayerId): List<ViewMoment> {
             val moments = ArrayList<ViewMoment>()
@@ -3404,8 +3403,6 @@ class GameDevice(
                     is arcanum.engine.change.Change.ZoneChange -> for (move in change.moves) if (move.to == arcanum.api.Zone.Stack)
                         castFrom[move.after.id] = move.from
                     is arcanum.engine.change.Change.StackItemAdded -> showOf(event, change, viewer, castFrom, copiers)?.let(moments::add)
-                    is arcanum.engine.change.Change.Combat ->
-                        if (change.before?.attackers.isNullOrEmpty() && !change.after?.attackers.isNullOrEmpty()) moments += CombatHold(event.id, CombatMoment.Attackers)
                     is arcanum.engine.change.Change.Step -> damageStep = change.after.step == arcanum.api.TurnStep.CombatDamage
                     is arcanum.engine.change.Change.Damage -> if (damageStep && change.dealt.isNotEmpty()) {
                         moments += CombatHold(event.id, CombatMoment.Damage)

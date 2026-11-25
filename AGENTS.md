@@ -178,10 +178,12 @@ you update the catalog to match; everywhere else the catalog wins.
   that deletes or invalidates existing games (e.g. a new stored format) needs the
   owner's permission first.
 - Every user-visible change gets a release note: one file per change,
-  `release/notes/<YYYY-MM-DD>-<slug>.txt`, holding one line `add: <text>`,
-  `mod: <text>` or `fix: <text>`, or `set: <full set name>` for a set
-  Automatum newly supports (listed first, under New sets). Plain words a
-  player understands, no technical terms. Internal-only work needs no note.
+  `release/notes/<YYYY-MM-DD>-<slug>.txt`, holding one line `1: <text>`,
+  `2: <text>` or `3: <text>` (how important the change is to players, 1 the
+  most; What's new lists them under Changes, the more important first), or
+  `set: <full set name>` for a set Automatum newly supports (listed first,
+  under New sets). Plain words a player understands, no technical terms.
+  Internal-only work needs no note.
 - Commit your work on your current branch with a descriptive message when done.
 - **Push after every commit (owner rule, 2026-11-18):** origin is the backup (a
   broken disk lost unpushed work once), so every commit is pushed to origin at once

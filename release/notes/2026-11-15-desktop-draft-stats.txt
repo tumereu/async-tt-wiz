@@ -1,1 +1,1 @@
-mod: In the browser's desktop layout, a draft's Stats tab no longer stretches across the window: the deck numbers sit on the left and the colours, notes and counters on the right.
+2: In the browser's desktop layout, a draft's Stats tab no longer stretches across the window: the deck numbers sit on the left and the colours, notes and counters on the right.

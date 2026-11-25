@@ -1,1 +1,1 @@
-mod: While a cast, a choice or another panel is open, your hand is dimmed and ignores taps, unless the choice is about a card in your hand.
+2: While a cast, a choice or another panel is open, your hand is dimmed and ignores taps, unless the choice is about a card in your hand.

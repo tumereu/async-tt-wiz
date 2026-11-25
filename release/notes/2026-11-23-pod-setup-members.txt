@@ -1,1 +1,1 @@
-mod: In pod setup the creator adds bots with an "Add bot" button and removes a bot, cancels an invitation or removes a member (before the draft starts) with the ✕ on its row; a removed player is told "Removed from <pod>" and can be invited again
+2: In pod setup the creator adds bots with an "Add bot" button and removes a bot, cancels an invitation or removes a member (before the draft starts) with the ✕ on its row; a removed player is told "Removed from <pod>" and can be invited again

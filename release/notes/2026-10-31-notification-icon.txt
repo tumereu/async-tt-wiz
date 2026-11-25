@@ -1,1 +1,1 @@
-mod: Notifications show the app's wizard hat in the status bar instead of a plain info icon.
+2: Notifications show the app's wizard hat in the status bar instead of a plain info icon.

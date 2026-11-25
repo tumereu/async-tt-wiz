@@ -143,6 +143,8 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         owner.combatDrag = { item -> toolkit?.combatDraggable(item) ?: true }
         owner
     }
+    // TBL-240 (owner 2026-11-25): a touch on a combat chip or badge that takes none of its own is its card's
+    val chipAreas = remember(coordinator) { CombatChipAreas().also { areas -> coordinator.chipHit = areas::hit } }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
     var clockEpoch by remember(coordinator) { mutableIntStateOf(0) }
     var pointerTime by remember(coordinator) { mutableLongStateOf(0L) }
@@ -155,7 +157,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
         toolkit?.hoveredAbilities = (target as? HoverTarget.Field)?.cardId
         toolkit?.hoveredAbility = null
     } }
-    val mouse = remember(coordinator) { DesktopTableMouse(coordinator, { p -> presentation?.invoke()?.hit(p) }, mouseScope) }
+    val mouse = remember(coordinator) { DesktopTableMouse(coordinator, { p -> presentation?.invoke()?.let { chipAreas.item(it, p) } }, mouseScope) }
     // WEB-015 (owner 2026-11-16): the viewer's hand card the mouse is on, which is drawn over the others, and stays so while
     // the pointer is on its chips (WEB-027) (read so only a change of it rebuilds the scene, not every item the pointer passes)
     val handHover by remember(mouse, desktopHover, accountId) { derivedStateOf {
@@ -636,7 +638,7 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             // What lies on or by the combat band, which pans and zooms with the battlefields: laid out with the camera as it is now
             CurrentScene(sceneNow) { now ->
                 CombatAreaOverlay(toolkit?.combat, play, now, accountId, writable && !runtime.reviewing,
-                    pressed = { pressGlow.value }, dragged = { preview.scope?.contextId }, bandShift = bandShift) { item ->
+                    pressed = { pressGlow.value }, dragged = { preview.scope?.contextId }, bandShift = bandShift, chipAreas = chipAreas) { item ->
                     rendered.value.items[item.id]?.bounds ?: item.bounds }
             }
             // CMB-001 (owner playtest 2026-11-11): when the band closes, what sat on it or by it fades out where it was

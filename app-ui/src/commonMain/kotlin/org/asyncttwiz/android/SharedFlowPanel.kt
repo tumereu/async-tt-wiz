@@ -330,6 +330,8 @@ private fun aboutObjects(flows: SharedFlowController, flow: SharedShown, decisio
     val options: Set<ObjectId> = when (decision) {
         // STK-224: the group's cards it can't choose show with the choice ("Other cards"), not as what it is about
         is Decision.ChooseObjects -> (decision.options + decision.others).toSet()
+        // STK-229: a pile choice's cards show in its piles (a face-down pile's as backs), not as what it is about
+        is Decision.ChooseOption -> decision.piles?.let { (it.first + it.second).toSet() }.orEmpty()
         is Decision.Targets -> decision.options.filterIsInstance<TargetRef.Object>().map { it.id }.toSet()
         else -> emptySet()
     }

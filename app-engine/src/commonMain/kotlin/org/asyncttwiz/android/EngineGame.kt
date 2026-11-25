@@ -224,7 +224,10 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val engine: GameState,
         /** TRN-163, TRN-164 (owner 2026-11-19): where the view comes to rest once what it waits on is skipped, while playback is
          * behind the head ([GameDevice.rest]); null while it rests at [board] (what the main button holds comes from [status]). */
-        val rest: Rest? = null) {
+        val rest: Rest? = null,
+        /** HIS-251 (owner 2026-11-25): the other player's open undo [request] waits until this view has caught up to where they
+         * asked it from: its dialog isn't shown meanwhile. */
+        val requestHeld: Boolean = false) {
         /** What the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
          * [EngineBoardValues.promisePlays]) and, when first asked, the card menus' plays (on an own action's board with its
@@ -511,7 +514,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             device.reveal, device.olderEvents, device.olderComplete, device.show, device.showDone, heldWork, branchStop, lastTurnChange, device.combatHold,
             opponentAt = if (status is GameDevice.Status.Waiting) device.opponentAt() else null, moments = device.openMoments,
             ownStepHeld = status == GameDevice.Status.YourMove && device.ownStepHeld || stepNext, engine = engine,
-            rest = restShown(device.rest(), device.move?.value))
+            rest = restShown(device.rest(), device.move?.value), requestHeld = requestHeldBack())
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -664,7 +667,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
             last.showDone, last.takeBack, last.branchStop, last.turnChange, last.combatHold, ownActionShown = true, opponentAt = last.opponentAt, moments = last.moments,
-            ownStepHeld = last.ownStepHeld || passFollows, coming = comingShows(last.moments), engine = engine)
+            ownStepHeld = last.ownStepHeld || passFollows, coming = comingShows(last.moments), engine = engine, requestHeld = last.requestHeld)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main {
@@ -1707,6 +1710,40 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
 
     /** HIS-110: the reveal panel logged last. */
     private var loggedReveal: GameDevice.Reveal? = null
+
+    /** HIS-251: the undo request and whether it was held back, as logged last. */
+    private var loggedRequest: String? = null
+
+    /**
+     * HIS-251 (owner 2026-11-25): whether the other player's open undo request is held back from this player: their view
+     * hasn't yet shown the newest event the requester had when asking (the requester's local head as the server keeps it).
+     * Playback runs on meanwhile; skipping it shows everything at once, so the request shows then. A requester's head this
+     * device doesn't hold holds it back only while events are still to show. Each change is logged.
+     */
+    private fun requestHeldBack(): Boolean {
+        val session = device.session
+        val request = device.request?.takeIf { it.by != me }
+        val from = request?.let { device.localHeads[PlayerId(it.by)] }
+        val at = from?.let { session.indexOf(it) }
+        val seen = session.indexOf(session.localHead) ?: -1
+        val held = when {
+            request == null || from == null -> false
+            at == null -> session.behind
+            else -> at > seen
+        }
+        val key = request?.let { "${it.by}/${it.target}/${it.message.hashCode()}/$held" }
+        if (key != loggedRequest) {
+            loggedRequest = key
+            if (request != null) AppLog.info("undo", "Undo request of ${request.by.take(8)} back to ${request.target.take(8)}" +
+                (if (request.message.isNotBlank()) " (\"${request.message.take(80)}\")" else "") + ", asked from ${from?.take(8) ?: "an unknown head"}: " +
+                if (held) "held back, this view at ${session.localHead.take(8)} " +
+                    (if (at == null) "with ${session.buffered.size} events still to show (the requester's head not on this device's line)"
+                    else "is ${at - seen} events short of it") + "; playback goes on"
+                else "shown, this view at ${session.localHead.take(8)} has caught up" +
+                    (if (at == null && from != null) " (the requester's head not on this device's line, nothing left to show)" else ""))
+        }
+        return held
+    }
 
     /** Whether the app left since the game was last told it returned (main thread). */
     @Volatile var awayPaused = false

@@ -61,15 +61,15 @@ abstract class NonFcmSources : Sync() {
     @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
 }
 
-// Release notes: one `release/notes/<YYYY-MM-DD>-<slug>.txt` per note holding one `set:`/`add:`/`mod:`/`fix:` line
-// (`set:` names a set Automatum newly supports, shown first under New sets),
+// Release notes: one `release/notes/<YYYY-MM-DD>-<slug>.txt` per note holding one `set:`/`1:`/`2:`/`3:` line
+// (`set:` names a set Automatum newly supports, shown first under New sets; 1–3 a change's importance, 1 the most),
 // packaged as one JSON asset. Any malformed note fails the build.
 abstract class ReleaseNotesAsset : DefaultTask() {
     @get:InputDirectory @get:PathSensitive(PathSensitivity.RELATIVE) abstract val notes: DirectoryProperty
     @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
     @TaskAction fun generate() {
         val name = Regex("([0-9]{4}-[0-9]{2}-[0-9]{2})-[a-z0-9]+(?:-[a-z0-9]+)*\\.txt")
-        val line = Regex("(set|add|mod|fix): (.*)")
+        val line = Regex("(set|[123]): (.*)")
         val entries = notes.get().asFile.listFiles().orEmpty().sortedBy { it.name }.map { file ->
             val match = name.matchEntire(file.name)
             require(file.isFile && match != null && runCatching { LocalDate.parse(match.groupValues[1]) }.isSuccess) {
@@ -78,7 +78,7 @@ abstract class ReleaseNotesAsset : DefaultTask() {
             val body = file.readText().removeSuffix("\n").removeSuffix("\r")
             require('\n' !in body && '\r' !in body) { "Release note ${file.name}: must be exactly one line" }
             val note = line.matchEntire(body)
-            requireNotNull(note) { "Release note ${file.name}: line must start with 'set: ', 'add: ', 'mod: ' or 'fix: '" }
+            requireNotNull(note) { "Release note ${file.name}: line must start with 'set: ', '1: ', '2: ' or '3: '" }
             val text = note.groupValues[2].trim()
             require(text.isNotEmpty()) { "Release note ${file.name}: text is empty" }
             mapOf("id" to file.name.removeSuffix(".txt"), "kind" to note.groupValues[1], "text" to text)

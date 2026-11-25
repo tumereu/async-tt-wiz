@@ -201,6 +201,30 @@ class TableGesturesTest {
         }
     }
 
+    // TBL-240 (owner 2026-11-25): a combat badge lying above its card (on the empty table) takes no touch: holding it inspects the
+    // card, a tap on it is the card's tap
+    @Test fun aTouchOnACombatChipIsItsCards() {
+        val scene = TableFixture.scene(TableFixture.play(board = 1))
+        val card = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }
+        val chip = TableBounds(card.bounds.x, card.bounds.y - 12f, card.bounds.width, 15f)
+        val above = TablePoint(chip.center.x, card.bounds.y - 6f)
+        assertEquals(null, scene.hit(above)?.id, "the point above the card is no card of the table's own")
+        val areas = CombatChipAreas()
+        areas.put(card.id, chip)
+        assertEquals(card.id, areas.item(scene, above)?.id)
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add)
+        gestures.chipHit = areas::hit
+        gestures.update(scene, true)
+        gestures.down(above, 0); gestures.tick(1000); gestures.up(above, 1050); gestures.tick(2000)
+        assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null, released = true)), events)
+        events.clear()
+        gestures.down(above, 5000); gestures.up(above, 5020); gestures.tick(6000)
+        assertEquals(card.id, events.filterIsInstance<TableIntent.Actions>().single().itemId, "a tap on it is the card's")
+        areas.remove(card.id)
+        assertEquals(null, areas.hit(above))
+    }
+
     // TBL-010
     @Test fun pinchZoomStaysBetweenPointSixFiveAndTwoAndATwoFingerDragOnlyPans() {
         val scene = TableFixture.scene()

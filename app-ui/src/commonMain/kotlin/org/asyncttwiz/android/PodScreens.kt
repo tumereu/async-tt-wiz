@@ -564,7 +564,8 @@ fun PodDraftTabs(tabs: List<PodTab>, selected: PodTab, select: (PodTab) -> Unit,
         Row(modifier.testTag("pod-tabs"), verticalAlignment = Alignment.CenterVertically) {
             TabRow(tabs.indexOf(selected), Modifier.weight(1f)) {
                 tabs.forEach { tab -> Tab(selected == tab, { select(tab) },
-                    text = { Text(tab.name.lowercase().replaceFirstChar(Char::uppercase)) }) }
+                    // DRF-309: four tabs on a narrow screen: a label is drawn smaller, never on two lines
+                    text = { OneLineLabel(tab.name.lowercase().replaceFirstChar(Char::uppercase)) }) }
             }
             Box(Modifier.width(40.dp).height(48.dp), contentAlignment = Alignment.Center) {
                 CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) { overflow() }

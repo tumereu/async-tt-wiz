@@ -1,1 +1,1 @@
-mod: The other player's list of cards they may play from other zones shows each card's zone as the same pile icon your own such cards carry.
+2: The other player's list of cards they may play from other zones shows each card's zone as the same pile icon your own such cards carry.

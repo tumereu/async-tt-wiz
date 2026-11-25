@@ -1,1 +1,1 @@
-fix: A finger already held on the table when a combat starts now keeps it paused.
+2: A finger already held on the table when a combat starts now keeps it paused.

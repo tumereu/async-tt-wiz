@@ -5,10 +5,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 
 /** Keyboard options of a single-line field whose action key is [action]; [base] keeps e.g. the keyboard type. */
 fun imeOptions(action: ImeAction, base: KeyboardOptions = KeyboardOptions.Default): KeyboardOptions =
     base.copy(imeAction = action)
+
+/** LOB-272 (owner 2026-11-25): a message a player writes (game and pod chat, an undo request's message): the phone's keyboard
+ * starts each sentence with a capital letter. */
+val MessageKeyboard = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
 
 /**
  * The keyboard action key does what the screen's matching button does: [submit], only while that button is

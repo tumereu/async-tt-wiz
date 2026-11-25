@@ -1,0 +1,1 @@
+3: A chat message you typed earlier and didn't send can now always be sent, also in a later play of the game.

@@ -1,1 +1,1 @@
-fix: Screen readers keep up with the table after you zoom, pan or fit it: a battlefield moved out of view or back into it is no longer missed.
+2: Screen readers keep up with the table after you zoom, pan or fit it: a battlefield moved out of view or back into it is no longer missed.

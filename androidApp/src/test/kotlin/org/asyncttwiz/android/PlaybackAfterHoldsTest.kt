@@ -11,6 +11,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -46,8 +47,8 @@ class PlaybackAfterHoldsTest {
             failure("the trigger resolved after its arrows, the Pup dead and Alice's move"))
     }
 
-    // HIS-113, HIS-112, TBL-205: Alice attacks with an Ember Raider and a Spark Harrier, each with an attack trigger: once the
-    // attackers' hold ends their triggers show, and once the damage's hold ends the combat ends, nothing else arriving
+    // HIS-113, HIS-112, TBL-205 (owner 2026-11-25: no hold on the attackers): Alice attacks with an Ember Raider and a Spark Harrier,
+    // each with an attack trigger: their triggers show at once, and once the damage's hold ends the combat ends, nothing else arriving
     @Test fun anAttacksTriggersShowAfterItsHoldAndTheCombatEndsAfterTheDamage() {
         val s = LiveTableScreen(compose, TriggerTimingGames.raiderAndHarrier()).also { screen = it }
         s.open()
@@ -56,13 +57,13 @@ class PlaybackAfterHoldsTest {
         s.tapOnField(Choices.HARRIER)
         s.run(1_000)
         s.tapMain("Attack (2)")
-        // STK-030: the two triggers' order, asked during the attackers' hold
+        // STK-030: the two triggers' order, asked as the attack is declared
         assertTrue(s.runUntil(5_000) { s.mainButton("OK") }, failure("the triggers' order asked"))
         // TRN-063: a press within MainButtonGuard.MILLIS of the last is taken for a double tap's second
         s.run(MainButtonGuard.MILLIS + 100)
         s.tapMain("OK")
-        assertTrue(s.runUntil(5_000) { s.kit.alice.shown?.combatHold == null }, failure("the attackers' hold over"))
-        assertTrue(s.runUntil(5_000) { s.playShown() }, failure("the attack triggers shown after the attackers' hold"))
+        assertTrue(s.runUntil(5_000) { s.playShown() }, failure("the attack triggers shown"))
+        assertEquals(null, s.kit.alice.shown?.combatHold, "no hold on the attackers")
         assertTrue(s.runUntil(20_000) { s.kit.alice.shown?.combatHold?.kind == GameDevice.CombatMoment.Damage },
             failure("the damage's hold"))
         assertTrue(s.runUntil(20_000) { s.kit.alice.shown?.let { it.status == GameDevice.Status.YourMove &&

@@ -89,8 +89,6 @@ fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier
     val chat = state.chat
     val deliveryFailure = chat.outgoing.lastOrNull { it.failure != null }?.failure
     var deliveryDismissed by remember(deliveryFailure) { mutableStateOf(false) }
-    val staleDraft = chat.draft?.staleIn(game) == true
-    var staleDismissed by remember(chat.draft?.playId, game.playId) { mutableStateOf(false) }
     BackHandler(enabled = !docked) { controller.closeChat() }
     // LOB-138: messages showing in the chat are read; docked, it always shows
     val visible = state.chatOpen || docked
@@ -112,19 +110,17 @@ fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier
             }
             if (!docked) IconButton(onClick = controller::closeChat) { EntryIcon("Close chat", "close") }
         }
-        if (tab == ChatTab.GAME || podView == null || podChat == null) GameChatBody(controller, game, accountId, staleDraft, Modifier.weight(1f), visible)
+        if (tab == ChatTab.GAME || podView == null || podChat == null) GameChatBody(controller, game, accountId, Modifier.weight(1f), visible)
         else PodChatBody(podChat, podView, accountId,
             if (game.inviter.accountId == accountId) game.inviter.username else game.recipient.username, visible, Modifier.weight(1f),
             write = controller.chatWrites.takeIf { state.chatWrite })
     }
     }
     val gameTab = tab == ChatTab.GAME
-    FloatingTransientError(state.connectionMessage?.takeIf { !docked } ?: deliveryFailure?.takeUnless { deliveryDismissed || !gameTab }
-        ?: "This draft belongs to an earlier play. Clear it to write a new message.".takeIf { staleDraft && !staleDismissed && gameTab },
+    FloatingTransientError(state.connectionMessage?.takeIf { !docked } ?: deliveryFailure?.takeUnless { deliveryDismissed || !gameTab },
         {
             if (state.connectionMessage != null && !docked) controller.dismissSessionError()
             else if (deliveryFailure != null && !deliveryDismissed) deliveryDismissed = true
-            else staleDismissed = true
         },
         Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp))
     }
@@ -151,7 +147,7 @@ private fun ChatTabRow(selected: ChatTab, gameUnread: Int, podUnread: Int, selec
 
 /** The game's own chat: its messages (with "Read" marks, LOB-138), outgoing sends and the composer. */
 @Composable
-fun GameChatBody(controller: LobbyController, game: GameSummary, accountId: String, staleDraft: Boolean, modifier: Modifier,
+fun GameChatBody(controller: LobbyController, game: GameSummary, accountId: String, modifier: Modifier,
     visible: Boolean) {
     val state = controller.state
     val chat = state.chat
@@ -214,7 +210,7 @@ fun GameChatBody(controller: LobbyController, game: GameSummary, accountId: Stri
         ChatComposer(chat.draft?.text.orEmpty(), controller::composeChat, {
             controller.sendChat()
             list.requestScrollToItem(0)
-        }, maySend, staleDraft, { controller.composeChat("") }, Modifier.focusRequester(input))
+        }, maySend, Modifier.focusRequester(input))
     }
 }
 
@@ -259,7 +255,7 @@ fun PodChatBody(chat: PodChatController, view: PodChatView, accountId: String, o
         ChatComposer(view.draft, { chat.compose(podId, it) }, {
             chat.send(podId)
             list.requestScrollToItem(0)
-        }, view.canSend(), stale = false, clear = {}, Modifier.focusRequester(input), description = "Pod chat message draft")
+        }, view.canSend(), Modifier.focusRequester(input), description = "Pod chat message draft")
     }
 }
 
@@ -317,19 +313,18 @@ private fun ChatTranscript(list: LazyListState, description: String, content: an
         verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom), content = content)
 }
 
-/** The message field and Send; the keyboard's Send key sends like the button, a [stale] draft only closes the keyboard and has Clear.
- * In the desktop layout (WEB-017) Enter sends too, and Shift+Enter or Ctrl+Enter breaks the line. */
+/** The message field and Send; the keyboard's Send key sends like the button. In the desktop layout (WEB-017) Enter sends too,
+ * and Shift+Enter or Ctrl+Enter breaks the line. */
 @Composable
-private fun ChatComposer(draft: String, compose: (String) -> Unit, send: () -> Unit, maySend: Boolean, stale: Boolean,
-    clear: () -> Unit, inputModifier: Modifier = Modifier, description: String = "Chat message draft") {
+private fun ChatComposer(draft: String, compose: (String) -> Unit, send: () -> Unit, maySend: Boolean,
+    inputModifier: Modifier = Modifier, description: String = "Chat message draft") {
     Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val fieldModifier = Modifier.weight(1f).then(inputModifier).semantics { contentDescription = description }
-        if (desktopLayout()) DesktopChatField(draft, compose, send, !stale && maySend, fieldModifier)
+        if (desktopLayout()) DesktopChatField(draft, compose, send, maySend, fieldModifier)
         else ScreenTextField(draft, compose, fieldModifier, singleLine = false, placeholder = "Message", maxLines = 4,
-            keyboardOptions = imeOptions(ImeAction.Send),
-            keyboardActions = submitKeyboardActions(!stale && maySend, keepKeyboard = true, submit = send))
-        if (stale) ScreenIconButton("Clear draft", "delete", clear)
-        else ScreenIconButton("Send", "send", send, enabled = maySend)
+            keyboardOptions = imeOptions(ImeAction.Send, MessageKeyboard),
+            keyboardActions = submitKeyboardActions(maySend, keepKeyboard = true, submit = send))
+        ScreenIconButton("Send", "send", send, enabled = maySend)
     }
 }
 

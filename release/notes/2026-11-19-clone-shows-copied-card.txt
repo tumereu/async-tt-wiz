@@ -1,1 +1,1 @@
-mod: A creature that becomes a copy of another, like a Clone, now shows the copied card's picture, name and text.
+2: A creature that becomes a copy of another, like a Clone, now shows the copied card's picture, name and text.

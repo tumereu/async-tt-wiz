@@ -1,1 +1,1 @@
-fix: In Arena setup the "Uncommon every" tile's name fits on one line like the other tiles.
+2: In Arena setup the "Uncommon every" tile's name fits on one line like the other tiles.

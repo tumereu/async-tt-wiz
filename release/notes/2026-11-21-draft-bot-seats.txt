@@ -1,1 +1,1 @@
-add: Pods can have draft bots: in pod setup, the Bots − + stepper beside the invite button adds up to six seats (two in Grid, Winston and Winchester) filled by bots that pick at once, so the draft never waits for them; a pod still needs one more person besides you.
+2: Pods can have draft bots: in pod setup, the Bots − + stepper beside the invite button adds up to six seats (two in Grid, Winston and Winchester) filled by bots that pick at once, so the draft never waits for them; a pod still needs one more person besides you.

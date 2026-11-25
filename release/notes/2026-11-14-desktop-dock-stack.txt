@@ -1,1 +1,1 @@
-fix: On the big-screen web table a stray round mark no longer peeks out at the edge of the Stack and chat panel at the right.
+2: On the big-screen web table a stray round mark no longer peeks out at the edge of the Stack and chat panel at the right.

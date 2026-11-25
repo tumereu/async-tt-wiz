@@ -1,1 +1,1 @@
-mod: Choosing a pod's draft mode is now one button that opens a list of all modes, each showing how many players it takes.
+2: Choosing a pod's draft mode is now one button that opens a list of all modes, each showing how many players it takes.

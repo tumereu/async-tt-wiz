@@ -1,1 +1,1 @@
-fix: On the desktop table, typing in the chat no longer sets off the game's keyboard shortcuts (it could press No blocks), and a click on the table takes the keyboard back from the chat
+2: On the desktop table, typing in the chat no longer sets off the game's keyboard shortcuts (it could press No blocks), and a click on the table takes the keyboard back from the chat

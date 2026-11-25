@@ -1,1 +1,1 @@
-fix: a triggered ability's choice no longer offers an option that has nothing it could target
+2: a triggered ability's choice no longer offers an option that has nothing it could target

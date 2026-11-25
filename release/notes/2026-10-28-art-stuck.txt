@@ -1,1 +1,1 @@
-fix: Card pictures no longer get stuck loading, for example on double-faced cards.
+2: Card pictures no longer get stuck loading, for example on double-faced cards.

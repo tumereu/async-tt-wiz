@@ -1,1 +1,1 @@
-fix: The table in the browser does less work for each picture it draws while cards move, and a problem report sent from it now says which moments stuttered and why.
+2: The table in the browser does less work for each picture it draws while cards move, and a problem report sent from it now says which moments stuttered and why.

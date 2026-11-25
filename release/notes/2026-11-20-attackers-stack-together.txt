@@ -1,1 +1,1 @@
-fix: Attackers you declare from a pile of identical creatures now lie together in one pile beside the rest, instead of each in its own pile.
+2: Attackers you declare from a pile of identical creatures now lie together in one pile beside the rest, instead of each in its own pile.

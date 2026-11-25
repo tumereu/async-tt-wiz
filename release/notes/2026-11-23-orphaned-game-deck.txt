@@ -1,1 +1,1 @@
-fix: Renaming your deck or changing its cover in the lobby of a game left over from a cancelled pod draft now changes that game's deck only.
+2: Renaming your deck or changing its cover in the lobby of a game left over from a cancelled pod draft now changes that game's deck only.

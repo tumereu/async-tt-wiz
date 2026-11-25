@@ -1,1 +1,1 @@
-mod: Pod lists on the main menu and the Pods screen show the other players' pictures as a small stack, like the side menu.
+2: Pod lists on the main menu and the Pods screen show the other players' pictures as a small stack, like the side menu.

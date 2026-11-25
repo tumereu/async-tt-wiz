@@ -1,1 +1,1 @@
-mod: In a pod, Challenge beside a player who has already challenged you accepts their challenge; "New challenge" beside it still sends a new one.
+2: In a pod, Challenge beside a player who has already challenged you accepts their challenge; "New challenge" beside it still sends a new one.

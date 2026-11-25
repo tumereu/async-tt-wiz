@@ -1,0 +1,1 @@
+2: Holding a combat badge such as "flying" on a card now shows the card itself, as holding anywhere else on it does.

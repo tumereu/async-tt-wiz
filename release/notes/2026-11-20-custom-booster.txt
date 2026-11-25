@@ -1,1 +1,1 @@
-add: New draft type "Custom booster": like a booster draft, but the pod's creator lists the passes, such as "Pick 1, Burn 1" or "Pick 2", that every pack goes through in order; the cards left when the list ends are thrown away.
+2: New draft type "Custom booster": like a booster draft, but the pod's creator lists the passes, such as "Pick 1, Burn 1" or "Pick 2", that every pack goes through in order; the cards left when the list ends are thrown away.

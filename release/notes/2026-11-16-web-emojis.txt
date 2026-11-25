@@ -1,1 +1,1 @@
-fix: Emojis show in colour in the browser's chat and everywhere else players write, instead of empty boxes.
+2: Emojis show in colour in the browser's chat and everywhere else players write, instead of empty boxes.

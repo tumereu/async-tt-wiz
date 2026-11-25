@@ -1,1 +1,1 @@
-add: Leaving your main phase now shows on the timeline ("You went to combat"), and one Undo takes you straight back to that main phase.
+2: Leaving your main phase now shows on the timeline ("You went to combat"), and one Undo takes you straight back to that main phase.

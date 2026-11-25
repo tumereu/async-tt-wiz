@@ -1,1 +1,1 @@
-fix: A pod challenge you decline now disappears from the notifications on all your devices at once.
+2: A pod challenge you decline now disappears from the notifications on all your devices at once.

@@ -1,1 +1,1 @@
-add: In the browser's desktop layout every panel has its Cast, Pay, OK or Done button in its own corner too.
+2: In the browser's desktop layout every panel has its Cast, Pay, OK or Done button in its own corner too.

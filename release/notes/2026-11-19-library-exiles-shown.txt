@@ -1,1 +1,1 @@
-mod: Cards exiled face up from a library ("exile the top cards", "exile cards until …") are now shown to both players as they go, like a reveal, and named in the game's history.
+2: Cards exiled face up from a library ("exile the top cards", "exile cards until …") are now shown to both players as they go, like a reveal, and named in the game's history.

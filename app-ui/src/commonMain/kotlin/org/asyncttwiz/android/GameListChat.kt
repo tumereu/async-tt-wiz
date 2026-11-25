@@ -53,8 +53,7 @@ fun GameListChat(controller: LobbyController, accountId: String) {
                             }
                             IconButton(onClick = controller::closeChat) { EntryIcon("Close chat", "close") }
                         }
-                        val staleDraft = state.chat.draft?.staleIn(game) == true
-                        GameChatBody(controller, game, accountId, staleDraft, Modifier.weight(1f), visible = true)
+                        GameChatBody(controller, game, accountId, Modifier.weight(1f), visible = true)
                     }
                 }
                 FloatingTransientError(state.connectionMessage, controller::dismissSessionError,

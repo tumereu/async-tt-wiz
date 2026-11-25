@@ -1,1 +1,1 @@
-mod: Draft stats show ∅ for cards without colored mana symbols.
+2: Draft stats show ∅ for cards without colored mana symbols.

@@ -1,1 +1,1 @@
-fix: On a phone held sideways, the Undo dialog now shows its warning, message field and buttons without scrolling
+2: On a phone held sideways, the Undo dialog now shows its warning, message field and buttons without scrolling

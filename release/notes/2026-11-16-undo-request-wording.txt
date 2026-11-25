@@ -1,1 +1,1 @@
-mod: When an undo needs the other player's approval, it now simply says it requires their confirmation.
+2: When an undo needs the other player's approval, it now simply says it requires their confirmation.

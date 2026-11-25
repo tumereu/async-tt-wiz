@@ -1,1 +1,1 @@
-fix: Unlocking a Room's door is named in the card's menu ("Unlock Prop Room"), and both players now see it happen: the Room pulses and the event reads "Bob unlocked Prop Room"; turning a card face up, foretelling, plotting and suspending read the same way
+2: Unlocking a Room's door is named in the card's menu ("Unlock Prop Room"), and both players now see it happen: the Room pulses and the event reads "Bob unlocked Prop Room"; turning a card face up, foretelling, plotting and suspending read the same way

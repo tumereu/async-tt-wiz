@@ -1,1 +1,1 @@
-fix: A card printed without reminder text, such as a retro frame card, now explains its keywords under it.
+2: A card printed without reminder text, such as a retro frame card, now explains its keywords under it.

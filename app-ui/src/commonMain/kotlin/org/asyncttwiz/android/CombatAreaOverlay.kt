@@ -16,6 +16,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -81,7 +84,10 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
     leaving: Boolean = false,
     /** CMB-001 (owner playtest 2026-11-11): how far the battlefield above the band is drawn from its place now (dp, while the
      * band opens or closes): the chips on the band's upper edge go with it. */
-    bandShift: () -> Float = { 0f }, bounds: (TableItem) -> TableBounds) {
+    bandShift: () -> Float = { 0f },
+    /** TBL-240 (owner 2026-11-25): where each card's chips and badges lie, so a touch on one that takes none of its own is the
+     * card's; null: not kept (a closing band's, which takes no touch). */
+    chipAreas: CombatChipAreas? = null, bounds: (TableItem) -> TableBounds) {
     val area = play.board.combat
     val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
     val shown = if (combat != null) combat.readyOrLast(play) ?: CombatShown.NONE else CombatShown.NONE
@@ -233,14 +239,20 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
         val below = attackerCopy && port != null && b.center.y > port.center.y
         Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)) {
             if (chips.isNotEmpty() || actions.isNotEmpty()) Box(Modifier.align(if (below) Alignment.BottomCenter else Alignment.TopCenter).fillMaxWidth().height(0.dp)) {
+                // TBL-240: the chips' room on the table (3 dp over the card's edge), for the touches that fall through them to the card
+                if (chipAreas != null) DisposableEffect(chipAreas, item.id) { onDispose { chipAreas.remove(item.id) } }
+                val local = LocalDensity.current.density
                 Column(Modifier.fillMaxWidth().wrapContentHeight(if (below) Alignment.Top else Alignment.Bottom, unbounded = true)
-                    .offset(y = if (below) (-3).dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                    .offset(y = if (below) (-3).dp else 3.dp)
+                    .let { m -> if (chipAreas == null) m else m.onGloballyPositioned { c ->
+                        val h = c.size.height / local
+                        chipAreas.put(item.id, TableBounds(b.x, if (below) b.bottom - 3f else b.y + 3f - h, b.width, h))
+                    } }, horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     // CMB-036–CMB-038: the staging's own chips nearest the card, then the badges
                     if (below) for (chip in actions) StagingChipView(chip, b.width)
-                    // TBL-132 (owner gallery review 2026-11-06): holding a keyword badge explains the keyword
-                    for ((text, color, description) in (if (below) chips else chips.asReversed()))
-                        RuleTip(if (color == AutomatumViolet && !leaving) text else "") { CombatChip(text, color, b.width, description) }
+                    // TBL-240 (owner 2026-11-25): a keyword badge takes no touch: a tap or a hold on it is the card's (holding inspects it)
+                    for ((text, color, description) in (if (below) chips else chips.asReversed())) CombatChip(text, color, b.width, description)
                     if (!below) for (chip in actions.asReversed()) StagingChipView(chip, b.width)
                 }
             }
@@ -623,8 +635,11 @@ private fun StagingChipView(chip: StagingChip, width: Float) {
     val natural = CombatStackPresentation.laneTextWidth(chip.text, 10f)
     val size = if (chip.cost) 13f * z else if (natural * z <= room) 10f * z else maxOf(MIN_CHIP_TEXT, 10f * room / natural)
     // TBL-132 (owner gallery review 2026-11-06): holding a chip naming a keyword ("Exert") explains it too, unless what
-    // holding it says explains it already ("Enlist: …")
-    RuleTip(if (chip.hold.startsWith("${chip.text}:")) "" else chip.text, lead = chip.hold) {
+    // holding it says explains it already ("Enlist: …"). TBL-240 (owner 2026-11-25): a chip that only shows (the other player's
+    // choices, one that can't be changed now) takes no touch: holding it inspects the card; a toggle the viewer changes
+    // (CMB-036–CMB-038) and an amber cost chip (CMB-044) keep theirs
+    val passive = chip.onTap == null && !chip.cost
+    RuleTip(if (passive || chip.hold.startsWith("${chip.text}:")) "" else chip.text, lead = chip.hold.takeUnless { passive }) {
         Row(Modifier.width(width.dp).heightIn(min = (22f * z).dp).background(if (chip.on) color else Color.White, shape)
             .border(((if (chip.picking) 2.5f else 1.5f) * z).dp, color, shape)
             .semantics {

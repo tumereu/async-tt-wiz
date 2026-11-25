@@ -1,1 +1,1 @@
-fix: A copy of a spell whose gift was promised now gives the gift too.
+2: A copy of a spell whose gift was promised now gives the gift too.

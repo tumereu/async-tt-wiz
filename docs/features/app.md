@@ -35,7 +35,7 @@ pictures come from Scryfall when first needed and are kept on the phone.
 
 ## What's new
 
-- **LOB-087** After an update, "What's new" opens on the app's first frame with that update's notes grouped as New sets (the sets Automatum newly supports, by name; left out when there are none), New, Changed and Fixed, newest first; a fresh install shows nothing. (r22, r62)
+- **LOB-087** After an update, "What's new" opens on the app's first frame with that update's notes grouped as New sets (the sets Automatum newly supports, by name; left out when there are none), then one group "Changes", the more important changes first (newest first among equally important ones), with no levels shown; a fresh install shows nothing. (r22, r62; owner, 2026-11-25)
 - **LOB-265** On the desktop layout What's new is twice as wide as on the phone, so its notes read in long lines. (owner, 2026-11-21)
 - **LOB-088** What's new never pops up over an open game or pod or when a notification is opening one; it can be reread any time from Settings. (r21)
 

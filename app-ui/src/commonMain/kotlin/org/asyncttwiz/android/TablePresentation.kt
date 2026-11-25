@@ -1304,13 +1304,25 @@ object TablePresentation {
                     i.cardTransform != null && i.zone == PlayZone.HAND && cover.zone == PlayZone.HAND && cover.viewport == i.viewport ||
                     i.zone == PlayZone.STACK && i.kind == TableItemKind.PILE && cover.viewport == i.viewport ||
                     i.bounds.intersection(cover.bounds) == null) continue
-                for (part in cover.visible) if (portions.any { it.intersection(part) != null })
+                for (part in occluding(cover)) if (portions.any { it.intersection(part) != null })
                     portions = portions.flatMap { it.subtract(part) }
                 if (portions.isEmpty()) break
             }
             i.copy(visible = portions)
         }
         return scene.copy(items = visible)
+    }
+    /**
+     * TBL-018 (owner-reported 2026-11-25): what of [cover] hides the items under it. A card covers its whole visible rectangle;
+     * a token ([TableItem.token]) not its cut corners ([cardSilhouette]): the corner squares are left out (two crossing bands
+     * instead of the rectangle), so what lies under it is drawn there and shows through the cuts once the token is drawn over it.
+     */
+    private fun occluding(cover: TableItem): List<TableBounds> {
+        if (!cover.token || cover.kind != TableItemKind.CARD) return cover.visible
+        val b = cover.bounds
+        val cut = minOf(b.width, b.height) * .22f
+        val bands = listOf(TableBounds(b.x + cut, b.y, b.width - 2 * cut, b.height), TableBounds(b.x, b.y + cut, b.width, b.height - 2 * cut))
+        return cover.visible.flatMap { part -> bands.mapNotNull { part.intersection(it) } }
     }
     fun nonzero(value: String): Boolean = value.trim().let { s -> s.isNotEmpty() &&
         (!Regex("[+-]?[0-9]+").matches(s) || s.removePrefix("+").removePrefix("-").any { it != '0' }) }

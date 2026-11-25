@@ -1,1 +1,1 @@
-fix: On a shaky connection the web app tries loading its code again, and says "ATW couldn't load" if it still can't, instead of staying on the loading screen
+2: On a shaky connection the web app tries loading its code again, and says "ATW couldn't load" if it still can't, instead of staying on the loading screen

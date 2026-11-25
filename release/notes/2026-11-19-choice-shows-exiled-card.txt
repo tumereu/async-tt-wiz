@@ -1,1 +1,1 @@
-fix: A choice such as "You may cast that card" now shows the card it is about, for example the card an effect just exiled.
+2: A choice such as "You may cast that card" now shows the card it is about, for example the card an effect just exiled.

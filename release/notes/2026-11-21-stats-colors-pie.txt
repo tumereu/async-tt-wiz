@@ -1,1 +1,1 @@
-mod: The Colors chart on a draft deck's Stats is a pie, with a slice for each colour and each colour combination in the deck, every card counted once.
+2: The Colors chart on a draft deck's Stats is a pie, with a slice for each colour and each colour combination in the deck, every card counted once.

@@ -1,1 +1,1 @@
-mod: In the browser's desktop layout, hovering a hand card just brings it to the front; a card you click to play pops out of the fan, the whole fan now shows, and hand cards' names and borders are smaller.
+2: In the browser's desktop layout, hovering a hand card just brings it to the front; a card you click to play pops out of the fan, the whole fan now shows, and hand cards' names and borders are smaller.

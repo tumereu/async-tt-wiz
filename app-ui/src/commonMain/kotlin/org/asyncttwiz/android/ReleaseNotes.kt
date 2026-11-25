@@ -17,9 +17,24 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.asyncttwiz.appui.AppPlatform
 import kotlin.concurrent.Volatile
 
-enum class ReleaseNoteKind(val prefix: String, val title: String) {
-    // LOB-087 (owner 2026-11-10): sets Automatum newly supports come first, under their own heading
-    SET("set", "New sets"), ADD("add", "New"), MOD("mod", "Changed"), FIX("fix", "Fixed")
+/** What a release note is (LOB-087): a set Automatum newly supports, or a change of some importance. */
+sealed interface ReleaseNoteKind {
+    /** The note file's prefix ("set", "1", "2", "3"). */
+    val prefix: String
+
+    /** LOB-087 (owner 2026-11-10): a set Automatum newly supports, listed first under its own heading. */
+    data object Set : ReleaseNoteKind { override val prefix = "set" }
+
+    /** LOB-087 (owner 2026-11-25): a change, [importance] 1 (the most important) to 3; What's new shows no levels, only the order. */
+    data class Change(val importance: Int) : ReleaseNoteKind {
+        init { require(importance in 1..3) { "Importance $importance isn't 1, 2 or 3" } }
+        override val prefix get() = importance.toString()
+    }
+
+    companion object {
+        fun of(prefix: String): ReleaseNoteKind = if (prefix == Set.prefix) Set
+            else Change(requireNotNull(prefix.toIntOrNull()?.takeIf { it in 1..3 }) { "Unknown release note kind $prefix" })
+    }
 }
 
 /** One packaged `release/notes/<id>.txt` line; [id] starts with its `YYYY-MM-DD` date. */
@@ -32,18 +47,22 @@ object ReleaseNotes {
 
     fun parse(json: String): List<ReleaseNote> = Json.parseToJsonElement(json).jsonArray.map { element ->
         val note = element.jsonObject
-        val kind = note.getValue("kind").jsonPrimitive.content
         ReleaseNote(note.getValue("id").jsonPrimitive.content,
-            ReleaseNoteKind.entries.first { it.prefix == kind }, note.getValue("text").jsonPrimitive.content)
+            ReleaseNoteKind.of(note.getValue("kind").jsonPrimitive.content), note.getValue("text").jsonPrimitive.content)
     }
 
-    /** New sets, New, Changed, Fixed (empty groups omitted); newest date first, then by id. */
-    fun grouped(notes: List<ReleaseNote>): List<Pair<ReleaseNoteKind, List<ReleaseNote>>> =
-        ReleaseNoteKind.entries.mapNotNull { kind ->
-            notes.filter { it.kind == kind }
-                .sortedWith(compareByDescending<ReleaseNote> { it.id.take(10) }.thenBy { it.id })
-                .takeIf { it.isNotEmpty() }?.let { kind to it }
-        }
+    const val NEW_SETS = "New sets"
+    const val CHANGES = "Changes"
+
+    /** LOB-087 (owner 2026-11-25): "New sets" (newest date first, then by id), then "Changes", the most important first, then
+     * newest date first, then by id; an empty group is left out. */
+    fun grouped(notes: List<ReleaseNote>): List<Pair<String, List<ReleaseNote>>> {
+        val newest = compareByDescending<ReleaseNote> { it.id.take(10) }.thenBy { it.id }
+        val sets = notes.filter { it.kind == ReleaseNoteKind.Set }.sortedWith(newest)
+        val changes = notes.filter { it.kind is ReleaseNoteKind.Change }
+            .sortedWith(compareBy<ReleaseNote> { (it.kind as ReleaseNoteKind.Change).importance }.then(newest))
+        return listOfNotNull(sets.takeIf { it.isNotEmpty() }?.let { NEW_SETS to it }, changes.takeIf { it.isNotEmpty() }?.let { CHANGES to it })
+    }
 
     /** The seen record to keep: the stored one, else everything on a fresh install, else only the initial release. */
     fun seenRecord(stored: Set<String>?, all: List<ReleaseNote>, freshInstall: Boolean): Set<String> =
@@ -93,8 +112,8 @@ fun WhatsNewDialog(notes: List<ReleaseNote>, dismiss: () -> Unit) {
         actions = { DialogMainButton("OK", dismiss, Modifier.testTag("whats-new-ok")) }) {
         Column(Modifier.testTag("whats-new-notes"),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            for ((kind, group) in ReleaseNotes.grouped(notes)) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(kind.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            for ((title, group) in ReleaseNotes.grouped(notes)) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                 for (note in group) Row {
                     Text("•", Modifier.width(16.dp))
                     Text(note.text, style = MaterialTheme.typography.bodyMedium)

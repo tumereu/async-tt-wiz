@@ -1,1 +1,1 @@
-mod: A stack with some cards tapped shows how many are untapped out of all ("2/3"), upright at the stack's corner, and its tapped and untapped cards line up at their bottom-left corners
+2: A stack with some cards tapped shows how many are untapped out of all ("2/3"), upright at the stack's corner, and its tapped and untapped cards line up at their bottom-left corners

@@ -68,6 +68,8 @@ class ShownWire(
     val notes: List<NoteWire> = emptyList(),
     /** TRN-163, TRN-164: where the view comes to rest while playback is behind the head (the app's `EngineGame.Rest`). */
     val rest: RestWire? = null,
+    /** HIS-251: the other player's undo request waits until the view catches up (the app's `EngineGame.Shown.requestHeld`). */
+    val requestHeld: Boolean = false,
 ) {
     companion object {
         fun encode(wire: ShownWire): String = EngineMessages.json.encodeToString(serializer(), wire)

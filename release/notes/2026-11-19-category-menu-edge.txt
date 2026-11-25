@@ -1,1 +1,1 @@
-fix: In Manage decks, the menu button of every category sits at the right edge of its row.
+2: In Manage decks, the menu button of every category sits at the right edge of its row.

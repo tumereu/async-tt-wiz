@@ -1,1 +1,1 @@
-fix: The table no longer rebuilds itself when a combat's pause ends, which made combat stutter, especially in the browser.
+2: The table no longer rebuilds itself when a combat's pause ends, which made combat stutter, especially in the browser.

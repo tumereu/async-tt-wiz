@@ -1,1 +1,1 @@
-fix: A creature told to attack in its controller's next combat, while that player's attackers are being declared, now has to attack in their next combat.
+2: A creature told to attack in its controller's next combat, while that player's attackers are being declared, now has to attack in their next combat.

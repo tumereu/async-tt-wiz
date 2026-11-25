@@ -1000,9 +1000,10 @@ fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, 
         else -> {}
         }
     }
-    // Incoming undo request (§10): Accept / Deny; the game is frozen meanwhile
+    // Incoming undo request (§10): Accept / Deny; the game is frozen meanwhile. HIS-251: not before the view has caught up to
+    // where the other player asked it from (logged by the engine game as it is held back and shown)
     val request = shown.request
-    if (request != null && request.by != routes.viewer) EngineRequestDialog(routes, opponent, summary, names)
+    if (request != null && request.by != routes.viewer && !shown.requestHeld) EngineRequestDialog(routes, opponent, summary, names)
     routes.rewind?.let { EngineRewindDialog(routes, it, names, opponent, summary) }
     // Notes (§8, §10): told once
     val recordShown = LocalShownTexts.current
@@ -1381,7 +1382,8 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
                 }
                 Text("Undoing requires confirmation from $opponent.",
                     style = MaterialTheme.typography.bodySmall)
-                ScreenTextField(message, { message = it.take(500) }, Modifier.fillMaxWidth().testTag("rewind-message"), placeholder = "Message (optional)")
+                ScreenTextField(message, { message = it.take(500) }, Modifier.fillMaxWidth().testTag("rewind-message"), placeholder = "Message (optional)",
+                    keyboardOptions = MessageKeyboard)
             }
         }
         // HIS-207 (release fix 0.3.0: in one column a landscape phone cut the reshuffle line off and hid the message under a

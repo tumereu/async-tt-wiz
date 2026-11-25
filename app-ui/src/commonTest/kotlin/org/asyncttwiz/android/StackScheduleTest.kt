@@ -78,7 +78,7 @@ class StackScheduleTest {
         fun play(event: String, n: Int) = GameDevice.PlayShow(event, bob, arcanum.engine.state.ObjectId.StackItem("s$n"),
             GameDevice.PlayKind.Triggered, null)
         val a1 = play("e1", 1); val a2 = play("e1", 2)
-        val hold = GameDevice.CombatHold("e0", GameDevice.CombatMoment.Attackers)
+        val hold = GameDevice.CombatHold("e0", GameDevice.CombatMoment.Damage)
         val animation = StackAnimation("alice")
         assertEquals(setOf("entry:${a1.entry}", "entry:${a2.entry}"), animation.hidden(listOf(hold, a1, a2)))
         animation.land(a2)

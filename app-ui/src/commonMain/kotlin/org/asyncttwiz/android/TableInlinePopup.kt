@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -336,6 +337,25 @@ fun CellLabel(text: String, color: Color, modifier: Modifier = Modifier, textMod
         Text(text, textModifier, color = color, maxLines = 2, overflow = TextOverflow.Clip,
             style = style.copy(fontSize = style.fontSize * scale, lineHeight = style.lineHeight * scale))
     }
+}
+
+/**
+ * A tab's label that stays on one line (DRF-309, as TBL-064): where it doesn't fit its tab's width (a narrow screen, large
+ * system text, a fourth tab) it is drawn smaller instead of wrapping or being cut.
+ */
+@Composable
+fun OneLineLabel(text: String, modifier: Modifier = Modifier) {
+    // Measured by its own layout pass (a tab asks its label's intrinsic size, which a BoxWithConstraints can't give):
+    // drawn only once it fits
+    val style = LocalTextStyle.current
+    var scale by remember(text, style) { mutableFloatStateOf(1f) }
+    var fits by remember(text, style) { mutableStateOf(false) }
+    Text(text, modifier.drawWithContent { if (fits) drawContent() }, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
+        style = style.copy(fontSize = style.fontSize * scale, lineHeight = style.lineHeight * scale),
+        onTextLayout = { layout ->
+            val wide = layout.multiParagraph.maxIntrinsicWidth
+            if (layout.didOverflowWidth && wide > 0f && scale > .3f) scale *= layout.size.width * .97f / wide else fits = true
+        })
 }
 
 private val CellLabelStyle = TextStyle(fontSize = 8.sp, lineHeight = 9.sp, letterSpacing = 0.sp,

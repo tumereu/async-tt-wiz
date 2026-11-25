@@ -1,1 +1,1 @@
-mod: In the browser's desktop layout your hand is a fan at the bottom of the table, its cards partly below the window: the card under the mouse rises into full view, and the battlefields reach the bottom of the window.
+2: In the browser's desktop layout your hand is a fan at the bottom of the table, its cards partly below the window: the card under the mouse rises into full view, and the battlefields reach the bottom of the window.

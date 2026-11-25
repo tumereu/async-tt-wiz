@@ -1,1 +1,1 @@
-fix: Keeping your hand right after a mulligan is no longer refused with "That wasn't taken" when the other player kept at the same moment.
+2: Keeping your hand right after a mulligan is no longer refused with "That wasn't taken" when the other player kept at the same moment.

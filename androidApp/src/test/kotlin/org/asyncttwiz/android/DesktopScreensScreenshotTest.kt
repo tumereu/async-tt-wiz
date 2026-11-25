@@ -313,9 +313,9 @@ class DesktopScreensScreenshotTest {
 
     // LOB-265 (owner playtest 2026-11-21): What's new on the desktop layout is at least twice as wide as on the phone layout
     @Test fun whatsNewIsWideOnTheDesktop() {
-        val notes = listOf(ReleaseNote("2026-11-21-a", ReleaseNoteKind.ADD, "Draft picks can confirm themselves: turn on Auto beside Confirm."),
-            ReleaseNote("2026-11-21-b", ReleaseNoteKind.MOD, "What's new is wider on the desktop."),
-            ReleaseNote("2026-11-21-c", ReleaseNoteKind.FIX, "The Arena setup has its Initial rares tile."))
+        val notes = listOf(ReleaseNote("2026-11-21-a", ReleaseNoteKind.Change(1), "Draft picks can confirm themselves: turn on Auto beside Confirm."),
+            ReleaseNote("2026-11-21-b", ReleaseNoteKind.Change(2), "What's new is wider on the desktop."),
+            ReleaseNote("2026-11-21-c", ReleaseNoteKind.Change(2), "The Arena setup has its Initial rares tile."))
         val layout = androidx.compose.runtime.mutableStateOf<AppLayout>(AppLayout.Phone)
         compose.setContent { ScreenTheme { CompositionLocalProvider(LocalAppLayout provides layout.value) {
             Surface(Modifier.fillMaxSize(), color = ScreenBackground) { NoRipples { WhatsNewDialog(notes) {} } }
@@ -329,6 +329,6 @@ class DesktopScreensScreenshotTest {
         val desktop = width()
         assertTrue(desktop >= 2 * phone, "desktop $desktop at least twice the phone's $phone")
         captureShot("$SCREENSHOTS/desktop/whats-new.png",
-            "What's new on the desktop layout at 1440 × 900: the dialog twice the phone's width, its New, Changed and Fixed notes each on one line.")
+            "What's new on the desktop layout at 1440 × 900: the dialog twice the phone's width, its notes under one Changes heading, the most important first, each on one line.")
     }
 }

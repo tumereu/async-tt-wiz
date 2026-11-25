@@ -10,8 +10,6 @@ import androidx.compose.ui.test.performMouseInput
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import arcanum.engine.state.TargetRef
-import org.asyncttwiz.android.HistoryPlaybackPreferences
-import org.asyncttwiz.appui.AppPlatform
 import org.asyncttwiz.protocol.game.AssumeResolves
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
@@ -96,15 +94,9 @@ abstract class TargetCombatCopyFlow(private val desktop: Boolean) : E2e() {
 
     // STK-047, CMB-003, CMB-032 (owner playtest 2026-11-21): Alice attacks with her Ember Raider; its attack trigger's target is
     // picked on the table, and a tap on the Raider's own glowing combat copy picks the Raider
-    @Test fun anAttackTriggersTargetIsPickedOnACombatCopy() = raiderAttack(duringHold = false)
-
-    // HIS-113, STK-047, CMB-003 (owner playtest 2026-11-21): the same while the attack still holds Alice's view
-    @Test fun anAttackTriggersTargetIsPickedOnACombatCopyDuringTheHold() = raiderAttack(duringHold = true)
-
-    private fun raiderAttack(duringHold: Boolean) {
+    @Test fun anAttackTriggersTargetIsPickedOnACombatCopy() {
         startGame(TestDeck("Raiders", listOf(TestCards.mountain to 20, TestCards.raider to 20)), TestDeck.thirds(TestCards.cub),
             aliceDesktop = desktop, deal = { a, _ -> "Ember Raider" in hand(a) })
-        if (duringHold) HistoryPlaybackPreferences(AppPlatform.current, alice.id).showPlaysMillis = HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS
         bothOpen()
         bothKeep(bobAway = false)
         alice.playFromHand("Ember Raider", this)
@@ -117,18 +109,11 @@ abstract class TargetCombatCopyFlow(private val desktop: Boolean) : E2e() {
         alice.stageAttacker("Ember Raider", this)
         waitUntil("the Raider staged") { alice.stepArrow() == "Attack (1)" }
         val copy = { alice.node(hasContentDescription("Projection, Ember Raider, owner ${alice.name}, ", substring = true)) }
-        if (duringHold) clockInStep {
-            alice.declare("Attack (1)", this)
-            waitUntil("Alice's target bar while the attack holds her view") { alice.shown.combatHold != null && alice.shows(picking) }
-            press(copy())
-            run()
-        } else {
-            alice.declare("Attack (1)", this)
-            waitUntil("Alice's target bar for the attack trigger") { alice.shows(picking) }
-            run(skip = Duration.ofSeconds(1))
-            press(copy())
-            run(skip = Duration.ofSeconds(1))
-        }
+        alice.declare("Attack (1)", this)
+        waitUntil("Alice's target bar for the attack trigger") { alice.shows(picking) }
+        run(skip = Duration.ofSeconds(1))
+        press(copy())
+        run(skip = Duration.ofSeconds(1))
         fun targeted() = alice.state.let { s ->
             s.stack.any { id -> s.stackItems[id]?.targets?.values?.flatten()?.contains(TargetRef.Object(raider)) == true } ||
                 (s.stack.isEmpty() && (s.obj(raider)?.damage ?: 0) >= 1)

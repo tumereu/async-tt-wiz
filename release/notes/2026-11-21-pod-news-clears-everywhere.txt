@@ -1,1 +1,1 @@
-mod: A pod's news, like "Decks ready" or "Draft cancelled", disappears from all your phones and browsers once you have opened the pod on any of them
+2: A pod's news, like "Decks ready" or "Draft cancelled", disappears from all your phones and browsers once you have opened the pod on any of them

@@ -1,1 +1,1 @@
-fix: A token copy of a planeswalker spell now enters with its loyalty.
+2: A token copy of a planeswalker spell now enters with its loyalty.

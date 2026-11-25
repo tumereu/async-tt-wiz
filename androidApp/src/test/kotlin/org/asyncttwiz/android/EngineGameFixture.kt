@@ -185,6 +185,9 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val UNMAKING = "Ember Unmaking"
         /** A free 1/1 with "When this creature enters, it deals 2 damage to target creature an opponent controls." */
         const val LANCER = "Spark Lancer"
+        /** STK-229: a free sorcery whose caster separates their top three cards into a face-down and a face-up pile, an opponent
+         * choosing the pile that goes to the caster's hand (worded as a real such card). */
+        const val DESTINY = "Ember Destiny"
     }
     private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
@@ -272,6 +275,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("warden", Choices.WARDEN, "Creature — Elemental Soldier", "Whenever another creature you control enters, put a +1/+1 counter on this creature.", "1", "1"),
         free("mourner", Choices.MOURNER, "Creature — Spirit", "When this creature dies, you gain 1 life.", "1", "1"),
         free("unmaking", Choices.UNMAKING, "Sorcery", "Destroy all creatures."),
+        free("destiny", Choices.DESTINY, "Sorcery", "Look at the top three cards of your library and separate them into a face-down pile " +
+            "and a face-up pile. An opponent chooses one of the piles. Put that pile into your hand and the other into your graveyard."),
         free("lancer", Choices.LANCER, "Creature — Elemental Soldier", "When this creature enters, it deals 2 damage to target creature an opponent controls.", "1", "1"),
         free("tollkeeper", Choices.TOLLKEEPER, "Creature — Elemental", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1"),
         Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",

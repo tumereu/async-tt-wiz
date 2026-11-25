@@ -1,1 +1,1 @@
-fix: When the other player undoes moves you had seen while you are away, coming back shows the game as you left it with "undid moves · Tap to watch" instead of jumping back at once.
+2: When the other player undoes moves you had seen while you are away, coming back shows the game as you left it with "undid moves · Tap to watch" instead of jumping back at once.

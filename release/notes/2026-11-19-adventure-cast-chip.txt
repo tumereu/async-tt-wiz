@@ -1,1 +1,1 @@
-fix: A card you may cast from exile after its Adventure now shows its usual "Cast" button instead of "With permission".
+2: A card you may cast from exile after its Adventure now shows its usual "Cast" button instead of "With permission".

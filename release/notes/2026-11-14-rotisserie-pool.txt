@@ -1,1 +1,1 @@
-mod: Rotisserie drafts have separate settings for the pool size per player and how many cards each player picks.
+2: Rotisserie drafts have separate settings for the pool size per player and how many cards each player picks.

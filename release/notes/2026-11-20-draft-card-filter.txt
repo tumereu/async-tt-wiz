@@ -1,1 +1,1 @@
-add: Drafting: a filter button in the corner of the Rotisserie pool and of Build opens a search field and quick filters by colour, mana value, card type and rarity
+2: Drafting: a filter button in the corner of the Rotisserie pool and of Build opens a search field and quick filters by colour, mana value, card type and rarity

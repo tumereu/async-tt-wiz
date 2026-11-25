@@ -1,0 +1,1 @@
+3: A token lying over another card now lets that card show through its cut corners.

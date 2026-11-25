@@ -1,1 +1,1 @@
-mod: In multi-select mode, drawing a selection box adds the cards to your current selection.
+2: In multi-select mode, drawing a selection box adds the cards to your current selection.

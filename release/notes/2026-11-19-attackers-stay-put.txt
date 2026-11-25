@@ -1,1 +1,1 @@
-fix: Attackers no longer shift sideways when you confirm an attack on two or more targets.
+2: Attackers no longer shift sideways when you confirm an attack on two or more targets.

@@ -1,1 +1,1 @@
-mod: Rules reminders: a token (Treasure, Food, Clue, a Role …) is now explained as a card's reminder text would, saying what kind of token it is and what its abilities are
+2: Rules reminders: a token (Treasure, Food, Clue, a Role …) is now explained as a card's reminder text would, saying what kind of token it is and what its abilities are

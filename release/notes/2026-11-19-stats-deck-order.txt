@@ -1,1 +1,1 @@
-mod: Stats: your decks are listed starting with the one you played most recently.
+2: Stats: your decks are listed starting with the one you played most recently.

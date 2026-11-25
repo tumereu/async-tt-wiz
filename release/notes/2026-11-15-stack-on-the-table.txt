@@ -1,1 +1,1 @@
-mod: In the browser the Stack always stays on the table at the right edge of the battlefields; the side panel is now only the chat, opened and closed with the chat button.
+2: In the browser the Stack always stays on the table at the right edge of the battlefields; the side panel is now only the chat, opened and closed with the chat button.

@@ -1,1 +1,1 @@
-add: Turn keywords like Flying or Trample on and off from the card menu.
+2: Turn keywords like Flying or Trample on and off from the card menu.

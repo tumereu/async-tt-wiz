@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.draw.alpha
@@ -183,6 +184,8 @@ fun choiceWhat(decision: Decision): String = when (decision) {
     is Decision.ChooseObjects -> ObjectsShape.of(decision).title
     // I-D52: the engine's own question says what it is about (the loop choice: Continue / Draw)
     is Decision.ChooseOption -> if (decision.options == listOf(arcanum.engine.decision.LoopStop.CONTINUE, arcanum.engine.decision.LoopStop.DRAW)) "Loop"
+        // STK-229
+        else if (decision.piles != null) "Choose a pile"
         else "Choose one"
     is Decision.ChooseColor -> "Choose a colour"
     is Decision.ChooseSubtype -> if (decision.among == null) "Choose a creature type" else "Choose a type"
@@ -204,7 +207,8 @@ fun choiceHint(decision: Decision): String? = when (decision) {
     is Decision.Announce -> "Set the value, then OK."
     is Decision.ManaPayment -> "Tap the sources to pay with, then Pay."
     is Decision.ChooseObjects -> ObjectsShape.of(decision).instruction
-    is Decision.ChooseOption -> decision.text ?: "Tap one."
+    // STK-229: each pile has its own Choose button
+    is Decision.ChooseOption -> decision.text ?: if (decision.piles != null) null else "Tap one."
     is Decision.ChooseColor, is Decision.ChoosePlayer, is Decision.ChooseCardType -> "Tap one."
     is Decision.ChooseSubtype -> if (decision.among == null) "Find a type and tap it." else "Tap one."
     is Decision.ChooseCardName -> "Find the card and tap its name, then OK."
@@ -324,6 +328,66 @@ fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, d
                 if (others.isNotEmpty()) OtherCards(others.map { choiceCardOf(flow, play, viewer, it) }.sortedBy { it.name }, inspector)
                 OkRow(decision, chosen.size >= decision.min && decision.max.let { it == null || chosen.size <= it } && selection?.done != false) {
                     cast.answer(Answer.Objects(chosen.let { objectsOf(ids, it) }))
+                }
+            }
+        }
+    }
+    ChoiceInspection(inspector, play, viewer)
+}
+
+/** STK-229: a pile choice's two areas: its answer ("first", "second"), its label, its cards and whether they lie face down. */
+data class PileArea(val option: String, val label: String, val cards: List<ObjectId>, val faceDown: Boolean)
+
+/** STK-229: [piles]' areas, as the separating screen names them (STK-043): "Face-up pile" and "Face-down pile" when one lies
+ * face down, else "Pile 1" and "Pile 2". */
+fun pileAreas(piles: Decision.Piles): List<PileArea> = if (piles.secondFaceDown)
+    listOf(PileArea("first", "Face-up pile", piles.first, false), PileArea("second", "Face-down pile", piles.second, true))
+    else listOf(PileArea("first", "Pile 1", piles.first, false), PileArea("second", "Pile 2", piles.second, false))
+
+/**
+ * STK-229 (owner 2026-11-25): choosing one of two separated piles ([Decision.ChooseOption.piles]): two areas as on the
+ * separating screen (STK-043), each with its Choose button: a face-up pile's cards drawn as cards (holding one inspects it), a
+ * face-down pile's as card backs, so only how many it holds shows. What was shown is logged.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun PileChoiceSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.ChooseOption, piles: Decision.Piles) {
+    val viewer = LocalChoiceFrame.current.viewer
+    val inspector = remember(decision.id) { ChoiceInspector() }
+    val areas = remember(decision.id) { pileAreas(piles) }
+    fun cardsOf(area: PileArea) = area.cards.map { id ->
+        // A face-down pile's cards stay hidden, whoever looks (only the one who separated them has seen them)
+        if (area.faceDown) choiceCard(play, viewer, id.toString(), flow.atwCard(id), shown = false, "Hidden card")
+        else choiceCardOf(flow, play, viewer, id)
+    }
+    LaunchedEffect(decision.id) {
+        AppLog.info("decision", "Pile choice ${decision.id.value} shown: " + areas.joinToString(" | ") { area ->
+            val cards = cardsOf(area)
+            "${area.label} (${area.option}) ${cards.size} cards " + if (area.faceDown) "face down ${area.cards.map { flow.atwCard(it) ?: it }}"
+                else cards.joinToString(prefix = "[", postfix = "]") { (if (it.shown) it.name else "hidden") + " ${it.cardId ?: it.key}" }
+        })
+    }
+    Section(choiceWhat(decision), choiceHint(decision)) {
+        NumberedOptions(areas.map { area -> { cast.answer(Answer.Option(area.option)) } })
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (area in areas) {
+                val cards = cardsOf(area)
+                Column(Modifier.fillMaxWidth().border(1.dp, AutomatumViolet.copy(alpha = .35f), androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+                    .padding(6.dp).semantics { contentDescription = "${area.label} area" }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(areaIcon(area.label), null, Modifier.size(16.dp), tint = AutomatumViolet)
+                        Text("${area.label} · ${cards.size}", Modifier.weight(1f).padding(start = 4.dp), fontSize = 12.sp,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = AutomatumViolet)
+                        ChoiceButton("Choose", Icons.Outlined.Check, Modifier.testTag("pile-choose-${area.option}")) {
+                            AppLog.info("decision", "Pile choice ${decision.id.value}: ${area.label} (${area.option}) chosen")
+                            cast.answer(Answer.Option(area.option))
+                        }
+                    }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (card in cards) ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = {},
+                            hold = { inspector.hold(card, it) }, moved = inspector::moved))
+                        if (cards.isEmpty()) Text("No cards", fontSize = 11.sp, color = Color(0xff4b5a5f))
+                    }
                 }
             }
         }

@@ -1,1 +1,1 @@
-fix: The table in the browser stays smoother while you pan and zoom it, when moves arrive and when you rest the pointer on a card.
+2: The table in the browser stays smoother while you pan and zoom it, when moves arrive and when you rest the pointer on a card.

@@ -1,1 +1,1 @@
-fix: A copy of your own spell now reads "Your copy of …" instead of "You's copy of …"
+2: A copy of your own spell now reads "Your copy of …" instead of "You's copy of …"

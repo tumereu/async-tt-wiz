@@ -1,1 +1,1 @@
-mod: The pod you are looking at no longer lights its own menu button dot for its games (a challenge, your move in one of its games): the pod's Games list shows them
+2: The pod you are looking at no longer lights its own menu button dot for its games (a challenge, your move in one of its games): the pod's Games list shows them

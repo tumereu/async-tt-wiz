@@ -1,1 +1,1 @@
-mod: The main button always shows what you can do next, even while the table is still showing earlier moves; pressing it skips the rest of those animations and does it.
+2: The main button always shows what you can do next, even while the table is still showing earlier moves; pressing it skips the rest of those animations and does it.

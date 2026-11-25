@@ -1,1 +1,1 @@
-mod: Grid draft: cards already taken in the grid you pick from are faded, like discarded cards.
+2: Grid draft: cards already taken in the grid you pick from are faded, like discarded cards.

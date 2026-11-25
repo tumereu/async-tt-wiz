@@ -1713,7 +1713,9 @@ internal object Effects {
             act.show(separator, first, public = true)
             act.record(Change.Happened(GameEvent.Revealed(separator, first)))
         }
-        val chosen = act.chooseOption(chooser, scope.self, listOf("first", "second"))
+        // The chooser sees the piles: the cards of a face-up pile, how many cards a face-down pile holds
+        val chosen = act.chooseOption(chooser, scope.self, listOf("first", "second"),
+            piles = arcanum.engine.decision.Decision.Piles(first, second, secondFaceDown = effect.faceDownPile))
         scope.bind(effect.chosenBind, NamedValue.Objects(if (chosen == "first") first else second))
         scope.bind(effect.otherBind, NamedValue.Objects(if (chosen == "first") second else first))
     }

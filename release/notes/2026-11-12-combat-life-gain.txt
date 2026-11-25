@@ -1,1 +1,1 @@
-mod: After combat damage the band shows only each target's total, and life you gain with the damage shows there as a green heart.
+2: After combat damage the band shows only each target's total, and life you gain with the damage shows there as a green heart.

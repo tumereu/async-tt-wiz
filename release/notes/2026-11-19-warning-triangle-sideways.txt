@@ -1,1 +1,1 @@
-fix: The "can't play yet" warning triangle sits in the middle of sideways card pictures (split cards, battles)
+2: The "can't play yet" warning triangle sits in the middle of sideways card pictures (split cards, battles)

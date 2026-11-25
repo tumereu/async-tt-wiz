@@ -1,1 +1,1 @@
-add: Arena drafts have an Initial rares setting: the first picks offer rares (1 by default).
+2: Arena drafts have an Initial rares setting: the first picks offer rares (1 by default).

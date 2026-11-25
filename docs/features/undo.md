@@ -60,3 +60,4 @@ is no redo, and undo is only a convenience: no feature works by undoing somethin
 
 - **HIS-100** The other player gets "<name> asks to undo" with the message, where the game goes back to as far as they have seen ("and actions you haven't seen yet are taken back" when past that), a small view of that board (their own newest one when the point is past what they've seen) and Deny / Accept, never how many events go. (r52)
 - **HIS-210** An undo request is the other player's move until they answer or it is cancelled (LOB-072). While it is open neither player acts (the wait says so; the requester has Cancel request there); looking, playback and conceding still work. (r52)
+- **HIS-251** "<name> asks to undo" (HIS-100) shows only once your view has caught up to where they asked it from (the newest event they had then): while you catch up, playback runs as usual and the request is still your move; skipping the playback counts as caught up. (owner, 2026-11-25)

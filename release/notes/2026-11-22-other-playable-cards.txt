@@ -1,1 +1,1 @@
-mod: The other player's cards they may play from other zones show as cards you can hold to look at.
+2: The other player's cards they may play from other zones show as cards you can hold to look at.

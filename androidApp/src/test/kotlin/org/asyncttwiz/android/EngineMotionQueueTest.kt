@@ -38,7 +38,7 @@ class EngineMotionQueueTest {
         val attack = transition(1, listOf(live, live, live))
         queue.board(2, attack, live)
         assertTrue(queue.playing, "the attack's steps play")
-        val ended = launch(Dispatchers.Unconfined) { snapshotFlow { !queue.playing || queue.stoppedAt(GameDevice.CombatMoment.Attackers) }.first { it } }
+        val ended = launch(Dispatchers.Unconfined) { snapshotFlow { !queue.playing || queue.stoppedAt(GameDevice.CombatMoment.Damage) }.first { it } }
         yield()
         assertTrue(ended.isActive, "waiting on the steps")
         // The next board (the same transition: only the local heads changed) ends the steps at once

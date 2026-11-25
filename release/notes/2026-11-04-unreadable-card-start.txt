@@ -1,1 +1,1 @@
-fix: A deck with a card the game can't read can no longer start a game
+2: A deck with a card the game can't read can no longer start a game

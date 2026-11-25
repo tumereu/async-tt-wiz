@@ -65,6 +65,11 @@ class TableGestureCoordinator(
      * now (one the viewer stages as an attacker, places as a blocker or places to assume); a drag on any other pans the
      * table, as without a combat. */
     var combatDrag: (TableItem) -> Boolean = { true }
+    /** TBL-240 (owner 2026-11-25): the card whose combat chips or badges lie at a point ([CombatChipAreas]): a touch there that
+     * no chip takes itself is that card's; null: none there. */
+    var chipHit: (TablePoint) -> String? = { null }
+    private fun hitAt(point: TablePoint): TableItem? =
+        chipHit(point)?.let { id -> scene.items.firstOrNull { it.id == id } } ?: scene.hit(point)
     /** WEB-023 (§5): whether holding a card still inspects it (the phone); on the desktop table a held left button only
      * pauses the view, as Inspect is the finger key's (WEB-024). */
     var holdInspects: Boolean = true
@@ -99,7 +104,7 @@ class TableGestureCoordinator(
     /** Whether a pointer is down on the table now (WEB-029: the wheel waits for it). */
     val pressed: Boolean get() = capture != null
     fun replacesTap(point: TablePoint, time: Long): Boolean = pending?.let {
-        it.shown && time <= it.deadline && scene.hit(point)?.id == it.capture.item?.id &&
+        it.shown && time <= it.deadline && hitAt(point)?.id == it.capture.item?.id &&
             distance(point, it.capture.start) <= slopDp * 4
     } == true
 
@@ -136,7 +141,7 @@ class TableGestureCoordinator(
         handSpring = null
         transforming = false; transformRegion = null
         navigationCamera = gestureWorld?.unresist(scene.camera) ?: scene.camera
-        val item = scene.hit(point)
+        val item = hitAt(point)
         val id = item?.cardId ?: if (item?.kind == TableItemKind.PILE && item.zone != PlayZone.STACK) {
             item.cards.firstOrNull() // the displayed real card, not an invented logical top in unordered bins
         } else null

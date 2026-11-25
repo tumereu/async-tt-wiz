@@ -812,9 +812,9 @@ class GameDeviceTest {
         assertFalse(alice.pressedInAction(parent, Input.PassPriority(sim.alice)))
     }
 
-    // HIS-113, HIS-146 (owner, 2026-11-08): the attackers hold Alice's view, her phone making none of its own steps, until done; then
-    // the damage holds it too; Off there are no holds; the game goes on for the other player (their events are never held)
-    @Test fun aCombatHoldsTheViewOnTheAttackersAndOnTheDamage() {
+    // HIS-113, HIS-146 (owner, 2026-11-08, 2026-11-25): declaring attackers holds nothing; the damage holds Alice's view, her phone
+    // making none of its own steps, until done; Off there are no holds; the game goes on for the other player (their events are never held)
+    @Test fun aCombatHoldsTheViewOnTheDamageOnly() {
         val sim = seers()
         val seer = sim.seersToThirdTurn()
         val alice = sim.device(sim.alice)
@@ -823,17 +823,8 @@ class GameDeviceTest {
         sim.settle(only = listOf(sim.alice))
         assertNull(alice.combatHold)
         alice.act(Input.DeclareAttackers(sim.alice, listOf(Attack(seer, TargetRef.Player(sim.bob)))))
-        val hold = assertNotNull(alice.combatHold, "the attackers show")
-        assertEquals(GameDevice.CombatMoment.Attackers, hold.kind)
-        val tip = alice.session.tip
+        assertNull(alice.combatHold, "no hold on the attackers")
         sim.settle(only = listOf(sim.alice))
-        alice.advance(sim.now)
-        assertEquals(tip, alice.session.tip, "her phone makes nothing of its own meanwhile")
-        assertNull(alice.show, "no play shown for it")
-        assertTrue(alice.dismissCombatHold(hold))
-        assertEquals(hold.event, alice.showDone)
-        sim.settle(only = listOf(sim.alice))
-        assertNull(alice.combatHold, "on to Bob's blocks")
         // Bob's blocks assumed, her own passes and his on to the damage
         repeat(8) {
             if (alice.combatHold == null) {
@@ -841,8 +832,12 @@ class GameDeviceTest {
                 sim.settle(only = listOf(sim.alice))
             }
         }
-        val damage = assertNotNull(alice.combatHold, "the damage holds too")
+        val damage = assertNotNull(alice.combatHold, "the damage holds")
         assertEquals(GameDevice.CombatMoment.Damage, damage.kind)
+        val tip = alice.session.tip
+        sim.settle(only = listOf(sim.alice))
+        alice.advance(sim.now)
+        assertEquals(tip, alice.session.tip, "her phone makes nothing of its own meanwhile")
         alice.showPlays = false
         assertNull(alice.combatHold, "Off: none")
     }

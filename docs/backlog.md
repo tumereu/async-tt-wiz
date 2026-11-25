@@ -23,7 +23,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ### Through the Omenpaths (owner, 2026-11-25; after the draft bots)
 
-- OM1 (Through the Omenpaths, the Arena set whose cards are Marvel's Spider-Man's cards under other names; MTGJSON gives them SPM's oracle names with the Omenpaths name as flavorName) joins `supported-sets.txt` (setSupport must pass; its cards are SPM's, already supported) and the 17Lands ratings fetch (match 17Lands' card names by name or flavorName); re-pin the ratings. Release note `set: Through the Omenpaths`. Ask the owner whether SPM pods should use OM1's ratings for the cards they share (SPM itself has no 17Lands data).
+- OM1 (Through the Omenpaths, the Arena set whose cards are Marvel's Spider-Man's cards under other names; MTGJSON gives them SPM's oracle names with the Omenpaths name as flavorName) joins `supported-sets.txt` (setSupport must pass; its cards are SPM's, already supported) and the 17Lands ratings fetch (match 17Lands' card names by name or flavorName); re-pin the ratings. Release note `set: Through the Omenpaths`. SPM pods use OM1's ratings for the cards they share (owner; SPM itself has no 17Lands data), the rest by the heuristic as for any unrated card; SPM then counts as a set with ratings (no warning).
 
 ### Earlier
 

@@ -74,6 +74,8 @@ class PileChoiceTest {
         compose.onNodeWithTag(CHOICE_SOURCE_TAG, useUnmergedTree = true).assert(hasContentDescription(Choices.DESTINY))
         compose.onNodeWithText("Face-up pile · 1").assertExists()
         compose.onNodeWithText("Face-down pile · 2").assertExists()
+        // STK-181, STK-229 (owner gallery review 2026-11-25): the Destiny's whole text under the title, not only its "chooses" sentence
+        compose.onNodeWithContentDescription("Question: $DESTINY_TEXT").assertExists()
         // The face-up card is drawn as itself; the face-down ones only as backs
         fun name(id: arcanum.engine.state.ObjectId) = kit.state().obj(id)?.definition?.faces?.first()?.name
         val faceUp = assertNotNull(name(piles.first.single()))
@@ -82,7 +84,7 @@ class PileChoiceTest {
             .fetchSemanticsNodes().size)
         compose.onNodeWithTag("pile-choose-first", useUnmergedTree = true).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/pile-choice.png",
-            "Bob's Ember Destiny resolved: he put one of his top three cards face up and two face down, and Alice chooses: the panel is titled \"Choose a pile\" with the Destiny at its right, the Face-up pile shows its card, the Face-down pile two card backs, each with its count and a Choose button.")
+            "Bob's Ember Destiny resolved: he put one of his top three cards face up and two face down, and Alice chooses: the panel is titled \"Choose a pile\" with the Destiny's name and whole text under it and its card at the right, the Face-up pile shows its card, the Face-down pile two card backs, each with its count and a Choose button.")
         val handBefore = kit.state().player(kit.other).hand.size
         compose.onNodeWithTag("pile-choose-second", useUnmergedTree = true).performClick()
         compose.waitForIdle()
@@ -92,5 +94,27 @@ class PileChoiceTest {
         assertEquals(handBefore + 2, bob.hand.size, "Bob's hand: ${bob.hand}")
         assertTrue(bob.graveyard.any { name(it) == faceUp },
             "the face-up pile went to Bob's graveyard")
+    }
+
+    // STK-181, STK-043 (owner gallery review 2026-11-25: every choice shows its ability's whole text): Alice casts her own Ember Destiny
+    // and separates her top three cards: "Separate into piles" shows the Destiny's whole text under its title
+    @Test fun theSeparatorSeesTheSpellsWholeText() {
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(Choices.DESTINY, "Mountain"))))
+        kit.opening()
+        assertTrue(kit.toolkit.cast.start(kit.atw(kit.hand(Choices.DESTINY).first())), "the cast begins: ${kit.toolkit.error}")
+        kit.playOn("Alice separating her top three cards", rounds = 40) {
+            val d = kit.state().pending?.decision
+            d is Decision.ChooseObjects && d.player == kit.me && kit.alice.device.status == GameDevice.Status.YourMove
+        }
+        render(kit)
+        compose.onNode(hasText("Separate into piles") and isHeading()).assertExists()
+        compose.onNodeWithContentDescription("Question: $DESTINY_TEXT").assertExists()
+        compose.onRoot().captureShot("$SCREENSHOTS/choice-text/separate-piles.png",
+            "Alice cast her Ember Destiny and separates her top three cards: \"Separate into piles\" has the Destiny's name and whole text under its title, the three cards in the Face-up pile and none yet in the Face-down pile.")
+    }
+
+    private companion object {
+        const val DESTINY_TEXT = "Look at the top three cards of your library and separate them into a face-down pile and a face-up pile. " +
+            "An opponent chooses one of the piles. Put that pile into your hand and the other into your graveyard."
     }
 }

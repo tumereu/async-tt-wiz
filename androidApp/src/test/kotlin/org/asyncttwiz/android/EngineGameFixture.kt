@@ -191,6 +191,12 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         /** STK-229: a free sorcery whose caster separates their top three cards into a face-down and a face-up pile, an opponent
          * choosing the pile that goes to the caster's hand (worded as a real such card). */
         const val DESTINY = "Ember Destiny"
+        /** STK-181: a free sorcery searching for a basic land card, then a sentence more (a channel ability's wording). */
+        const val SEEKING = "Ember Seeking"
+        /** STK-181: a free sorcery with a "you may" after a sentence of its own. */
+        const val MUSING = "Ember Musing"
+        /** STK-181: an {X} sorcery of two sentences, both naming X. */
+        const val SURGE = "Ember Surge"
     }
     private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
@@ -282,6 +288,12 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("unmaking", Choices.UNMAKING, "Sorcery", "Destroy all creatures."),
         free("destiny", Choices.DESTINY, "Sorcery", "Look at the top three cards of your library and separate them into a face-down pile " +
             "and a face-up pile. An opponent chooses one of the piles. Put that pile into your hand and the other into your graveyard."),
+        free("seeking", Choices.SEEKING, "Sorcery", "Search your library for a basic land card, reveal it, put it into your hand, then shuffle. " +
+            "You gain 2 life."),
+        free("musing", Choices.MUSING, "Sorcery", "You gain 2 life. You may draw a card. If you do, discard a card."),
+        Invented(DefinitionFace("surge", Choices.SURGE, typeLine = "Sorcery", manaCost = "{X}{R}",
+            rulesText = "Ember Surge deals X damage to any target. You gain X life."),
+            OracleCard(Choices.SURGE, "{X}{R}", "Sorcery", "Ember Surge deals X damage to any target. You gain X life.")),
         free("lancer", Choices.LANCER, "Creature — Elemental Soldier", "When this creature enters, it deals 2 damage to target creature an opponent controls.", "1", "1"),
         free("tollkeeper", Choices.TOLLKEEPER, "Creature — Elemental", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1"),
         Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",

@@ -1,0 +1,1 @@
+3: In the side menu and the menu's Games and Pods panels the waiting dot now sits before each name, lined up on every row

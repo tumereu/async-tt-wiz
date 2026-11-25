@@ -42,7 +42,7 @@ fun GameRows(games: List<GameSummary>, controller: LobbyController, accountId: S
 
 @Composable
 fun GameRow(game: GameSummary, accountId: String, modifier: Modifier,
-    trailing: (@Composable () -> Unit)? = null, dot: WaitingDot? = null) {
+    trailing: (@Composable () -> Unit)? = null, dot: WaitingDot? = null, dotSlot: Boolean = false) {
     val move = gameRowMove(game, accountId)
     val chip: @Composable () -> Unit = {
         if (trailing != null) trailing() else {
@@ -70,29 +70,59 @@ fun GameRow(game: GameSummary, accountId: String, modifier: Modifier,
     if (desktopLayout()) Row(modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Avatar(game.opponent(accountId))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            WaitingName(game.gameName, dot, fontWeight = FontWeight.SemiBold)
+        // LOB-269: the menu panel's rows have the dot's slot between the avatar and the name
+        if (dotSlot) AfterDotSlot(dot, Arrangement.spacedBy(2.dp)) {
+            RowName(game.gameName, fontWeight = FontWeight.SemiBold)
+            lines()
+        } else Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            RowName(game.gameName, fontWeight = FontWeight.SemiBold)
             lines()
         }
         chip()
     } else Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Avatar(game.opponent(accountId))
-            WaitingName(game.gameName, dot, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+            if (dotSlot) WaitingDotSlot(dot)
+            RowName(game.gameName, Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
             chip()
         }
         lines()
     }
 }
 
-/** LOB-269: a row's name, its waiting dot ([dot], LOB-267) right after it; only the name shortens. */
+/** A row's name on one line, shortened with … when it doesn't fit. */
 @Composable
-fun WaitingName(name: String, dot: WaitingDot?, modifier: Modifier = Modifier, fontWeight: FontWeight? = null) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(name, Modifier.weight(1f, fill = false), fontWeight = fontWeight, maxLines = 1, overflow = TextOverflow.Ellipsis)
+fun RowName(name: String, modifier: Modifier = Modifier, fontWeight: FontWeight? = null) {
+    Text(name, modifier, fontWeight = fontWeight, maxLines = 1, overflow = TextOverflow.Ellipsis)
+}
+
+/**
+ * LOB-269 (owner gallery review 2026-11-25): the waiting dot's slot before a row's name, between its avatar column and its name:
+ * [dot] (LOB-267) centred on the name's line, empty on a row without one but always there, so on every row the dot sits at
+ * the same x and the names line up.
+ */
+@Composable
+fun WaitingDotSlot(dot: WaitingDot?, modifier: Modifier = Modifier) {
+    val line = LocalTextStyle.current.lineHeight
+    val height = with(androidx.compose.ui.platform.LocalDensity.current) { if (line.isSp) line.toDp() else 24.dp }
+    Box(modifier.testTag(WAITING_DOT_SLOT_TAG).width(WAITING_DOT_SLOT).height(height), contentAlignment = Alignment.Center) {
         dot?.let { WaitingDotMark(it) }
     }
 }
+
+/** LOB-269: a row's name and the lines under it ([content]) after its waiting dot's slot ([WaitingDotSlot]), taking the row's
+ * free width. */
+@Composable
+fun RowScope.AfterDotSlot(dot: WaitingDot?, arrangement: Arrangement.Vertical = Arrangement.Top, content: @Composable ColumnScope.() -> Unit) {
+    Row(Modifier.weight(1f), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        WaitingDotSlot(dot)
+        Column(Modifier.weight(1f), verticalArrangement = arrangement, content = content)
+    }
+}
+
+/** The width of a row's waiting dot slot (LOB-269): the dot's own. */
+val WAITING_DOT_SLOT = 6.dp
+const val WAITING_DOT_SLOT_TAG = "waiting-dot-slot"
 
 /** Bare content for the shared menu panel; pod-screen cards keep their own presentation. */
 @Composable
@@ -105,10 +135,9 @@ fun MenuPodRow(entry: QuickContinuePod, accountId: String?, stackWidth: Dp, resp
         // LOB-017: pods show the side menu's compact stack (LOB-018); an invitation keeps its creator's avatar.
         if (pod != null) AvatarStack(podNavigationAvatars(pod.members, accountId), ring = Color.White, width = stackWidth)
         else Box(Modifier.width(stackWidth)) { Avatar(requireNotNull(invite).creator) }
-        Column(Modifier.weight(1f)) {
-            // LOB-269: a pod's waiting dot, an invitation's blue (owner, 2026-11-25)
-            WaitingName(pod?.name ?: requireNotNull(invite).name, if (pod != null) podWaitingDot(pod) else podInvitationWaitingDot,
-                fontWeight = FontWeight.SemiBold)
+        // LOB-269: a pod's waiting dot, an invitation's blue (owner, 2026-11-25), in its slot before the name
+        AfterDotSlot(if (pod != null) podWaitingDot(pod) else podInvitationWaitingDot) {
+            RowName(pod?.name ?: requireNotNull(invite).name, fontWeight = FontWeight.SemiBold)
             Text(pod?.let(::podStatus) ?: "Invitation", style = MaterialTheme.typography.bodySmall)
         }
         if (invite != null) MenuInvitationActions(responseEnabled, respond = respond)

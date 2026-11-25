@@ -35,6 +35,9 @@ class PileChoiceTest : E2e() {
         waitUntil("Alice separating her top three cards", along = listOf(bob)) {
             alice.state.pending?.decision is Decision.ChooseObjects && alice.shows(hasText("Face-down pile · 0", substring = true))
         }
+        // STK-181, STK-043 (owner gallery review 2026-11-25: every choice shows its ability's whole text): the separator sees the Destiny's
+        // whole text under "Separate into piles"
+        assertTrue(alice.shows(hasContentDescription("Question: ${TestCards.destiny.faces.first().rulesText}") and inChoice), "the whole text: ${alice.screen()}")
         alice.nodes(hasContentDescription("Ember Cub") and inChoice)[0].performClick()
         waitUntil("the Cub in the face-down pile") { alice.shows(hasText("Face-down pile · 1") and inChoice) }
         alice.tap("OK")
@@ -45,6 +48,9 @@ class PileChoiceTest : E2e() {
         assertTrue(piles.secondFaceDown, "the second pile lies face down: $piles")
         assertTrue(bob.shows(hasText("Face-up pile · 2") and inChoice), "the face-up pile's count: ${bob.screen()}")
         assertTrue(bob.shows(hasText("Face-down pile · 1") and inChoice), "the face-down pile's count: ${bob.screen()}")
+        // STK-229, STK-181 (owner gallery review 2026-11-25): "Choose a pile" showed only "An opponent chooses one of the piles.": the
+        // chooser sees the Destiny's whole text under the title
+        assertTrue(bob.shows(hasContentDescription("Question: ${TestCards.destiny.faces.first().rulesText}") and inChoice), "the whole text: ${bob.screen()}")
         val faceUp = piles.first.map { assertNotNull(cardName(bob.state, it)) }
         for (name in faceUp) assertTrue(bob.shows(hasContentDescription(name) and area("Face-up pile")), "$name drawn face up: ${bob.screen()}")
         assertEquals(1, bob.nodes(hasContentDescription("Hidden card") and area("Face-down pile")).fetchSemanticsNodes().size,

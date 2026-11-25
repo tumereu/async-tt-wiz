@@ -47,7 +47,8 @@ class CatalogTest {
         )
         val sets = listOf(
             CatalogSetRecord("OLD", "Old Set", "core", "2001-01-01", "old", draftable = true, automatum = true),
-            CatalogSetRecord("TST", "Test Set", "expansion", "2026-01-01", draftable = true, unsupported = listOf("Glorp Wizard")),
+            CatalogSetRecord("TST", "Test Set", "expansion", "2026-01-01", draftable = true, unsupported = listOf("Glorp Wizard"),
+                ratings = mapOf("Glorp Wizard" to 512, "Test Bear" to 571)),
             CatalogSetRecord("TTST", "Test Set Tokens", "token", "2026-01-01"),
         )
         val header = CatalogHeader(CardCatalogFormat.FORMAT, version, "2026-10-31", CardSearchRules.FORMATS, 1, 1,
@@ -100,6 +101,10 @@ class CatalogTest {
         assertEquals(setOf(id(3), id(4), id(9)), repo().unsupported(listOf(id(1), id(2), id(3), id(4), id(9))))
         assertEquals(listOf(DraftableSet("TST", "Test Set", "2026-01-01", 2, false, listOf("Glorp Wizard")),
             DraftableSet("OLD", "Old Set", "2001-01-01", 1, true, keyrune = "old")), repo().draftableSets())
+        // DRF-312: each set's card ratings, for the draft bot's debug view
+        assertEquals(mapOf("Glorp Wizard" to 512, "Test Bear" to 571), repo().botRatings("TST"))
+        assertEquals(emptyMap<String, Int>(), repo().botRatings("OLD"))
+        assertEquals(emptyMap<String, Int>(), repo().botRatings("NONE"))
     }
 
     // LOB-095: an app whose built-in checksum differs from the installed catalog's installs its own; without one it takes

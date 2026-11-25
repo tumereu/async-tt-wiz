@@ -1199,13 +1199,34 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         } }
     }
 
+    /** DRF-312 (owner, 2026-11-25): the card ratings a set pod's bots pick by: its set's, for a pod of one set whose set
+     * the card catalog has ratings for; null (the heuristic alone) for a draft of several sets or a set without them. */
+    private fun botRatings(set: SetPackSources?): DraftBotRatings? =
+        set?.packs?.distinct()?.singleOrNull()?.let { code -> ServerCatalogs.current()?.botRatings(code) }
+
+    /** DRF-312: the pod's bots' ratings, logged with what they pick by. */
+    private fun botRatings(row: PodRecord): DraftBotRatings? {
+        val set = setSource(row)
+        val ratings = botRatings(set)
+        log("pod ${row.id} bots pick by " + when {
+            ratings != null -> "card ratings: $ratings"
+            set == null -> "the heuristic: a cube has no card ratings"
+            set.packs.distinct().size > 1 -> "the heuristic: a draft of several sets (${set.packs.distinct().joinToString(" ")}) has no card ratings"
+            else -> "the heuristic: no card ratings for ${set.packs.first()}"
+        })
+        return ratings
+    }
+
     /** DRF-298: every move the pod's bots can make now, made at once (each logged), so the draft never waits for a bot. */
     private fun withBots(sql: DSLContext, row: PodRecord, state: DraftState): DraftState =
-        if (!DraftBotSeats.waiting(state.queues)) state else DraftBotSeats.run(state, botCards(sql, state.copies)) { log("pod ${row.id} bot $it") }
+        if (!DraftBotSeats.waiting(state.queues)) state
+        else DraftBotSeats.run(state, botCards(sql, state.copies), { log("pod ${row.id} bot $it") }, botRatings(row))
     private fun withBots(sql: DSLContext, row: PodRecord, state: GridState): GridState =
-        if (!DraftBotSeats.waiting(state.queues)) state else DraftBotSeats.run(state, botCards(sql, state.copies)) { log("pod ${row.id} bot $it") }
+        if (!DraftBotSeats.waiting(state.queues)) state
+        else DraftBotSeats.run(state, botCards(sql, state.copies), { log("pod ${row.id} bot $it") }, botRatings(row))
     private fun withBots(sql: DSLContext, row: PodRecord, state: LimitedDraftState): LimitedDraftState =
-        if (!DraftBotSeats.waiting(state.queues)) state else DraftBotSeats.run(state, botCards(sql, state.copies)) { log("pod ${row.id} bot $it") }
+        if (!DraftBotSeats.waiting(state.queues)) state
+        else DraftBotSeats.run(state, botCards(sql, state.copies), { log("pod ${row.id} bot $it") }, botRatings(row))
 
     private fun advance(sql: DSLContext, row: PodRecord, previous: DraftState?, moved: DraftState) {
         val next = withBots(sql, row, moved)
@@ -1495,7 +1516,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             maybeCopies = maybe(row).sumOf { it.quantity.toLong() }) else
             PodSource(kind = PodSourceKind.SET, setCode = set.first.setCode, setName = set.first.setName,
                 boosterKind = if (set.sets.any { it.recipe == null }) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
-                boosterName = set.first.recipe?.name, packSets = set.packs)
+                boosterName = set.first.recipe?.name, packSets = set.packs, botRatings = botRatings(set) != null)
         // DRF-285, DRF-287: an Arena pod's setup summary tells its source's rarities
         val rarities = if (settings.mode == DraftMode.ARENA && row.phase == "SETUP") arenaCounts(sql, row) else null
         val finite = settings.supply(settings.seats(members.size), cube)

@@ -25,12 +25,16 @@ import org.asyncttwiz.storage.MtgJsonCatalogSink
  * set list, and the booster recipe of each draftable set. The support marks (SYS-082): a card is supported when a
  * printing of it is in one of [supportedSets] or its name is on [supportedCards] (the backlog's "support moves set by
  * set"), and Automatum finds nothing in it left to the players ([AutomatumSupport.handParts], on the card data a device
- * makes of it); a draftable set is supported when every card its packs can hold is. Nothing here reads the clock or the
- * machine: the same file and lists give the same catalog.
+ * makes of it); a draftable set is supported when every card its packs can hold is. [ratings] (the draft bots' card
+ * ratings, [CatalogRatings.table] of each set, by 17Lands' card names) go into their sets' records under the catalog's card
+ * names ([CatalogSetRecord.ratings]), and a set [borrowed] names without ratings of its own gets another's. Nothing here reads the clock or the machine: the same file and lists give the same
+ * catalog.
  */
 class CatalogBuilder(
     private val supportedSets: Set<String>,
     private val supportedCards: Set<String>,
+    private val ratings: Map<String, Map<String, Int>> = emptyMap(),
+    private val borrowed: Map<String, String> = CatalogRatings.BORROWED,
     private val log: (String) -> Unit = {},
 ) {
     /** A card the lists name ([sets]: its listed sets; [onList]: on the single-card list) and what Automatum leaves of it
@@ -143,9 +147,59 @@ class CatalogBuilder(
             val unsupported = names.filter { it !in supported }
             set.copy(automatum = names.isNotEmpty() && unsupported.isEmpty(), unsupported = unsupported)
         }
-        val marked = CardCatalog(catalog.header, sets, faces, catalog.printings, recipes)
+        val marked = CardCatalog(catalog.header, rated(catalog, sets), faces, catalog.printings, recipes)
         return Built(marked, listed.sortedBy { it.name }, supportedCards.filter { it !in known }.sorted(),
             supportedSets.filter { it !in marked.set }.sorted())
+    }
+
+    /**
+     * [sets] with their card ratings: each rated card under the catalog's name of its card, found (case ignored) first by
+     * the name the set's own printings print where it isn't the Oracle name (`flavorName`, a front face's
+     * `faceFlavorName`: Through the Omenpaths names Marvel's Spider-Man's cards so, and 17Lands with it), then by any
+     * card's whole name or front face's (17Lands names a card of several faces by its front); a name no card has is left
+     * out (logged). A set without ratings of its own that [borrowed] names gets its source's ratings of the cards it shares.
+     */
+    private fun rated(catalog: CardCatalog, sets: List<CatalogSetRecord>): List<CatalogSetRecord> {
+        if (ratings.isEmpty()) return sets
+        val names = HashMap<String, String>()
+        catalog.printings.filter { !it.token }.forEach { printing ->
+            val face = catalog.faces[printing.face]
+            val name = CatalogCards.cardName(face)
+            names.putIfAbsent(name.lowercase(), name)
+            if (face.side == "a" && face.faceName.isNotEmpty()) names.putIfAbsent(face.faceName.lowercase(), name)
+        }
+        fun printed(code: String): Map<String, String> {
+            val printed = HashMap<String, String>()
+            catalog.bySet[code].orEmpty().filter { !it.token }.forEach { printing ->
+                val face = catalog.faces[printing.face]
+                val name = CatalogCards.cardName(face)
+                if (printing.flavorName.isNotEmpty()) printed.putIfAbsent(printing.flavorName.lowercase(), name)
+                if (face.side == "a" && printing.faceFlavorName.isNotEmpty()) printed.putIfAbsent(printing.faceFlavorName.lowercase(), name)
+            }
+            return printed
+        }
+        val unknown = ratings.keys - sets.map { it.code }.toSet()
+        if (unknown.isNotEmpty()) log("Card ratings of sets the catalog doesn't have: ${unknown.sorted().joinToString(" ")}")
+        val own = sets.map { set ->
+            val table = ratings[set.code] ?: return@map set
+            val setNames = printed(set.code)
+            val found = sortedMapOf<String, Int>()
+            val missing = ArrayList<String>()
+            table.forEach { (name, rating) ->
+                (setNames[name.lowercase()] ?: names[name.lowercase()])?.let { found[it] = rating } ?: run { missing += name }
+            }
+            log("Set ${set.code}: ${found.size} cards rated" +
+                if (missing.isEmpty()) "" else "; ${missing.size} ratings name no card: ${missing.sorted().take(12).joinToString(" | ")}")
+            set.copy(ratings = found)
+        }
+        val byCode = own.associateBy { it.code }
+        return own.map { set ->
+            val source = borrowed[set.code]?.let(byCode::get)?.takeIf { set.ratings.isEmpty() && it.ratings.isNotEmpty() } ?: return@map set
+            val cards = catalog.bySet[set.code].orEmpty().filter { !it.token }.map { CatalogCards.cardName(catalog.faces[it.face]) }.toSet()
+            val shared = source.ratings.filterKeys { it in cards }.toSortedMap()
+            log("Set ${set.code}: ${shared.size} of its ${cards.size} cards rated by ${source.code}'s ratings")
+            set.copy(ratings = shared)
+        }
     }
 
     /** The cards a set's packs can hold: its recipe's printings, or without one every card of the set (DRF-090's

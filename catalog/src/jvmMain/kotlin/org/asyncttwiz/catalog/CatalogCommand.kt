@@ -16,6 +16,8 @@ import kotlin.system.exitProcess
  *   set it marks draftable builds its packs. The checksum in `current` is what the release builds into the app
  *   (SYS-081). `--no-pin` builds from any file (the test cards' catalogs) without the pin.
  * - `move`: makes the pin name the raw file.
+ * - `ratings-fetch --out <file>`: fetches the draft bots' card ratings of every supported set from 17Lands' public game
+ *   data into `<file>` ([CatalogRatings.fetch]); `ratings-move`: makes the pin name the ratings file.
  * - `compare-support --old <file|dir> --new <file|dir> [--allow <count>]`: lists the cards the old catalog marks as
  *   supported and the new one doesn't (a directory means its `current` catalog). Exit code 3 when there are any, unless
  *   `--allow` names exactly their count: the release's guard against dropping support for cards (owner, 2026-11-19).
@@ -23,7 +25,9 @@ import kotlin.system.exitProcess
  * Options: `--pin <file>` (default `catalog/pin.properties`), `--file <AllPrintings.json[.gz]>` (default
  * `$ATW_ALLPRINTINGS`, else `~/projects/atw-cache/AllPrintings.json.gz`), `--sets <file>` and `--cards <file>` (the support
  * lists, default the Arcanum tools' `supported-sets.txt` and `supported-cards.txt`), `--report <file>` (every listed card
- * with what Automatum leaves to the players).
+ * with what Automatum leaves to the players), `--ratings <file>` (the card ratings, default `$ATW_RATINGS`, else
+ * `~/projects/atw-cache/17lands-ratings.tsv.gz`; a build with the pin reads them when the pin names them, `--no-pin` only
+ * when given).
  */
 fun main(args: Array<String>) {
     exitProcess(CatalogCommand(System.out).run(args.toList()))
@@ -50,21 +54,52 @@ class CatalogCommand(private val out: PrintStream, private val root: File = File
         val tools = File(root, "arcanum-tools/src/main/resources/arcanum/tools")
         val sets = File(options["--sets"] ?: File(tools, "supported-sets.txt").path)
         val cards = File(options["--cards"] ?: File(tools, "supported-cards.txt").path)
+        val ratingsFile = File(options["--ratings"] ?: System.getenv("ATW_RATINGS")?.takeIf { it.isNotBlank() }
+            ?: (System.getProperty("user.home") + "/projects/atw-cache/17lands-ratings.tsv.gz"))
         return when (command) {
-            "verify" -> verify(CatalogPin.read(pinFile), file)?.let { fail(it) } ?: 0.also { out.println("$file is the pinned MTGJSON file.") }
+            "verify" -> {
+                val pin = CatalogPin.read(pinFile)
+                verify(pin, file)?.let { return fail(it) }
+                out.println("$file is the pinned MTGJSON file.")
+                if (pin.ratingsSha256 != null) {
+                    verifyRatings(pin, ratingsFile)?.let { return fail(it) }
+                    out.println("$ratingsFile is the pinned card ratings file.")
+                }
+                0
+            }
             "build" -> {
                 val output = File(options["--out"] ?: return usage())
                 val pin = if ("--no-pin" in flags) null else CatalogPin.read(pinFile)
                 pin?.let { verify(it, file) }?.let { return fail(it) }
-                val built = build(file, sets, cards, options["--report"]?.let(::File))
+                pin?.takeIf { it.ratingsSha256 != null }?.let { verifyRatings(it, ratingsFile) }?.let { return fail(it) }
+                val ratings = if (pin?.ratingsSha256 != null || "--ratings" in options) CatalogRatings.read(ratingsFile) else null
+                val built = build(file, sets, cards, options["--report"]?.let(::File), ratings)
                 publish(built.catalog, output)
+                0
+            }
+            "ratings-fetch" -> {
+                val target = File(options["--out"] ?: return usage())
+                val ratings = CatalogRatings.fetch(lines(sets).map { it.substringBefore(' ') }) { out.println(it) }
+                CatalogRatings.write(ratings, target)
+                out.println("Wrote $target: ${ratings.sets.size} sets with ratings" +
+                    if (ratings.missing.isEmpty()) "" else "; no data at 17Lands for ${ratings.missing.joinToString(" ")}")
+                0
+            }
+            "ratings-move" -> {
+                if (!ratingsFile.isFile) return fail("No card ratings file at $ratingsFile to pin.")
+                val pin = CatalogPin.read(pinFile)
+                val sha = CardCatalogFiles.sha256(ratingsFile)
+                val date = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString()
+                pin.copy(ratingsDate = date, ratingsSha256 = sha).write(pinFile)
+                out.println("The pin names the card ratings of $date (SHA-256 $sha).")
                 0
             }
             "move" -> {
                 if (!file.isFile) return fail("No MTGJSON file at $file to move the pin to.")
                 val metadata = open(file).use(org.asyncttwiz.storage.MtgJsonCatalog()::peekMetadata)
                 val raw = CardCatalogFiles.sha256(file)
-                CatalogPin(metadata.version, metadata.date, raw).write(pinFile)
+                val old = pinFile.takeIf { it.isFile }?.let(CatalogPin::read)
+                CatalogPin(metadata.version, metadata.date, raw, old?.ratingsDate, old?.ratingsSha256).write(pinFile)
                 out.println("The pin names MTGJSON ${metadata.version} (SHA-256 $raw).")
                 0
             }
@@ -125,9 +160,17 @@ class CatalogCommand(private val out: PrintStream, private val root: File = File
         return if (actual == pin.allPrintingsSha256) null else pin.missing(file, actual)
     }
 
-    private fun build(file: File, sets: File, cards: File, report: File?): CatalogBuilder.Built {
+    /** Why [file] isn't the pinned card ratings file, or null when it is. */
+    private fun verifyRatings(pin: CatalogPin, file: File): String? {
+        if (!file.isFile) return pin.missingRatings(file)
+        val actual = CardCatalogFiles.sha256(file)
+        return if (actual == pin.ratingsSha256) null else pin.missingRatings(file, actual)
+    }
+
+    private fun build(file: File, sets: File, cards: File, report: File?, ratings: CatalogRatings.Ratings?): CatalogBuilder.Built {
         if (!file.isFile) throw IllegalStateException("No MTGJSON file at $file")
-        val builder = CatalogBuilder(lines(sets).map { it.substringBefore(' ') }.toSet(), lines(cards).toSet()) { out.println(it) }
+        val builder = CatalogBuilder(lines(sets).map { it.substringBefore(' ') }.toSet(), lines(cards).toSet(),
+            ratings?.sets.orEmpty().mapValues { (_, counts) -> CatalogRatings.table(counts) }) { out.println(it) }
         val built = builder.build { open(file) }
         val catalog = built.catalog
         // Every set the marks say can be drafted builds its packs (the server does the same for a pod).
@@ -139,6 +182,16 @@ class CatalogCommand(private val out: PrintStream, private val root: File = File
         out.println("Listed cards: ${built.listed.size}, ${unsupported.size} with parts Automatum leaves to the players")
         if (built.missingSets.isNotEmpty()) out.println("Listed sets the file doesn't have: ${built.missingSets.joinToString(" ")}")
         if (built.unknownNames.isNotEmpty()) out.println("Listed names no card has: ${built.unknownNames.joinToString(" | ")}")
+        if (ratings != null) {
+            val rated = catalog.sets.filter { it.ratings.isNotEmpty() }
+            out.println("Card ratings: ${rated.joinToString(" ") { "${it.code} ${it.ratings.size}" }}" +
+                ratings.formats.filterValues { it != CatalogRatings.FORMATS.first() }.takeIf { it.isNotEmpty() }
+                    ?.let { formats -> "; from other formats: ${formats.entries.joinToString(" ") { "${it.key} ${it.value}" }}" }.orEmpty() +
+                CatalogRatings.BORROWED.filterKeys { code -> rated.any { it.code == code } && code !in ratings.sets }.takeIf { it.isNotEmpty() }
+                    ?.let { borrowed -> "; borrowed: ${borrowed.entries.joinToString(" ") { "${it.key} from ${it.value}" }}" }.orEmpty() +
+                ratings.missing.filter { code -> rated.none { it.code == code } }.takeIf { it.isNotEmpty() }
+                    ?.let { "; no 17Lands data for ${it.joinToString(" ")}" }.orEmpty())
+        }
         catalog.sets.filter { it.draftable && !it.automatum && it.code in lines(sets).map { line -> line.substringBefore(' ') } }.forEach {
             out.println("Listed set ${it.code} can't be drafted: ${it.unsupported.size} pack cards unsupported (${it.unsupported.take(12).joinToString(", ")})")
         }
@@ -180,5 +233,5 @@ class CatalogCommand(private val out: PrintStream, private val root: File = File
 
     private fun fail(message: String): Int { out.println(message); return 1 }
 
-    private fun usage(): Int = fail("Usage: verify | build --out <dir> [--no-pin] | update | move | compare-support --old <file|dir> --new <file|dir> [--allow <count>]; options --pin, --file, --sets, --cards, --report")
+    private fun usage(): Int = fail("Usage: verify | build --out <dir> [--no-pin] | move | ratings-fetch --out <file> | ratings-move | compare-support --old <file|dir> --new <file|dir> [--allow <count>]; options --pin, --file, --sets, --cards, --report, --ratings")
 }

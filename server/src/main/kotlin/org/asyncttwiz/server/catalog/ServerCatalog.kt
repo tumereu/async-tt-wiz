@@ -74,6 +74,14 @@ class ServerCatalog(val directory: File, val catalog: CardCatalog, val version: 
             .mapValues { (_, printings) -> org.asyncttwiz.protocol.SetCardRarity.valueOf(printings.minBy { order.indexOf(it.rarity) }.rarity.uppercase()) }
     }
 
+    /** DRF-312: the draft bots' card ratings of set [code] (the catalog's [CatalogSetRecord.ratings]), null for a set
+     * without them; made once a set. */
+    fun botRatings(code: String): org.asyncttwiz.protocol.DraftBotRatings? = ratings.computeIfAbsent(code) {
+        java.util.Optional.ofNullable(catalog.set[code]?.ratings?.takeIf { it.isNotEmpty() }?.let { org.asyncttwiz.protocol.DraftBotRatings(code, it) })
+    }.orElse(null)
+
+    private val ratings = ConcurrentHashMap<String, java.util.Optional<org.asyncttwiz.protocol.DraftBotRatings>>()
+
     /** The gzip file of catalog [checksum] in this directory (the current one or the one kept before it), or null. */
     fun file(checksum: String): File? = ServerCatalogs.file(directory, checksum)
 

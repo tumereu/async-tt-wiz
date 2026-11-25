@@ -85,5 +85,5 @@ tasks.register<JavaExec>("testCardsCatalog") {
     inputs.dir(fixture)
     outputs.dir(output)
     args("build", "--no-pin", "--out", output.get().asFile.absolutePath, "--file", "$fixture/AllPrintings.json",
-        "--sets", "$fixture/supported-sets.txt", "--cards", "$fixture/supported-cards.txt")
+        "--sets", "$fixture/supported-sets.txt", "--cards", "$fixture/supported-cards.txt", "--ratings", "$fixture/ratings.tsv")
 }

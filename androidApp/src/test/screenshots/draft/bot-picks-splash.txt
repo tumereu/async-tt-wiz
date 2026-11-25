@@ -1,0 +1,1 @@
+Show bot picks in a pod of a set with card ratings, Alice's first pick of pack 2 after white and blue picks: the bot's pick is Night Terror, one black symbol off her colours but among the set's best rated, and a tap on its score lists its rating and "Splash B -4" in place of the full off-colour penalty.

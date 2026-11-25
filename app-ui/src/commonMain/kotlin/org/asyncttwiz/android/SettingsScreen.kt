@@ -91,6 +91,8 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
                 ReportsSetting()
                 // LOB-263: test builds only
                 DraftBotSetting()
+                // LOB-275: the card ratings' credit
+                CardRatingsCredit()
                 SelectionContainer { Text(versionText, Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("app-version"),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 SettingsActionRow("Log out", "logout", logout, Modifier.testTag("logout"), color = MaterialTheme.colorScheme.error)
@@ -134,6 +136,8 @@ private fun DesktopSettings(catalog: CatalogViewModel?, accountId: String, logou
             ProblemReportEntry { auth?.sessionToken() }
             ReportsSetting()
             DraftBotSetting()
+            // LOB-275: the card ratings' credit
+            CardRatingsCredit()
             SelectionContainer { Text(versionText, Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("app-version"),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             SettingsActionRow("Log out", "logout", logout, Modifier.testTag("logout"), color = MaterialTheme.colorScheme.error)

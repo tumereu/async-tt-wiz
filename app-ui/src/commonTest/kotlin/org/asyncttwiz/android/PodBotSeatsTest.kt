@@ -47,6 +47,16 @@ class PodBotSeatsTest {
         assertEquals(warning, podSoloWarning(detail(booster, 1), booster.copy(bots = 2)))
     }
 
+    // DRF-314 (owner, 2026-11-25): where bots pick without card ratings, holding their warning says why; none where they pick by them
+    @Test fun botsWithoutCardRatingsCarryAWarning() {
+        val set = PodSource(kind = PodSourceKind.SET, setCode = "TST", packSets = listOf("TST"))
+        assertNull(podBotWarning(set.copy(botRatings = true)))
+        assertEquals("Bots pick less well here: there are no card ratings for this set.", podBotWarning(set))
+        assertEquals("Bots pick less well here: there are no card ratings for cubes.", podBotWarning(PodSource("Cube", 540)))
+        assertEquals("Bots pick less well here: there are no card ratings for drafts of mixed sets.",
+            podBotWarning(set.copy(packSets = listOf("TST", "TWL", "TST"))))
+    }
+
     // DRF-020, DRF-296 (owner, 2026-11-23): another mode keeps the bots, at most its own most (its limit less one); Sealed and Arena take none
     @Test fun switchingModesKeepsTheBotsWithinTheNewMost() {
         val booster = DraftSettings.booster().copy(bots = 5)

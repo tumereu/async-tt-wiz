@@ -1,0 +1,1 @@
+Settings scrolled to About & account: under Show bot picks (a test build) the line "Draft bots' card ratings: 17Lands public data (17lands.com), CC BY 4.0" above the version line and Log out.

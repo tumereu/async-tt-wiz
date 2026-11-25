@@ -1,0 +1,1 @@
+The creator holds the warning sign on Bot 1's row in the setup above: a tooltip says "Bots pick less well here: there are no card ratings for cubes."

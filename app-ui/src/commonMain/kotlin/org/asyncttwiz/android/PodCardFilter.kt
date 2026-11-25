@@ -21,6 +21,7 @@ import org.asyncttwiz.protocol.CardSearchNode
 import org.asyncttwiz.protocol.CardSearchParse
 import org.asyncttwiz.protocol.CardSearchPrinting
 import org.asyncttwiz.protocol.CardSearchQuery
+import org.asyncttwiz.protocol.DraftBotRatings
 import org.asyncttwiz.protocol.SetCardRarity
 import org.asyncttwiz.storage.CatalogPrinting
 
@@ -156,8 +157,29 @@ class PodCardFilterState(private val label: String = "") {
  */
 class PodCardFilters(private val read: ((Collection<String>) -> Map<String, List<CardSearchPrinting>>)? = null,
     private val worker: Executor = Executor { it.run() }, private val post: (() -> Unit) -> Unit = { it() },
-    private val shutdown: () -> Unit = {}) {
+    private val shutdown: () -> Unit = {}, private val readRatings: ((String) -> Map<String, Int>)? = null) {
     private var closed = false
+
+    /** DRF-312: the card ratings of the sets asked so far ([loadRatings]), by set code; a set without them has none. */
+    var ratings by mutableStateOf<Map<String, DraftBotRatings?>>(emptyMap())
+        private set
+    private val ratingsAsked = HashSet<String>()
+
+    /** DRF-312: reads set [code]'s card ratings from card records once (the draft bot's debug view, DRF-292). */
+    fun loadRatings(code: String) {
+        val reader = readRatings?.takeIf { !closed } ?: return
+        if (!ratingsAsked.add(code)) return
+        worker.execute {
+            val table = runCatching { reader(code) }
+                .onFailure { AppLog.warn("draft-bot", "Card ratings of $code could not be read", it) }.getOrDefault(emptyMap())
+            post {
+                AppLog.info("draft-bot", "Card ratings of $code: ${table.size} cards")
+                // Without card records yet, ask again next time
+                if (table.isEmpty()) ratingsAsked.remove(code)
+                ratings = ratings + (code to table.takeIf { it.isNotEmpty() }?.let { DraftBotRatings(code, it) })
+            }
+        }
+    }
     private val states = HashMap<String, PodCardFilterState>()
     fun of(pod: String, place: PodFilterPlace): PodCardFilterState = states.getOrPut("$pod/${place.key}") { PodCardFilterState(place.key) }
 

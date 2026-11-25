@@ -404,7 +404,7 @@ class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?,
     fun undo(): Boolean {
         // STK-025, HIS-084 (owner playtest 2026-11-05 evening): an interaction's undo point is its start: with a cast or
         // activation open (nothing sent yet) Undo drops it, landing just before it began, where it would after it was made
-        if (dropInteraction()) { AppLog.info("engine", "Undo dropped the open cast"); return true }
+        if (dropInteraction()) { AppLog.info("engine", "Undo dropped the open cast (or closed the combat costs panel, CMB-098)"); return true }
         val g = game() ?: return false
         // Owner problem report 2026-11-05: Attack is worked out off the main thread first; an Undo tapped meanwhile was
         // made before it (taking back what came before, then the attack refused)

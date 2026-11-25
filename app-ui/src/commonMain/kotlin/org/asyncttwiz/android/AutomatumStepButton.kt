@@ -214,6 +214,8 @@ const val RESOLVE_CHAIN = "Resolve the whole Stack"
  * it (a tap shakes it, holding it says why); [tooltip] is what holding it says otherwise.
  */
 class MainAction(val label: String, val icon: ImageVector, val refusal: String? = null, val tooltip: String? = null,
+    /** The attack's crossed swords instead of [icon] (CMB-098: the costs panel's Attack, as the step arrow's Attack (N)). */
+    val swords: Boolean = false,
     val run: () -> Unit)
 
 /**
@@ -257,7 +259,7 @@ const val PANEL_GO_ON_TAG = "panel-go-on"
 @Composable
 fun PanelGoOn(action: MainAction, modifier: Modifier = Modifier) {
     val engine = LocalEngineRoutes.current
-    MainActionArrow(MainAction(action.label, action.icon, action.refusal, action.tooltip) {
+    MainActionArrow(MainAction(action.label, action.icon, action.refusal, action.tooltip, action.swords) {
         AppLog.info("game", "Panel go-on \"${action.label}\" pressed in the panel's corner")
         engine?.ownAction()
         action.run()
@@ -282,8 +284,10 @@ fun MainActionArrow(action: MainAction, enabled: Boolean, modifier: Modifier,
         .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape),
         fill = Color.White, ink = ink, compactContent = true, tooltip = action.refusal ?: action.tooltip, refused = action.refusal != null,
         gestureKey = action.label to action.refusal, keys = keys,
-        icon = { MainButtonContent(icon = { Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current) },
-            label = action.label) }, onClick = { if (guard?.invoke(action.label) != false) { if (action.refusal != null) shakes++ else action.run() } })
+        icon = { MainButtonContent(icon = {
+            if (action.swords) Icon(AppPlatform.current.swordsOutlined(), null, Modifier.size(20.dp), tint = LocalContentColor.current)
+            else Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current)
+        }, label = action.label) }, onClick = { if (guard?.invoke(action.label) != false) { if (action.refusal != null) shakes++ else action.run() } })
 }
 
 /**

@@ -46,7 +46,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         // TBL-118, STK-049 (review 147a9c5af6): a tap on a payment's source that no longer pays it shakes the card
         shake = { card, why -> shake(card, why) },
         // The flows' sessions run beside the game's device (the browser's engine worker), else here
-        port = TableSharedPort(LocalSharedPort(viewer) { w, d -> automatumWork.run(w, d) }) { (engine as? EngineTableRoutes)?.engine })
+        port = TableSharedPort(LocalSharedPort(viewer) { w, d -> automatumWork.run(w, d) }) { (engine as? EngineTableRoutes)?.engine },
+        // CMB-098: the costs panel's payment is made on the table while it is open
+        costPanel = { combat.costPanelOpen(it) })
     private val automatumWork = automatumWork
     /** TRN-063 (owner playtest 2026-11-09): the open panel's go-on action, which the main button holds. */
     val mainSlot = MainSlot()
@@ -60,7 +62,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     init {
         // STK-025, HIS-084: Undo with a cast or activation open drops it (the interaction's undo point is its start)
-        (engine as? EngineTableRoutes)?.dropInteraction = { cast.open.also { open -> if (open) cast.cancel("undone") } }
+        // CMB-098: Undo with the costs panel open closes it (back to staging), as its Back does, taking nothing back
+        (engine as? EngineTableRoutes)?.dropInteraction = {
+            cast.open.also { open -> if (open) cast.cancel("undone") } || current()?.takeIf { combat.costPanelOpen(it) }
+                ?.let { combat.closeCosts(it, "Undo: back to staging, nothing taken back"); true } == true
+        }
     }
 
     /** The words the step arrow shows on [play] ([AutomatumStepArrow]): the board's own, with the viewer's response mode. */
@@ -627,7 +633,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                     var taken = true
                     flows.declaring(play) { who ->
                         taken = when {
-                            who == viewer -> flows.step()
+                            who == viewer -> declare(play)
                             // Smoke 2026-11-04 (TRN-057, TRN-063): an arrow that says "End turn" ends the turn; a plain pass
                             // would stop at the viewer's own main phase on the way (STK-036). In Control the second main phase's
                             // arrow says "End step" (owner bug 2026-11-07): a plain pass, stopping at the end step
@@ -642,6 +648,21 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             }
         }
         return false
+    }
+
+    /**
+     * The main button's declaration of what the lanes hold (TRN-057): CMB-098, when it asks something of the viewer (an
+     * optional cost to attack, or with Autotap off mana to pay, [CombatCosts.toDecide]) the costs panel opens first and its
+     * Attack (Block) declares; otherwise it is declared at once, Autotap paying its costs' mana (CMB-075).
+     */
+    private fun declare(play: TableBoard): Boolean {
+        val shown = combat.readyOrLast(play)
+        if (shown != null && !combat.costPanelOpen(play) && CombatCosts.toDecide(play.board, shown, cast.autotap)) {
+            combat.openCosts(play)
+            return true
+        }
+        if (shown == null) AppLog.info("combat", "Declared before its combat was worked out: no costs panel asked")
+        return flows.step()
     }
 
     /** Whether [action] changes only what is shown, nothing Automatum reads (the values an automated batch's board
@@ -1147,6 +1168,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val copy = item.viewport == "combat"
         if (!copy && (item.zone != PlayZone.BATTLEFIELD || item.projection)) return false
         if (copy && play.board.combat == null) return false
+        // CMB-098: while the costs panel is open the staging doesn't change: a creature or copy tapped only shakes
+        if (combat.costPanelOpen(play)) {
+            AppLog.info("combat", "Tap on $card while the costs panel is open: shaken, the staging stays")
+            shake(item.id, CombatController.COSTS_OPEN)
+            return true
+        }
         // Finalreview-combat #5: not worked out yet (the other player's event just arrived): said, never worked out here
         val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return true } }.choices
         val area = play.board.combat
@@ -1375,6 +1402,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** "Rest → <target>" and "Clear" with Automatum on (CMB-028, CMB-034). */
     private fun automatumCombatTool(intent: TableActionIntent.Combat): Boolean {
         val play = current() ?: return false
+        // CMB-098: greyed while the costs panel is open
+        if (combat.costPanelOpen(play)) { error = CombatController.COSTS_OPEN; return false }
         return when (intent.tool) {
             CombatTool.AUTOMATUM_STAGE -> stage(play, intent.sourceIds, combat.activeTarget(play))
             else -> clearCombatDraft(play)
@@ -1383,6 +1412,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** Combat copies leave the combat area: with Automatum on only what is still a draft of the declaration it awaits
      * (CMB-028): any copy while attackers are awaited, blockers while blockers are. */
     private fun leaveDraft(play: TableBoard, bound: ToolkitCapture): Boolean {
+        if (combat.costPanelOpen(play)) { error = CombatController.COSTS_OPEN; return false }
         val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices
         val blockers = bound.viewIds.all { id -> play.board.combat?.pairs?.any { p -> p.blockers.any { it.id == id } } == true }
         if (choices.declaring == null || (!choices.attackers && !blockers)) {

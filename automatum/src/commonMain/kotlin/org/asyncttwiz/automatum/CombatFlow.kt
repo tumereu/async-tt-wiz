@@ -39,9 +39,10 @@ data class LaneAttack(val cardId: String, val target: String? = null, val enlist
     val paying: List<String> = emptyList(), val band: Int? = null)
 
 /** A cost of combat as the table shows it on a creature (CMB-037): [label] short ("Exert", "{2}", "2 life"), [text]
- * the printed ability it comes from (held chip), [key] the ability origin's key of an optional cost. */
+ * the printed ability it comes from (held chip), [key] the ability origin's key of an optional cost; [source] the ATW card
+ * whose ability asks it (CMB-098: the costs panel names it with the ability's text), null when it is no card. */
 @kotlinx.serialization.Serializable
-data class CombatCostShown(val label: String, val text: String?, val key: String = "")
+data class CombatCostShown(val label: String, val text: String?, val key: String = "", val source: String? = null)
 
 /** A block as ATW's lanes hold it: [blockerId] in the pair of [attackerId] (CMB-007). */
 @kotlinx.serialization.Serializable
@@ -489,7 +490,7 @@ object CombatFlow {
 
     /**
      * CMB-037, CMB-044 (CR 508.1g, 508.1h): the optional "as it attacks" costs each of [candidates] (ATW card and object) may
-     * choose, as toggle chips: worked out by the engine for a declaration of every candidate attacking the defending player
+     * choose, in the costs panel (CMB-098): worked out by the engine for a declaration of every candidate attacking the defending player
      * and paying all of them ([CombatDeclarations.attackCosts]), an X as its amount.
      */
     private fun optionalCosts(call: EngineRun, view: arcanum.engine.view.View, candidates: List<Pair<String, ObjectId>>): Map<String, List<CombatCostShown>> {
@@ -510,7 +511,7 @@ object CombatFlow {
                     AutomatumLog.error(call.gameId, "combat costs", "No optional cost to attack worked out for $atw's ${m.origin}: shown as printed")
                     null
                 } }
-                CombatCostShown(label(call, atw, m, cost), abilityText(s, m.source ?: o, origin), origin.key)
+                CombatCostShown(label(call, atw, m, cost), abilityText(s, m.source ?: o, origin), origin.key, sourceCard(call, m.source ?: o))
             }
         }
     }
@@ -561,9 +562,11 @@ object CombatFlow {
         worked: List<arcanum.engine.combat.CombatCost>?): Map<String, List<CombatCostShown>> {
         val s = call.working
         return asked.mapNotNull { (card, o, ms) ->
-            val chips = if (worked == null) ms.map { m -> CombatCostShown(label(call, card, m, null), abilityText(s, m.source ?: o, m.origin)) }
+            val chips = if (worked == null) ms.map { m ->
+                    CombatCostShown(label(call, card, m, null), abilityText(s, m.source ?: o, m.origin), source = sourceCard(call, m.source ?: o)) }
                 else worked.filter { it.creature == o && !asksNothing(it.cost) }
-                    .map { c -> CombatCostShown(label(call, card, c.ability, c.cost), abilityText(s, c.ability.source ?: o, c.ability.origin)) }
+                    .map { c -> CombatCostShown(label(call, card, c.ability, c.cost), abilityText(s, c.ability.source ?: o, c.ability.origin),
+                        source = sourceCard(call, c.ability.source ?: o)) }
             chips.takeIf { it.isNotEmpty() }?.let { card to it }
         }.toMap()
     }
@@ -600,6 +603,10 @@ object CombatFlow {
     /** The amounts of costs with an X last logged ([label]), by game, card and source. */
     @OptIn(kotlin.concurrent.atomics.ExperimentalAtomicApi::class)
     private val loggedCosts = kotlin.concurrent.atomics.AtomicReference<Map<String, String>>(emptyMap())
+
+    /** CMB-098: the ATW card of [source], the permanent whose ability asks a cost of combat; null when it is no card. */
+    private fun sourceCard(call: EngineRun, source: ObjectId): String? =
+        (source as? ObjectId.Card)?.let { runCatching { call.ids.atw(it.card) }.getOrNull() }
 
     /** The printed text of [origin] on [source] (a held cost chip), when it has one. */
     private fun abilityText(s: GameState, source: ObjectId, origin: arcanum.engine.view.AbilityOrigin?): String? =

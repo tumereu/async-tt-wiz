@@ -63,7 +63,9 @@ private fun ChoiceHoldLog(decision: String?, held: String?) {
 fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String>,
     reviewing: Boolean = false) {
     val flows = toolkit.flows
-    val shown = !toolkit.cast.open && AutomatumBoards.sharedFlowShown(play)
+    // CMB-098: the viewer's costs panel, whose payment is the board's flow's ([SharedFlowController.declarationPayment])
+    val costs = !reviewing && toolkit.combat.costPanelOpen(play)
+    val shown = !toolkit.cast.open && (AutomatumBoards.sharedFlowShown(play) || costs)
     LaunchedEffect(IdentityKey(play.board), shown) {
         if (!shown) { flows.show(null); return@LaunchedEffect }
         // SYS-025: the flow worked out off the main thread (with the open decision, its early answer, I-D33, and what its
@@ -77,6 +79,13 @@ fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: Tab
     if (!shown) return
     // HIS-110: the other player's reveal panel comes first; the choice shows once it is dismissed
     if (toolkit.engine?.revealing() == true) return
+    // CMB-098: no choice is open while a declaration is awaited: the costs panel, its payment made on the table
+    if (costs && !play.flowOpen) {
+        AboveHand(handRow(scene, toolkit.viewer), PromptPlace.Board) {
+            CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(toolkit.viewer)) { CombatCostPanel(toolkit, play) }
+        }
+        return
+    }
     // STK-030: a new board asking the same choice keeps its panel: picks live in the panel and would go with it
     val flow = flows.flowOn(play) ?: return
     var confirm by remember(IdentityKey(play.board)) { mutableStateOf(false) }

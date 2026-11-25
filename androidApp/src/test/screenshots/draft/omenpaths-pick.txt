@@ -1,1 +1,0 @@
-Alice's tenth pick in a Booster pod of Through the Omenpaths (invented cards): each card shows the name its printing gives it (Silkchute Ranger for the Oracle card Web Warden), as its picture does; the double-faced card at the end has no such name in the card data, so the app calls it Lab Prodigy // Web Hero while its picture prints Tessa, Weblight Tinkerer.

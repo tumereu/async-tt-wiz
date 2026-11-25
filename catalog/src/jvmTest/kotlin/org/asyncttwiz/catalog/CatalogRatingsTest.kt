@@ -89,6 +89,20 @@ class CatalogRatingsTest {
         assertEquals(emptyMap(), catalog.set.getValue("TWL").ratings, "nothing to borrow from a set without ratings")
     }
 
+    // DRF-312: a double-faced card whose faces print other names only per face (Through the Omenpaths' mythics, MTGJSON
+    // facePrintedName) is found by its front's printed name, as 17Lands names it; a name whose letter 17Lands' data lost to a
+    // "?" finds the one card of the set it fits ("Bespoke B?" in Teenage Mutant Ninja Turtles), and none when two fit
+    @Test fun `a front face's printed name and a name with a lost letter find their cards`() {
+        val ratings = mapOf("OMN" to mapOf("Veyra, Thread Weaver" to 620, "Lantern of K?ra" to 530, "Mote of K?ra" to 470, "Nothing H?re" to 400))
+        val log = ArrayList<String>()
+        val catalog = CatalogBuilder(lines("supported-sets.txt").map { it.substringBefore(' ') }.toSet(), lines("supported-cards.txt").toSet(),
+            ratings, log = { log += it }).build { TestOmenpaths.allPrintings(fixtures).inputStream() }.catalog
+        assertEquals(mapOf("Lena Marsh // Crimson Wisp" to 620, "Lantern of Kōra" to 530), catalog.set.getValue("OMN").ratings)
+        val said = log.single { it.startsWith("Set OMN:") }
+        assertTrue("found despite lost characters: Lantern of K?ra = Lantern of Kōra" in said, said)
+        assertTrue("2 ratings name no card: Mote of K?ra | Nothing H?re" in said, said)
+    }
+
     // DRF-312: Marvel's Spider-Man borrows Through the Omenpaths' ratings
     @Test fun `marvel's spider-man borrows through the omenpaths' ratings`() {
         assertEquals("OM1", CatalogRatings.BORROWED["SPM"])

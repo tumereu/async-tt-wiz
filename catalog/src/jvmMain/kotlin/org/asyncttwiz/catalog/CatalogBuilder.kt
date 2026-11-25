@@ -81,18 +81,32 @@ class CatalogBuilder(
         // Faces, shared by every printing with the same values (deduplicated by content, numbered as first met).
         val faceIndex = HashMap<CatalogFaceRecord, Int>()
         val faces = ArrayList<CatalogFaceRecord>()
-        val printings = collected.printings.map { (printing, traits) ->
+        val printedPerFace = HashSet<String>()
+        val read = collected.printings.map { (printing, traits) ->
             val json = JsonParser.parseString(printing.json).asJsonObject
             val face = face(printing, json, traits)
             val index = faceIndex.getOrPut(face) { faces += face.copy(i = faces.size); faces.size - 1 }
+            val faceFlavorName = text(json, "faceFlavorName").ifEmpty {
+                traits?.printedFaceName.orEmpty().also { if (it.isNotEmpty()) printedPerFace += printing.id }
+            }
             CatalogPrintingRecord(printing.id, index, printing.set, printing.number, printing.scryfallId,
                 traits?.rarity.orEmpty(), printing.token, printing.otherFaces, strings(json.get("availability")),
                 flag(json, "isOnlineOnly"), flag(json, "isPromo"),
                 tokens = if (printing.token) emptyList() else traits?.related.orEmpty(),
                 makers = if (printing.token) traits?.related.orEmpty() else emptyList(),
-                flavorName = text(json, "flavorName"), faceFlavorName = text(json, "faceFlavorName"),
+                flavorName = text(json, "flavorName"), faceFlavorName = faceFlavorName,
                 printedText = traits?.printedText.orEmpty())
         }
+        // LOB-150: a card of several faces whose printed names MTGJSON gives only per face (facePrintedName: Through the
+        // Omenpaths' double-faced cards) is named by them whole too, as a flavorName names one ("Front // Back").
+        val byId = read.associateBy { it.id }
+        val printings = read.map { printing ->
+            if (printing.id !in printedPerFace || printing.flavorName.isNotEmpty()) return@map printing
+            val sides = (listOf(printing) + printing.others.mapNotNull(byId::get)).sortedBy { faces[it.face].side }
+            if (sides.any { it.faceFlavorName.isEmpty() }) printing
+            else printing.copy(flavorName = sides.joinToString(" // ") { it.faceFlavorName })
+        }
+        if (printedPerFace.isNotEmpty()) log("Faces printed under another name only per face: ${printedPerFace.size}")
         val draftTypes = setOf("expansion", "core", "masters", "draft_innovation")
         val recipes = collected.recipes.filterKeys { collected.sets[it]?.type in draftTypes }.toSortedMap()
             .map { (code, recipe) -> CatalogRecipeRecord(code, recipe) }
@@ -156,8 +170,9 @@ class CatalogBuilder(
      * [sets] with their card ratings: each rated card under the catalog's name of its card, found (case ignored) first by
      * the name the set's own printings print where it isn't the Oracle name (`flavorName`, a front face's
      * `faceFlavorName`: Through the Omenpaths names Marvel's Spider-Man's cards so, and 17Lands with it), then by any
-     * card's whole name or front face's (17Lands names a card of several faces by its front); a name no card has is left
-     * out (logged). A set without ratings of its own that [borrowed] names gets its source's ratings of the cards it shares.
+     * card's whole name or front face's (17Lands names a card of several faces by its front), then, where 17Lands' data lost
+     * a character to a "?", by the one card of the set it fits ([lostCharacters]); a name no card has is left out (logged).
+     * A set without ratings of its own that [borrowed] names gets its source's ratings of the cards it shares.
      */
     private fun rated(catalog: CardCatalog, sets: List<CatalogSetRecord>): List<CatalogSetRecord> {
         if (ratings.isEmpty()) return sets
@@ -185,10 +200,13 @@ class CatalogBuilder(
             val setNames = printed(set.code)
             val found = sortedMapOf<String, Int>()
             val missing = ArrayList<String>()
+            val guessed = ArrayList<String>()
             table.forEach { (name, rating) ->
-                (setNames[name.lowercase()] ?: names[name.lowercase()])?.let { found[it] = rating } ?: run { missing += name }
+                (setNames[name.lowercase()] ?: names[name.lowercase()] ?: lostCharacters(catalog, set.code, setNames, name)
+                    ?.also { guessed += "$name = $it" })?.let { found[it] = rating } ?: run { missing += name }
             }
             log("Set ${set.code}: ${found.size} cards rated" +
+                (if (guessed.isEmpty()) "" else "; found despite lost characters: ${guessed.sorted().joinToString(" | ")}") +
                 if (missing.isEmpty()) "" else "; ${missing.size} ratings name no card: ${missing.sorted().take(12).joinToString(" | ")}")
             set.copy(ratings = found)
         }
@@ -200,6 +218,25 @@ class CatalogBuilder(
             log("Set ${set.code}: ${shared.size} of its ${cards.size} cards rated by ${source.code}'s ratings")
             set.copy(ratings = shared)
         }
+    }
+
+    /**
+     * The catalog's name of the card of set [code] that the 17Lands name [name] means where its data lost characters, each
+     * replaced by a "?" ("Bespoke B?" for a name with an accented letter): each "?" stands for any one character, matched
+     * (case ignored) against the set's own cards' names (whole, front face, and the names [printed] by the set); null when
+     * the name has no "?" or not exactly one card fits.
+     */
+    private fun lostCharacters(catalog: CardCatalog, code: String, printed: Map<String, String>, name: String): String? {
+        if ('?' !in name) return null
+        val pattern = Regex(name.split('?').joinToString(".") { Regex.escape(it) }, RegexOption.IGNORE_CASE)
+        val candidates = HashMap<String, String>(printed)
+        catalog.bySet[code].orEmpty().filter { !it.token }.forEach { printing ->
+            val face = catalog.faces[printing.face]
+            val card = CatalogCards.cardName(face)
+            candidates.putIfAbsent(card.lowercase(), card)
+            if (face.side == "a" && face.faceName.isNotEmpty()) candidates.putIfAbsent(face.faceName.lowercase(), card)
+        }
+        return candidates.filterKeys { pattern.matches(it) }.values.distinct().singleOrNull()
     }
 
     /** The cards a set's packs can hold: its recipe's printings, or without one every card of the set (DRF-090's

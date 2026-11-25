@@ -179,51 +179,64 @@ class BotRatingsScreenshotTest {
     }
 
     private val omenpaths = PodSource(kind = PodSourceKind.SET, setCode = "OM1", setName = "Through the Omenpaths",
-        boosterKind = SetBoosterKind.APPROXIMATE, packSets = listOf("OM1"), botRatings = true)
+        boosterKind = SetBoosterKind.RECIPE_BASED, boosterName = "arena", packSets = listOf("OM1"), botRatings = true)
     private val spiderMan = PodSource(kind = PodSourceKind.SET, setCode = "SPM", setName = "Marvel's Spider-Man",
         boosterKind = SetBoosterKind.RECIPE_BASED, boosterName = "play", packSets = listOf("SPM"), botRatings = true)
 
-    // DRF-312, DRF-314: a Through the Omenpaths pod: the set has card ratings (its Pick Two Draft data), so no warning
+    // DRF-312, DRF-314, DRF-024: a Through the Omenpaths pod: the set has card ratings (its Pick Two Draft data), so no warning;
+    // its packs follow a recipe (DRF-090), so no Pack size tile
     @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun anOmenpathsPodsSetup() {
         show(controller(), detail(PodPhase.SETUP, DraftSettings(bots = 2), listOf(PodMember(alice), PodMember(bob)), omenpaths, name = "Omenpaths night"))
         compose.onNodeWithText("Through the Omenpaths", substring = true).assertExists()
         compose.onNodeWithTag("pod-add-bot").performScrollTo().assertIsEnabled()
         compose.onNodeWithTag("pod-add-bot-warning").assertDoesNotExist()
         compose.onAllNodesWithTag("pod-bot-warning-avatar", useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Pack size", substring = true).assertCountEquals(0)
         shot("omenpaths-setup", "The creator's setup of a Booster pod from Through the Omenpaths with Bob and two bot seats: the set " +
-            "has card ratings, so no warning sign on the bots or beside Add bot.")
+            "has card ratings, so no warning sign on the bots or beside Add bot; its packs follow the set's Arena Booster recipe, so " +
+            "there is no Pack size tile.")
     }
 
-    // DRF-312, LOB-150, TBL-138: a Through the Omenpaths pick: its cards show the names its printings give them; a double-faced card
-    // whose printing names MTGJSON doesn't give keeps its Oracle names in the app while its picture prints the other name
-    @Test fun anOmenpathsPick() {
+    // DRF-312, LOB-150, TBL-138, DRF-090: a Through the Omenpaths first pick: a pack made by its Arena Booster recipe (14 cards:
+    // seven commons, a land, three uncommons, a rare or mythic and two of any rarity), each card under the name its printing gives
+    // it, the double-faced mythic too: each face's Omenpaths name, as its picture prints (owner, 2026-11-25)
+    @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun anOmenpathsPick() {
         fun card(n: Int, oracle: String, printed: String?, cost: String, type: String, power: String = "", toughness: String = "") =
             SubmittedDefinition("om-$n", CardDefinition(oracle, listOf(DefinitionFace("face", oracle, typeLine = type, manaCost = cost,
                 power = power, toughness = toughness, printedName = printed, scryfallId = placeholderPrinting(printed ?: oracle))), printingId = "om-$n"))
-        // The picture prints the other names, as the set's real pictures do
         val picture = placeholderPrinting("Tessa, Weblight Tinkerer", "Tessa, Silk-Wing Vanguard")
-        val double = SubmittedDefinition("om-5", CardDefinition("Lab Prodigy // Web Hero", listOf(
+        val double = SubmittedDefinition("om-0", CardDefinition("Lab Prodigy // Web Hero", listOf(
             DefinitionFace("front", "Lab Prodigy", listOf("back"), "Legendary Creature — Human Scientist", "{1}{W}", power = "0", toughness = "1",
-                scryfallId = picture),
+                printedName = "Tessa, Weblight Tinkerer", scryfallId = picture),
             DefinitionFace("back", "Web Hero", listOf("front"), "Legendary Creature — Spider Human Hero", power = "3", toughness = "3",
-                scryfallId = picture)),
-            printingId = "om-5", layout = "transform"))
+                printedName = "Tessa, Silk-Wing Vanguard", scryfallId = picture)),
+            printingId = "om-0", layout = "modal_dfc"))
         val cards = listOf(
-            card(0, "Web Warden", "Silkchute Ranger", "{1}{G}", "Creature — Spider Hero", "2", "2"),
-            card(1, "City Rooftops", null, "", "Land"),
-            card(2, "Daily Bugle Rush", "Gossip Courier", "{R}", "Creature — Human Citizen", "1", "1"),
-            card(3, "Shocking Grip", "Coil of Storms", "{1}{U}", "Instant"),
-            card(4, "Night Crawler Venom", "Tethered Malice", "{2}{B}", "Creature — Symbiote", "3", "2"),
             double,
+            card(1, "Web Warden", "Silkchute Ranger", "{1}{G}", "Creature — Spider Hero", "2", "2"),
+            card(2, "Shocking Grip", "Coil of Storms", "{1}{U}", "Instant"),
+            card(3, "Night Crawler Venom", "Tethered Malice", "{2}{B}", "Creature — Symbiote", "3", "2"),
+            card(4, "Daily Bugle Rush", "Gossip Courier", "{R}", "Creature — Human Citizen", "1", "1"),
+            card(5, "Rooftop Lookout", "Ridge Lookout", "{W}", "Creature — Human Scout", "1", "2"),
+            card(6, "Alley Brawler", "Gutter Brawler", "{1}{R}", "Creature — Human Rogue", "2", "1"),
+            card(7, "Flashbulb Reporter", "Lantern Scribe", "{2}{W}", "Creature — Human Citizen", "2", "3"),
+            card(8, "Swing Line", "Vine Swing", "{G}", "Instant"),
+            card(9, "Costume Closet", null, "{1}", "Artifact"),
+            card(10, "Getaway Car", "Getaway Cart", "{2}", "Artifact — Vehicle", "3", "2"),
+            card(11, "Hero's Welcome", "Warm Welcome", "{1}{W}", "Sorcery"),
+            card(12, "Masked Thug", "Hooded Thug", "{1}{B}", "Creature — Human Rogue", "2", "2"),
+            card(13, "City Rooftops", null, "", "Land"),
         )
-        val head = DraftPrivatePack("pack-om", 1, (0..5).map { DraftCopy("o$it", "om-$it") }, 10, "bob")
+        val head = DraftPrivatePack("pack-om", 1, cards.indices.map { DraftCopy("o$it", "om-$it") })
         show(controller(), detail(PodPhase.DRAFTING, DraftSettings.booster(), listOf(PodMember(alice, packsWaiting = 1), PodMember(bob)),
             omenpaths, name = "Omenpaths night", definitions = cards, draft = DraftPrivateView("alice", head, 0, emptyList(), round = 1, rounds = 3)))
-        compose.onNodeWithTag("pod-pick-card-o0").assertContentDescriptionEquals("Silkchute Ranger")
-        compose.onNodeWithTag("pod-pick-card-o5").assertContentDescriptionEquals("Lab Prodigy // Web Hero")
-        shot("omenpaths-pick", "Alice's tenth pick in a Booster pod of Through the Omenpaths (invented cards): each card shows the name " +
-            "its printing gives it (Silkchute Ranger for the Oracle card Web Warden), as its picture does; the double-faced card at the end " +
-            "has no such name in the card data, so the app calls it Lab Prodigy // Web Hero while its picture prints Tessa, Weblight Tinkerer.")
+        compose.onNodeWithTag("pod-pick-card-o0").assertContentDescriptionEquals("Tessa, Weblight Tinkerer // Tessa, Silk-Wing Vanguard")
+        compose.onNodeWithTag("pod-pick-card-o1").assertContentDescriptionEquals("Silkchute Ranger")
+        compose.onNodeWithTag("pod-pick-card-o13").assertExists()
+        shot("omenpaths-pack", "Alice's first pick in a Booster pod of Through the Omenpaths (invented cards): a 14-card pack made as " +
+            "Arena's Through the Omenpaths packs are (seven commons, a land, three uncommons, a rare or mythic and two cards of any rarity); " +
+            "each card shows the name its printing gives it, the double-faced mythic first its Omenpaths name Tessa, Weblight Tinkerer, " +
+            "as its picture does.")
     }
 
     // DRF-312, DRF-314: a Marvel's Spider-Man pod: its bots borrow Through the Omenpaths' ratings, so no warning

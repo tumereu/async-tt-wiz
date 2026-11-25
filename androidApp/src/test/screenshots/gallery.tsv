@@ -417,3 +417,6 @@ number	item	screenshot	catalog	decisions	sequence
 595	About & account: the 17Lands credit line for the card ratings	settings/about-credit.png	LOB-275		
 596	Show bot picks by card ratings: a strong card one pip off the colours, its breakdown with the rating and the splash	draft/bot-picks-splash.png	DRF-292 DRF-312 DRF-313		Draft bot ratings
 597	Show bot picks by card ratings: a card without a rating, the heuristic rescaled	draft/bot-picks-unrated.png	DRF-292 DRF-312		Draft bot ratings
+620	Through the Omenpaths: a set pod in setup, its bots without the warning (the set has card ratings)	draft/omenpaths-setup.png	DRF-312 DRF-314		Through the Omenpaths
+621	Through the Omenpaths: a pick, each card under the name its printing gives it; a double-faced card the card data gives no such name keeps its Oracle names (open question)	draft/omenpaths-pick.png	DRF-312 TBL-138 LOB-150		Through the Omenpaths
+622	Marvel's Spider-Man pod: its bots pick by Through the Omenpaths' ratings, no warning	draft/spider-man-setup.png	DRF-312 DRF-314		Through the Omenpaths

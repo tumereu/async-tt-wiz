@@ -24,6 +24,7 @@ MKM Murders at Karlov Manor
 MOM March of the Machine
 MSH Marvel Super Heroes
 NEO Kamigawa: Neon Dynasty
+OM1 Through the Omenpaths
 ONE Phyrexia: All Will Be One
 OTJ Outlaws of Thunder Junction
 RTR Return to Ravnica

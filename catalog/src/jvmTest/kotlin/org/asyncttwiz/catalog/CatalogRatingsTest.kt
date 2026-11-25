@@ -31,12 +31,13 @@ class CatalogRatingsTest {
         assertEquals(mapOf("A" to 667), CatalogRatings.table(mapOf("A" to CatalogRatings.Count(300, 200), "B" to CatalogRatings.Count(199, 150))))
     }
 
-    // DRF-312: the ratings file keeps its sets' counts, when each was updated and the sets without data
+    // DRF-312: the ratings file keeps its sets' counts, when each was updated and from which format, and the sets without data
     @Test fun `the ratings file reads back what was written`() {
         val directory = createTempDirectory("ratings").toFile()
         try {
-            val ratings = CatalogRatings.Ratings(mapOf("TST" to mapOf("Test Bear" to CatalogRatings.Count(1000, 540))),
-                mapOf("TST" to "2026-11-01"), listOf("TWL"))
+            val ratings = CatalogRatings.Ratings(mapOf("TST" to mapOf("Test Bear" to CatalogRatings.Count(1000, 540)),
+                "OMN" to mapOf("Test Bolt" to CatalogRatings.Count(800, 400))),
+                mapOf("TST" to "2026-11-01", "OMN" to "2026-10-30"), mapOf("TST" to "PremierDraft", "OMN" to "PickTwoDraft"), listOf("TWL"))
             val file = File(directory, "ratings.tsv.gz")
             CatalogRatings.write(ratings, file)
             assertEquals(ratings, CatalogRatings.read(file))
@@ -57,6 +58,40 @@ class CatalogRatingsTest {
         val line = CardCatalogFormat.encode(catalog.set.getValue("TST"))
         assertEquals(catalog.set.getValue("TST"), CardCatalogFormat.decode(line))
         assertFalse("ratings" in CardCatalogFormat.encode(catalog.set.getValue("TWL")), "a set without ratings writes none")
+    }
+
+    // DRF-312: a set rates from its Premier Draft data, else its Pick Two Draft data (Through the Omenpaths has only that);
+    // other formats don't rate
+    @Test fun `a set's ratings come from Premier Draft, else Pick Two Draft`() {
+        fun dataset(set: String, format: String, game: Boolean = true) = com.google.gson.JsonParser.parseString(
+            """{"expansion":"$set","event_type":"$format","urls":{${if (game) "\"game\":\"https://example.invalid/$set.$format\"" else ""}}}""").asJsonObject
+        val datasets = listOf(dataset("TST", "PickTwoDraft"), dataset("TST", "PremierDraft"), dataset("OMN", "Sealed"),
+            dataset("OMN", "PickTwoDraft"), dataset("OMN", "PickTwoTradDraft"), dataset("OLD", "TradDraft"), dataset("OLD", "Sealed"),
+            dataset("NOG", "PremierDraft", game = false))
+        fun format(set: String) = CatalogRatings.dataset(datasets, set)?.get("event_type")?.asString
+        assertEquals("PremierDraft", format("TST"))
+        assertEquals("PickTwoDraft", format("OMN"))
+        assertEquals(null, format("OLD"))
+        assertEquals(null, format("NOG"), "a dataset without game data rates nothing")
+    }
+
+    // DRF-312: 17Lands names a card as the set prints it, so a set's own printed names (flavorName, a front face's
+    // faceFlavorName) find its cards; a set without ratings that borrows another's (Marvel's Spider-Man from Through the
+    // Omenpaths) gets the ratings of the cards they share, the rest unrated
+    @Test fun `printed names find a set's cards and a borrowing set takes the shared cards' ratings`() {
+        val ratings = mapOf("DCK" to mapOf("Thunder Lance" to 610, "Morning Hiker" to 590, "Test Gull" to 480),
+            "TST" to mapOf("Test Bear" to 540, "Test Bolt" to 600))
+        val catalog = CatalogBuilder(lines("supported-sets.txt").map { it.substringBefore(' ') }.toSet(), lines("supported-cards.txt").toSet(),
+            ratings, borrowed = mapOf("BON" to "TST", "TST" to "DCK", "TWL" to "OFF")).build { File(fixtures, "AllPrintings.json").inputStream() }.catalog
+        assertEquals(mapOf("Dawnward Scout // Duskward Stalker" to 590, "Test Bolt" to 610, "Test Gull" to 480), catalog.set.getValue("DCK").ratings)
+        assertEquals(mapOf("Test Bear" to 540), catalog.set.getValue("BON").ratings, "only the cards it shares")
+        assertEquals(mapOf("Test Bear" to 540, "Test Bolt" to 600), catalog.set.getValue("TST").ratings, "a set's own ratings stay")
+        assertEquals(emptyMap(), catalog.set.getValue("TWL").ratings, "nothing to borrow from a set without ratings")
+    }
+
+    // DRF-312: Marvel's Spider-Man borrows Through the Omenpaths' ratings
+    @Test fun `marvel's spider-man borrows through the omenpaths' ratings`() {
+        assertEquals("OM1", CatalogRatings.BORROWED["SPM"])
     }
 
     // DRF-312: the release builds with the pinned ratings only; ratings-move pins a file and keeps the MTGJSON pin

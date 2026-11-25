@@ -10,7 +10,7 @@
 #                      exits 3 when there are any, unless count is exactly their number (the release's guard)
 #   move               downloads MTGJSON's current AllPrintings over the local file and pins it (a task of its own: run
 #                      setSupport and parserDiff against it and fix or accept their changes before it ships)
-#   ratings-move       fetches the draft bots' card ratings (DRF-312: each supported set's GIH WR in Premier Draft, from
+#   ratings-move       fetches the draft bots' card ratings (DRF-312: each supported set's GIH WR in Premier Draft, else Pick Two Draft, from
 #                      17Lands' public game data, CC BY 4.0) into $ATW_RATINGS (default
 #                      ~/projects/atw-cache/17lands-ratings.tsv.gz) and pins it; verify and build check it against the pin
 set -euo pipefail

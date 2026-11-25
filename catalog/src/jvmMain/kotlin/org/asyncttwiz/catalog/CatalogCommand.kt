@@ -185,7 +185,12 @@ class CatalogCommand(private val out: PrintStream, private val root: File = File
         if (ratings != null) {
             val rated = catalog.sets.filter { it.ratings.isNotEmpty() }
             out.println("Card ratings: ${rated.joinToString(" ") { "${it.code} ${it.ratings.size}" }}" +
-                ratings.missing.takeIf { it.isNotEmpty() }?.let { "; no 17Lands data for ${it.joinToString(" ")}" }.orEmpty())
+                ratings.formats.filterValues { it != CatalogRatings.FORMATS.first() }.takeIf { it.isNotEmpty() }
+                    ?.let { formats -> "; from other formats: ${formats.entries.joinToString(" ") { "${it.key} ${it.value}" }}" }.orEmpty() +
+                CatalogRatings.BORROWED.filterKeys { code -> rated.any { it.code == code } && code !in ratings.sets }.takeIf { it.isNotEmpty() }
+                    ?.let { borrowed -> "; borrowed: ${borrowed.entries.joinToString(" ") { "${it.key} from ${it.value}" }}" }.orEmpty() +
+                ratings.missing.filter { code -> rated.none { it.code == code } }.takeIf { it.isNotEmpty() }
+                    ?.let { "; no 17Lands data for ${it.joinToString(" ")}" }.orEmpty())
         }
         catalog.sets.filter { it.draftable && !it.automatum && it.code in lines(sets).map { line -> line.substringBefore(' ') } }.forEach {
             out.println("Listed set ${it.code} can't be drafted: ${it.unsupported.size} pack cards unsupported (${it.unsupported.take(12).joinToString(", ")})")

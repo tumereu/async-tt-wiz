@@ -1,0 +1,1 @@
+3: Draft bots in Marvel's Spider-Man pods now pick by card ratings, so their warning sign is gone.

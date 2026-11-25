@@ -12,7 +12,8 @@ Adding a set to Arcanum: follow [set-work/README.md](set-work/README.md).
 - `setSupport`: checks that every card of each supported set (`src/main/resources/arcanum/tools/supported-sets.txt`,
   one MTGJSON set code and name per line) is fully supported: its faces read as a host's card data gives them
   (`OracleParser.layout`, `OracleParser.parseCard`) and nothing left to the players (`CardSupport.manualParts`), the check
-  behind a host's "fully supported" mark. Un-cards, online-only and rebalanced printings are skipped; reprints are
+  behind a host's "fully supported" mark. Un-cards, online-only and rebalanced printings are skipped (a set only online,
+  as Through the Omenpaths, keeps its online-only cards); reprints are
   checked once. Reads the sets from the pinned MTGJSON file. Prints every unsupported card with the parts left to the
   players and fails when there is any. It also checks the rules reminders (`GlossaryCoverage.kt`): every rules word a card's
   data lists among its keywords (keyword abilities and actions, token kinds such as Food or "Role token"; ability and flavor

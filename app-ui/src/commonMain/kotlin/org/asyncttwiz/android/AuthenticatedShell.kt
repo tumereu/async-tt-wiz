@@ -66,7 +66,7 @@ fun AuthenticatedShell(controller: AuthController, landscapeWindow: Boolean, cat
     val openGame = lobby?.state?.selected?.takeIf { state.destination == ShellDestination.GAMES }
     val openPod = pods?.state?.selected?.takeIf { state.destination == ShellDestination.PODS }
     val waiting = navigationDot(lobby?.state?.let { it.games + it.invitations }.orEmpty(), pods?.state?.pods.orEmpty(),
-        account.accountId, openGame, openPod)
+        pods?.state?.invitations.orEmpty(), account.accountId, openGame, openPod)
     LaunchedEffect(waiting?.dot) {
         AppLog.info("waiting", "Hamburger dot: ${waiting?.let { "${it.dot.tag}, from ${it.why}" } ?: "none"} (open: " +
             "${openGame?.let { "game ${it.take(8)}" } ?: openPod?.let { "pod ${it.take(8)}" } ?: state.destination.name.lowercase()})")
@@ -175,89 +175,36 @@ fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyControlle
             IconButton(onClick = { controller.drawer(false) }) { EntryIcon("Close navigation", "close") }
         }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
-            NavigationItem("Games", null, controller.state.destination == ShellDestination.GAMES) {
-                lobby?.back()
-                controller.navigate(ShellDestination.GAMES)
-            }
+            val accountId = controller.state.account?.accountId.orEmpty()
+            // LOB-018 (owner, 2026-11-25): one list of the most important games and pods, then the menu section
             InitialLoadArea(lobby == null || lobby.state.loaded, Modifier.fillMaxWidth()
                 .heightIn(min = if (lobby != null && !lobby.state.loaded) 80.dp else 0.dp),
                 failed = lobby?.state?.error != null, retry = { lobby?.refresh() }, loading = lobby?.state?.busy == true) {
-            Column {
-            val accountId = controller.state.account?.accountId.orEmpty()
-            if (lobby != null) for (game in navigationGameRows(lobby.state.games, lobby.state.invitations, accountId)) {
-                val incoming = incomingInvitation(game, accountId)
-                val selectedGame = !incoming && controller.state.destination == ShellDestination.GAMES && lobby?.state?.selected == game.id
-                // One combined handler owns tap/hold; nesting another clickable drawer item would
-                // allow a recognized context hold to also open the game on release.
-                Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp).testTag("navigation-game-${game.id}")
-                    .gameRowActions(lobby, game, desktop = desktopLayout()) {
-                        // Like the Menu list: an invitation is answered on the Games screen, not opened as a lobby.
-                        if (incoming) { lobby.back(); controller.navigate(ShellDestination.GAMES) }
-                        else { controller.navigate(ShellDestination.GAMES); lobby.open(game.id) }
-                    }
-                    .semantics { selected = selectedGame }, shape = MaterialTheme.shapes.extraLarge,
-                    color = if (selectedGame) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
-                    Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Avatar(game.opponent(accountId))
-                        Column(Modifier.weight(1f)) {
-                            // LOB-269: the row's waiting dot, never for the game you are looking at
-                            WaitingName(game.gameName, gameWaitingDot(game, accountId).takeUnless { selectedGame })
-                            // Its own line: beside the chevron the narrow drawer squeezed the name to one letter.
-                            if (incoming) Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                            // LOB-252: an invitation whose creator lends you decks says so
-                            lendsDecksLine(game, accountId)?.let { Text(it, style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
-                            Text("${game.opponent(accountId).username} · ${gameStatus(game, accountId)} · ${gameLastActivity(game)}",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                minLines = 2, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        }
-                        EntryIcon(null, "chevron")
-                    }
-                }
-            }
-            }
-            }
-            NavigationItem("Pods", null, controller.state.destination == ShellDestination.PODS) {
-                pods?.showList()
-                controller.navigate(ShellDestination.PODS)
-            }
-            if (!pods?.state?.pods.isNullOrEmpty()) {
+                val rows = sideMenuRows(lobby?.state?.games.orEmpty(), lobby?.state?.invitations.orEmpty(), pods?.state?.pods.orEmpty(),
+                    pods?.state?.invitations.orEmpty(), accountId)
+                // One avatar column for every row, so the names line up (as a pod list's, LOB-017)
+                val stackWidth = podStackWidth(rows.mapNotNull { (it as? SideMenuRow.Pod)?.pod }, accountId)
                 Column {
-                    // LOB-018: the shared pod order (DRF-013); invitations are answered on the Pods screen.
-                    val podRows = orderedPods(pods?.state?.pods.orEmpty(), emptyList()).mapNotNull { it.pod }
-                    val stackWidth = podStackWidth(pods?.state?.pods.orEmpty(), controller.state.account?.accountId)
-                    for (pod in podRows) {
-                        val selectedPod = controller.state.destination == ShellDestination.PODS && pods?.state?.selected == pod.id
-                        Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp)
-                            .testTag("navigation-pod-${pod.id}")
-                            .clickable { pods?.open(pod.id); controller.navigate(ShellDestination.PODS) }
-                            .semantics { selected = selectedPod }, shape = MaterialTheme.shapes.extraLarge,
-                            color = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
-                            Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                AvatarStack(podNavigationAvatars(pod.members, controller.state.account?.accountId),
-                                    ring = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.White, width = stackWidth)
-                                Column(Modifier.weight(1f)) {
-                                    // LOB-269: the row's waiting dot, never for the pod you are looking at
-                                    WaitingName(pod.name, podWaitingDot(pod).takeUnless { selectedPod })
-                                    Text(podStatus(pod), style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant, minLines = 2, maxLines = 2,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                }
-                                EntryIcon(null, "chevron")
-                            }
-                        }
+                    for (row in rows) when (row) {
+                        is SideMenuRow.Game -> if (lobby != null) NavigationGameRow(controller, lobby, row.game, accountId, stackWidth)
+                        is SideMenuRow.Pod -> NavigationPodRow(controller, pods, row.pod, accountId, stackWidth)
+                        is SideMenuRow.PodInvite -> NavigationPodInvitationRow(controller, pods, row.invitation, stackWidth)
                     }
+                    if (rows.isNotEmpty()) HorizontalDivider(Modifier.padding(vertical = 8.dp), color = ScreenBorder)
                 }
             }
-            // LOB-018: Games and Pods first, then the menu section
             NavigationItem("Menu", null, controller.state.destination == ShellDestination.MENU) {
                 controller.navigate(ShellDestination.MENU)
             }
-            for (destination in listOf(ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.STATS, ShellDestination.SETTINGS)) {
+            for (destination in listOf(ShellDestination.GAMES, ShellDestination.PODS, ShellDestination.DECKS, ShellDestination.CONTACTS,
+                ShellDestination.STATS, ShellDestination.SETTINGS)) {
                 NavigationItem(destination.title, destination.icon(), controller.state.destination == destination, indented = true) {
-                    if (destination == ShellDestination.CONTACTS) lobby?.contacts(false)
+                    when (destination) {
+                        ShellDestination.GAMES -> lobby?.back()
+                        ShellDestination.PODS -> pods?.showList()
+                        ShellDestination.CONTACTS -> lobby?.contacts(false)
+                        else -> Unit
+                    }
                     controller.navigate(destination)
                 }
             }
@@ -300,6 +247,81 @@ private fun NavigationItem(label: String, icon: String?, selected: Boolean, inde
     }
 }
 
+/** LOB-018: a side-menu row's frame: the open game or pod ([selected]) highlighted, the avatar column [stackWidth] wide. */
+@Composable
+private fun NavigationRow(modifier: Modifier, selected: Boolean, stackWidth: androidx.compose.ui.unit.Dp,
+    avatars: @Composable () -> Unit, lines: @Composable ColumnScope.() -> Unit) {
+    Surface(modifier.fillMaxWidth().heightIn(min = 72.dp).semantics { this.selected = selected }, shape = MaterialTheme.shapes.extraLarge,
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
+        Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.width(stackWidth)) { avatars() }
+            Column(Modifier.weight(1f), content = lines)
+            EntryIcon(null, "chevron")
+        }
+    }
+}
+
+/** LOB-018, LOB-019, LOB-021: a game or game invitation in the side menu's list. */
+@Composable
+private fun NavigationGameRow(controller: AuthController, lobby: LobbyController, game: org.asyncttwiz.protocol.GameSummary,
+    accountId: String, stackWidth: androidx.compose.ui.unit.Dp) {
+    val incoming = incomingInvitation(game, accountId)
+    val selectedGame = !incoming && controller.state.destination == ShellDestination.GAMES && lobby.state.selected == game.id
+    // One combined handler owns tap/hold; nesting another clickable drawer item would
+    // allow a recognized context hold to also open the game on release.
+    NavigationRow(Modifier.testTag("navigation-game-${game.id}")
+        .gameRowActions(lobby, game, desktop = desktopLayout()) {
+            // Like the Menu list: an invitation is answered on the Games screen, not opened as a lobby.
+            if (incoming) { lobby.back(); controller.navigate(ShellDestination.GAMES) }
+            else { controller.navigate(ShellDestination.GAMES); lobby.open(game.id) }
+        }, selectedGame, stackWidth, { Avatar(game.opponent(accountId)) }) {
+        // LOB-269: the row's waiting dot, never for the game you are looking at
+        WaitingName(game.gameName, gameWaitingDot(game, accountId).takeUnless { selectedGame })
+        // Its own line: beside the chevron the narrow drawer squeezed the name to one letter.
+        if (incoming) Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        // LOB-252: an invitation whose creator lends you decks says so
+        lendsDecksLine(game, accountId)?.let { Text(it, style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
+        Text("${game.opponent(accountId).username} · ${gameStatus(game, accountId)} · ${gameLastActivity(game)}",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            minLines = 2, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
+/** LOB-018: a pod in the side menu's list: its other members' compact stack, its name and a two-line status. */
+@Composable
+private fun NavigationPodRow(controller: AuthController, pods: PodController?, pod: org.asyncttwiz.protocol.PodSummary,
+    accountId: String, stackWidth: androidx.compose.ui.unit.Dp) {
+    val selectedPod = controller.state.destination == ShellDestination.PODS && pods?.state?.selected == pod.id
+    NavigationRow(Modifier.testTag("navigation-pod-${pod.id}").clickable { pods?.open(pod.id); controller.navigate(ShellDestination.PODS) },
+        selectedPod, stackWidth, {
+            AvatarStack(podNavigationAvatars(pod.members, accountId),
+                ring = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.White, width = stackWidth)
+        }) {
+        // LOB-269: the row's waiting dot, never for the pod you are looking at
+        WaitingName(pod.name, podWaitingDot(pod).takeUnless { selectedPod })
+        Text(podStatus(pod), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            minLines = 2, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
+/** LOB-018, LOB-021: an invitation to a pod in the side menu's list, its creator's avatar and a blue dot (LOB-269); tapping it
+ * opens the Pods screen to answer it there, as a game invitation opens the Games screen. */
+@Composable
+private fun NavigationPodInvitationRow(controller: AuthController, pods: PodController?, invitation: org.asyncttwiz.protocol.PodInvitation,
+    stackWidth: androidx.compose.ui.unit.Dp) {
+    NavigationRow(Modifier.testTag("navigation-pod-invitation-${invitation.podId}").clickable {
+        pods?.showList(); controller.navigate(ShellDestination.PODS)
+    }, false, stackWidth, { Avatar(invitation.creator) }) {
+        WaitingName(invitation.name, podInvitationWaitingDot)
+        Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text("${invitation.creator.username} · ${podModeName(invitation.mode)}", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, minLines = 2, maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
 @Composable
 fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> Unit, navigate: (ShellDestination) -> Unit,
     catalog: CatalogViewModel?, deckImport: DeckImportController?, decks: DeckLibraryController?, lobby: LobbyController?, accountId: String,
@@ -313,7 +335,8 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
         else -> Modifier
     }
     // LOB-268: these screens' hamburger carries the dot of everything waiting for you (no game or pod is open here)
-    val waiting = navigationDot(lobby?.state?.let { it.games + it.invitations }.orEmpty(), pods?.state?.pods.orEmpty(), accountId)?.dot
+    val waiting = navigationDot(lobby?.state?.let { it.games + it.invitations }.orEmpty(), pods?.state?.pods.orEmpty(),
+        pods?.state?.invitations.orEmpty(), accountId)?.dot
     Column(readable.fillMaxSize()) {
         if (destination == ShellDestination.MENU) {
             if (hamburger) ScreenHeader("", open, navigationDot = waiting) { WizardLogo(Modifier.padding(end = 8.dp), compact = true) }

@@ -11,7 +11,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 
-/** The Games screen, Menu quick list and drawer all list games in the one shared order. */
+/** The Games screen and Menu quick list list games in the one shared order; the side menu in its own (LOB-018). */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class GameListOrderScreensTest {
@@ -56,11 +56,12 @@ class GameListOrderScreensTest {
         assertEquals(expected.take(3), rows("quick-continue-"))
     }
 
-    // LOB-022
-    @Test fun drawerListsTheSameOrder() {
+    // LOB-018 (owner, 2026-11-25): the side menu has its own order: what waits for you (longest waiting first: the invitation,
+    // then your move), then the rest newest first
+    @Test fun drawerListsWhatWaitsForYouFirstThenTheNewest() {
         val fixtures = fixtures()
         fixtures.auth.seed(AuthState(restoring = false, account = self, destination = ShellDestination.DECKS, drawerOpen = true))
         compose.setContent { ScreenTheme { Navigation(fixtures.auth, true, fixtures.lobby) } }
-        assertEquals(expected, rows("navigation-game-"))
+        assertEquals(listOf("invite", "their", "own", "setup", "sent"), rows("navigation-game-"))
     }
 }

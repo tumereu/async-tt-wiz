@@ -10,10 +10,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-### Side menu: one list (owner, 2026-11-25)
-
-- The side menu (LOB-018, LOB-019, LOB-021, LOB-269; landscape's and the desktop's permanent side area too) drops its Games and Pods sections. Its nav buttons now include Games and Pods (Menu, Games, Pods, Manage decks, Contacts, Stats, Settings), and above them sits one list of always 5 games and pods (fewer only when you have fewer), most important first, in dot order (LOB-268): red (your move, a game invitation you can answer, a pod challenge you can accept now), then blue (your pick, and pod invitations, which now get a blue dot), then green (build your deck), then the rest by most recent activity, and last game invitations you can't answer yet (pod deck not ready, no dot). Ties within a colour: longest waiting first (LOB-022), games and pods mixed. A pod's games are rows of their own. The game or pod you are looking at stays in the list (still no dot on it). The main menu's panels (LOB-016, LOB-017) stay as they are. e2e covers the flow.
-
 ### Draft bots: 17Lands ratings and splashing (owner, 2026-11-25; after the side menu list)
 
 - Card ratings (replaces the owner's 2026-11-20 "no outside pick data" for normal sets): the bot's base value of a card comes from 17Lands' GIH WR (win rate when drawn or in the opening hand, Premier Draft) for its set, mapped onto the bot's score scale; a card without a rating keeps today's heuristic (DRF-292, `DraftBot`), rescaled so the two compare fairly. A card in a set pod uses its set's rating; cubes and multiset drafts use the heuristic only. Data is pinned like MTGJSON (`catalog/pin.properties`, `scripts/catalog-pin.sh`): a script fetches 17Lands' ratings for the supported sets into one local file outside the repository, its checksum is pinned, a verify step checks it, and the catalog build bakes a compact per-set rating table into the catalog the server and clients read; never committed. Confirm 17Lands' terms first; credit 17Lands in About (one line).

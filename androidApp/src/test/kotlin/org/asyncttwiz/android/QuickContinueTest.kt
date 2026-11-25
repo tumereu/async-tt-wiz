@@ -101,13 +101,15 @@ class QuickContinueTest {
         assertEquals(listOf("in-old"), quickContinueGames(listOf(incoming("in-old", 3), incoming("in-old", 3)), "a").map { it.id })
     }
 
-    // LOB-022
-    @Test fun drawerUsesTheSharedOrderWithInvitationsFromEitherListOnce() {
+    // LOB-018
+    @Test fun drawerListsInvitationsFromEitherListOnce() {
         val (invitations, games) = ordered.partition { incomingInvitation(it, "a") }
-        assertEquals(ordered.map { it.id }, navigationGameRows(games.reversed(), invitations.reversed(), "a").map { it.id })
+        // Red first, longest waiting (your moves, the invitation), then the newest of the rest
+        assertEquals(listOf("their-old", "in-old", "their-new", "setup", "own-new"),
+            sideMenuRows(games.reversed() + invitations, invitations.reversed(), emptyList(), emptyList(), "a").map { it.id })
         // An answered invitation still listed in the old invitation list is never shown as one.
         val stale = game("in-old", 3, lifecycle = GameLifecycle.LOBBY)
-        assertEquals(listOf("in-old"), navigationGameRows(listOf(stale), listOf(stale), "a").map { it.id })
+        assertEquals(listOf("in-old"), sideMenuRows(listOf(stale), listOf(stale), emptyList(), emptyList(), "a").map { it.id })
     }
 
     @Test fun unreadableTimestampsSortAsOldestWithoutFailing() {
@@ -140,7 +142,7 @@ class QuickContinueTest {
         assertNotNull(quickContinuePods(emptyList(), invitations).first().invitation)
     }
 
-    // DRF-012, DRF-013, DRF-189, LOB-018, LOB-022
+    // DRF-012, DRF-013, DRF-189, LOB-022
     @Test fun sharedPodOrderIsYourPicksAndBuildsLongestWaitingThenInvitationsNewestThenTheRestNewest() {
         val pods = listOf(pod("pick-new", 9, PodAttention.YOUR_PICK), pod("build-old", 2, PodAttention.BUILD, PodPhase.DRAFTED),
             pod("setup-new", 8, phase = PodPhase.SETUP), pod("drafting-old", 3), pod("submitted", 5, phase = PodPhase.DRAFTED))

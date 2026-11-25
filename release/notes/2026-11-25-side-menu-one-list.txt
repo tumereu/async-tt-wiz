@@ -1,0 +1,1 @@
+mod: The side menu shows one list of your five most important games and pods, what waits for you first, above its buttons (now with Games and Pods); pod invitations get a blue dot

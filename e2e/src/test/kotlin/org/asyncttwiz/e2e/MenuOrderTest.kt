@@ -8,8 +8,8 @@ import kotlin.test.assertEquals
 
 /** Owner, 2026-11-09: the menus' order. */
 class MenuOrderTest : E2e() {
-    // LOB-015, LOB-018: the main menu reads Games, Pods, Manage decks, Contacts, Stats, Settings; in the side menu Games and
-    // Pods come above the menu section, in that same order
+    // LOB-015, LOB-018: the main menu reads Games, Pods, Manage decks, Contacts, Stats, Settings; the side menu's buttons read
+    // Menu, then the same (owner, 2026-11-25)
     @Test fun mainAndSideMenusKeepTheirOrder() {
         launchPlayers()
         waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }
@@ -19,7 +19,7 @@ class MenuOrderTest : E2e() {
 
         alice.described("Open navigation").performClick()
         waitUntil("Alice's side menu") { alice.shows(hasTestTag("navigation-Games")) }
-        val side = listOf("Games", "Pods", "Menu", "Manage decks", "Contacts", "Stats", "Settings")
+        val side = listOf("Menu", "Games", "Pods", "Manage decks", "Contacts", "Stats", "Settings")
             .map { alice.tagged("navigation-$it").getUnclippedBoundsInRoot().top.value }
         assertEquals(side.sorted(), side)
     }

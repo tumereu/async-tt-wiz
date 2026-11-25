@@ -26,6 +26,10 @@ Changes the owner wants but that are not built yet. The feature catalog
 - As many cards as fit with each still easy to tap (about 9 on a narrow phone, 12 on a wide one) make a still fan. With more, a sideways drag turns the fan like a wheel (a flick carries on a little and slows down); cards turned away sink below the screen's bottom along the curve, no fade. It stops at the ends (the first card no further right than the fan's right end, the last no further left than its left end; never wraps; the hand keeps its order, ZON-081). A small "+N" at an end with cards turned away; the hand count stays. Up or down drags a card as now (ZON-077); tap, double-tap and hold unchanged. A raised card stays raised when turned away. A drawn card lands in its place; if that is turned away the "+N" counts it, and the fan doesn't turn by itself.
 - Catalog: ZON-081, TBL-144, TBL-238 (the hand row part) and new entries; gallery 571 re-recorded; e2e covers turning and playing from a turned fan.
 
+### Draft history ratings review (owner, 2026-11-25; after the landscape fan; needs the bots' rating table)
+
+- Booster and Glimpse draft history (DRF-165, DRF-207) gets 17Lands ratings once your own draft is done (DRF-119), only in a single-set pod whose set has ratings (same table and rule as the draft bots); nowhere before that. A "By rating" chip in the history's header beside "Returning packs only" (DRF-209) sorts each pick's pack best first (keeps ✓ and burns 🔥 stay marked wherever they land), remembered per device. Each rated card shows a small chip centred on its bottom edge with its GIH WR ("58.4%"); unrated cards none. The chip's colour is its rank within the set in five steps (top 10%, next 15%, middle, next 15%, bottom 10%), never green or red (keep/burn colours): gold at the top down to grey; a couple of colour options in the gallery for the owner to choose. Purpose: self-evaluating picks.
+
 ### Earlier
 
 Playtest and gallery notes (owner, 2026-11-11):
@@ -59,6 +63,7 @@ Each owner-reported bug gets an e2e test that fails before the fix.
 
 ## Needs discussion
 
+- Draft history for the other modes (owner, 2026-11-25): Grid, Rochester, Rotisserie, Winston and Winchester have no draft history; discuss a history dialog for them (and with it the ratings review).
 - Owner's own review of the Arcanum engine (owner, 2026-11-11): the owner reads the engine code by hand and discusses improvements with Claude, looking for things that slipped in while unreviewed, like the per-creature `Engine.combatCost`. The public API part was discussed on 2026-11-12 and settled in the engine API rework (merged 2026-11-12). Still open: reading the engine's code itself, including its ~107 `!!`. Nothing there is changed before that discussion.
 
 

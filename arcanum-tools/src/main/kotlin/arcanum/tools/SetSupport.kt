@@ -11,7 +11,8 @@ import kotlin.system.exitProcess
  * fully by the rules: each card's faces are read from the pinned MTGJSON AllPrintings file ([PinnedMtgJson]) as a host's
  * card data gives them ([OracleParser.layout], [OracleParser.parseCard]) and [CardSupport.manualParts] must find nothing left
  * to the players, the check a host makes to say "this card is supported". Un-cards, online-only and rebalanced printings
- * are skipped; reprints of one card (one oracle id) are checked once. Prints every unsupported card with the parts left
+ * are skipped, except the online-only cards of a set that has nothing else (Through the Omenpaths, an Arena set of
+ * paper cards under other names, listed on purpose); reprints of one card (one oracle id) are checked once. Prints every unsupported card with the parts left
  * to the players and exits with 1 when there is any. Also checks that every rules word the cards print has its rules reminder
  * ([glossaryGaps]), listing the gaps and exiting with 1 when there is any. Args: [set codes, comma-separated; default every
  * supported set].
@@ -25,7 +26,7 @@ fun main(args: Array<String>) {
     val results = HashMap<String, Pair<Int, List<Pair<String, List<String>>>>>()
     val glossary = LinkedHashMap<String, List<String>>()
     val version = forEachPinnedSet(codes) { code, records ->
-        val cards = setCards(records)
+        val cards = setCards(records, keepOnline = onlineSet(records))
         results[code] = cards.size to cards.mapNotNull { card -> card.handParts().takeIf { it.isNotEmpty() }?.let { card.name to it } }
         cards.forEach { card -> glossaryGaps(card.faces, card.keywordsRead()).takeIf { it.isNotEmpty() }?.let { glossary.putIfAbsent(card.name, it) } }
     }
@@ -105,9 +106,9 @@ private fun colorIndicator(record: JsonObject): String? {
 }
 
 /** The set's cards (its card records [cards]), once per oracle id (the first printing), skipping Un-cards, online-only
- * and rebalanced printings. */
-internal fun setCards(cards: List<JsonObject>): List<SetCard> {
-    val records = playableRecords(cards)
+ * (unless [keepOnline]) and rebalanced printings. */
+internal fun setCards(cards: List<JsonObject>, keepOnline: Boolean = false): List<SetCard> {
+    val records = playableRecords(cards, keepOnline)
     val byId = records.associateBy { it.get("uuid").asString }
     val seen = HashSet<String>()
     return frontRecords(records).mapNotNull { card ->
@@ -116,9 +117,14 @@ internal fun setCards(cards: List<JsonObject>): List<SetCard> {
     }
 }
 
-/** A set's card records without Un-cards, online-only and rebalanced printings. */
-internal fun playableRecords(cards: List<JsonObject>): List<JsonObject> =
-    cards.filterNot { card -> listOf("isFunny", "isOnlineOnly", "isRebalanced").any { card.get(it)?.asBoolean == true } }
+/** A set's card records without Un-cards, online-only (unless [keepOnline]) and rebalanced printings. */
+internal fun playableRecords(cards: List<JsonObject>, keepOnline: Boolean = false): List<JsonObject> {
+    val skipped = if (keepOnline) listOf("isFunny", "isRebalanced") else listOf("isFunny", "isOnlineOnly", "isRebalanced")
+    return cards.filterNot { card -> skipped.any { card.get(it)?.asBoolean == true } }
+}
+
+/** Whether a set's card records [cards] are all online-only (a set only on Arena or MTGO, as Through the Omenpaths). */
+internal fun onlineSet(cards: List<JsonObject>): Boolean = cards.isNotEmpty() && cards.all { it.get("isOnlineOnly")?.asBoolean == true }
 
 /** The records that start a card: one-faced cards and front faces. */
 internal fun frontRecords(records: List<JsonObject>): List<JsonObject> = records.filter { (it.get("side")?.asString ?: "") in setOf("", "a") }

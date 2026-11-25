@@ -1,6 +1,6 @@
 # Invented draft bot card ratings for the test cards (DRF-312): set, card, games in hand, games won, as the real
 # ratings file (CatalogRatings) holds them. No real data.
-# updated	TST	2026-11-01
+# updated	TST	2026-11-01	PremierDraft
 # missing	TWL
 TST	Test Bear	1000	540
 TST	Test Bolt	1000	600

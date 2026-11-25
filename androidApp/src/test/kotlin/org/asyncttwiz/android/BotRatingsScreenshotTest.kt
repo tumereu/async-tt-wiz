@@ -20,7 +20,8 @@ import java.util.concurrent.TimeUnit
 /**
  * The draft bots' card ratings for the owner's gallery (owner, 2026-11-25): the warning on bots that pick without them
  * (DRF-314) in setup and in a started pod, held; a rated set's setup without it; About's credit (LOB-275); and the bot
- * debug view's rating parts (DRF-292, DRF-312, DRF-313). Invented cards and ratings; nothing is sent.
+ * debug view's rating parts (DRF-292, DRF-312, DRF-313); a Through the Omenpaths pod (its cards printed under other
+ * names, LOB-150) and a Marvel's Spider-Man pod, whose bots borrow its ratings. Invented cards and ratings; nothing is sent.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -175,5 +176,64 @@ class BotRatingsScreenshotTest {
         compose.onNodeWithText("No rating: base 40").assertIsDisplayed()
         shot("bot-picks-unrated", "The same pick: Quick Cinder has no rating, so a tap on its score lists the bot's own reckoning " +
             "(\"No rating: base 40\", removal) rescaled to the ratings, and the full off-colour penalty for red.")
+    }
+
+    private val omenpaths = PodSource(kind = PodSourceKind.SET, setCode = "OM1", setName = "Through the Omenpaths",
+        boosterKind = SetBoosterKind.APPROXIMATE, packSets = listOf("OM1"), botRatings = true)
+    private val spiderMan = PodSource(kind = PodSourceKind.SET, setCode = "SPM", setName = "Marvel's Spider-Man",
+        boosterKind = SetBoosterKind.RECIPE_BASED, boosterName = "play", packSets = listOf("SPM"), botRatings = true)
+
+    // DRF-312, DRF-314: a Through the Omenpaths pod: the set has card ratings (its Pick Two Draft data), so no warning
+    @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun anOmenpathsPodsSetup() {
+        show(controller(), detail(PodPhase.SETUP, DraftSettings(bots = 2), listOf(PodMember(alice), PodMember(bob)), omenpaths, name = "Omenpaths night"))
+        compose.onNodeWithText("Through the Omenpaths", substring = true).assertExists()
+        compose.onNodeWithTag("pod-add-bot").performScrollTo().assertIsEnabled()
+        compose.onNodeWithTag("pod-add-bot-warning").assertDoesNotExist()
+        compose.onAllNodesWithTag("pod-bot-warning-avatar", useUnmergedTree = true).assertCountEquals(0)
+        shot("omenpaths-setup", "The creator's setup of a Booster pod from Through the Omenpaths with Bob and two bot seats: the set " +
+            "has card ratings, so no warning sign on the bots or beside Add bot.")
+    }
+
+    // DRF-312, LOB-150, TBL-138: a Through the Omenpaths pick: its cards show the names its printings give them; a double-faced card
+    // whose printing names MTGJSON doesn't give keeps its Oracle names in the app while its picture prints the other name
+    @Test fun anOmenpathsPick() {
+        fun card(n: Int, oracle: String, printed: String?, cost: String, type: String, power: String = "", toughness: String = "") =
+            SubmittedDefinition("om-$n", CardDefinition(oracle, listOf(DefinitionFace("face", oracle, typeLine = type, manaCost = cost,
+                power = power, toughness = toughness, printedName = printed, scryfallId = placeholderPrinting(printed ?: oracle))), printingId = "om-$n"))
+        // The picture prints the other names, as the set's real pictures do
+        val picture = placeholderPrinting("Tessa, Weblight Tinkerer", "Tessa, Silk-Wing Vanguard")
+        val double = SubmittedDefinition("om-5", CardDefinition("Lab Prodigy // Web Hero", listOf(
+            DefinitionFace("front", "Lab Prodigy", listOf("back"), "Legendary Creature — Human Scientist", "{1}{W}", power = "0", toughness = "1",
+                scryfallId = picture),
+            DefinitionFace("back", "Web Hero", listOf("front"), "Legendary Creature — Spider Human Hero", power = "3", toughness = "3",
+                scryfallId = picture)),
+            printingId = "om-5", layout = "transform"))
+        val cards = listOf(
+            card(0, "Web Warden", "Silkchute Ranger", "{1}{G}", "Creature — Spider Hero", "2", "2"),
+            card(1, "City Rooftops", null, "", "Land"),
+            card(2, "Daily Bugle Rush", "Gossip Courier", "{R}", "Creature — Human Citizen", "1", "1"),
+            card(3, "Shocking Grip", "Coil of Storms", "{1}{U}", "Instant"),
+            card(4, "Night Crawler Venom", "Tethered Malice", "{2}{B}", "Creature — Symbiote", "3", "2"),
+            double,
+        )
+        val head = DraftPrivatePack("pack-om", 1, (0..5).map { DraftCopy("o$it", "om-$it") }, 10, "bob")
+        show(controller(), detail(PodPhase.DRAFTING, DraftSettings.booster(), listOf(PodMember(alice, packsWaiting = 1), PodMember(bob)),
+            omenpaths, name = "Omenpaths night", definitions = cards, draft = DraftPrivateView("alice", head, 0, emptyList(), round = 1, rounds = 3)))
+        compose.onNodeWithTag("pod-pick-card-o0").assertContentDescriptionEquals("Silkchute Ranger")
+        compose.onNodeWithTag("pod-pick-card-o5").assertContentDescriptionEquals("Lab Prodigy // Web Hero")
+        shot("omenpaths-pick", "Alice's tenth pick in a Booster pod of Through the Omenpaths (invented cards): each card shows the name " +
+            "its printing gives it (Silkchute Ranger for the Oracle card Web Warden), as its picture does; the double-faced card at the end " +
+            "has no such name in the card data, so the app calls it Lab Prodigy // Web Hero while its picture prints Tessa, Weblight Tinkerer.")
+    }
+
+    // DRF-312, DRF-314: a Marvel's Spider-Man pod: its bots borrow Through the Omenpaths' ratings, so no warning
+    @Test @Config(qualifiers = "w412dp-h1300dp-port-xhdpi") fun aSpiderManPodHasNoWarning() {
+        show(controller(), detail(PodPhase.SETUP, DraftSettings(bots = 2), listOf(PodMember(alice), PodMember(bob)), spiderMan, name = "Spider night"))
+        compose.onNodeWithTag("pod-add-bot").performScrollTo().assertIsEnabled()
+        compose.onNodeWithTag("pod-bot-warning-1").assertDoesNotExist()
+        compose.onNodeWithTag("pod-add-bot-warning").assertDoesNotExist()
+        compose.onAllNodesWithTag("pod-bot-warning-avatar", useUnmergedTree = true).assertCountEquals(0)
+        shot("spider-man-setup", "The creator's setup of a Booster pod from Marvel's Spider-Man with Bob and two bot seats: its bots " +
+            "pick by Through the Omenpaths' card ratings, so no warning sign on the bots or beside Add bot.")
     }
 }

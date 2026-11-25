@@ -10,6 +10,10 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
+### Attack and block costs panel (owner, 2026-11-25)
+
+- The Exert toggle chips on staged attackers (CMB-037) go. After the main button declares attackers, when anything needs deciding, one panel for all attackers asks it before the attack takes effect: optional costs to attack ("You may exert this creature as it attacks" and any other "you may … as it attacks" cost, CR 508.1g) as the attackers' cards, a tap marking each one paid; required costs (CR 508.1h, CMB-044) each with its creature and their total; a mana section paying them as the cast panel does (Autotap's payment outlined, or sources tapped by hand with Autotap off); the abilities' whole texts (STK-181); "Attack" to go ahead and Back to staging (to drop an attacker). With Autotap on, only required costs and a single way to pay, there is nothing to decide: no panel, the main button pays as today (CMB-075). The amber cost chips stay on the staged copies so the cost shows while choosing. Blocks the same: block costs (CR 509.1d) in the same panel after declaring blockers ("Block"). Catalog: CMB-037, CMB-044, CMB-075 and new entries; e2e for attack and block flows; gallery sequence (optional cost, required cost with Autotap off, both, blocks). The cost chip's hold (explain or fall through to Inspect, gallery 585–586) is still the owner's call.
+
 ### Earlier
 
 Playtest and gallery notes (owner, 2026-11-11):

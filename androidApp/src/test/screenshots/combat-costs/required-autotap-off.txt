@@ -1,0 +1,1 @@
+Autotap off: Alice staged her Ember Cub, which Bob's Ember Bulwark makes pay {2}, and pressed Attack (1): the costs panel shows the Cub's card with its amber {2} under "To attack, they must pay", the Bulwark's whole text under its name, "Total to pay: {2}" and in red "Still owed {2}"; Attack is greyed, and so are Rest and Clear.

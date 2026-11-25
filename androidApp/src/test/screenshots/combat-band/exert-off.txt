@@ -1,1 +1,1 @@
-Alice staged her Ember Charger ("You may exert this creature as it attacks"): under its copy on the band lies an Exert toggle chip, white with an empty box, as it is off.
+Alice staged her Ember Charger ("You may exert this creature as it attacks"): its copy on the band has no Exert toggle; the exert is chosen in the costs panel the main button opens.

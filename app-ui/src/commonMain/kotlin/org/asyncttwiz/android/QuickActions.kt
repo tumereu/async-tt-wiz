@@ -41,7 +41,9 @@ data class QuickContext(val combatAreaId: String? = null,
      * waiting for their blocks; null when not waiting for them. */
     val assumedBlockers: Int? = null,
     /** CMB-033 (owner, 2026-11-05): the go-on action of an open combat choice, shown on the main button. */
-    val mainAction: MainAction? = null)
+    val mainAction: MainAction? = null,
+    /** CMB-098: the viewer's costs panel is open: the staging's quick actions are greyed until Back. */
+    val costsOpen: Boolean = false)
 
 /** A disabled action stays in place, greyed and inert; one [refused] says why on tap (Automatum on, I-D28). */
 data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null,
@@ -232,7 +234,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             DisposableEffect(engine) { onDispose { engine?.pendingPress = null } }
             val working = rememberSlowActionSign { engine?.ownActionPending(play) == true } && (arrow || wait != null)
             val mainButton: @Composable (Modifier) -> Unit = { place -> Box(place.shaken(mainShakes, mainShakeReason, "main button refusal")) {
-                if (main != null) MainActionArrow(MainAction(main.label, main.icon, main.refusal, main.tooltip) {
+                if (main != null) MainActionArrow(MainAction(main.label, main.icon, main.refusal, main.tooltip, main.swords) {
                     pressed(main.label); own { main.run(); true } }, controller.enabled(scope) || panelMain != null, Modifier.fillMaxWidth(), ::taken)
                 // TRN-164, TRN-165: while playback is behind its rest point, a press skips there first (made there when it may act)
                 else if (arrow) AutomatumStepArrow(board, controller.enabled(scope) || real?.rest == true, Modifier.fillMaxWidth(),

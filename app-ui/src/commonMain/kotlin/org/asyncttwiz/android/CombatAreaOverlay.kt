@@ -589,18 +589,19 @@ const val PRESS_GLOW_MILLIS = 90
 class StagingChip(val text: String, val icon: androidx.compose.ui.graphics.vector.ImageVector?, val on: Boolean, val picking: Boolean,
     val hold: String, val description: String, val cost: Boolean = false, val onTap: (() -> Unit)? = null)
 
-/** The chips of the staged attacker [card] (CMB-036–CMB-038): its optional costs to attack as toggles ("Exert"),
- * "Enlist" with what it enlists, "Band" with banding; changeable only when [choosing]. */
+/** The chips of the staged attacker [card] (CMB-036–CMB-038): the optional costs to attack chosen for it in the costs panel
+ * as amber cost chips ("Exert", CMB-037), "Enlist" with what it enlists, "Band" with banding; changeable only when [choosing]. */
 private fun stagingChips(play: TableBoard, combat: CombatController?, choices: org.asyncttwiz.automatum.CombatChoices,
     given: Map<String, org.asyncttwiz.automatum.AttackChoice>, bands: Map<Int, List<String>>, picking: CombatController.Picking?,
     card: String, choosing: Boolean, computed: org.asyncttwiz.automatum.ComputedBoard): List<StagingChip> = buildList {
     val choice = given[card]
     fun tap(action: CombatController.() -> Unit): (() -> Unit)? = if (choosing && combat != null) ({ combat.action() }) else null
+    // CMB-037 (owner, 2026-11-25): an optional cost to attack is chosen in the costs panel (CMB-098), never on the band; one
+    // chosen shows as an amber cost chip, on both tables, as a cost it must pay does (CMB-044)
     for (cost in choices.optional[card].orEmpty()) {
-        val on = choice?.paying?.contains(cost.key) == true
-        if (!choosing && !on) continue
-        add(StagingChip(cost.label, if (on) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
-            on, false, cost.text ?: "${cost.label} as it attacks", "${cost.label} as it attacks", onTap = tap { toggleOptional(card, cost.key) }))
+        if (choice?.paying?.contains(cost.key) != true) continue
+        add(StagingChip(cost.label, null, on = false, picking = false, hold = cost.text ?: "${cost.label} as it attacks",
+            description = "Pays ${cost.label}", cost = true))
     }
     val enlists = choices.enlist[card]
     if (enlists != null) {

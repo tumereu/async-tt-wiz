@@ -1,0 +1,1 @@
+1: Costs to attack or block are now chosen and paid in one panel after you press Attack or Block: exert and other "you may … as it attacks" costs are picked by tapping the attacker's card there (the Exert switch on the attacker is gone), and with Autotap off you tap the mana sources for the costs before anything is declared; Back returns to choosing attackers.

@@ -1,0 +1,1 @@
+Alice staged her Ember Charger and pressed Attack (1): the costs panel above her hand shows the Charger's card under "As they attack, you may pay" with an empty Exert box and the ability's whole text; nothing is declared yet and the main button reads Attack.

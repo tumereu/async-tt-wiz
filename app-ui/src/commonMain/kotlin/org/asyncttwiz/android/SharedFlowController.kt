@@ -62,6 +62,9 @@ class SharedFlowController(
     private val stacks: (TableBoard) -> List<List<String>> = { TopmostSources.stacks(BattlefieldLayout.groups(it, viewer)) },
     /** TBL-118: shakes a table card (a tap on a payment's source that no longer pays it, STK-049). */
     private val shake: (String, String) -> Unit = { _, _ -> },
+    /** CMB-098: whether the viewer's costs panel is open on a board: the payment its declaration asks is then made on the table
+     * ([declarationPayment]). */
+    private val costPanel: (TableBoard) -> Boolean = { false },
 ) : FlowQuestions {
     /** The take-backs counted when the shown choice opened ([takeBacks]). */
     private var shownAt = 0L
@@ -138,7 +141,9 @@ class SharedFlowController(
                 responding = null
             }
         }
-        val id = next?.decision?.id?.value
+        // CMB-098: the costs panel's payment (no decision open) by its total: picks stay while it asks the same, a new total
+        // starts from Autotap's suggestion (none with Autotap off)
+        val id = next?.decision?.id?.value ?: next?.takeIf { costPanel(it.play) }?.payment?.let { "declaration/${it.id.value}/${it.cost}" }
         // What a report needs of a pick gone missing: whether the panel was kept over this board or moved to another choice
         if (id != shownDecision) AppLog.info("decision", "The panel's choice changes on a new board: $shownDecision to $id")
         else if (id != null) AppLog.info("decision", "Choice $id still open on a new board: the panel and its picks stay")
@@ -406,8 +411,29 @@ class SharedFlowController(
     /** STK-049 (owner playtest 2026-11-09): the open payment the viewer makes while something resolves, picked on the table: a
      * [Decision.ManaPayment], or the payment after a "you may pay" ([SharedShown.payment]); null when none is open for them. */
     val payment: Decision.ManaPayment? get() {
-        val decision = answering ?: return null
+        val decision = answering ?: return declarationPayment
         return decision as? Decision.ManaPayment ?: view?.takeIf { decision is Decision.May }?.payment
+    }
+
+    /** CMB-098 (CR 508.1h, 509.1d): while the viewer's costs panel is open, the payment declaring what the lanes hold asks of
+     * them, made on the table before anything is declared; null otherwise (and when the declaration asks no mana). */
+    val declarationPayment: Decision.ManaPayment? get() = view?.takeIf { it.decision == null && costPanel(it.play) }?.payment
+
+    /**
+     * CMB-098: the costs panel's Attack (Block) on the main button: the lanes' declaration, its costs' mana paid with the sources
+     * picked ([mana]), as one step; with no mana to pay, the declaration alone (Autotap paying whatever it may still ask).
+     */
+    fun declareWithCosts(): Boolean {
+        val play = current() ?: return false
+        stepRefusal(play)?.let { fail(it); return false }
+        val shown = flowOn(play)
+        if (shown == null) { AppLog.info("combat", "Costs panel's declaration not sent: its payment isn't worked out yet"); fail(COSTS_WORKING); return false }
+        val due = declarationPayment
+        AppLog.info("combat", "Costs panel: declaration pressed on board ${play.values?.number}, " + (due?.let {
+            "paying ${it.cost} with ${mana.joinToString { u -> ManaWays.label(u) }.ifEmpty { "nothing" }}${if (paid) "" else " (not paid)"}"
+        } ?: "no mana to pay"))
+        if (due != null && !paid) { fail(owed(due.cost.toString(), mana.isEmpty())); return false }
+        return sendCall(play, SharedOp.Step(autotap(), due?.let { mana }))
     }
 
     /** STK-049 (owner playtest 2026-11-09): the open payment is made on the table: its sources are tapped there, the panel is a slim
@@ -653,6 +679,12 @@ class SharedFlowController(
         const val OPENING = "The game begins once both players are Ready."
         const val TAKE_OVER = SharedSessions.TAKE_OVER
         const val NOTHING_TO_PASS = SharedSessions.CANT_GO_ON
+        /** CMB-098: the costs panel's payment isn't worked out yet on the board shown. */
+        const val COSTS_WORKING = "Automatum is still working out the costs: try again in a moment."
+
+        /** STK-163, CMB-098: what is still owed of [due] in red, with nothing chosen yet ([none]) or not enough. */
+        fun owed(due: String, none: Boolean): String =
+            if (none) "Still owed $due: produce the mana on the board." else "Not enough to pay $due: produce more mana on the board."
 
         /** The table's shared-flow sessions, numbered across the page (the engine side keys them by game). */
         private val sessions = org.asyncttwiz.appui.AtomicLong()

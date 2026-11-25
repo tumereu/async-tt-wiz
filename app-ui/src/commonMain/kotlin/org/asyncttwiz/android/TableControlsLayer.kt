@@ -35,7 +35,8 @@ inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: T
                     .copy(automatumCombat = toolkit.combat.ready(play), castOpen = toolkit.cast.open,
                         revealOpen = !runtime.reviewing && LocalEngineRoutes.current?.revealing() == true,
                         assumedBlockers = LocalEngineRoutes.current?.assuming()?.blocks?.size,
-                        mainAction = toolkit.mainSlot.action ?: toolkit.flows.divisionAction())
+                        mainAction = toolkit.mainSlot.action ?: toolkit.flows.divisionAction(),
+                        costsOpen = toolkit.combat.costPanelOpen(play))
                     .withCombatTarget(toolkit.combat, play, defendingPlayerName(game, play)),
                     toolkit.table, endingColor,
                     Modifier.fillMaxWidth().height(DESKTOP_ACTIONS_HEIGHT.dp), perform = toolkit::perform, submit = { toolkit.submit(it) },
@@ -63,7 +64,8 @@ inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: T
                     .copy(automatumCombat = toolkit.combat.ready(play), castOpen = toolkit.cast.open,
                         revealOpen = !runtime.reviewing && LocalEngineRoutes.current?.revealing() == true,
                         assumedBlockers = LocalEngineRoutes.current?.assuming()?.blocks?.size,
-                        mainAction = toolkit.mainSlot.action ?: toolkit.flows.divisionAction())
+                        mainAction = toolkit.mainSlot.action ?: toolkit.flows.divisionAction(),
+                        costsOpen = toolkit.combat.costPanelOpen(play))
                     .withCombatTarget(toolkit.combat, play, defendingPlayerName(game, play)),
                     toolkit.table, endingColor,
                     Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform, submit = { toolkit.submit(it) },

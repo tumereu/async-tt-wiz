@@ -403,10 +403,10 @@ number	item	screenshot	catalog	decisions	sequence
 578	Side menu: landscape's permanent side area with the same list	side-menu/landscape.png	LOB-018 WEB-037		Side menu list
 579	Side menu: the desktop's permanent side menu with the same list	side-menu/desktop.png	LOB-018 WEB-037		Side menu list
 580	Menu screen: only a pod invitation waits, the hamburger and its Pods panel row blue	side-menu/menu-pod-invitation.png	LOB-268 LOB-269 LOB-017		Side menu list
-581	Exert toggle off: a staged attacker that may exert as it attacks, its Exert chip white with an empty box	combat-band/exert-off.png	CMB-037		Exert toggle
-582	Exert toggle on: the chip tapped, filled violet with a checked box	combat-band/exert-on.png	CMB-037		Exert toggle
-583	Exert toggle held: the ability's text with what exerting means	combat-band/exert-held.png	CMB-037 TBL-132 TBL-240		Exert toggle
-584	Exert toggle on the other player's table: shown checked, not theirs to change	combat-band/exert-other-player.png	CMB-037 TBL-240		Exert toggle
+581	Exert on the band: a staged attacker that may exert as it attacks has no toggle any more (chosen in the costs panel, 670)	combat-band/exert-off.png	CMB-037		Exert chip
+582	Exert chosen in the costs panel: an amber Exert cost chip under the staged copy (choice: as a cost it must pay shows)	combat-band/exert-on.png	CMB-037 CMB-044		Exert chip
+583	Exert chip held: the ability's text with what exerting means	combat-band/exert-held.png	CMB-037 TBL-132 TBL-240		Exert chip
+584	Exert chip on the other player's table: the same amber chip, not theirs to change	combat-band/exert-other-player.png	CMB-037 TBL-240		Exert chip
 585	Attack cost chip unheld: the amber {2} chip on a staged attacker's copy (as 216)	combat-band/attack-cost.png	CMB-044		Attack cost chip
 586	Attack cost chip held: the ability that makes the attacker pay it, with Inspect of the card opened by the same hold	combat-band/attack-cost-held.png	CMB-044 TBL-240		Attack cost chip
 590	Bots without card ratings: a cube pod's setup, an amber warning sign on each bot (strip and rows) and beside Add bot	draft/bot-warning-setup.png	DRF-314 DRF-296		Bots without card ratings
@@ -456,3 +456,14 @@ number	item	screenshot	catalog	decisions	sequence
 661	Choice ability text: a spell's search shows the spell's whole text under the search's title (before: none)	choice-text/spell-search.png	STK-181 STK-056	ChooseObjects	Choice ability text
 662	Choice ability text: a spell's "you may" shows the spell's whole text, its own words not repeated (before: only the "you may" sentence)	choice-text/spell-may.png	STK-181 STK-182	May	Choice ability text
 663	Choice ability text: the cast panel's X shows the spell's whole text, both sentences (before: only the first)	choice-text/cast-x.png	STK-136 STK-181 STK-023	Announce	Choice ability text
+670	Costs panel, optional cost only: Attack (1) with an Ember Charger staged opens it, the Charger's card under "As they attack, you may pay", its Exert box empty, the ability's whole text; nothing declared, Attack on the main button	combat-costs/optional.png	CMB-098 CMB-037 CMB-100		Costs panel
+671	Costs panel, optional cost tapped: the card ringed in violet with its Exert box checked; the copy on the band carries an amber Exert chip (choice: ring and checked box mark it paid)	combat-costs/optional-paid.png	CMB-098 CMB-037		Costs panel
+672	Costs panel, a required cost with Autotap off: the Cub's card with its amber {2}, the Bulwark's text under its name, "Total to pay: {2}", in red "Still owed {2}"; Attack, Rest and Clear greyed	combat-costs/required-autotap-off.png	CMB-098 CMB-099 CMB-100 CMB-101		Costs panel
+673	Costs panel, paid by hand: the two Mountains tapped on the table, outlined in amber; "Outlined sources pay"; Attack usable	combat-costs/required-paid.png	CMB-099 CMB-100		Costs panel
+674	Costs panel, both together: the Charger's exert (paid) and the {2} it must pay in one panel, "Total to pay: {2}, Exert", Autotap's Mountains outlined	combat-costs/both.png	CMB-098 CMB-099		Costs panel
+675	Costs panel for a block: "Costs to block", Bob's Ash Pup with its amber {1} from the attacking Tollward, his Mountain paying it; Block on the main button	combat-costs/block.png	CMB-098 CMB-099 CMB-100		Costs panel
+676	Autotap on with only a required cost: no panel, the board after Attack (1): the Cub attacking, both Mountains tapped for its {2}	combat-costs/autotap-no-panel.png	CMB-075		Costs panel
+677	Back to staging: the panel closed, nothing declared, the Cub still staged with its {2} chip, the main button Attack (1) again (Undo does the same)	combat-costs/back.png	CMB-100		Costs panel
+678	Choice: while the costs panel is open the staging is frozen: a tap on a creature or copy only shakes ("Go Back to staging to change it."), Rest and Clear greyed (as in 672)	combat-costs/required-autotap-off.png	CMB-101		Costs panel
+679	Choice: the panel's words: titles "Costs to attack" / "Costs to block", sections "As they attack, you may pay" and "To attack, they must pay", "Total to pay" with the mana first, Back in the bottom row (as in 674)	combat-costs/both.png	CMB-098		Costs panel
+680	Choice: with Autotap off a cost without mana ("2 life", "Sacrifice") opens no panel: nothing to pay by hand, it is paid (or its choice asked) as the main button declares (no picture: 676 shows the board after a declaration without panel)	combat-costs/autotap-no-panel.png	CMB-075 CMB-098		Costs panel

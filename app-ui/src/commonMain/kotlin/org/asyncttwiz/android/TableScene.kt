@@ -439,6 +439,15 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             if (layout.localPileId != null && play.board.containers.none { it.id == layout.localPileId && it.cards.isNotEmpty() })
                 layout = layout.copy(localPileId = null)
         }
+        // ZON-139: a landscape fan that stops turning (its hand fits again) forgets its turn, so it starts from its first card
+        // when it turns again
+        val stillFan = scene.viewports.firstOrNull { it.turn != null }?.takeIf { it.turn?.turns == false }?.id
+        LaunchedEffect(stillFan) {
+            if (stillFan != null && layout.scroll[stillFan] != null) {
+                AppLog.info("table", "Hand fan $stillFan fits again: its turn ${layout.scroll[stillFan]} dp is forgotten")
+                layout = layout.copy(scroll = layout.scroll - stillFan)
+            }
+        }
         // The pictures at the sizes the cards are drawn now (a zoom asks again only past a size step, TABLE_ARTWORK_STEP)
         val artItems = remember(animation, sceneNow) { derivedStateOf {
             frameRevision.intValue

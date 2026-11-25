@@ -1,0 +1,1 @@
+Landscape table with 2.5x hand cards: Alice holds 7 cards, as many as fit with at least 20 dp of each in view, so her fan is full but still turns no further: no +N at either end.

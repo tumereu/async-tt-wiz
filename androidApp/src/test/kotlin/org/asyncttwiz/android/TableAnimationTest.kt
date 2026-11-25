@@ -30,7 +30,9 @@ class TableAnimationTest {
                 // Isolate viewport clipping: two simultaneous draws can legitimately cover one another.
                 val rendered = TablePresentation.clip(target.copy(items = listOf(card.item.copy(bounds = card.bounds))),
                     if (landscape) 900f else 412f, if (landscape) 412f else 820f)
-                assertEquals(listOf(card.bounds), rendered.items.single { it.cardId == id }.visible,
+                // (only the screen's bottom cuts it: in landscape your hand's fan reaches below it, ZON-138)
+                val screen = TableBounds(0f, 0f, if (landscape) 900f else 412f, if (landscape) 412f else 820f)
+                assertEquals(listOfNotNull(card.bounds.intersection(screen)), rendered.items.single { it.cardId == id }.visible,
                     "The hand rail must not clip the flying card")
                 assertEquals(card.item.id, rendered.hit(card.bounds.center)?.id)
             }

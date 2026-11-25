@@ -72,24 +72,25 @@ class TablePresentationTest {
         }
     }
 
-    // TBL-009, TBL-144 (owner, 2026-11-08): in landscape your hand sits in the bottom bar, after your life square and piles, up to
-    // the bar's fixed-width right end (the controls); no hand strip above the bar: the battlefields reach the bar. Portrait
-    // keeps its hand row above the bottom bar
+    // TBL-009, TBL-144, ZON-138 (owner, 2026-11-08, 2026-11-25): in landscape your hand's fan sits in the bottom bar, after your life
+    // square and piles, before the bar's fixed-width right end (the controls), its cards partly below the screen's bottom; no hand
+    // strip above the bar: the battlefields reach the bar. Portrait keeps its hand row above the bottom bar
     @Test fun landscapeHandSitsInTheBottomBarBeforeTheControls() {
         for ((width, height) in listOf(900f to 412f, 640f to 360f)) {
             val scene = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play(hand = 12)), "a", width, height, true)
             val bar = height - TableControlsHeight
             val hand = scene.items.single { it.id == "a/HAND" }.bounds
             val dock = scene.viewports.single { it.id == "dock/a" }.bounds
-            assertTrue(hand.y >= bar && hand.bottom <= height, "in the bottom bar: $hand")
+            assertTrue(hand.y >= bar && hand.bottom == height, "in the bottom bar: $hand")
             assertTrue(hand.x >= dock.right, "after the life square and piles: $hand, $dock")
-            assertEquals(width - TablePresentation.Landscape.controls(width), hand.right, .001f)
+            assertTrue(hand.right <= width - TablePresentation.Landscape.controls(width), "before the controls: $hand")
             assertTrue(TablePresentation.Landscape.controls(width) <= width / 2)
-            assertTrue(hand.width >= TablePresentation.Landscape.MIN_OWN_HAND, "$hand")
             val cards = scene.items.filter { it.zone == PlayZone.HAND && it.owner == "a" && it.kind == TableItemKind.CARD }
             assertEquals(12, cards.size)
-            assertTrue(cards.all { it.bounds.y >= hand.y && it.bounds.bottom <= hand.bottom }, "cards inside the hand row")
-            assertTrue(scene.viewports.single { it.id == "a/HAND" }.maxScroll > 0f, "a long hand scrolls")
+            val inView = cards.filter { it.bounds.y < height }
+            assertTrue(inView.isNotEmpty() && inView.all { it.bounds.y >= bar && it.bounds.bottom > height },
+                "the cards in view stand in the bar, partly below the screen's bottom")
+            assertTrue(scene.viewports.single { it.id == "a/HAND" }.turn!!.turns, "a long hand turns (ZON-139)")
             val world = assertNotNull(scene.world).viewport
             assertEquals(bar - 4f, world.bottom, .001f)
         }
@@ -212,7 +213,8 @@ class TablePresentationTest {
             assertTrue(cards.isNotEmpty())
             cards.forEach { c ->
                 // ZON-001, ZON-125: the other player's hand in portrait is a fan of smaller, turned cards: their faces are measured
-                val scale = if (c.zone == PlayZone.BATTLEFIELD) zoom else if (c.cardTransform != null) TablePresentation.FAN_CARD else 1f
+                // (ZON-138: your landscape hand's fan keeps its cards' size)
+                val scale = if (c.zone == PlayZone.BATTLEFIELD) zoom else if (c.cardTransform != null && c.handSlot == null) TablePresentation.FAN_CARD else 1f
                 val face = c.faceTransform()
                 assertEquals(28 * scale, minOf(face.width, face.height), .001f)
                 assertEquals(40 * scale, maxOf(face.width, face.height), .001f)
@@ -379,6 +381,26 @@ class TablePresentationTest {
                 }
                 val port = scene.viewports.single { it.id == id }
                 val first = scene.items.single { it.cardId == "$owner/HAND/0" }
+                if (landscape && owner == "a") {
+                    // ZON-138, ZON-139: your landscape hand is a fan: centred while it fits, turning to its last card when not, in order
+                    val hand = scene.items.single { it.id == id }
+                    val turn = assertNotNull(port.turn)
+                    if (count == 2) {
+                        assertFalse(turn.turns)
+                        val last = scene.items.single { it.cardId == "$owner/HAND/1" }
+                        assertEquals((hand.bounds.x + hand.bounds.right - TablePresentation.FAN_COUNT) / 2,
+                            (first.handSlot!!.x + last.handSlot!!.right) / 2, .01f)
+                    } else {
+                        assertTrue(first.handSlot != null && turn.turns)
+                        val end = TableFixture.scene(p, landscape, TableLayoutState(scroll = mapOf(id to Float.MAX_VALUE)))
+                        val last = end.items.single { it.cardId == "$owner/HAND/${count - 1}" }
+                        assertTrue(last.handSlot != null && last.visible.isNotEmpty())
+                        assertEquals(scene.cardWidth, end.cardWidth)
+                        assertEquals(p.board.containers.single { it.id == id }.cards,
+                            end.items.filter { it.viewport == id && it.cardId != null }.map { it.cardId })
+                    }
+                    continue
+                }
                 if (count == 2) {
                     assertEquals(0f, port.maxScroll)
                     val last = scene.items.single { it.cardId == "$owner/HAND/1" }

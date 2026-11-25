@@ -366,6 +366,7 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     }
     }
     stackCounts(this@with, scene, viewer, alphas)
+    fanPluses(this@with, scene)
     // STK-058: drawn here unless the caller draws them over its overlays (drawPileBadges)
     if (pileBadges) pileBadges(this@with, scene)
     val landing = tableDragLanding(scene, preview)
@@ -383,6 +384,27 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
     }
     }
 }
+
+/** ZON-140 (owner, 2026-11-25): a turning landscape fan's small "+N" at each end with N cards turned away there, over its cards:
+ * white on the pile count's dark teal, as tall as [HandFan.PLUS_HEIGHT]. */
+private fun DrawScope.fanPluses(painter: TableCardPainter, scene: TableScene) = with(painter) {
+    for (hand in scene.items) for ((at, count) in hand.fanPlus) {
+        val label = "+$count"
+        val previousSize = paint.textSize
+        paint.textSize = 10f * density; paint.isFakeBoldText = true
+        val height = HandFan.PLUS_HEIGHT
+        val width = cache.measure(label) / density + 8f
+        drawRoundRect(FanPlusColor, xy(at.x - width / 2, at.y - height / 2), size(width, height), CornerRadius(height / 2 * density))
+        drawRoundRect(Color.White, xy(at.x - width / 2, at.y - height / 2), size(width, height), CornerRadius(height / 2 * density),
+            style = Stroke(density))
+        paint.color = NativeColors.WHITE
+        text(label, at.x - width / 2 + 4f, at.y - cache.centerOffset() / density, label.length)
+        paint.color = NativeColors.DKGRAY; paint.isFakeBoldText = false
+        paint.textSize = previousSize
+    }
+}
+
+private val FanPlusColor = Color(0xff345451)
 
 /**
  * TBL-054 (owner, 2026-11-19): while some of a battlefield stack's members are tapped its count reads untapped/total ("2/3"),

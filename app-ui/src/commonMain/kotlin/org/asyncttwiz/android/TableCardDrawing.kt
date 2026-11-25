@@ -47,6 +47,8 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
     fun xy(x: Float, y: Float) = Offset(x * density, y * density)
     fun size(w: Float, h: Float) = Size(w * density, h * density)
     val paint = cache.paint
+    /** WEB-015: drawn for the desktop table (its hand's large cards keep their texts to a sensible size, WEB-022). */
+    val desktop = scene.desktop
     val titleScale = scene.appearance.text(CardTextScalePart.TITLE)
     val noteScale = scene.appearance.text(CardTextScalePart.VALUES)
     val valueScale = scene.appearance.text(CardTextScalePart.VALUES)
@@ -247,8 +249,9 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
         val cardWidth = 28f * z; val cardHeight = 40f * z
         // WEB-022 (owner 2026-11-16): on the desktop hand's large cards the name row, the P/T row and the border don't grow
         // past a sensible size: [tz] scales their text, [ez] the border and the frame around the art (elsewhere both are [z])
-        val tz = if (i.handSlot != null) minOf(z, DESKTOP_HAND_TEXT_SCALE) else z
-        val ez = if (i.handSlot != null) minOf(z, DESKTOP_HAND_EDGE_SCALE) else z
+        val desktopHand = i.handSlot != null && desktop
+        val tz = if (desktopHand) minOf(z, DESKTOP_HAND_TEXT_SCALE) else z
+        val ez = if (desktopHand) minOf(z, DESKTOP_HAND_EDGE_SCALE) else z
         val corner = if (!i.cornerHourglass) i.corner else "⌛${i.corner}"
         // TBL-137 (owner notes 2026-11-14): an uncrewed Vehicle's "Crew N", one short line on a white chip just above its P/T
         // at the art's bottom right, where it fits the card's width

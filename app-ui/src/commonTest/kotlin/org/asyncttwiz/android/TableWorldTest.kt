@@ -292,10 +292,10 @@ class TableWorldTest {
             val laid = world.viewport
             val shown = world.visibleViewport
             assertEquals(TableBounds(0f, header, 892f, bar - header), shown, "seen from bar to bar across the whole width")
-            // The room the rows are laid out in is still between the hands' cards, 4 dp from the bottom one's row
+            // The room the rows are laid out in is still between the hands' cards, 4 dp from the bar or your fan's top (ZON-138)
             val own = scene.items.single { it.kind == TableItemKind.HAND && it.owner == f.a }
             val other = scene.items.single { it.kind == TableItemKind.HAND && it.owner == f.b }
-            assertEquals(own.bounds.y - 4f, laid.bottom, .001f)
+            assertEquals(minOf(bar, own.bounds.y) - 4f, laid.bottom, .001f)
             assertEquals(header + 4f + 40f * (size - 1f), laid.y, .001f)
             assertEquals(TableBounds(0f, laid.y - 4f, 892f, laid.height + 8f), world.clearOfHands)
             assertEquals(world.clearOfHands, scene.boardArea, "the review dim and centre texts stay clear of the hand cards")
@@ -305,8 +305,8 @@ class TableWorldTest {
             for (field in scene.fields) { assertEquals(0f, field.bounds.x); assertEquals(892f, field.bounds.right) }
             // The strips beside the hands are the battlefield's: touching there pans it
             assertTrue(scene.worldInput(TablePoint(4f, bar - 4f)) && scene.worldInput(TablePoint(4f, header + 4f)))
-            // Only each hand row's part in its bar is the row
-            assertEquals(TableBounds(own.bounds.x, bar, own.bounds.width, own.bounds.bottom - bar), own.handBand)
+            // Only the other player's hand row's part in its bar is the row; your fan's own part is its part in the bar (ZON-138)
+            assertEquals(TableBounds(own.bounds.x, bar, own.bounds.width, 412f - bar), own.handBand)
             assertEquals(TableBounds(other.bounds.x, other.bounds.y, other.bounds.width, header - other.bounds.y), other.handBand)
             // Battlefield cards are drawn and touched only where no hand card lies over them
             val handCards = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND }
@@ -325,7 +325,7 @@ class TableWorldTest {
     @Test fun withLargeHandCardsTheRowsPanUnderTheHandCards() {
         val bar = 412f - TableControlsHeight
         val header = TablePresentation.HEADER
-        val world = largeHands(1.5f).world!!
+        val world = largeHands(2f).world!!
         val laid = world.viewport
         val room = assertNotNull(world.panViewport)
         assertEquals(header + 4f, room.y, .001f); assertEquals(bar - 4f, room.bottom, .001f)
@@ -347,8 +347,9 @@ class TableWorldTest {
         assertEquals(laid.x, world.screen(world.panBounds, world.clamp(TableCamera(-10000f))).x, .01f)
     }
 
-    // TBL-238 (owner 2026-11-24): with large hand cards in landscape a touch on a hand card is the card's, also where it stands
-    // over the battlefield; between the cards above the bar it reaches the battlefield under them; in the bar it is the hand row's
+    // TBL-238, ZON-138 (owner 2026-11-24, 2026-11-25): with large hand cards in landscape a touch on a hand card is the card's, also
+    // where it stands over the battlefield; beside the fan above the bar it reaches the battlefield under it; in the bar it is the
+    // fan's
     @Test fun touchesAboveTheBarGoToTheHandCardDrawnThereElseToTheBattlefield() {
         val f = TableStatesFixture
         val bar = 412f - TableControlsHeight
@@ -357,17 +358,18 @@ class TableWorldTest {
         val cards = scene.items.filter { it.kind == TableItemKind.CARD && it.viewport == own.viewport }.sortedBy { it.bounds.x }
         assertTrue(cards.size >= 2)
         assertTrue(cards[0].bounds.y < bar - 8f, "the 3x hand cards stand above the bar")
-        val above = TablePoint(cards[0].bounds.center.x, (cards[0].bounds.y + bar) / 2)
+        val slot = assertNotNull(cards[0].handSlot)
+        val above = TablePoint(slot.center.x, (slot.y + bar) / 2)
         assertEquals(cards[0].id, scene.hit(above)?.id)
-        assertEquals(own.viewport, scene.panRegion(above), "a drag on the card still pans the hand or drags the card")
-        val gap = TablePoint((cards[0].bounds.right + cards[1].bounds.x) / 2, above.y)
-        assertTrue(scene.hit(gap).let { it == null || it.battlefieldCard }, "between the cards: the battlefield, not the hand")
+        assertEquals(own.viewport, scene.panRegion(above), "a drag on the card still turns the fan or drags the card")
+        val gap = TablePoint(own.bounds.x - 30f, above.y)
+        assertTrue(scene.hit(gap).let { it == null || it.battlefieldCard }, "beside the fan: the battlefield, not the hand")
         assertEquals(WORLD_PAN_REGION, scene.panRegion(gap))
-        val inBar = TablePoint(gap.x, (bar + own.bounds.bottom) / 2)
+        val inBar = TablePoint(own.bounds.right - 8f, (bar + own.bounds.bottom) / 2)
         assertEquals(own.id, scene.hit(inBar)?.id)
         assertEquals(own.viewport, scene.panRegion(inBar))
-        // Gestures: a tap on the card's part above the bar opens it; a sideways drag between the cards pans the battlefield,
-        // one in the bar pans the hand
+        // Gestures: a tap on the card's part above the bar opens it; a sideways drag beside the fan pans the battlefield, one in
+        // the bar is the fan's
         val events = mutableListOf<TableIntent>()
         val gestures = TableGestureCoordinator(events::add)
         gestures.update(scene, true)
@@ -382,6 +384,5 @@ class TableWorldTest {
         gestures.down(inBar, 3000); events.clear()
         gestures.move(TablePoint(inBar.x + 60f, inBar.y), 3040); gestures.up(TablePoint(inBar.x + 60f, inBar.y), 3060)
         assertTrue(events.none { it is TableIntent.Camera }, "the hand's, not the battlefield's: $events")
-        assertTrue(events.any { it is TableIntent.Overscroll })
     }
 }

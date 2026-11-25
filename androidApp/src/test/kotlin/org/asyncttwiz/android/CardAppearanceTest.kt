@@ -89,7 +89,12 @@ class CardAppearanceTest {
                 val barPile = landscape && item.zone != PlayZone.HAND && item.zone != PlayZone.STACK
                 val pileScale = if (barPile) minOf(scale, .8f) else scale
                 val fan = item.cardTransform
-                if (fan != null) {
+                // ZON-138: your landscape hand's fan keeps the hand's size, its cards partly below the screen's bottom
+                val ownFan = landscape && item.zone == PlayZone.HAND && item.owner == f.a && fan != null
+                if (ownFan) {
+                    assertEquals(28f * scale, fan!!.width, .001f, item.id)
+                    assertEquals(40f * scale, fan.height, .001f, item.id)
+                } else if (fan != null) {
                     // ZON-001, ZON-125: the other player's hand in portrait is a fan in their row, its cards the piles' size times FAN_CARD
                     assertTrue(!landscape && item.owner != f.a, item.id)
                     assertEquals(28f * scale * TablePresentation.FAN_CARD, fan.width, .001f, item.id)
@@ -102,7 +107,8 @@ class CardAppearanceTest {
                     assertEquals(40f * pileScale, item.bounds.height, .001f, item.id)
                 }
                 val port = scene.viewports.first { it.id == item.viewport }.bounds
-                assertTrue(item.bounds.y >= port.y && item.bounds.bottom <= port.bottom, "${item.id}: ${item.bounds} / $port")
+                if (ownFan) { if (item.bounds.y < height) assertTrue(item.bounds.y >= port.y, "${item.id}: ${item.bounds} / $port") }
+                else assertTrue(item.bounds.y >= port.y && item.bounds.bottom <= port.bottom, "${item.id}: ${item.bounds} / $port")
             }
             val hands = scene.items.filter { it.kind == TableItemKind.HAND }
             for (panel in scene.cardPanels) {

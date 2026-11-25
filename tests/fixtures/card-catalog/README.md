@@ -19,5 +19,8 @@ A small, invented MTGJSON AllPrintings file (no real card data) and its support 
   `./scripts/gradle.sh :androidApp:testDebugUnitTest -PtestCards=record --tests '*TestCardsFixtureTest*'`
   (the test fails while the file and `TestCards` differ).
 
+- `ratings.tsv`: invented draft bot card ratings (DRF-312) for `TST`, in the local ratings file's format (`CatalogRatings`),
+  which `:catalog:testCardsCatalog` bakes into the catalog; `TWL` is listed as a set without ratings.
+
 The other sets were generated once by hand-written code from these descriptions; edit the JSON directly when a test needs
 more.

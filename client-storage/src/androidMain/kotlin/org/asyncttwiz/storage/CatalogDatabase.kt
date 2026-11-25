@@ -14,7 +14,7 @@ import java.util.logging.Logger
 // The card records' format, kept as the file's user_version. Card records are always the app's built-in card catalog
 // (LOB-091): a new app with a new format comes with a new catalog checksum, so the records
 // are downloaded and indexed again anyway.
-internal const val CATALOG_INDEX_VERSION = 7
+internal const val CATALOG_INDEX_VERSION = 8
 // CatalogMetadata and CatalogPrinting are in :catalog (CatalogRecords.kt).
 
 /** Public, replaceable catalog only. Never opens or edits the account/accepted-replica database. */
@@ -42,6 +42,9 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
 
     /** Worker-only: the draft sets (DRF-088) with their support marks, newest first. */
     override fun draftableSets(): List<DraftableSet> = snapshot { it?.draftableSets().orEmpty() }
+
+    /** Worker-only (DRF-312): set [code]'s card ratings for the draft bots; empty without them or card records. */
+    override fun botRatings(code: String): Map<String, Int> = snapshot { it?.botRatings(code).orEmpty() }
 
     /** Worker-only (LOB-115): which of [printingIds] the card catalog doesn't mark as supported (SYS-082); null
      * without card records. A printing the records don't have is unsupported. */
@@ -195,7 +198,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("CREATE TABLE face (source TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY(source, target))")
         sql("CREATE TABLE catalog_set (code TEXT NOT NULL PRIMARY KEY, release_date TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', " +
             "type TEXT NOT NULL DEFAULT '', draftable INTEGER NOT NULL DEFAULT 0, automatum INTEGER NOT NULL DEFAULT 0, " +
-            "unsupported TEXT NOT NULL DEFAULT '[]', keyrune TEXT NOT NULL DEFAULT '')")
+            "unsupported TEXT NOT NULL DEFAULT '[]', keyrune TEXT NOT NULL DEFAULT '', ratings TEXT NOT NULL DEFAULT '{}')")
         // The printings of the cards the card catalog marks as supported (SYS-082)
         sql("CREATE TABLE automatum_printing (id TEXT NOT NULL PRIMARY KEY) WITHOUT ROWID")
         createImportNames()
@@ -222,9 +225,14 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
 
     /** A set with its name, kind and marks in one row: what [addSet], [setName], [setType] and [markSet] make together. */
     internal fun addSet(code: String, releaseDate: String, name: String, type: String, draftable: Boolean, automatum: Boolean,
-        unsupported: List<String>, keyrune: String = "") = execute("INSERT INTO catalog_set (code, release_date, name, type, draftable, " +
-        "automatum, unsupported, keyrune) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", listOf(code, releaseDate, name, type, if (draftable) 1L else 0L,
-        if (automatum) 1L else 0L, DeckJson.format.encodeToString(unsupported), keyrune), ADD_SET)
+        unsupported: List<String>, keyrune: String = "", ratings: Map<String, Int> = emptyMap()) = execute(
+        "INSERT INTO catalog_set (code, release_date, name, type, draftable, automatum, unsupported, keyrune, ratings) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", listOf(code, releaseDate, name, type, if (draftable) 1L else 0L,
+        if (automatum) 1L else 0L, DeckJson.format.encodeToString(unsupported), keyrune, DeckJson.format.encodeToString(ratings)), ADD_SET)
+
+    /** DRF-312: set [code]'s card ratings for the draft bots, empty for a set without them. */
+    internal fun botRatings(code: String): Map<String, Int> = texts("SELECT ratings FROM catalog_set WHERE code=?", listOf(code))
+        .singleOrNull()?.let { DeckJson.format.decodeFromString<Map<String, Int>>(it) }.orEmpty()
 
     override fun setName(code: String, name: String) = sql("UPDATE catalog_set SET name=? WHERE code=?", listOf(name, code))
 

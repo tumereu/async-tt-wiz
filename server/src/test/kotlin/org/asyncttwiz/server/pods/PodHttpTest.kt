@@ -1387,7 +1387,7 @@ class PodHttpTest {
         assertEquals(PodSource("Snapshot cube", 90), f.get(f.a, pod).source)
     }
 
-    // DRF-090: recipe packs from the catalog's set, and challenges from a set pod
+    // DRF-090: recipe packs from the catalog's set, and challenges from a set pod; DRF-312: TST has (invented) card ratings
     @Test fun `set boosters use the recipe size and allow challenges`() = fixture { f ->
         run {
             val request = CreatePod(id(), "Set pod", setCode = "TST")
@@ -1395,7 +1395,7 @@ class PodHttpTest {
             assertEquals(created, f.send(f.a, "POST", "/v1/pods", request, 201))
             val pod = json.decodeFromString<PodDetail>(created).id
             assertEquals(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Test Set",
-                boosterKind = SetBoosterKind.RECIPE_BASED, boosterName = "play", packSets = listOf("TST")), f.get(f.a, pod).source)
+                boosterKind = SetBoosterKind.RECIPE_BASED, boosterName = "play", packSets = listOf("TST"), botRatings = true), f.get(f.a, pod).source)
             f.join(pod)
             f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 7))
             val started = f.start(pod)
@@ -1487,12 +1487,12 @@ class PodHttpTest {
         assertEquals(24, listOf(f.a, f.b).sumOf { f.get(it, pod).grid!!.mine.pool.size })
     }
 
-    // DRF-169, DRF-090: a set pod from its code, its packs built from the server's
+    // DRF-169, DRF-090, DRF-312: a set pod from its code (TST has invented card ratings), its packs built from the server's
     // card catalog (the test cards' catalog, tests/fixtures/card-catalog)
     @Test fun `a set chosen by its code gets packs the server builds from its card catalog`() = fixture { f ->
         val created = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Catalog set", setCode = "TST"), 201))
         assertEquals(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Test Set", boosterKind = SetBoosterKind.RECIPE_BASED,
-            boosterName = "play", packSets = listOf("TST")), created.source)
+            boosterName = "play", packSets = listOf("TST"), botRatings = true), created.source)
         f.join(created.id)
         val started = f.start(created.id)
         val pack = started.draft!!.head!!.cards

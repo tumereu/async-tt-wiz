@@ -229,6 +229,15 @@ class BrowserCatalogTest {
         assertTrue(DeckImportResolver(BrowserCardRecords()).resolve("1 Test Bear").issues.single().message.contains("not installed"))
     }
 
+    // DRF-312: the browser's card records give a set's card ratings for the draft bot's debug view, none for a set without them
+    @Test
+    fun theRecordsGiveASetsCardRatings() = runTest {
+        val records = loaded()
+        assertEquals(mapOf("Glorp Wizard" to 512, "Test Bear" to 571), records.botRatings("TST"))
+        assertEquals(emptyMap<String, Int>(), records.botRatings("OLD"))
+        assertEquals(emptyMap<String, Int>(), BrowserCardRecords().botRatings("TST"), "nothing without card records")
+    }
+
     @Test
     fun theRecordsAnswerMarksSetsAndCards() = runTest {
         val records = loaded()
@@ -325,7 +334,8 @@ class BrowserCatalogTest {
                 CatalogPrintingRecord("p-broken", 1, "OLD", "5", scryfall(7), "common", others = listOf("p-missing")),
             ) + extra
             val sets = listOf(
-                CatalogSetRecord("TST", "Test Set", "expansion", "2026-01-01", "tst", draftable = true, unsupported = listOf("Glorp Wizard")),
+                CatalogSetRecord("TST", "Test Set", "expansion", "2026-01-01", "tst", draftable = true, unsupported = listOf("Glorp Wizard"),
+                    ratings = mapOf("Glorp Wizard" to 512, "Test Bear" to 571)),
                 CatalogSetRecord("OLD", "Old Set", "core", "2001-01-01"),
             )
             val header = CatalogHeader(CardCatalogFormat.FORMAT, "5.3.0+test", "2026-11-01", CardSearchRules.FORMATS, 1, 1,

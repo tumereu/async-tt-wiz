@@ -53,6 +53,7 @@ class BrowserCardRecords : CardCatalog, CatalogSnapshots {
 
     override fun metadata(): CatalogMetadata? = current?.metadata()
     override fun draftableSets(): List<DraftableSet> = current?.draftableSets().orEmpty()
+    override fun botRatings(code: String): Map<String, Int> = current?.botRatings(code).orEmpty()
     override fun unsupported(printingIds: Collection<String>): Set<String>? = current?.unsupported(printingIds)
     override fun unsupportedPictures(scryfallIds: Collection<String>): Set<String>? = current?.unsupportedPictures(scryfallIds)
     override fun cards(printingIds: Collection<String>): Map<String, List<CatalogPrinting>> = current?.cards(printingIds).orEmpty()

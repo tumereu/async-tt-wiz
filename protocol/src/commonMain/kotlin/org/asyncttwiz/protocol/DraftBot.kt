@@ -17,20 +17,52 @@ data class DraftBotScore(val card: String, val parts: List<DraftBotPart>) {
 }
 
 /**
- * The bot's view of one offer: every card's [scores] in the offer's order, the cards it would take ([picks], best first),
- * the colours it leans to from its picks so far ([colors], at most two) and how much those count now ([commitment], 0–100 %).
+ * A set's card ratings for the draft bot (DRF-312, owner 2026-11-25): [table] holds each rated card's GIH WR in Premier
+ * Draft (17Lands' public data, the card catalog's set ratings) in tenths of a percent, by its card's name. A card's rating
+ * becomes its strength ([points]): its distance from the set's mean in the set's standard deviations, times
+ * [DraftBot.RATED_SPREAD], from [DraftBot.HEURISTIC_MEAN]. A card without a rating keeps the heuristic, rescaled the same
+ * way from the heuristic's own mean and spread over the rated sets' cards ([rescaled]), so the two compare fairly. A card is
+ * strong enough to splash ([DraftBot.SPLASH]) from the set's top tenth ([strong]).
  */
-data class DraftBotChoice(val scores: List<DraftBotScore>, val picks: List<String>, val colors: List<DraftColor>, val commitment: Int) {
+class DraftBotRatings(val set: String, val table: Map<String, Int>) {
+    init { require(table.isNotEmpty()) { "No ratings for $set" } }
+    private val mean = table.values.average()
+    private val deviation = kotlin.math.sqrt(table.values.sumOf { (it - mean) * (it - mean) } / table.size).takeIf { it > 0.0 } ?: 1.0
+    /** The lowest rating of the set's top tenth (its 90th percentile). */
+    val strong: Int = table.values.sorted().let { sorted -> sorted[((sorted.size - 1) * 9 + 9) / 10] }
+
+    /** [definition]'s rating, by its card's name, or null for a card the set's ratings don't have. */
+    fun rating(definition: CardDefinition): Int? = table[definition.name]
+
+    /** [rating] on the bot's scale. */
+    fun points(rating: Int): Int = kotlin.math.round(DraftBot.HEURISTIC_MEAN + (rating - mean) / deviation * DraftBot.RATED_SPREAD).toInt()
+
+    /** A heuristic score (without colour) of a card without a rating, on the same scale as [points]. */
+    fun rescaled(heuristic: Int): Int =
+        kotlin.math.round(DraftBot.HEURISTIC_MEAN + (heuristic - DraftBot.HEURISTIC_MEAN) / DraftBot.HEURISTIC_SPREAD * DraftBot.RATED_SPREAD).toInt()
+
+    override fun toString() = "$set ratings of ${table.size} cards"
+}
+
+/**
+ * The bot's view of one offer: every card's [scores] in the offer's order, the cards it would take ([picks], best first),
+ * the colours it leans to from its picks so far ([colors], at most two), how much those count now ([commitment], 0–100 %)
+ * and the colour it splashes ([splash], DRF-313; null for none).
+ */
+data class DraftBotChoice(val scores: List<DraftBotScore>, val picks: List<String>, val colors: List<DraftColor>, val commitment: Int,
+    val splash: DraftColor? = null) {
     fun score(card: String): DraftBotScore? = scores.firstOrNull { it.card == card }
 }
 
 /**
- * The draft bot's pick heuristic (backlog, owner 2026-11-20: a simple heuristic, no outside pick data): pure and
- * deterministic, for the server's bot seats and the clients' debug view alike. A card's score is a base plus named parts
- * read from what the card data says: rarity, a creature's power and toughness against its mana value, its keywords, a
- * removal or card-advantage hint from its rules text, a high cost, lands; then colour, which grows with the bot's picks:
- * nothing for its first [OPEN_PICKS] picks, then more each pick until [FULL_PICK], favouring its two main colours.
- * The rules text is read by plain words, not parsed: cheap enough for every card of an offer on a phone.
+ * The draft bot (DRF-292, DRF-312): pure and deterministic, for the server's bot seats and the clients' debug view alike.
+ * A card's strength is its card rating where the pod has ratings ([DraftBotRatings]: a pod of one set that has them, owner
+ * 2026-11-25) and the card has one; otherwise the heuristic: a base plus named parts read from what the card data says:
+ * rarity, a creature's power and toughness against its mana value, its keywords, a removal or card-advantage hint from its
+ * rules text, a high cost, lands. Then colour, which grows with the bot's picks: nothing for its first [OPEN_PICKS] picks,
+ * then more each pick until [FULL_PICK], favouring its two main colours; a strong card one pip off its colours costs only
+ * [SPLASH] (DRF-313). The colour part adds to the strength, so a much stronger card can beat colour. The rules text is read
+ * by plain words, not parsed: cheap enough for every card of an offer on a phone.
  */
 object DraftBot {
     const val BASE = 40
@@ -43,18 +75,35 @@ object DraftBot {
     /** Points at full commitment for a card all in the bot's colours, and against for each colour outside them. */
     const val IN_COLOURS = 10
     const val OFF_COLOUR = 16
+    /** DRF-313: what a strong card one coloured pip off the bot's colours costs at full commitment, in place of [OFF_COLOUR]. */
+    const val SPLASH = 4
+    /** The heuristic's mean and standard deviation over the rated cards of the sets with ratings, without colour
+     * (measured on the catalog of 2026-11-25: 7248 cards of 27 sets, mean 43.2, deviation 9.9): the scale ratings are put
+     * on ([DraftBotRatings.points]). */
+    const val HEURISTIC_MEAN = 43.2
+    const val HEURISTIC_SPREAD = 9.9
+    /** DRF-312, DRF-313: the points one standard deviation of a set's ratings is worth: a card about two deviations above its
+     * set's mean (its top 3 %, a bomb) outweighs the colour swing between an ordinary card of the bot's colours and one
+     * colour off ([IN_COLOURS] + [OFF_COLOUR]). */
+    const val RATED_SPREAD = 14.0
+    /** DRF-313: the heuristic strength from which a card without a rating is strong enough to splash: the top tenth of
+     * the heuristic over those cards (its 90th percentile). */
+    const val HEURISTIC_STRONG = 54
 
     /**
      * Scores [offer] and takes the best [keep] cards. [picks]: the bot's cards so far (their colours); [pickNumber]: the
-     * 1-based number of this pick in the bot's draft. Ties go to the card whose name comes first, then the lower id.
+     * 1-based number of this pick in the bot's draft; [ratings]: the pod's card ratings, null for none (DRF-312). Ties go to
+     * the card whose name comes first, then the lower id.
      */
-    fun choose(offer: List<DraftBotCard>, picks: List<DraftBotCard>, pickNumber: Int, keep: Int = 1): DraftBotChoice {
+    fun choose(offer: List<DraftBotCard>, picks: List<DraftBotCard>, pickNumber: Int, keep: Int = 1,
+        ratings: DraftBotRatings? = null): DraftBotChoice {
         val colors = mainColors(picks)
         val commitment = commitment(pickNumber)
-        val scores = offer.map { score(it, colors, commitment) }
+        val splash = splashColor(picks, colors, ratings)
+        val scores = offer.map { score(it, colors, commitment, ratings, splash) }
         val names = offer.associate { it.id to (it.definition?.name ?: "") }
         val order = compareByDescending<DraftBotScore> { it.total }.thenBy { names[it.card] }.thenBy { it.card }
-        return DraftBotChoice(scores, scores.sortedWith(order).take(keep.coerceAtLeast(0)).map { it.card }, colors, commitment)
+        return DraftBotChoice(scores, scores.sortedWith(order).take(keep.coerceAtLeast(0)).map { it.card }, colors, commitment, splash)
     }
 
     /**
@@ -75,9 +124,9 @@ object DraftBot {
      * colour (commitment 0), what any player the pack goes to next would value most, so they can't take them. Ties go
      * as in [choose]: the name first, then the lower id.
      */
-    fun burns(rest: List<DraftBotCard>, count: Int): List<String> {
+    fun burns(rest: List<DraftBotCard>, count: Int, ratings: DraftBotRatings? = null): List<String> {
         val names = rest.associate { it.id to (it.definition?.name ?: "") }
-        return rest.map { score(it, emptyList(), 0) }
+        return rest.map { score(it, emptyList(), 0, ratings) }
             .sortedWith(compareByDescending<DraftBotScore> { it.total }.thenBy { names[it.card] }.thenBy { it.card })
             .take(count.coerceAtLeast(0)).map { it.card }
     }
@@ -93,11 +142,51 @@ object DraftBot {
         return DraftColor.entries.filter { counts[it.ordinal] > 0 }.sortedByDescending { counts[it.ordinal] }.take(2)
     }
 
-    /** [card]'s score for a bot leaning to [colors] at [commitment] %. */
-    fun score(card: DraftBotCard, colors: List<DraftColor>, commitment: Int): DraftBotScore {
+    /**
+     * DRF-313: the one colour the bot splashes, or null while it has none (or fewer than two main colours): among its
+     * [picks] strong enough to splash ([strong]) with exactly one coloured pip off its [colors], the colour most of them
+     * need (WUBRG order on a tie).
+     */
+    fun splashColor(picks: List<DraftBotCard>, colors: List<DraftColor>, ratings: DraftBotRatings? = null): DraftColor? {
+        if (colors.size < 2) return null
+        val counts = IntArray(DraftColor.entries.size)
+        picks.forEach { card ->
+            val definition = card.definition?.takeIf { card.supported && it.faces.isNotEmpty() } ?: return@forEach
+            val off = needs(definition).filter { alternatives -> alternatives.none { it in colors } }
+            if (off.size == 1 && strong(card, ratings)) counts[off.single().first().ordinal]++
+        }
+        return DraftColor.entries.filter { counts[it.ordinal] > 0 }.maxByOrNull { counts[it.ordinal] }
+    }
+
+    /** DRF-313: whether [card] is strong enough to splash: a rated card in its set's top tenth by rating, any other by the
+     * heuristic ([HEURISTIC_STRONG]). */
+    fun strong(card: DraftBotCard, ratings: DraftBotRatings?): Boolean {
+        val definition = card.definition?.takeIf { card.supported && it.faces.isNotEmpty() } ?: return false
+        ratings?.rating(definition)?.let { return it >= ratings.strong }
+        return heuristic(card, definition).sumOf { it.points } >= HEURISTIC_STRONG
+    }
+
+    /** [card]'s score for a bot leaning to [colors] at [commitment] %, with the pod's [ratings] (null: none, DRF-312) and
+     * the bot's [splash] colour (DRF-313). */
+    fun score(card: DraftBotCard, colors: List<DraftColor>, commitment: Int, ratings: DraftBotRatings? = null,
+        splash: DraftColor? = null): DraftBotScore {
         val definition = card.definition
         if (definition == null || definition.faces.isEmpty()) return DraftBotScore(card.id, listOf(DraftBotPart("Unknown card", NEUTRAL)))
         if (!card.supported) return DraftBotScore(card.id, listOf(DraftBotPart("Not supported", NEUTRAL)))
+        val rating = ratings?.rating(definition)
+        val parts = if (rating != null) mutableListOf(DraftBotPart("Rating (GIH WR ${rating / 10}.${rating % 10}%)", ratings.points(rating)))
+            else heuristic(card, definition).toMutableList().also { list ->
+                if (ratings == null) return@also
+                list[0] = DraftBotPart("No rating: base", BASE)
+                val total = list.sumOf { it.points }
+                ratings.rescaled(total).minus(total).takeIf { it != 0 }?.let { list += DraftBotPart("Rescaled to the ratings", it) }
+            }
+        colourPart(definition, colors, commitment, splash, strong(card, ratings))?.let { (label, points) -> if (points != 0) parts += DraftBotPart(label, points) }
+        return DraftBotScore(card.id, parts)
+    }
+
+    /** The heuristic's parts of [card] (its [definition] known), without colour: "Base" first. */
+    private fun heuristic(card: DraftBotCard, definition: CardDefinition): List<DraftBotPart> {
         val parts = mutableListOf(DraftBotPart("Base", BASE))
         fun add(label: String, points: Int) { if (points != 0) parts += DraftBotPart(label, points) }
         rarityPoints(card.rarity)?.let { (label, points) -> add(label, points) }
@@ -133,8 +222,7 @@ object DraftBot {
             manaValue >= 7 -> add("Costs $manaValue", -6)
             manaValue == 6 -> add("Costs 6", -3)
         }
-        colourPart(definition, colors, commitment)?.let { (label, points) -> add(label, points) }
-        return DraftBotScore(card.id, parts)
+        return parts
     }
 
     private fun rarityPoints(rarity: SetCardRarity?): Pair<String, Int>? = when (rarity) {
@@ -147,9 +235,11 @@ object DraftBot {
     /**
      * The colour part: a card all in [colors] gets up to [IN_COLOURS]; each colour it needs beyond them and the slots still
      * open (two colours in all) costs up to [OFF_COLOUR], at most two; colourless cards get none. A hybrid symbol needs
-     * one of its colours.
+     * one of its colours. DRF-313: a [strong] card with exactly one coloured pip off the bot's two colours costs only
+     * [SPLASH], unless the bot already splashes another colour ([splash]).
      */
-    private fun colourPart(definition: CardDefinition, colors: List<DraftColor>, commitment: Int): Pair<String, Int>? {
+    private fun colourPart(definition: CardDefinition, colors: List<DraftColor>, commitment: Int, splash: DraftColor?,
+        strong: Boolean): Pair<String, Int>? {
         if (commitment == 0 || colors.isEmpty()) return null
         val needs = needs(definition)
         if (needs.isEmpty()) return null
@@ -160,6 +250,7 @@ object DraftBot {
         return when {
             off.isEmpty() -> "In colours $shown" to IN_COLOURS * commitment / 100
             off.size <= open -> null
+            unmet.size == 1 && strong && (splash == null || splash == off.single()) -> "Splash ${off.single().name}" to -SPLASH * commitment / 100
             else -> "Off colour ${off.joinToString("") { it.name }}" to
                 -OFF_COLOUR * (off.size - open).coerceAtMost(2) * commitment / 100
         }

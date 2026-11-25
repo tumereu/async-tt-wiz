@@ -24,8 +24,10 @@ import org.asyncttwiz.protocol.CardSearchPrinting
 import org.asyncttwiz.protocol.DraftBot
 import org.asyncttwiz.protocol.DraftBotCard
 import org.asyncttwiz.protocol.DraftBotChoice
+import org.asyncttwiz.protocol.DraftBotRatings
 import org.asyncttwiz.protocol.DraftBotScore
 import org.asyncttwiz.protocol.DraftCopy
+import org.asyncttwiz.protocol.PodSource
 import org.asyncttwiz.protocol.SetCardRarity
 
 /** LOB-263: whether this build offers "Show bot picks": test builds only (debug and the personal test build), never a
@@ -77,21 +79,42 @@ fun DraftBotSetting() {
     }
 }
 
-/** DRF-292: what the draft screens need to show the bot's picks: card records' rarities ([printings], by printing id) and
- * a way to ask for more ([load]). Present only while "Show bot picks" is on. */
-class DraftBotDebug(val printings: Map<String, List<CardSearchPrinting>>, val load: (Collection<String>) -> Unit)
+/** LOB-275: About & account's credit for the draft bots' card ratings (DRF-312), 17Lands' public data under CC BY 4.0. */
+const val CARD_RATINGS_CREDIT = "Draft bots' card ratings: 17Lands public data (17lands.com), CC BY 4.0"
+
+/** LOB-275: the card ratings' credit line, above the version line. */
+@Composable
+fun CardRatingsCredit() {
+    Text(CARD_RATINGS_CREDIT, Modifier.fillMaxWidth().padding(top = 8.dp).testTag("card-ratings-credit"),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** DRF-292: what the draft screens need to show the bot's picks: card records' rarities ([printings], by printing id), a
+ * way to ask for more ([load]) and the pod's card ratings as its bots use them ([ratings], DRF-312; null for none). Present
+ * only while "Show bot picks" is on. */
+class DraftBotDebug(val printings: Map<String, List<CardSearchPrinting>>, val load: (Collection<String>) -> Unit,
+    val ratings: DraftBotRatings? = null)
 
 val LocalDraftBot = compositionLocalOf<DraftBotDebug?> { null }
 
 /** DRF-292: [content] (a pod's Draft tab) with [LocalDraftBot] while "Show bot picks" is on; rarities come through the pod's
- * [filters] (DRF-252's reading of card records). */
+ * [filters] (DRF-252's reading of card records), and so do the card ratings of its set where its bots pick by them
+ * ([PodSource.botRatings], DRF-312). */
 @Composable
-fun PodDraftBotScope(filters: PodCardFilters, content: @Composable () -> Unit) {
+fun PodDraftBotScope(filters: PodCardFilters, source: PodSource, content: @Composable () -> Unit) {
     val show = rememberShowBotPicks()
     val printings = filters.printings
-    val debug = if (show) remember(filters, printings) { DraftBotDebug(printings, filters::load) } else null
+    val set = podBotRatingsSet(source)
+    LaunchedEffect(show, set) { if (show && set != null) filters.loadRatings(set) }
+    val ratings = set?.let { filters.ratings[it] }
+    val debug = if (show) remember(filters, printings, ratings) { DraftBotDebug(printings, filters::load, ratings) } else null
     CompositionLocalProvider(LocalDraftBot provides debug, content = content)
 }
+
+/** DRF-312: the set whose card ratings a pod's bots pick by ([PodSource.botRatings]: one set the server has them for), or
+ * null for none. */
+fun podBotRatingsSet(source: PodSource): String? =
+    source.packSets.ifEmpty { listOfNotNull(source.setCode) }.distinct().singleOrNull()?.takeIf { source.botRatings }
 
 /** A card record's rarity word as a set rarity, null for an unknown one. */
 private fun draftBotRarity(printings: List<CardSearchPrinting>?): SetCardRarity? = printings?.firstNotNullOfOrNull { printing ->
@@ -100,15 +123,15 @@ private fun draftBotRarity(printings: List<CardSearchPrinting>?): SetCardRarity?
 
 /**
  * DRF-292: the bot's choice for [offer], picking [keep] cards with [pool] its cards so far, at pick number pool size / keep + 1;
- * rarities from [printings] where card records know them.
+ * rarities from [printings] where card records know them; by the pod's card [ratings] where it has them (DRF-312).
  */
 fun draftBotChoice(offer: List<DraftCopy>, pool: List<DraftCopy>, keep: Int, definitions: Map<String, CardDefinition>,
-    printings: Map<String, List<CardSearchPrinting>>): DraftBotChoice {
+    printings: Map<String, List<CardSearchPrinting>>, ratings: DraftBotRatings? = null): DraftBotChoice {
     fun card(copy: DraftCopy) = definitions[copy.definition].let { definition ->
         DraftBotCard(copy.id, definition, draftBotRarity(definition?.printingId?.let(printings::get)))
     }
     val take = keep.coerceAtLeast(1)
-    return DraftBot.choose(offer.map(::card), pool.map(::card), pool.size / take + 1, take)
+    return DraftBot.choose(offer.map(::card), pool.map(::card), pool.size / take + 1, take, ratings)
 }
 
 /** DRF-292: the bot's choice for [offer] while "Show bot picks" is on ([LocalDraftBot]), else null. */
@@ -127,11 +150,13 @@ fun rememberDraftBotChoices(offers: Map<String, List<DraftCopy>>, pool: List<Dra
     }
     LaunchedEffect(debug != null, ids) { debug?.load?.invoke(ids) }
     val printings = debug?.printings
-    return remember(debug != null, offers, pool, keep, definitions, printings) {
+    val ratings = debug?.ratings
+    return remember(debug != null, offers, pool, keep, definitions, printings, ratings) {
         if (debug == null) emptyMap() else offers.filterValues { it.isNotEmpty() }.mapValues { (key, offer) ->
-            draftBotChoice(offer, pool, keep, definitions, printings.orEmpty()).also { choice ->
+            draftBotChoice(offer, pool, keep, definitions, printings.orEmpty(), ratings).also { choice ->
                 AppLog.info("draft-bot", "Bot picks ${choice.picks} of ${offer.size}${if (key.isEmpty()) "" else " in $key"} " +
-                    "(colours ${choice.colors.joinToString("")}, commitment ${choice.commitment}%): " +
+                    "(${ratings ?: "no card ratings"}; colours ${choice.colors.joinToString("")}, commitment ${choice.commitment}%" +
+                    "${choice.splash?.let { ", splash ${it.name}" } ?: ""}): " +
                     choice.scores.joinToString { "${it.card} ${it.total}" })
             }
         }
@@ -177,7 +202,8 @@ fun BoxScope.DraftBotBadge(choice: DraftBotChoice?, card: String) {
                     Text(line, style = MaterialTheme.typography.bodySmall,
                         fontWeight = if (index == score.parts.size) FontWeight.Bold else FontWeight.Normal)
                 }
-                if (choice.colors.isNotEmpty()) Text("Colours ${choice.colors.joinToString("") { it.name }} · commitment ${choice.commitment}%",
+                if (choice.colors.isNotEmpty()) Text("Colours ${choice.colors.joinToString("") { it.name }} · commitment ${choice.commitment}%" +
+                    (choice.splash?.let { " · splash ${it.name}" } ?: ""),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

@@ -64,10 +64,12 @@ object DraftBotSeats {
         return { id -> totals[id] ?: DraftBot.NEUTRAL }
     }
     private fun colours(choice: DraftBotChoice) =
-        if (choice.colors.isEmpty()) "open" else choice.colors.joinToString("") { it.name } + " at ${choice.commitment}%"
+        if (choice.colors.isEmpty()) "open" else choice.colors.joinToString("") { it.name } + " at ${choice.commitment}%" +
+            (choice.splash?.let { " splashing ${it.name}" } ?: "")
 
-    /** Booster, Glimpse and Custom booster: [bot]'s pick from the head of its queue, or null when it has none. */
-    fun booster(state: DraftState, bot: String, card: (String) -> DraftBotCard): DraftBotMove<DraftPick>? {
+    /** Booster, Glimpse and Custom booster: [bot]'s pick from the head of its queue, or null when it has none. [ratings]: the
+     * pod's card ratings (DRF-312), null for none; as in [grid] and [limited]. */
+    fun booster(state: DraftState, bot: String, ratings: DraftBotRatings? = null, card: (String) -> DraftBotCard): DraftBotMove<DraftPick>? {
         if (state.finished || state.arena != null) return null
         val packId = state.queues[bot]?.firstOrNull() ?: return null
         val pack = state.packs.first { it.id == packId }
@@ -76,11 +78,11 @@ object DraftBotSeats {
         val keep = state.settings.keepAt(taken).coerceAtMost(offer.size)
         if (keep < 1) return null
         val pool = state.pools.getValue(bot).map(card)
-        val choice = DraftBot.choose(offer, pool, pool.size / keep + 1, keep)
+        val choice = DraftBot.choose(offer, pool, pool.size / keep + 1, keep, ratings)
         val rest = offer.filter { it.id !in choice.picks }
         // DRF-045: near a pack's end the rest all go anyway (burned or thrown away), so only the keeps are chosen
         val burns = if (state.settings.keepsOnly(offer.size, keep.toLong(), taken)) emptyList()
-            else DraftBot.burns(rest, state.settings.burnAt(taken))
+            else DraftBot.burns(rest, state.settings.burnAt(taken), ratings)
         return DraftBotMove(DraftPick(bot, pack.id, choice.picks, burns),
             "pack ${pack.number} of ${pack.initialPlayer}, pick ${taken + 1} (${colours(choice)}): offered " +
                 "${offered(offer, choice.scores)}; keeps ${names(offer, choice.picks)}" +
@@ -88,13 +90,13 @@ object DraftBotSeats {
     }
 
     /** Grid: [bot]'s line of the head of its queue, the one whose cards are worth most together; null when it has none. */
-    fun grid(state: GridState, bot: String, card: (String) -> DraftBotCard): DraftBotMove<GridPick>? {
+    fun grid(state: GridState, bot: String, ratings: DraftBotRatings? = null, card: (String) -> DraftBotCard): DraftBotMove<GridPick>? {
         if (state.finished) return null
         val gridId = state.queues[bot]?.firstOrNull() ?: return null
         val grid = state.grids.first { it.id == gridId }
         val pool = state.pools.getValue(bot).map(card)
         val onBoard = grid.positions.filterNotNull().map(card)
-        val scores = DraftBot.choose(onBoard, pool, pool.size + 1, 0)
+        val scores = DraftBot.choose(onBoard, pool, pool.size + 1, 0, ratings)
         val total = totals(scores)
         val lines = GridLineType.entries.flatMap { type -> (0..2).map { GridLine(type, it) } }.mapNotNull { line ->
             line.positions().mapNotNull { grid.positions[it] }.takeIf { it.isNotEmpty() }?.let { line to it }
@@ -109,7 +111,7 @@ object DraftBotSeats {
     }
 
     /** Rochester, Rotisserie, Winston and Winchester: [bot]'s next move, or null when it has none. */
-    fun limited(state: LimitedDraftState, bot: String, card: (String) -> DraftBotCard): DraftBotMove<LimitedMove>? {
+    fun limited(state: LimitedDraftState, bot: String, ratings: DraftBotRatings? = null, card: (String) -> DraftBotCard): DraftBotMove<LimitedMove>? {
         if (state.finished || state.queues[bot].isNullOrEmpty()) return null
         val view = LimitedEngine.view(state, bot)
         val pool = view.pool.map { card(it.id) }
@@ -117,7 +119,7 @@ object DraftBotSeats {
             DraftMode.ROTISSERIE -> {
                 if (view.currentPlayer != bot) return null
                 val free = view.board.filter { it.pickedBy == null }.map { card(it.copy.id) }
-                val choice = DraftBot.choose(free, pool, pool.size + 1)
+                val choice = DraftBot.choose(free, pool, pool.size + 1, ratings = ratings)
                 val pick = choice.picks.firstOrNull() ?: return null
                 DraftBotMove(LimitedMove(bot, LimitedAction.TAKE_CARD, view.turn, card = pick),
                     "pick ${view.turn + 1} (${colours(choice)}): takes ${names(free, listOf(pick))} of ${free.size} free cards, the best " +
@@ -126,7 +128,7 @@ object DraftBotSeats {
             DraftMode.ROCHESTER -> {
                 val pack = view.packs.firstOrNull { it.currentPlayer == bot } ?: return null
                 val free = pack.slots.filter { it.pickedBy == null }.map { card(it.copy.id) }
-                val choice = DraftBot.choose(free, pool, pool.size + 1)
+                val choice = DraftBot.choose(free, pool, pool.size + 1, ratings = ratings)
                 val pick = choice.picks.firstOrNull() ?: return null
                 DraftBotMove(LimitedMove(bot, LimitedAction.TAKE_CARD, pack.picks, card = pick, packId = pack.id),
                     "pack ${pack.number}, pick ${pack.picks + 1} (${colours(choice)}): offered ${offered(free, choice.scores)}; " +
@@ -136,7 +138,7 @@ object DraftBotSeats {
                 val (index, table) = view.tables.withIndex().firstOrNull { it.value.currentPlayer == bot } ?: return null
                 // The pile in play is one the bot is looking at: its cards are face up for it
                 val pile = table.piles.getOrNull(table.pile).orEmpty().filterNotNull().map { card(it.id) }
-                val scores = DraftBot.choose(pile, pool, pool.size + 1, 0)
+                val scores = DraftBot.choose(pile, pool, pool.size + 1, 0, ratings)
                 val value = DraftBot.value(scores.scores.map { it.total })
                 val later = (table.pile + 1..table.piles.lastIndex).any { table.piles[it].isNotEmpty() }
                 val canPass = table.stack > 0 || later
@@ -151,7 +153,7 @@ object DraftBotSeats {
             DraftMode.WINCHESTER -> {
                 val (index, table) = view.tables.withIndex().firstOrNull { it.value.currentPlayer == bot } ?: return null
                 val piles = table.piles.map { pile -> pile.filterNotNull().map { card(it.id) } }
-                val scores = DraftBot.choose(piles.flatten(), pool, pool.size + 1, 0)
+                val scores = DraftBot.choose(piles.flatten(), pool, pool.size + 1, 0, ratings)
                 val total = totals(scores)
                 val values = piles.map { pile -> DraftBot.value(pile.map { total(it.id) }) }
                 // The lower pile first on a tie
@@ -166,22 +168,23 @@ object DraftBotSeats {
     }
 
     /** Every move the bots of [state] can make, one after another, until none can act: Booster's and Custom booster's
-     * pack passing ([log] gets each move's [DraftBotMove.text]). */
-    fun run(state: DraftState, cards: (DraftCopy) -> DraftBotCard, log: (String) -> Unit): DraftState =
+     * pack passing ([log] gets each move's [DraftBotMove.text]); [ratings]: the pod's card ratings (DRF-312), null for none. */
+    fun run(state: DraftState, cards: (DraftCopy) -> DraftBotCard, log: (String) -> Unit, ratings: DraftBotRatings? = null): DraftState =
         loop(state, state.seating, cards, { it.copies }, { it.queues }, log) { current, bot, card ->
-            booster(current, bot, card)?.let { move -> move.text to DraftEngine.pick(current, move.move).let { it.state to it.reason?.name } }
+            booster(current, bot, ratings, card)?.let { move -> move.text to DraftEngine.pick(current, move.move).let { it.state to it.reason?.name } }
         }
 
     /** As [run] for a Grid draft. */
-    fun run(state: GridState, cards: (DraftCopy) -> DraftBotCard, log: (String) -> Unit): GridState =
+    fun run(state: GridState, cards: (DraftCopy) -> DraftBotCard, log: (String) -> Unit, ratings: DraftBotRatings? = null): GridState =
         loop(state, state.seating, cards, { it.copies }, { it.queues }, log) { current, bot, card ->
-            grid(current, bot, card)?.let { move -> move.text to GridEngine.pick(current, move.move).let { it.state to it.reason?.name } }
+            grid(current, bot, ratings, card)?.let { move -> move.text to GridEngine.pick(current, move.move).let { it.state to it.reason?.name } }
         }
 
     /** As [run] for Rochester, Rotisserie, Winston and Winchester. */
-    fun run(state: LimitedDraftState, cards: (DraftCopy) -> DraftBotCard, log: (String) -> Unit): LimitedDraftState =
+    fun run(state: LimitedDraftState, cards: (DraftCopy) -> DraftBotCard, log: (String) -> Unit,
+        ratings: DraftBotRatings? = null): LimitedDraftState =
         loop(state, state.seating, cards, { it.copies }, { it.queues }, log) { current, bot, card ->
-            limited(current, bot, card)?.let { move -> move.text to LimitedEngine.act(current, move.move).let { it.state to it.reason?.name } }
+            limited(current, bot, ratings, card)?.let { move -> move.text to LimitedEngine.act(current, move.move).let { it.state to it.reason?.name } }
         }
 
     /**

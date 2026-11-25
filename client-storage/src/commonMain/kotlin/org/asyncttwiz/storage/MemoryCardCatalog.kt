@@ -194,6 +194,8 @@ class MemoryCardCatalog internal constructor(
             .map { DraftableSet(it.code, it.name, it.released, counts[it.code] ?: 0, it.automatum, it.unsupported, it.keyrune) }
     }
 
+    override fun botRatings(code: String): Map<String, Int> = sets[code]?.ratings.orEmpty()
+
     override fun unsupported(printingIds: Collection<String>): Set<String> = printingIds.toSet() - supported
 
     override fun unsupportedPictures(scryfallIds: Collection<String>): Set<String> {

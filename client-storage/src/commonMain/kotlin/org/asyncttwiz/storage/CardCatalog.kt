@@ -16,6 +16,10 @@ interface CardCatalog {
     /** The draft sets (DRF-088) with their support marks, newest first. */
     fun draftableSets(): List<DraftableSet>
 
+    /** DRF-312: set [code]'s card ratings for the draft bots (the catalog's set ratings: GIH WR in tenths of a percent by
+     * card name); empty for a set without them or without card records. */
+    fun botRatings(code: String): Map<String, Int>
+
     /** LOB-115: which of [printingIds] the card catalog doesn't mark as supported; null without card records. */
     fun unsupported(printingIds: Collection<String>): Set<String>?
 

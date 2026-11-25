@@ -261,6 +261,27 @@ class BotSeatsHttpTest {
         assertEquals(listOf(1, 1), groups(f.get(f.a, grid).grid!!.publicView.seating))
     }
 
+    // DRF-312, DRF-314 (owner, 2026-11-25): a pod of one set its card catalog has ratings for says its bots pick by them (the
+    // test cards' invented ratings of TST), and its bots draft with them to the end; a set without ratings, a draft of several
+    // sets and a cube say they don't
+    @Test fun `a pod of a set with card ratings says its bots pick by them`() = fixture { f ->
+        fun setPod(request: CreatePod) = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", request, 201))
+        val settings = DraftSettings(packsPerPlayer = 2, cardsPerPack = 5, keep = 1, burn = 1, bots = 2)
+        val rated = setPod(CreatePod(id(), "Rated", setCode = "TST", settings = settings))
+        assertTrue(rated.source.botRatings, "${rated.source}")
+        assertFalse(setPod(CreatePod(id(), "Unrated", setCode = "TWL", settings = settings)).source.botRatings)
+        assertFalse(setPod(CreatePod(id(), "Mixed", packSets = listOf("TST", "TWL"), settings = settings)).source.botRatings)
+        assertFalse(f.get(f.a, f.pod(settings)).source.botRatings, "a cube")
+        // A started pod still says so, and its bots draft by the ratings to the end
+        f.join(rated.id, f.b)
+        f.start(rated.id)
+        assertTrue(f.get(f.b, rated.id).source.botRatings)
+        f.draftToTheEnd(rated.id)
+        val done = f.get(f.a, rated.id)
+        assertEquals(PodPhase.DRAFTED, done.phase)
+        assertTrue(done.members.filter { it.bot }.all { it.picksMade > 0 }, "${done.members}")
+    }
+
     // DRF-298, DRF-299, DRF-300: every mode with bot seats drafts to its end with two people, the bots moving on the server
     // whenever the draft reaches them
     @Test fun `every mode with bot seats drafts to its end without waiting for a bot`() = fixture { f ->

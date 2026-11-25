@@ -10,11 +10,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-### Draft bots: 17Lands ratings and splashing (owner, 2026-11-25; after the side menu list)
-
-- Card ratings (replaces the owner's 2026-11-20 "no outside pick data" for normal sets): the bot's base value of a card comes from 17Lands' GIH WR (win rate when drawn or in the opening hand, Premier Draft) for its set, mapped onto the bot's score scale; a card without a rating keeps today's heuristic (DRF-292, `DraftBot`), rescaled so the two compare fairly. A card in a set pod uses its set's rating; cubes and multiset drafts use the heuristic only. Data is pinned like MTGJSON (`catalog/pin.properties`, `scripts/catalog-pin.sh`): a script fetches 17Lands' ratings for the supported sets into one local file outside the repository, its checksum is pinned, a verify step checks it, and the catalog build bakes a compact per-set rating table into the catalog the server and clients read; never committed. Confirm 17Lands' terms first; credit 17Lands in About (one line).
-- Splash rule: a card with exactly one off-colour coloured pip that is strong enough (top ~10% of its set by GIH WR; by the heuristic where unrated) gets a much smaller off-colour penalty (about -4 instead of -16); one splash colour at most; two or more off-colour pips keep the full penalty. The colour penalty also weighs against the card's strength, so a large gap can beat colour (e.g. a bomb opened at the first pick of packs 2 and 3).
-- Warning: in a pod whose set has no ratings, or a cube or multiset draft, bot seats show a warning icon (setup's bot rows and Add bot, and the bots among a started pod's members) whose hold says bots pick less well here because there are no card ratings for this set (or for cubes and mixed drafts). Catalog: DRF-292, DRF-296..DRF-298 and new entries; the burn choice (DRF-301 area) uses the same values.
 
 ### Landscape hand as a turning fan (owner, 2026-11-25; after the draft bots; replaces the look of gallery 571)
 

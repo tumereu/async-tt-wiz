@@ -100,10 +100,10 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
             PodMarksScheduler { delay, task -> schedule(delay, task) }
         }, setRepository = StoredPodSets { catalog.repository },
         chatWorker = newSingleThreadExecutor("pod-chat"),
-        // DRF-252: the filter's rarities, from card records by printing
+        // DRF-252: the filter's rarities, from card records by printing; DRF-312: the bot debug view's card ratings
         filters = newSingleThreadExecutor("pod-filter").let { worker ->
             PodCardFilters({ ids -> podFilterPrintings(ids, catalog.repository::cards, catalog.repository::searchData) },
-                worker, { action -> postToMain(action) }, worker::shutdown)
+                worker, { action -> postToMain(action) }, worker::shutdown, { code -> catalog.repository.botRatings(code) })
         })
     private val saveApi = DeckApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
     val lobby = LobbyController(LobbyApi(AppBuild.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),

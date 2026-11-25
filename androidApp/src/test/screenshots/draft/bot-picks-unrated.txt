@@ -1,0 +1,1 @@
+The same pick: Quick Cinder has no rating, so a tap on its score lists the bot's own reckoning ("No rating: base 40", removal) rescaled to the ratings, and the full off-colour penalty for red.

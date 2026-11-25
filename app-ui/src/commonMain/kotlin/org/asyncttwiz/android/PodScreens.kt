@@ -349,10 +349,11 @@ private fun PodMemberStrip(detail: PodDetail) {
                     color = if (member.packsWaiting > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        // DRF-297: the setup's bot seats after the members
+        // DRF-297: the setup's bot seats after the members; DRF-314: with the warning where they pick without card ratings
+        val warning = podBotWarning(detail.source)
         podSetupBots(detail.settings).forEach { bot ->
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Avatar(bot)
+                if (warning != null) PodBotAvatarWarning(warning, 32.dp) { Avatar(bot) } else Avatar(bot)
                 Text(bot.username, style = MaterialTheme.typography.labelMedium)
                 Text("bot", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -402,8 +403,19 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
                         Modifier.testTag("pod-remove-member-${member.account.accountId}"), enabled = removable)
             }
         }
+        // DRF-314 (owner, 2026-11-25): bots that pick without card ratings carry a warning; while a new source is being
+        // saved, the server tells once it has it
+        val botWarning = when {
+            edit?.cubeId != null -> podBotWarning(PodSource())
+            edit?.set != null || state.sourcePreview != null -> null
+            else -> podBotWarning(detail.source)
+        }
+        LaunchedEffect(detail.id, botWarning, settings.bots) {
+            if (settings.bots > 0) AppLog.info("pod", "Setup: ${settings.bots} bots, ${botWarning ?: "picking by card ratings"}")
+        }
         podSetupBots(settings).forEachIndexed { index, bot ->
             MemberLine(bot, "bot") {
+                botWarning?.let { HoldWarningIcon(it, Modifier.testTag("pod-bot-warning-${index + 1}")) }
                 if (creator) ScreenIconButton("Remove ${bot.username}", "close", { controller.removeBot(bot.username) },
                     Modifier.testTag("pod-remove-bot-${index + 1}"), enabled = enabled)
             }
@@ -422,7 +434,10 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
                     enabled = lobby != null && detail.members.size + detail.pendingInvitations.size < 8) { EntryIcon("Invite player", "person") }
                 Spacer(Modifier.weight(1f))
                 // DRF-296: Add bot beside the invite button, in the modes that take bots
-                if (settings.mode.botSeats) PodAddBotButton(settings, enabled, controller::addBot)
+                if (settings.mode.botSeats) {
+                    botWarning?.let { HoldWarningIcon(it, Modifier.testTag("pod-add-bot-warning")) }
+                    PodAddBotButton(settings, enabled, controller::addBot)
+                }
             }
             detail.autoStartOff?.let { Text(podAutoStartOffText(it, settings.mode), color = MaterialTheme.colorScheme.error) }
             val idle = state.setup == null && state.sourcePreview == null && state.pending == 0 && !state.uncertain
@@ -524,7 +539,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
             when (selected) {
                 // Section 3.6: pod picks wait for the card records
                 // DRF-292: with "Show bot picks" on (test builds) the draft screens show the bot's scores and pick
-                PodTab.DRAFT -> NeedsCardRecords(Modifier.fillMaxSize()) { PodDraftBotScope(controller.filters) { if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
+                PodTab.DRAFT -> NeedsCardRecords(Modifier.fillMaxSize()) { PodDraftBotScope(controller.filters, detail.source) { if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
                     state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu, controller::queue,
                     filter = controller.filters.of(detail.id, PodFilterPlace.Pool), filters = controller.filters)
                 else if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
@@ -639,10 +654,13 @@ fun PodDraftMemberRow(detail: PodDetail, modifier: Modifier = Modifier.fillMaxWi
         detail.members.forEach { member ->
             // Picks the member can make in a row if nobody else acts, next-round packs (Grid: grids) they open included.
             val waiting = member.packsWaiting
+            // DRF-314: a bot that picks without card ratings carries a warning
+            val warning = if (member.bot) podBotWarning(detail.source) else null
             Box(Modifier.size(28.dp).semantics {
                 if (drafting) stateDescription = if (waiting == 0) "Ready" else "$waiting packs waiting"
             }) {
-                Avatar(member.account, size = 28.dp)
+                if (warning != null) PodBotAvatarWarning(warning, 28.dp) { Avatar(member.account, size = 28.dp) }
+                else Avatar(member.account, size = 28.dp)
                 // A circle for one character, a pill for "9+".
                 if (drafting) Box(Modifier.align(Alignment.BottomEnd).testTag("pod-member-badge").height(12.dp).widthIn(min = 12.dp)
                     .background(if (waiting == 0) Color(0xFF237A38) else MaterialTheme.colorScheme.primary, CircleShape)

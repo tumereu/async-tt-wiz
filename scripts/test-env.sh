@@ -116,7 +116,9 @@ export APP_RELEASE_DIR="$STATE/app-release"
 export WEB_APP_DIR="$snapshot/web"
 # The card catalog from the local pinned MTGJSON file (SYS-081), as this checkout builds it
 export CATALOG_DIR="$STATE/catalog"
-./scripts/gradle.sh -q :catalog:catalogCommand --args="build --no-pin --out $CATALOG_DIR"
+# DRF-312: with the draft bots' card ratings where this machine has them (scripts/catalog-pin.sh ratings-move)
+ratings=${ATW_RATINGS:-$HOME/projects/atw-cache/17lands-ratings.tsv.gz}
+./scripts/gradle.sh -q :catalog:catalogCommand --args="build --no-pin --out $CATALOG_DIR$([[ -f $ratings ]] && echo " --ratings $ratings")"
 if [[ -f $ATW_FIREBASE/fcm-service-account.json ]]; then
     export FCM_SERVICE_ACCOUNT_FILE=$ATW_FIREBASE/fcm-service-account.json
 else

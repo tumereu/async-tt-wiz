@@ -32,4 +32,12 @@ class SmallSettingsTest {
         compose.onNodeWithTag("card-move-speed").assertExists().performTouchInput { swipeRight() }
         compose.onNodeWithTag("app-version").performScrollTo().assertTextEquals(appVersionText())
     }
+
+    // LOB-275: About & account credits 17Lands for the draft bots' card ratings, above the version line
+    @Test fun aboutCreditsTheCardRatings() {
+        compose.setContent { MaterialTheme { SettingsContent(null, logout = {}) } }
+        val credit = compose.onNodeWithTag("card-ratings-credit").performScrollTo()
+        credit.assertTextEquals("Draft bots' card ratings: 17Lands public data (17lands.com), CC BY 4.0")
+        assertTrue(credit.getUnclippedBoundsInRoot().top < compose.onNodeWithTag("app-version").getUnclippedBoundsInRoot().top)
+    }
 }

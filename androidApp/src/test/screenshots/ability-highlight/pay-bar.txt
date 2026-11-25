@@ -1,0 +1,1 @@
+Alice cast her Ember Tollkeeper, whose trigger asks "you may pay {1}": the slim bar "Pay {1}" shows the trigger's whole text with "you may pay {1}. If you do, draw a card." in violet on a softly pulsing light violet and "When this creature enters," plain.

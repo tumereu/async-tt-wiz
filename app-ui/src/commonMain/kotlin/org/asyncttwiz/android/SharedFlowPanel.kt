@@ -394,12 +394,17 @@ fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden
     val shownText = abilityText ?: shownLine?.takeIf { !pays }
     // F1: nor is a "you may" of the choice itself (OpenSection's) that repeats them
     val ownRepeats = decision is Decision.May && payment == null && QuestionLine.repeats(decision.text, shownText)
+    // STK-230, STK-142 (owner 2026-11-25): the clause the question asks highlighted in that text, where its words are exactly one run of
+    // its whole clauses
+    val askedWords = if (pays) decision.text else askedWords(decision)
+    val asked = shownText?.let { AskedPart.clauses(it, askedWords) }
     LaunchedEffect(decision.id) {
         // STK-181 (owner 2026-11-25): what text the panel showed, so a report of it explains itself
         AppLog.info("decision", "Choice panel of ${decision.id.value} (${decision.kind}): from ${words?.name ?: "no source named"}" +
             (if (copy) " (for a copy)" else "") + ", ability text ${abilityText?.let { "\"${it.take(160)}\"" } ?: if (words?.text == null) "none" else "as its question"}" +
             ", line ${shownLine?.let { "\"${it.take(160)}\"" } ?: "none"}" +
-            (if (askedLine != null && shownLine == null || ownRepeats) ", question repeats the ability text: not shown" else ""))
+            (if (askedLine != null && shownLine == null || ownRepeats) ", question repeats the ability text: not shown" else "") +
+            ", " + askedLog(shownText, askedWords, asked))
     }
     AutomatumDockPanel("Automatum choice", hidden, toggleHidden, "Automatum panel", buttons = { slot.buttons?.invoke(this) }) {
         CompositionLocalProvider(LocalDockSlot provides slot) {
@@ -407,14 +412,8 @@ fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden
         ChoiceHead(payment?.let(::choiceWhat) ?: choiceWhat(decision), source, inspector) {
             if (forOther != null) Text("Choosing for $forOther", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AutomatumViolet)
             if (words != null) ChoiceSourceName(words.name)
-            abilityText?.let {
-                CardText(it, Modifier.semantics { contentDescription = "Ability: $it" }, color = Color(0xff4b5a5f),
-                    style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
-            }
-            shownLine?.let {
-                CardText(it, Modifier.semantics { contentDescription = "Question: $it" }, color = Color(0xff4b5a5f),
-                    style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
-            }
+            abilityText?.let { AskedText(it, asked.takeIf { _ -> it == shownText }, "Ability") }
+            shownLine?.let { AskedText(it, asked.takeIf { _ -> abilityText == null && it == shownText }, "Question") }
         }
         if (about.isNotEmpty()) AboutRow("About", about.map { AboutItem.Card(choiceCardOf(questions, play, viewer, it)) }, inspector)
         (if (payment != null) PAY_OR_DECLINE else choiceHint(decision))?.let { ChoiceHintText(it) }
@@ -469,9 +468,12 @@ private fun FlowPayBar(flows: SharedFlowController, flow: SharedShown, play: Tab
     val words = ChoiceSourceWords.of(source, forCopy(flow, decision))
     // STK-181 (owner 2026-11-25): a spell's whole text too, its "you may pay" being part of it
     val line = words?.text ?: askedLine(flows, flow, play, decision, source) ?: (decision as? Decision.May)?.text
-    LaunchedEffect(decision.id) { AppLog.info("decision", "Pay bar of ${decision.id.value}: text ${line?.let { "\"${it.take(160)}\"" } ?: "none"}") }
+    // STK-230, STK-142 (owner 2026-11-25): the "you may pay" it asks highlighted in that text where its words are a run of its whole clauses
+    val asked = line?.let { AskedPart.clauses(it, (decision as? Decision.May)?.text) }
+    LaunchedEffect(decision.id) { AppLog.info("decision", "Pay bar of ${decision.id.value}: text ${line?.let { "\"${it.take(160)}\"" } ?: "none"}, " +
+        askedLog(line, (decision as? Decision.May)?.text, asked)) }
     AutomatumDockBar("Pay on the table", eye = true) {
-        TargetBarTitle(choiceWhat(payment), line, if (flows.paid) "Paid" else "Not paid yet", source = words?.name)
+        TargetBarTitle(choiceWhat(payment), line, if (flows.paid) "Paid" else "Not paid yet", source = words?.name, asked = asked)
         // Pool mana and life, which the table can't show, as chips
         // STK-024 (owner 2026-11-14): a source whose cost uses other cards is tapped on the table, never a chip
         val others = org.asyncttwiz.automatum.ManaPicks.groups(payment).filter { group -> flows.tableSource(group.first()) == null &&
@@ -513,6 +515,23 @@ private fun FlowTargetBar(flows: SharedFlowController, flow: SharedShown, play: 
 }
 
 // ---- Words
+
+/** STK-230 (owner 2026-11-25): the engine's words for what [decision] asks, which it takes from its source's printed text (a
+ * "you may" sentence, a search's or a "choose" sentence, CR 608.2d), for finding that clause in the text shown ([AskedPart.clauses]). */
+fun askedWords(decision: Decision): String? = when (decision) {
+    is Decision.May -> decision.text
+    is Decision.ChooseObjects -> decision.text
+    is Decision.ChooseOption -> decision.text
+    else -> null
+}
+
+/** STK-230: what a panel highlighted in its [text] and why, or why nothing, for the log. */
+fun askedLog(text: String?, asked: String?, span: AskedSpan?): String = when {
+    span != null && text != null -> "highlighted \"${span.of(text).take(120)}\" (${span.why})"
+    text == null -> "nothing highlighted: no text shown"
+    asked == null -> "nothing highlighted: the question has no words of the text"
+    else -> "nothing highlighted: \"${asked.take(80)}\" isn't exactly one run of whole clauses of the text, or is all of it"
+}
 
 
 

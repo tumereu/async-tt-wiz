@@ -781,7 +781,10 @@ class GameDevice(
         /** HIS-114: not a reveal but [cards] leaving a public pile for a hidden zone, moved by [by]; null for a reveal. */
         val left: LeftPile? = null,
         /** HIS-233: not a reveal but [cards] exiled face up from [LibraryExile.owner]'s library by [by]; null otherwise. */
-        val exiled: LibraryExile? = null)
+        val exiled: LibraryExile? = null,
+        /** STK-181 (owner 2026-11-25): the spell or ability that made it, as it was on the Stack, for its text under the title;
+         * null when none did (a cost) or it isn't known. */
+        val item: arcanum.engine.state.StackItem? = null)
 
     /**
      * HIS-233 (owner 2026-11-19, N18, problem report MDLPM7): cards exiled face up from [owner]'s library ("exile the top N",
@@ -933,7 +936,7 @@ class GameDevice(
         }
         for (e in fresh.asReversed()) {
             revealsSeen += e.id
-            for (r in revealsIn(e)) if (r.left != null) {
+            for (r in revealsIn(e) { id -> stackItemOf(id, e, line) }) if (r.left != null) {
                 // HIS-114: the other player's move out of a public pile into a zone hidden from this player
                 val what = "${r.by.value.take(8)} moved ${r.cards.map { it.value }} from ${r.left.owner.value.take(8)}'s ${r.left.from} to ${r.left.to} by ${r.sourceName} in ${e.id}"
                 if (r.by == me) remember("own pile move, nothing shown: $what")
@@ -956,6 +959,20 @@ class GameDevice(
                 } }}")
             }
         }
+    }
+
+    /**
+     * STK-181 (owner 2026-11-25): the Stack item [id] that made a reveal in [event] on the shown [line], as it was: in [event]'s
+     * changes (it resolved there), on the Stack at the head (it still resolves), else as the line put it there; null when none of
+     * them has it (logged).
+     */
+    private fun stackItemOf(id: ObjectId, event: GameEvent, line: List<GameEvent>): arcanum.engine.state.StackItem? {
+        stackItemIn(event, id)?.let { return it }
+        model.engine.stackItems[id]?.let { return it }
+        val at = line.indexOfFirst { it.id == event.id }.takeIf { it >= 0 } ?: line.size
+        for (i in (at - 1) downTo 0) stackItemIn(line[i], id)?.let { return it }
+        remember("reveal in ${event.id}: its Stack item $id isn't known, no text for it")
+        return null
     }
 
     /**
@@ -3280,11 +3297,11 @@ class GameDevice(
          * the card cast or the ability's source of the step's input (a cost). HIS-114: with them, in the same order, the
          * cards that left a public pile for a hidden zone ([leftPiles]), whoever moved them (the caller tells them apart).
          */
-        fun revealsIn(event: GameEvent): List<Reveal> {
+        fun revealsIn(event: GameEvent, items: (ObjectId) -> arcanum.engine.state.StackItem? = { stackItemIn(event, it) }): List<Reveal> {
             val all = event.engine?.steps.orEmpty().flatMap { step ->
                 step.changes.flatMap { change ->
-                    if (change is arcanum.engine.change.Change.ZoneChange) leftPiles(event, step, change) + libraryExiles(event, step, change)
-                    else listOfNotNull(revealOf(event, step, change))
+                    if (change is arcanum.engine.change.Change.ZoneChange) leftPiles(event, step, change, items) + libraryExiles(event, step, change, items)
+                    else listOfNotNull(revealOf(event, step, change, items))
                 }
             }
             // HIS-233: a card the event also revealed ("reveal cards until …, exile them") shows once, in its reveal
@@ -3311,7 +3328,8 @@ class GameDevice(
          * HIS-233 (owner 2026-11-19, N18): the cards [change] of [step] in [event] exiled face up from a library, one [Reveal] per
          * player who moved them and library owner, with [Reveal.exiled]. Who moved them as [leftPiles] says. Tokens are left out.
          */
-        private fun libraryExiles(event: GameEvent, step: EngineStep, change: arcanum.engine.change.Change.ZoneChange): List<Reveal> {
+        private fun libraryExiles(event: GameEvent, step: EngineStep, change: arcanum.engine.change.Change.ZoneChange,
+            items: (ObjectId) -> arcanum.engine.state.StackItem?): List<Reveal> {
             val inputPlayer = when (val input = step.input) {
                 is Input.Cast -> input.player
                 is Input.Activate -> input.player
@@ -3320,18 +3338,30 @@ class GameDevice(
             return change.moves.filter { m -> m.from == arcanum.api.Zone.Library && m.to == arcanum.api.Zone.Exile && !m.after.faceDown && !m.before.token }
                 .groupBy { m -> (change.by?.controller ?: inputPlayer ?: m.before.owner) to m.before.owner }
                 .map { (key, moves) ->
-                    Reveal(event.id, key.first, moves.map { it.before.card }.distinct(), sourceOf(step, change.by), change.by?.name, exiled = LibraryExile(key.second))
+                    Reveal(event.id, key.first, moves.map { it.before.card }.distinct(), sourceOf(step, change.by), change.by?.name, exiled = LibraryExile(key.second),
+                        item = change.by?.item?.let(items))
                 }
         }
 
         /** HIS-110: the reveal [change] of [step] in [event] is, or null. */
-        private fun revealOf(event: GameEvent, step: EngineStep, change: arcanum.engine.change.Change): Reveal? {
+        private fun revealOf(event: GameEvent, step: EngineStep, change: arcanum.engine.change.Change, items: (ObjectId) -> arcanum.engine.state.StackItem?): Reveal? {
             val happened = change as? arcanum.engine.change.Change.Happened ?: return null
             val revealed = happened.event as? arcanum.engine.change.GameEvent.Revealed ?: return null
             val cards = revealed.ids.mapNotNull { (it as? ObjectId.Card)?.card }.distinct()
             if (cards.isEmpty()) return null
-            return Reveal(event.id, revealed.player, cards, sourceOf(step, happened.by), happened.by?.name)
+            return Reveal(event.id, revealed.player, cards, sourceOf(step, happened.by), happened.by?.name, item = happened.by?.item?.let(items))
         }
+
+        /** STK-181: the Stack item [id] as [event]'s changes have it (put on the Stack, changed or removed there), or null. */
+        fun stackItemIn(event: GameEvent, id: ObjectId): arcanum.engine.state.StackItem? =
+            event.engine?.changes.orEmpty().asReversed().firstNotNullOfOrNull { c ->
+                when (c) {
+                    is arcanum.engine.change.Change.StackItemAdded -> c.item.takeIf { it.id == id }
+                    is arcanum.engine.change.Change.StackItemRemoved -> c.item.takeIf { it.id == id }
+                    is arcanum.engine.change.Change.StackItemUpdated -> c.after.takeIf { it.id == id }
+                    else -> null
+                }
+            }
 
         /** What made a change of [step] that says [by]: its source card, else the card cast or the ability's source of the
          * step's input (a cost); null when none is a card. */
@@ -3350,7 +3380,8 @@ class GameDevice(
          * with [Reveal.left]. Who moved them: the controller of what made the move, else the player of the step's input
          * (a cost), else the card's owner. Tokens are left out (they cease to exist there).
          */
-        private fun leftPiles(event: GameEvent, step: EngineStep, change: arcanum.engine.change.Change.ZoneChange): List<Reveal> {
+        private fun leftPiles(event: GameEvent, step: EngineStep, change: arcanum.engine.change.Change.ZoneChange,
+            items: (ObjectId) -> arcanum.engine.state.StackItem?): List<Reveal> {
             val inputPlayer = when (val input = step.input) {
                 is Input.Cast -> input.player
                 is Input.Activate -> input.player
@@ -3363,7 +3394,7 @@ class GameDevice(
                 .map { (key, moves) ->
                     val (mover, zones, owner) = key
                     Reveal(event.id, mover, moves.map { it.before.card }.distinct(), sourceOf(step, change.by), change.by?.name,
-                        LeftPile(zones.first, zones.second, owner))
+                        LeftPile(zones.first, zones.second, owner), item = change.by?.item?.let(items))
                 }
         }
 

@@ -197,6 +197,10 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val MUSING = "Ember Musing"
         /** STK-181: an {X} sorcery of two sentences, both naming X. */
         const val SURGE = "Ember Surge"
+        /** STK-230: a free sorcery looking at an opponent's hand, then a "you may choose" from it (a real such card's wording). */
+        const val PEEK = "Ember Peek"
+        /** STK-230: a free sorcery scrying, then a sentence more: the scry's question has no words of the text. */
+        const val PORTENT = "Ember Portent"
     }
     private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
@@ -294,6 +298,9 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         Invented(DefinitionFace("surge", Choices.SURGE, typeLine = "Sorcery", manaCost = "{X}{R}",
             rulesText = "Ember Surge deals X damage to any target. You gain X life."),
             OracleCard(Choices.SURGE, "{X}{R}", "Sorcery", "Ember Surge deals X damage to any target. You gain X life.")),
+        free("peek", Choices.PEEK, "Sorcery", "Look at target opponent's hand. You may choose a nonland card from it. If you do, that player " +
+            "discards that card, then draws a card."),
+        free("portent", Choices.PORTENT, "Sorcery", "Scry 2. You gain 1 life."),
         free("lancer", Choices.LANCER, "Creature — Elemental Soldier", "When this creature enters, it deals 2 damage to target creature an opponent controls.", "1", "1"),
         free("tollkeeper", Choices.TOLLKEEPER, "Creature — Elemental", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1"),
         Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",

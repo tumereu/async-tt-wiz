@@ -1,0 +1,1 @@
+2: Choices and reveals show the text of the spell or ability they come from, with the part they are about highlighted.

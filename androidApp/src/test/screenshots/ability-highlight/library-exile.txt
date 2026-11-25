@@ -1,0 +1,1 @@
+Alice cast her Hedge Delve: her own panel "You exiled 2 cards from your library" shows the Delve's whole text with "Exile the top two cards of your library." highlighted in violet and the sentence after it plain, over the two cards.

@@ -10,6 +10,10 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
+### Ability text with the current part highlighted (owner, 2026-11-25; after the costs panel)
+
+- Reveal panels (HIS-110, HIS-157, STK-224 and the other reveal/look panels) show their source's whole text under the title, as choices do (STK-181). Wherever a panel shows an ability's or spell's whole text (every choice dialog, the reveal panels, the costs panel), the part the panel is about (the clause the question asks, the reveal or look) is drawn as the target bar draws the phrase picked now (STK-142: violet on a softly pulsing light violet). Only where the part is known exactly (the parser's source words for the effect where it has them, else the whole-clause match STK-181 already does); otherwise no highlight, never a guess. Catalog: STK-181, STK-142 (or a new entry), the reveal entries; gallery sequence (a choice, a reveal, a look, a case without a highlight).
+
 ### Earlier
 
 Playtest and gallery notes (owner, 2026-11-11):

@@ -222,12 +222,20 @@ fun choiceHint(decision: Decision): String? = when (decision) {
 }
 
 /**
- * The sentence of a spell's printed [text] an open [decision] asks about (STK-030, owner playtest 2026-11-06: every
- * question shows what it asks without holding): its sentences that name what is chosen ("target", the X announced, a
- * colour, a number, a player, …), else the whole text; null without text.
+ * STK-181 (owner gallery review 2026-11-25: every choice shows its ability's whole text for context): a spell's whole printed
+ * [text] under a choice's title, its lines kept; null without text. A spell's choices (a pile to choose, an X, a "you may",
+ * a search) show it all, never only the sentence they ask about.
  */
-fun askedSentence(text: String?, decision: Decision): String? {
-    val plain = text?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() }?.joinToString(" ")?.takeIf { it.isNotEmpty() } ?: return null
+fun spellText(text: String?): String? =
+    text?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() }?.joinToString("\n")?.takeIf { it.isNotEmpty() }
+
+/**
+ * STK-181: the whole text of the ability of a permanent's or card's printed [text] an open [decision] of it asks about when
+ * no Stack item is its source (an "As this enters, choose a colour", a cost to attack): its abilities (one per line) naming
+ * what is chosen ("target", the X announced, a colour, a number, a player, …), else the whole text; null without text.
+ */
+fun askedAbilities(text: String?, decision: Decision): String? {
+    val lines = text?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() }?.takeIf { it.isNotEmpty() } ?: return null
     val words: List<String> = when (decision) {
         is Decision.Targets -> listOf("target")
         is Decision.Announce -> listOf(decision.name)
@@ -239,11 +247,12 @@ fun askedSentence(text: String?, decision: Decision): String? {
         is Decision.ChooseCardName -> listOf("name")
         is Decision.ChoosePlayer -> listOf("player", "opponent")
         is Decision.ManaPayment -> listOf("pay")
+        is Decision.May -> listOf("may")
+        is Decision.ChooseObjects -> if (ObjectsShape.of(decision).search) listOf("search") else listOf("choose")
         else -> listOf("choose")
     }
-    val sentences = plain.split(Regex("""(?<=[.!?])\s+(?=[A-Z•])"""))
-    val asked = sentences.filter { sentence -> words.any { Regex("""\b${Regex.escape(it)}""", RegexOption.IGNORE_CASE).containsMatchIn(sentence) } }
-    return asked.joinToString(" ").ifEmpty { plain }
+    val asked = lines.filter { line -> words.any { Regex("""\b${Regex.escape(it)}""", RegexOption.IGNORE_CASE).containsMatchIn(line) } }
+    return asked.ifEmpty { lines }.joinToString("\n")
 }
 
 /** A cost in a few words with its mana and tap symbols ("{2}", "{T}", "Forage", "2 life"), for a question that asks to

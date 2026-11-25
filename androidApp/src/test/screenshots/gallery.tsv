@@ -394,7 +394,7 @@ number	item	screenshot	catalog	decisions	sequence
 569	Payment with restricted mana in the pool: the Gildleaf Shard's mana (creature spells only) has the violet sparkle, held to show its restriction in its own words with its source	cast-panel/pool-mana-restricted.png	STK-228 TBL-136 TBL-120	ManaPayment
 570	Pod setup of a solo draft: the creator alone with two bots, warned that there is no one to play against	draft/setup-solo.png	DRF-296 DRF-301 DRF-035		
 571	Landscape with large hand cards: the battlefield seen beside and under your hand's fan, its cards standing over it, no hand row behind them	battlefield/under-large-hand-landscape.png	TBL-238 TBL-144 ZON-138		
-572	Pile choice for the player who chooses: a face-up pile drawn as its cards, a face-down pile as card backs, each with its count and a Choose button	choice-source/pile-choice.png	STK-229 STK-044	ChooseOption	
+572	Pile choice for the player who chooses: the spell's whole text under the title (owner-reported fix), a face-up pile drawn as its cards, a face-down pile as card backs, each with its count and a Choose button	choice-source/pile-choice.png	STK-229 STK-181 STK-044	ChooseOption	
 573	Side menu (portrait drawer): one list of five above the buttons, one of each: your move red, a pod invitation blue, a deck to build green, a game without a dot, the challenge you can't accept yet last	side-menu/drawer-mix.png	LOB-018 LOB-269 LOB-267 LOB-025		Side menu list
 574	Side menu: with eight games and pods, only the five most important show	side-menu/drawer-five-of-many.png	LOB-018 LOB-267		Side menu list
 575	Side menu at a game's table: the open game keeps its place first, highlighted, without its dot	side-menu/drawer-open-game.png	LOB-018 LOB-269		Side menu list
@@ -452,6 +452,7 @@ number	item	screenshot	catalog	decisions	sequence
 646	Rating chip colours, default: gold, pale gold, light grey, grey, dark grey	draft/rating-colours-gold-to-grey.png	DRF-315		Rating chip colours
 647	Rating chip colours, option 2 (medals): gold, silver, bronze, grey, dark grey	draft/rating-colours-medals.png	DRF-315		Rating chip colours
 648	Rating chip colours, option 3: gold, violet, light grey, grey, dark grey	draft/rating-colours-gold-violet-grey.png	DRF-315		Rating chip colours
+<<<<<<< HEAD
 670	Costs panel, optional cost only: Attack (1) with an Ember Charger staged opens it, the Charger's card under "As they attack, you may pay", its Exert box empty, the ability's whole text; nothing declared, Attack on the main button	combat-costs/optional.png	CMB-098 CMB-037 CMB-100		Costs panel
 671	Costs panel, optional cost tapped: the card ringed in violet with its Exert box checked; the copy on the band carries an amber Exert chip (choice: ring and checked box mark it paid)	combat-costs/optional-paid.png	CMB-098 CMB-037		Costs panel
 672	Costs panel, a required cost with Autotap off: the Cub's card with its amber {2}, the Bulwark's text under its name, "Total to pay: {2}", in red "Still owed {2}"; Attack, Rest and Clear greyed	combat-costs/required-autotap-off.png	CMB-098 CMB-099 CMB-100 CMB-101		Costs panel
@@ -463,3 +464,9 @@ number	item	screenshot	catalog	decisions	sequence
 678	Choice: while the costs panel is open the staging is frozen: a tap on a creature or copy only shakes ("Go Back to staging to change it."), Rest and Clear greyed (as in 672)	combat-costs/required-autotap-off.png	CMB-101		Costs panel
 679	Choice: the panel's words: titles "Costs to attack" / "Costs to block", sections "As they attack, you may pay" and "To attack, they must pay", "Total to pay" with the mana first, Back in the bottom row (as in 674)	combat-costs/both.png	CMB-098		Costs panel
 680	Choice: with Autotap off a cost without mana ("2 life", "Sacrifice") opens no panel: nothing to pay by hand, it is paid (or its choice asked) as the main button declares (no picture: 676 shows the board after a declaration without panel)	combat-costs/autotap-no-panel.png	CMB-075 CMB-098		Costs panel
+=======
+660	Choice ability text: separating piles shows the spell's whole text under "Separate into piles"	choice-text/separate-piles.png	STK-181 STK-043	ChooseObjects	Choice ability text
+661	Choice ability text: a spell's search shows the spell's whole text under the search's title (before: none)	choice-text/spell-search.png	STK-181 STK-056	ChooseObjects	Choice ability text
+662	Choice ability text: a spell's "you may" shows the spell's whole text, its own words not repeated (before: only the "you may" sentence)	choice-text/spell-may.png	STK-181 STK-182	May	Choice ability text
+663	Choice ability text: the cast panel's X shows the spell's whole text, both sentences (before: only the first)	choice-text/cast-x.png	STK-136 STK-181 STK-023	Announce	Choice ability text
+>>>>>>> origin/master

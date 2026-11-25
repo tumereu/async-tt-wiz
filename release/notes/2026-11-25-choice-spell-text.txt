@@ -1,0 +1,1 @@
+2: Every Automatum choice from a spell now shows the spell's whole text under its title, choosing or separating piles included, not just one sentence of it

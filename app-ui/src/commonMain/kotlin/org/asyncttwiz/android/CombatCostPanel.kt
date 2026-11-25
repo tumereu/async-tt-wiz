@@ -188,7 +188,8 @@ private fun RequiredCard(play: TableBoard, viewer: String, cardId: String, cost:
 @Composable
 private fun AbilityTexts(play: TableBoard, costs: List<CombatCostShown>) {
     for (cost in costs) {
-        val text = cost.text?.trim()?.takeIf { it.isNotEmpty() } ?: continue
+        // STK-181: the ability's whole text, its lines kept, as the choice panels show it
+        val text = spellText(cost.text) ?: continue
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             cost.source?.let { ChoiceSourceName(combatName(play, it), small = true) }
             CardText(text, Modifier.semantics { contentDescription = "Ability: $text" }, color = Color(0xff4b5a5f),

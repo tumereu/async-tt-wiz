@@ -246,7 +246,8 @@ private fun TargetBar(cast: CastController, flow: CastShown, play: TableBoard, s
     // (owner 2026-11-11, which pick is which): the whole text, the phrase picked now shining and earlier picks named in it
     val pieces = cast.pickText(play)?.let { StackTargetText.pickPieces(play, it, flow::ref, viewer, names) }
     CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
-        TablePickBar(pick, cast.abilityText ?: askedSentence(rulesTextOf(play, flow.cardId), pick.decision), pieces, cast.picked.size,
+        // STK-142, STK-181: the whole text of the spell or ability
+        TablePickBar(pick, cast.abilityText ?: spellText(rulesTextOf(play, flow.cardId)), pieces, cast.picked.size,
             cast.pickDone, cast::confirmTargets, source, play, "cast")
     }
 }
@@ -321,6 +322,14 @@ fun IconText(icon: ImageVector, text: String) {
 @Composable
 private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, names: Map<String, String>, source: ChoiceCardData) {
     val inspector = remember { ChoiceInspector() }
+    // STK-136, STK-181 (owner 2026-11-25: every choice shows its ability's whole text): an ability's text; for a spell its
+    // whole text while a choice is open (an X, a division, a colour, a "you may"), never for its modes (they are the chips)
+    // or the payment
+    val text = cast.abilityText ?: flow.pending?.takeIf { it !is Decision.Modes && it !is Decision.ManaPayment }
+        ?.let { spellText(rulesTextOf(play, flow.cardId)) }
+    LaunchedEffect(flow.cardId, flow.pending?.id) {
+        AppLog.info("cast", "Cast panel of ${flow.cardId} (${flow.pending?.kind ?: "nothing open"}): text ${text?.let { "\"${it.take(160)}\"" } ?: "none"}")
+    }
     // STK-023: a choice built up in place is answered by Cast (no OK of its own)
     val ok = remember(flow.activation, flow.begin is Input.PlayLand) { CastOk(actionLabel(flow)) }
     val shown by animateFloatAsState(if (cast.hidden) 0f else 1f, tween(180), label = "Cast panel")
@@ -357,10 +366,8 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
                 arrangement = Arrangement.spacedBy(6.dp)) {
                 // A long name wraps onto a second line, then is cut with …
                 ChoiceHead(castTitle(flow, source.name), source, inspector, titleLines = 2) {
-                    // STK-023 (owner playtest 2026-11-06): an ability's text; for a spell the sentence its open choice asks
-                    // about (an X, a division, a colour), never its modes' (they are the chips) or the payment's
-                    (cast.abilityText ?: flow.pending?.takeIf { it !is Decision.Modes && it !is Decision.ManaPayment && it !is Decision.May }
-                        ?.let { askedSentence(rulesTextOf(play, flow.cardId), it) })?.let {
+                    // STK-023 (owner playtest 2026-11-06), STK-181: the text above
+                    text?.let {
                         CardText(it, Modifier.semantics { contentDescription = "Question: $it" }, color = Color(0xff4b5a5f),
                             style = TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
                     }
@@ -399,7 +406,7 @@ private fun CastPanel(cast: CastController, flow: CastShown, play: TableBoard, n
                     else -> cast.pick?.let { CardText("Then ${it.prompt} on the table.", style = TextStyle(fontSize = 12.sp)) }
                         ?: CompositionLocalProvider(LocalCastOk provides ok,
                             // F1: an ability's text shows above its choice
-                            LocalChoiceFrame provides LocalChoiceFrame.current.copy(shownText = cast.abilityText)) { OpenSection(cast, cast, play, names, open) }
+                            LocalChoiceFrame provides LocalChoiceFrame.current.copy(shownText = text)) { OpenSection(cast, cast, play, names, open) }
                 }
                 // STK-211 (owner 2026-11-19): the cards a mana ability's cost uses, chosen by the payer
                 cast.costPick?.let { pick -> CostPickSection(cast, play, names, pick) }

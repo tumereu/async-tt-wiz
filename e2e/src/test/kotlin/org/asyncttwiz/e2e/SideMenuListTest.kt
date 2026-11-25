@@ -4,11 +4,14 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
 import org.asyncttwiz.android.ShellDestination
+import org.asyncttwiz.android.WAITING_DOT_SLOT_TAG
 import org.junit.Test
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * The side menu's one list (owner, 2026-11-25), the overall flow: Bob has sent Alice four invitations, then Alice invites him
@@ -45,6 +48,16 @@ class SideMenuListTest : E2e() {
         assertEquals(expected, rows(bob))
         waitUntil("the red and blue dots on the first two rows") {
             bob.shows(dotIn("waiting-dot-move", expected[0])) && bob.shows(dotIn("waiting-dot-pick", expected[1]))
+        }
+        // LOB-269 (owner gallery review 2026-11-25): every row's dot slot at one x before its name, the red and blue dots inside theirs
+        val slots = expected.map { bob.node(dotIn(WAITING_DOT_SLOT_TAG, it)).fetchSemanticsNode().boundsInRoot }
+        assertTrue(slots.all { kotlin.math.abs(it.left - slots[0].left) < 0.5f }, "the dot slots line up: $slots")
+        val name = bob.node(hasText("E2E invite $tag") and hasAnyAncestor(hasTestTag(expected[0]))).fetchSemanticsNode().boundsInRoot
+        assertTrue(slots[0].right <= name.left, "the dot's slot before the name: ${slots[0]} vs $name")
+        for ((row, dot) in listOf(expected[0] to "waiting-dot-move", expected[1] to "waiting-dot-pick")) {
+            val mark = bob.node(dotIn(dot, row)).fetchSemanticsNode().boundsInRoot
+            val slot = slots[expected.indexOf(row)]
+            assertTrue(mark.left >= slot.left - 0.5f && mark.right <= slot.right + 0.5f, "$row's dot in its slot: $mark vs $slot")
         }
         // The buttons below the list, Games and Pods among them
         val buttons = listOf("Menu", "Games", "Pods", "Manage decks", "Contacts", "Stats", "Settings")

@@ -44,14 +44,19 @@ class NavigationPodsTest {
 
     @After fun close() { pods.close() }
 
+    private fun hasTestTagPrefix(prefix: String) = SemanticsMatcher("test tag starts with $prefix") { node ->
+        node.config.getOrElseNullable(androidx.compose.ui.semantics.SemanticsProperties.TestTag) { null }?.startsWith(prefix) == true
+    }
+
     private fun showNavigation(close: Boolean = true) {
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex,
             destination = ShellDestination.DECKS, drawerOpen = close))
         compose.setContent { ScreenTheme { Navigation(fixtures.auth, close, fixtures.lobby, pods) } }
     }
 
-    // LOB-018
-    @Test fun podsIsOneTopLevelSectionDirectlyBelowGamesWithMatchingIndentedRows() {
+    // LOB-018 (owner, 2026-11-25): one list of games and pods, no Games or Pods sections, above the nav buttons Menu, Games,
+    // Pods, Manage decks, Contacts, Stats, Settings; Games and Pods are nav buttons like the others; DRF-013: a pod row's status
+    @Test fun oneListSitsAboveTheNavButtonsWithGamesAndPodsAmongThem() {
         val pod = pod()
         val game = fixtures.lobby.state.games.first()
         fixtures.lobby.seed(LobbyState(loaded = true, games = listOf(game)))
@@ -59,35 +64,31 @@ class NavigationPodsTest {
         showNavigation()
 
         compose.onAllNodesWithText("Pods").assertCountEquals(1)
-        val games = compose.onNodeWithText("Games").getUnclippedBoundsInRoot()
-        val podsHeader = compose.onNodeWithText("Pods").getUnclippedBoundsInRoot()
-        val gameRow = compose.onNodeWithText(game.gameName).getUnclippedBoundsInRoot()
+        val gameRow = compose.onNodeWithTag("navigation-game-${game.id}").getUnclippedBoundsInRoot()
         val podRow = compose.onNodeWithTag("navigation-pod-${pod.id}").getUnclippedBoundsInRoot()
-        val decks = compose.onNodeWithText(ShellDestination.DECKS.title).getUnclippedBoundsInRoot()
-        val decksLabel = compose.onNodeWithText(ShellDestination.DECKS.title, useUnmergedTree = true).getUnclippedBoundsInRoot()
-        val podsLabel = compose.onNodeWithText("Pods", useUnmergedTree = true).getUnclippedBoundsInRoot()
-        assertEquals(games.left, podsHeader.left)
-        assertTrue(decksLabel.left > podsLabel.left)
-        // Games and Pods with their rows come above the menu section, in its order
-        assertTrue(podRow.bottom <= compose.onNodeWithText("Menu").getUnclippedBoundsInRoot().top)
-        val section = listOf(ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.STATS, ShellDestination.SETTINGS)
-            .map { compose.onNodeWithText(it.title).getUnclippedBoundsInRoot().top }
-        assertEquals(section.sortedBy { it.value }, section)
-        assertEquals(decks.top, section.first())
-        assertTrue(compose.onNodeWithText("Menu").getUnclippedBoundsInRoot().bottom <= decks.top)
-        assertTrue(games.bottom <= gameRow.top)
-        assertEquals(gameRow.bottom, podsHeader.top)
-        assertEquals(podsHeader.bottom, podRow.top)
+        val buttons = listOf("Menu", "Games", "Pods", "Manage decks", "Contacts", "Stats", "Settings")
+            .map { compose.onNodeWithTag("navigation-$it").getUnclippedBoundsInRoot() }
+        assertEquals(buttons.sortedBy { it.top.value }, buttons)
+        // The list (your pick first, then the game waiting for riley) comes above every nav button
+        assertTrue(podRow.bottom <= gameRow.top)
+        assertTrue(gameRow.bottom <= buttons.first().top)
         assertEquals(gameRow.left, podRow.left)
-        for (heading in listOf("Games", "Pods")) {
+        // Games and Pods sit indented with the other destinations, under Menu, in the same weight
+        val decksLabel = compose.onNodeWithText(ShellDestination.DECKS.title, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        for (label in listOf("Games", "Pods")) {
+            assertEquals(decksLabel.left, compose.onNodeWithText(label, useUnmergedTree = true).getUnclippedBoundsInRoot().left)
             val layouts = mutableListOf<TextLayoutResult>()
-            compose.onNodeWithText(heading, useUnmergedTree = true)
+            compose.onNodeWithText(label, useUnmergedTree = true)
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-            assertEquals(FontWeight.Bold, layouts.single().layoutInput.style.fontWeight)
+            assertEquals(FontWeight.Normal, layouts.single().layoutInput.style.fontWeight)
         }
         compose.onNodeWithTag("navigation-pod-${pod.id}")
             .assert(hasText(pod.name)).assert(hasText("Your pick · 2 packs"))
             .assert(!hasContentDescription("alex's avatar")).assert(hasContentDescription("riley's avatar"))
+        // Games opens the Games screen's list, closing the drawer
+        compose.onNodeWithTag("navigation-Games").performScrollTo().performClick()
+        assertEquals(ShellDestination.GAMES, fixtures.auth.state.destination)
+        assertFalse(fixtures.auth.state.drawerOpen)
     }
 
     // LOB-019, LOB-024
@@ -110,25 +111,41 @@ class NavigationPodsTest {
         assertFalse(':' in gameLastActivity(earlier))
     }
 
-    // LOB-018
-    @Test fun everyMemberPodAppearsWithoutInvitationsOrMainMenuThreeItemLimit() {
-        val entries = listOf(pod("setup", PodPhase.SETUP), pod("draft"), pod("build", PodPhase.DRAFTED), pod("fourth"))
-        pods.seed(PodState(loaded = true, pods = entries,
+    // LOB-018, LOB-021, LOB-269: five rows at most, a pod invitation among them with its blue dot; tapping it opens the Pods
+    // screen to answer it there
+    @Test fun theListHoldsFiveRowsAndAPodInvitationOpensThePodsScreen() {
+        fun at(pod: PodSummary, hour: Int) = pod.copy(attention = PodAttention.NONE, updatedAt = "2026-10-27T0$hour:00:00Z")
+        val entries = listOf(at(pod("setup", PodPhase.SETUP), 1), at(pod("draft"), 2), at(pod("build", PodPhase.DRAFTED), 3),
+            at(pod("fourth"), 4), at(pod("fifth"), 5))
+        pods.seed(PodState(loaded = true, pods = entries, selected = "previous",
             invitations = listOf(PodInvitation("invite", "Invitation only", ScreenFixtures.riley, entries.first().updatedAt))))
-        showNavigation(close = false)
-        entries.forEach { compose.onNodeWithTag("navigation-pod-${it.id}").performScrollTo().assertIsDisplayed() }
-        compose.onNodeWithText("Invitation only").assertDoesNotExist()
+        fixtures.lobby.seed(LobbyState(loaded = true))
+        showNavigation()
+        compose.onAllNodes(hasTestTagPrefix("navigation-pod")).assertCountEquals(SideMenuListSize)
+        // The oldest pod is the sixth: left out
+        compose.onNodeWithTag("navigation-pod-setup").assertDoesNotExist()
+        val invitation = compose.onNodeWithTag("navigation-pod-invitation-invite").assert(hasText("Invitation only"))
+            .assert(hasText("Invitation")).assert(hasText("riley · Booster")).assert(hasContentDescription("riley's avatar"))
+        compose.onNode(hasTestTag("waiting-dot-pick") and hasAnyAncestor(hasTestTag("navigation-pod-invitation-invite")),
+            useUnmergedTree = true).assertExists()
+        invitation.performClick()
+        assertEquals(ShellDestination.PODS, fixtures.auth.state.destination)
+        assertNull(pods.state.selected)
+        assertFalse(fixtures.auth.state.drawerOpen)
     }
 
-    // LOB-018, DRF-013, DRF-189
-    @Test fun drawerPodsFollowTheSharedPodOrder() {
+    // LOB-018: games and pods mixed: your pick and your deck to build (longest waiting first) before the pods waiting for
+    // nobody, newest first
+    @Test fun drawerListsByDotColourThenNewest() {
         fun at(pod: PodSummary, hour: Int, attention: PodAttention) = pod.copy(attention = attention, updatedAt = "2026-10-27T0$hour:00:00Z")
         val entries = listOf(at(pod("old-other"), 1, PodAttention.NONE), at(pod("new-pick"), 4, PodAttention.YOUR_PICK),
             at(pod("new-other"), 5, PodAttention.NONE), at(pod("old-build", PodPhase.DRAFTED), 2, PodAttention.BUILD))
+        val game = fixtures.lobby.state.games.first().copy(updatedAt = "2026-10-27T03:00:00Z")
+        fixtures.lobby.seed(LobbyState(loaded = true, games = listOf(game)))
         pods.seed(PodState(loaded = true, pods = entries))
         showNavigation(close = false)
-        val tops = listOf("old-build", "new-pick", "new-other", "old-other")
-            .map { compose.onNodeWithTag("navigation-pod-$it").getUnclippedBoundsInRoot().top }
+        val tops = listOf("pod-new-pick", "pod-old-build", "pod-new-other", "game-${game.id}", "pod-old-other")
+            .map { compose.onNodeWithTag("navigation-$it").getUnclippedBoundsInRoot().top }
         assertEquals(tops.sortedBy { it.value }, tops)
     }
 

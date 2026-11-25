@@ -131,6 +131,9 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val BULWARK = "Ember Bulwark"
         /** A free enchantment whose trigger begins its controller's upkeep (another enchantment beside a Bulwark). */
         const val CHIME = "Ember Chime"
+        /** CMB-037 (CR 508.1g, 701.43d): a free 3/3 with haste and "You may exert this creature as it attacks. When you do, it gets
+         * +1/+1 until end of turn.": the "Exert" toggle on its staged copy the turn it is cast. */
+        const val CHARGER = "Ember Charger"
         /** A free 2/2 with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage (CMB-050, CMB-089). */
         const val LEECH = "Ember Leech"
         /** ZON-079, ZON-105: a free "You gain 2 life." sorcery with flashback {R}: from the graveyard it is cast from the hand row. */
@@ -258,6 +261,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("ghoul", Choices.GHOUL, "Creature — Zombie", "Sacrifice this creature: You gain 1 life.\nUnearth {R}", "2", "2"),
         free("reprise", Choices.REPRISE, "Sorcery", "You gain 2 life.\nFlashback {R}{R}\n{R}: Return this card from your graveyard to your hand."),
         free("bulwark", Choices.BULWARK, "Enchantment", "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of enchantments you control."),
+        free("charger", Choices.CHARGER, "Creature — Elemental Warrior",
+            "Haste\nYou may exert this creature as it attacks. When you do, it gets +1/+1 until end of turn.", "3", "3"),
         free("cart", Choices.CART, "Artifact — Vehicle", "Crew 2", "3", "3"),
         free("elders", Choices.ELDERS, "Creature — Human Citizen", "Tap two untapped creatures you control: Add one mana of any color.", "1", "1"),
         free("fork", Choices.FORK, "Artifact", "{T}: Add {R} or {U}."),

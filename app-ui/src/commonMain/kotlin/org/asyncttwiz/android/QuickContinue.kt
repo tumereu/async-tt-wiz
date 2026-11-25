@@ -46,9 +46,67 @@ fun quickContinueGames(games: List<GameSummary>, accountId: String): List<GameSu
 fun incomingInvitation(game: GameSummary, accountId: String) = game.lifecycle == GameLifecycle.LOBBY &&
     game.invitationState == InvitationState.PENDING && game.recipient.accountId == accountId
 
-/** Drawer Games section: the games and the invitations needing an answer, in the shared order. */
-fun navigationGameRows(games: List<GameSummary>, invitations: List<GameSummary>, accountId: String): List<GameSummary> =
-    orderedGames(invitations.filter { incomingInvitation(it, accountId) } + games, accountId)
+/** LOB-018 (owner, 2026-11-25): one row of the side menu's list: a game or game invitation, a pod, or an invitation to a pod. */
+sealed interface SideMenuRow {
+    val id: String
+    /** When it last changed: how long it has waited, or how recent its activity is. */
+    val updatedAt: String
+    data class Game(val game: GameSummary) : SideMenuRow {
+        override val id get() = game.id
+        override val updatedAt get() = game.updatedAt
+    }
+    data class Pod(val pod: PodSummary) : SideMenuRow {
+        override val id get() = pod.id
+        override val updatedAt get() = pod.updatedAt
+    }
+    data class PodInvite(val invitation: PodInvitation) : SideMenuRow {
+        override val id get() = invitation.podId
+        override val updatedAt get() = invitation.invitedAt
+    }
+}
+
+/** LOB-018: the side menu lists this many games and pods (fewer only when there are fewer). */
+const val SideMenuListSize = 5
+
+/** LOB-269: [row]'s waiting dot (LOB-267): a game's, a pod's, and blue for an invitation to a pod. */
+fun sideMenuDot(row: SideMenuRow, accountId: String): WaitingDot? = when (row) {
+    is SideMenuRow.Game -> gameWaitingDot(row.game, accountId)
+    is SideMenuRow.Pod -> podWaitingDot(row.pod)
+    is SideMenuRow.PodInvite -> podInvitationWaitingDot
+}
+
+/** LOB-018: where [row] sorts: red, blue, green (LOB-268's dot order), then everything else, and last the game invitations
+ * you can't answer yet (a challenge held for your deck, LOB-025). */
+private fun sideMenuGroup(row: SideMenuRow, accountId: String): Int = when (val dot = sideMenuDot(row, accountId)) {
+    WaitingDot.Move -> 0
+    WaitingDot.Pick -> 1
+    WaitingDot.Build -> 2
+    null -> if (row is SideMenuRow.Game && incomingInvitation(row.game, accountId)) 4 else 3
+}
+
+/**
+ * LOB-018 (owner, 2026-11-25): the side menu's one list: the [SideMenuListSize] most important of the games, the game
+ * invitations to answer, the pods and the invitations to pods you are not in yet, games and pods mixed: what lights a red
+ * dot, then blue, then green (each longest waiting first, as LOB-022), then the rest (most recent first), and last the
+ * invitations you can't answer yet (most recent first). A pod's games are rows of their own; the game or pod open keeps
+ * its place (only its dot is left out).
+ */
+fun sideMenuRows(games: List<GameSummary>, invitations: List<GameSummary>, pods: List<PodSummary>,
+    podInvitations: List<PodInvitation>, accountId: String): List<SideMenuRow> {
+    val rows = (invitations.filter { incomingInvitation(it, accountId) } + games).distinctBy { it.id }.map { SideMenuRow.Game(it) } +
+        orderedPods(pods, podInvitations).map { entry -> entry.pod?.let { SideMenuRow.Pod(it) } ?: SideMenuRow.PodInvite(requireNotNull(entry.invitation)) }
+    return rows.sortedWith(Comparator { a, b ->
+        val groupA = sideMenuGroup(a, accountId)
+        val rank = groupA.compareTo(sideMenuGroup(b, accountId))
+        // An unreadable time sorts as the oldest rather than failing the whole list.
+        val activity = compareValues(runCatching { parseInstant(a.updatedAt) }.getOrNull(), runCatching { parseInstant(b.updatedAt) }.getOrNull())
+        when {
+            rank != 0 -> rank
+            activity != 0 -> if (groupA <= 2) activity else -activity
+            else -> a.id.compareTo(b.id)
+        }
+    }).take(SideMenuListSize)
+}
 
 data class QuickContinuePod(val pod: PodSummary? = null, val invitation: PodInvitation? = null) {
     val id: String get() = pod?.id ?: requireNotNull(invitation).podId

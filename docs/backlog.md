@@ -10,15 +10,16 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-### Side menu: one list (owner, 2026-11-25)
-
-- The side menu (LOB-018, LOB-019, LOB-021, LOB-269; landscape's and the desktop's permanent side area too) drops its Games and Pods sections. Its nav buttons now include Games and Pods (Menu, Games, Pods, Manage decks, Contacts, Stats, Settings), and above them sits one list of always 5 games and pods (fewer only when you have fewer), most important first, in dot order (LOB-268): red (your move, a game invitation you can answer, a pod challenge you can accept now), then blue (your pick, and pod invitations, which now get a blue dot), then green (build your deck), then the rest by most recent activity, and last game invitations you can't answer yet (pod deck not ready, no dot). Ties within a colour: longest waiting first (LOB-022), games and pods mixed. A pod's games are rows of their own. The game or pod you are looking at stays in the list (still no dot on it). The main menu's panels (LOB-016, LOB-017) stay as they are. e2e covers the flow.
 
 ### Landscape hand as a turning fan (owner, 2026-11-25; after the draft bots; replaces the look of gallery 571)
 
 - In landscape your hand becomes a fan like the desktop's (WEB-073, WEB-074, WEB-103): between your piles and the action area (TBL-144's layout otherwise kept), cards turned a little and overlapping, standing over the battlefield and partly below the screen's bottom, no hand-row background; cards from other zones at its right end after the divider (ZON-079). Portrait keeps its row.
 - As many cards as fit with each still easy to tap (about 9 on a narrow phone, 12 on a wide one) make a still fan. With more, a sideways drag turns the fan like a wheel (a flick carries on a little and slows down); cards turned away sink below the screen's bottom along the curve, no fade. It stops at the ends (the first card no further right than the fan's right end, the last no further left than its left end; never wraps; the hand keeps its order, ZON-081). A small "+N" at an end with cards turned away; the hand count stays. Up or down drags a card as now (ZON-077); tap, double-tap and hold unchanged. A raised card stays raised when turned away. A drawn card lands in its place; if that is turned away the "+N" counts it, and the fan doesn't turn by itself.
 - Catalog: ZON-081, TBL-144, TBL-238 (the hand row part) and new entries; gallery 571 re-recorded; e2e covers turning and playing from a turned fan.
+
+### Draft history ratings review (owner, 2026-11-25; after the landscape fan; needs the bots' rating table)
+
+- Every draft history dialog gets 17Lands ratings once your own draft is done (DRF-119), only in a single-set pod whose set has ratings (same table and rule as the draft bots); nowhere before that. Booster and Glimpse's draft history (DRF-165, DRF-207), Arena's draft history (DRF-289) and the other modes' Picks dialog (Winston, Winchester, Grid, Rochester, Rotisserie, DRF-160, DRF-227; only cards shown face up get a chip, card backs none). Each rated card shows a small chip centred on its bottom edge with its GIH WR ("58.4%"); unrated cards none. The chip's colour is its rank within the set in five steps (top 10%, next 15%, middle, next 15%, bottom 10%), never green or red (keep/burn colours): gold at the top down to grey; a couple of colour options in the gallery for the owner to choose. A "By rating" chip in each dialog's header (beside "Returning packs only", DRF-209, where it shows) sorts best first: each pick's offer (keeps ✓ and burns 🔥 stay marked wherever they land), or each opponent's picks; remembered per device. Verify in the code which modes have which dialog (the catalog says DRF-228). Gallery (owner): one entry per draft mode's history dialog in its post-draft state with ratings (Booster, Glimpse, Custom booster, Arena, Winston, Winchester, Grid, Rochester, Rotisserie), plus the colour options. Purpose: self-evaluating picks.
 
 ### Earlier
 
@@ -53,6 +54,7 @@ Each owner-reported bug gets an e2e test that fails before the fix.
 
 ## Needs discussion
 
+- Own-picks history for the other modes (owner, 2026-11-25): Winston, Winchester, Grid, Rochester and Rotisserie's History icon opens only the opponents' picks (DRF-160), not your own picks with what you were offered as Booster's (DRF-207) and Arena's (DRF-289) do; discuss giving them that.
 - Owner's own review of the Arcanum engine (owner, 2026-11-11): the owner reads the engine code by hand and discusses improvements with Claude, looking for things that slipped in while unreviewed, like the per-creature `Engine.combatCost`. The public API part was discussed on 2026-11-12 and settled in the engine API rework (merged 2026-11-12). Still open: reading the engine's code itself, including its ~107 `!!`. Nothing there is changed before that discussion.
 
 

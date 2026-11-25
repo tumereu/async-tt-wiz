@@ -106,8 +106,9 @@ fun MenuPodRow(entry: QuickContinuePod, accountId: String?, stackWidth: Dp, resp
         if (pod != null) AvatarStack(podNavigationAvatars(pod.members, accountId), ring = Color.White, width = stackWidth)
         else Box(Modifier.width(stackWidth)) { Avatar(requireNotNull(invite).creator) }
         Column(Modifier.weight(1f)) {
-            // LOB-269: a pod's waiting dot (none for an invitation)
-            WaitingName(pod?.name ?: requireNotNull(invite).name, pod?.let(::podWaitingDot), fontWeight = FontWeight.SemiBold)
+            // LOB-269: a pod's waiting dot, an invitation's blue (owner, 2026-11-25)
+            WaitingName(pod?.name ?: requireNotNull(invite).name, if (pod != null) podWaitingDot(pod) else podInvitationWaitingDot,
+                fontWeight = FontWeight.SemiBold)
             Text(pod?.let(::podStatus) ?: "Invitation", style = MaterialTheme.typography.bodySmall)
         }
         if (invite != null) MenuInvitationActions(responseEnabled, respond = respond)

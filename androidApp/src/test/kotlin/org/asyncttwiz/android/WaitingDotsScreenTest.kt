@@ -20,6 +20,7 @@ import org.robolectric.annotation.GraphicsMode
 import java.lang.reflect.Proxy
 import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertTrue
 
 /**
  * The "Waiting for you" dots (owner, 2026-11-22) where they show: every hamburger (the Menu and Games screens', a game's
@@ -62,6 +63,7 @@ class WaitingDotsScreenTest {
     private val pick = pod("p-pick", "Cube night", PodPhase.DRAFTING, PodAttention.YOUR_PICK, 1)
     private val build = pod("p-build", "Sealed league", PodPhase.DRAFTED, PodAttention.BUILD, 2)
     private val build2 = pod("p-build2", "Rochester Friday", PodPhase.DRAFTED, PodAttention.BUILD, 3)
+    private val podInvitation = PodInvitation("p-invited", "Friday sealed", morgan, "2026-11-22T05:00:00Z", DraftMode.SEALED)
 
     private fun shot(name: String, caption: String) = captureShot("$SCREENSHOTS/waiting-dots/$name.png", caption)
     private fun settle() { compose.mainClock.advanceTimeBy(500); compose.waitForIdle() }
@@ -77,7 +79,7 @@ class WaitingDotsScreenTest {
     @Test fun theMenuScreenShowsEveryColour() {
         fixtures.lobby.seed(LobbyState(loaded = true, games = listOf(yourMove, theirMove), invitations = listOf(invitation, heldChallenge),
             connectedGames = setOf("g-move", "g-wait", "g-invite", "g-held")))
-        pods.seed(PodState(loaded = true, pods = listOf(pick, build)))
+        pods.seed(PodState(loaded = true, pods = listOf(pick, build), invitations = listOf(podInvitation)))
         fixtures.auth.seed(AuthState(restoring = false, account = alex))
         compose.setContent { ScreenTheme { NoRipples { Surface(Modifier.fillMaxSize(), color = ScreenBackground) {
             ShellContent(ShellDestination.MENU, true, {}, {}, null, null, null, fixtures.lobby, alex.accountId, pods = pods)
@@ -89,15 +91,17 @@ class WaitingDotsScreenTest {
         dotIn("quick-continue-g-held", null)
         dotIn("quick-pod-p-pick", WaitingDot.Pick)
         dotIn("quick-pod-p-build", WaitingDot.Build)
+        // Owner, 2026-11-25: a pod invitation's row blue too
+        dotIn("quick-pod-p-invited", WaitingDot.Pick)
         shot("menu", "The Menu screen in portrait while Alex's move waits in Azure Spark, Riley's invitation to Ember Road, his pick in " +
-            "Cube night and his deck in Sealed league: the hamburger's dot is red (move first), the game rows' red, Cube night's blue " +
-            "and Sealed league's green; Morgan's challenge held for his deck has none.")
+            "Cube night, his deck in Sealed league and Morgan's invitation to Friday sealed: the hamburger's dot is red (move first), " +
+            "the game rows' red, Cube night's and Friday sealed's blue and Sealed league's green; Morgan's challenge held for his deck has none.")
     }
 
     // LOB-267, LOB-268: at a game's table the hamburger's dot leaves that game out: with only a pick waiting elsewhere it is blue
     @Test fun theTableShowsWhatWaitsElsewhere() {
         val open = LiveTableFixture.game.copy(attentionHolder = alex.accountId)
-        val dot = navigationDot(listOf(open), listOf(pick, build), alex.accountId, openGame = open.id)?.dot
+        val dot = navigationDot(listOf(open), listOf(pick, build), emptyList(), alex.accountId, openGame = open.id)?.dot
         compose.setContent { ScreenTheme { CompositionLocalProvider(LocalNavigationDot provides dot) {
             TableSurface(open, tableBoard(LiveTableFixture.play()), "a", false, Modifier.fillMaxSize(), connected = true,
                 runtime = TableRuntimeHooks(navigation = {}))
@@ -117,7 +121,7 @@ class WaitingDotsScreenTest {
         fixtures.lobby.seed(LobbyState(loaded = true, games = listOf(theirMove), connectedGames = setOf("g-wait")))
         pods.seed(PodState(loaded = true, pods = listOf(build, build2), selected = build.id, detail = sealedLeague(), tab = PodTab.GAMES))
         fixtures.auth.seed(AuthState(restoring = false, account = alex, destination = ShellDestination.PODS, drawerOpen = drawer))
-        val dot = navigationDot(fixtures.lobby.state.games, pods.state.pods, alex.accountId, openPod = build.id)?.dot
+        val dot = navigationDot(fixtures.lobby.state.games, pods.state.pods, emptyList(), alex.accountId, openPod = build.id)?.dot
         compose.setContent { ScreenTheme { NoRipples { Surface(Modifier.fillMaxSize(), color = ScreenBackground) {
             CompositionLocalProvider(LocalNavigationDot provides dot) {
                 Box(Modifier.fillMaxSize()) {
@@ -153,7 +157,8 @@ class WaitingDotsScreenTest {
             "there, Sealed league (open) and Crackling Mist (Riley's move) have none.")
     }
 
-    // LOB-269: the side menu in a game's table: your move in another game and an invitation red, the open game none
+    // LOB-269: the side menu in a game's table: your move in another game and an invitation red, the open game none; LOB-018:
+    // the challenge held for Alex's deck would be the sixth row, so it is not listed
     @Test fun theSideMenuLeavesOutTheOpenGame() {
         fixtures.lobby.seed(LobbyState(loaded = true, games = listOf(yourMove, theirMove), invitations = listOf(invitation, heldChallenge),
             selected = theirMove.id, connectedGames = setOf("g-move", "g-wait", "g-invite", "g-held")))
@@ -162,12 +167,16 @@ class WaitingDotsScreenTest {
         compose.setContent { ScreenTheme { Navigation(fixtures.auth, true, fixtures.lobby, pods) } }
         dotIn("navigation-game-g-move", WaitingDot.Move)
         dotIn("navigation-game-g-invite", WaitingDot.Move)
-        dotIn("navigation-game-g-held", null)
+        compose.onNodeWithTag("navigation-game-g-held").assertDoesNotExist()
         dotIn("navigation-pod-p-pick", WaitingDot.Pick)
         dotIn("navigation-pod-p-build", WaitingDot.Build)
         // Your move in the game you are looking at gives its row none
         compose.runOnIdle { fixtures.lobby.seed(fixtures.lobby.state.copy(selected = yourMove.id)) }
         dotIn("navigation-game-g-move", null)
+        // LOB-018: it keeps its place, first of the list
+        compose.onNodeWithTag("navigation-game-g-move").assertIsSelected()
+        assertTrue(compose.onNodeWithTag("navigation-game-g-move").getUnclippedBoundsInRoot().bottom <=
+            compose.onNodeWithTag("navigation-game-g-invite").getUnclippedBoundsInRoot().top)
     }
 
     // LOB-268: a pod still in setup leaves itself out too: its hamburger blue for the pick in Cube night
@@ -177,7 +186,7 @@ class WaitingDotsScreenTest {
             DraftSupply(135, 540), listOf(PodMember(alex), PodMember(riley)), emptyList(), updatedAt = "2026-11-22T04:00:00Z")
         fixtures.lobby.seed(LobbyState(loaded = true, games = listOf(theirMove), connectedGames = setOf("g-wait")))
         pods.seed(PodState(loaded = true, pods = listOf(setup, pick), selected = setup.id, detail = detail))
-        val dot = navigationDot(fixtures.lobby.state.games, pods.state.pods, alex.accountId, openPod = setup.id)?.dot
+        val dot = navigationDot(fixtures.lobby.state.games, pods.state.pods, emptyList(), alex.accountId, openPod = setup.id)?.dot
         compose.setContent { ScreenTheme { NoRipples { Surface(Modifier.fillMaxSize(), color = ScreenBackground) {
             CompositionLocalProvider(LocalNavigationDot provides dot) { PodsDestination(pods, alex.accountId, {}, fixtures.lobby, {}, mainMenu = {}) }
         } } } }

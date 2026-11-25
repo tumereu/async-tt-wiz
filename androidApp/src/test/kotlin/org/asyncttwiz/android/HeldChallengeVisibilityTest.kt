@@ -31,17 +31,17 @@ class HeldChallengeVisibilityTest {
         assertEquals("Invitation pending", gameStatus(held.copy(invitationHeld = false), self.accountId))
     }
 
-    // LOB-022
-    @Test fun drawerListsIncomingInvitationsNewestFirstAboveOwnMovesAndSetup() {
+    // LOB-018, LOB-025: the side menu lists the invitation you can answer first, the rest newest first, and a challenge held
+    // for your deck last
+    @Test fun drawerListsTheAnswerableInvitationFirstAndTheHeldChallengeLast() {
         fun game(id: String, hour: Int, inviter: AccountIdentity = self, recipient: AccountIdentity = other,
             state: InvitationState = InvitationState.ACCEPTED) = GameSummary(id, id, "2026-10-20T00:00:00Z", inviter, recipient,
             "round", "invite", state, updatedAt = "2026-10-27T${hour.toString().padStart(2, '0')}:00:00Z")
         val games = listOf(game("game-1", 5), game("game-2", 1), game("outgoing", 3, state = InvitationState.PENDING))
         val invitations = listOf(game("old-invite", 2, other, self, InvitationState.PENDING),
             held.copy(id = "new-held", updatedAt = "2026-10-27T09:00:00Z"))
-        // Setup games come after the sent invitation (own latest move), newest first.
-        assertEquals(listOf("new-held", "old-invite", "outgoing", "game-1", "game-2"),
-            navigationGameRows(games, invitations, self.accountId).map { it.id })
+        assertEquals(listOf("old-invite", "game-1", "outgoing", "game-2", "new-held"),
+            sideMenuRows(games, invitations, emptyList(), emptyList(), self.accountId).map { it.id })
         assertTrue(incomingInvitation(held, self.accountId))
         assertFalse(incomingInvitation(held, other.accountId))
         assertFalse(incomingInvitation(held.copy(lifecycle = GameLifecycle.CANCELLED), self.accountId))
@@ -112,11 +112,12 @@ class HeldChallengeVisibilityTest {
         fixtures.lobby.seed(LobbyState(loaded = true, games = listOf(game), invitations = listOf(held)))
         fixtures.auth.seed(AuthState(restoring = false, account = self, destination = ShellDestination.DECKS, drawerOpen = true))
         compose.setContent { ScreenTheme { Navigation(fixtures.auth, true, fixtures.lobby) } }
+        // LOB-018: the challenge held for your deck comes last
         val rows = compose.onAllNodes(hasTestTagPrefix("navigation-game-"))
-        rows[0].assert(hasTestTag("navigation-game-${held.id}"))
+        rows[0].assert(hasTestTag("navigation-game-${game.id}"))
+        rows[1].assert(hasTestTag("navigation-game-${held.id}"))
             .assert(hasText("Challenged you · submit your deck to accept", substring = true)).assert(hasText("Invitation"))
-        rows[1].assert(hasTestTag("navigation-game-${game.id}"))
-        rows[0].performClick()
+        rows[1].performClick()
         assertEquals(ShellDestination.GAMES, fixtures.auth.state.destination)
         assertFalse(fixtures.auth.state.drawerOpen)
         assertNull(fixtures.lobby.state.selected)

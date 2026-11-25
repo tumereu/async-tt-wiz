@@ -76,6 +76,11 @@ class PileRevealTest : E2e() {
             alice.showsText("${bob.name} exiled 2 cards from their library") && bob.showsText("You exiled 2 cards from your library")
         }
         assertEquals(bob.me, assertNotNull(alice.shown.reveal?.exiled).owner)
+        // HIS-252, STK-230 (owner 2026-11-25): both panels show the Delve's whole text under the title, its exiling sentence highlighted
+        for (phone in listOf(alice, bob)) {
+            assertTrue(phone.shows(hasContentDescription("Ability: ${TestCards.delve.faces.first().rulesText}") and inPanel), "the text: ${phone.screen()}")
+            assertTrue(phone.shows(hasContentDescription("Highlighted: Exile the top two cards of your library.") and inPanel), "the highlight: ${phone.screen()}")
+        }
         val exiled = bob.state.objects.values.filter { it.zone == arcanum.api.Zone.Exile && it.owner == bob.me }
             .map { cardName(bob.state, it.id) }
         assertEquals(listOf("Ember Delve", "Ember Delve"), exiled)

@@ -128,4 +128,27 @@ class PayOnTableTest {
         captureShot("$SCREENSHOTS/questions/pay-on-table.png",
             "Alice cast her Ember Tollkeeper, whose trigger asks \"you may pay {1}\": a slim bar \"Pay {1}\" over the sentence with \"Paid\" beside it and Don't pay, the Mountain Autotap chose outlined in amber on the table with its {R} corner chip, and Pay on the main button.")
     }
+
+    // STK-230, STK-049, STK-142: the slim bar of Ember Tollkeeper's "you may pay {1}" shows the trigger's whole text with what it asks
+    // ("you may pay {1}. If you do, draw a card.") shining as the target bar's phrase picked now does, its trigger condition plain
+    @Test fun aPaymentsQuestionShinesInItsAbilityText() {
+        deck = listOf(Choices.TOLLKEEPER, "Mountain")
+        kit.opening()
+        kit.playLand()
+        val keeper = kit.atw(kit.hand(Choices.TOLLKEEPER).first())
+        render()
+        assertTrue(toolkit.cast.start(keeper), "the Tollkeeper is cast: ${toolkit.error}")
+        kit.playOn("the Tollkeeper's question", rounds = 40) {
+            if (kit.state().stack.isNotEmpty() && kit.state().priority.holder == kit.me && pending() == null) {
+                (kit.alice.device.status as? GameDevice.Status.Stopped)?.let { kit.alice.act(it.assumed) } ?: kit.alice.pass()
+            }
+            pending() is Decision.May
+        }
+        kit.settle()
+        refresh()
+        compose.onNodeWithContentDescription("Choosing now: you may pay {1}. If you do, draw a card.").assertExists()
+        captureShot("$SCREENSHOTS/ability-highlight/pay-bar.png",
+            "Alice cast her Ember Tollkeeper, whose trigger asks \"you may pay {1}\": the slim bar \"Pay {1}\" shows the trigger's whole text " +
+                "with \"you may pay {1}. If you do, draw a card.\" in violet on a softly pulsing light violet and \"When this creature enters,\" plain.")
+    }
 }

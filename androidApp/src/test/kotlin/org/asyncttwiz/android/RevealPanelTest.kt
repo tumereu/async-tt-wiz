@@ -361,6 +361,71 @@ class RevealPanelTest {
                 "reveal panel, \"Alice revealed · Ember Unveiling\", all four cards face up and OK on his main button; her choice among them is hers alone.")
     }
 
+    /** STK-230: the text highlighted in the open panel, or null when nothing is. */
+    private fun highlighted(): String? = compose.onAllNodes(hasContentDescription("Highlighted: ", substring = true))
+        .fetchSemanticsNodes().singleOrNull()?.config?.get(androidx.compose.ui.semantics.SemanticsProperties.ContentDescription)
+        ?.single()?.removePrefix("Highlighted: ")
+
+    /** Bob catching up on [alice]'s events of [g], stopped at her first reveal. */
+    private fun bobCatchesUp(g: EngineGameFixture, alice: EngineGame): EngineGame {
+        val bob = EngineGame(g.game.id, g.b, g.base, g.behind(alice.device.session.pending, alice.device.model))
+        bob.startPlayback()
+        var guard = 0
+        while (bob.shown?.status is GameDevice.Status.Playing && bob.shown?.reveal == null && guard++ < 200) bob.step()
+        assertNotNull(bob.shown?.reveal, "stopped at her reveal")
+        return bob
+    }
+
+    // HIS-252, STK-230, HIS-150: Bob's reveal panel of Alice's Ember Unveiling shows the spell's whole text under its title, the sentence
+    // that revealed the cards shining as the target bar's phrase picked now does
+    @Test fun theRevealPanelShowsItsSourcesTextWithTheRevealHighlighted() {
+        val (g, alice) = aliceChoosesAmong(EngineGameFixture.Choices.UNVEILING)
+        val bob = bobCatchesUp(g, alice)
+        assertNotNull(bob.shown?.reveal?.item, "the Unveiling's Stack item with the reveal")
+        render(bob, g.b)
+        compose.onNodeWithText("Alice revealed · ${EngineGameFixture.Choices.UNVEILING}").assertExists()
+        compose.onNodeWithContentDescription("Ability: ", substring = true).assertExists()
+        assertEquals("Reveal the top four cards of your library.", highlighted())
+        compose.onRoot().captureShot("$SCREENSHOTS/ability-highlight/reveal.png",
+            "Bob catching up on Alice's turn: her Ember Unveiling revealed her top four cards, and the reveal panel shows the Unveiling's " +
+                "whole text under \"Alice revealed · Ember Unveiling\" with \"Reveal the top four cards of your library.\" in violet on a " +
+                "softly pulsing light violet, over the four cards.")
+    }
+
+    // HIS-252, STK-230, HIS-233: the panel of cards exiled from a library shows the Hedge Delve's whole text, its exiling sentence highlighted
+    @Test fun aLibraryExilesPanelShowsItsSourcesTextWithTheExileHighlighted() {
+        val g = EngineGameFixture(aliceCards = listOf(EngineGameFixture.Choices.DELVE, "Mountain"))
+        val alice = EngineGame(g.game.id, g.a, g.base, g.snapshot(otherKept = true)).apply { tick(1_000); keep(); tick(2_000) }
+        assertIs<GameDevice.Acted.Sent>(alice.send(cast(alice, EngineGameFixture.Choices.DELVE)))
+        alice.tick(3_000)
+        render(alice, g.a)
+        compose.onNodeWithText("You exiled 2 cards from your library").assertExists()
+        assertEquals("Exile the top two cards of your library.", highlighted())
+        compose.onRoot().captureShot("$SCREENSHOTS/ability-highlight/library-exile.png",
+            "Alice cast her Hedge Delve: her own panel \"You exiled 2 cards from your library\" shows the Delve's whole text with " +
+                "\"Exile the top two cards of your library.\" highlighted in violet and the sentence after it plain, over the two cards.")
+    }
+
+    // HIS-252, STK-230, HIS-157: the Hedge Recall's whole text is the one sentence that moved the card: shown, nothing highlighted (no part
+    // to tell apart)
+    @Test fun aSourceWhoseWholeTextDidItShowsNothingHighlighted() {
+        val g = EngineGameFixture(aliceCards = listOf(EngineGameFixture.Choices.STUDY, EngineGameFixture.Choices.RECALL))
+        val alice = EngineGame(g.game.id, g.a, g.base, g.snapshot(otherKept = true)).apply { tick(1_000); keep(); tick(2_000) }
+        assertIs<GameDevice.Acted.Sent>(alice.send(cast(alice, EngineGameFixture.Choices.STUDY)))
+        alice.tick(3_000)
+        assertIs<GameDevice.Acted.Sent>(alice.send(cast(alice, EngineGameFixture.Choices.RECALL)))
+        alice.tick(4_000)
+        alice.endTurn()
+        alice.tick(5_000)
+        val bob = bobCatchesUp(g, alice)
+        render(bob, g.b)
+        compose.onNodeWithContentDescription("Ability: Return target card from your graveyard to your hand.").assertExists()
+        assertNull(highlighted())
+        compose.onRoot().captureShot("$SCREENSHOTS/ability-highlight/whole-text-nothing.png",
+            "Bob catching up on Alice's turn: her Hedge Recall returned her Hedge Study to her hand; the panel shows the Recall's text under " +
+                "its title with nothing highlighted, because that one sentence is all of it and there is no part to tell apart.")
+    }
+
     // STK-224, STK-225: Alice's Ember Glimpse looks at her top four cards privately: her choice shows the Ash Pup to reveal and the others
     // dimmed under "Other cards"; Bob, catching up, gets no panel and none of those cards
     @Test fun aPrivateLookThenChooseIsTheChoosersOnePanelAndShowsTheOtherPlayerNothing() {

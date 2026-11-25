@@ -232,6 +232,11 @@ class CombatCostPanelTest {
         render(kit)
         assertTrue(kit.toolkit.flows.paid, "Autotap's payment")
         compose.onNode(hasContentDescription("Total to pay: {2}, Exert"), useUnmergedTree = true).assertExists()
+        // STK-230: the abilities' texts show with nothing highlighted: each is the one ability asking its cost, the cost's words not placed in it
+        compose.onAllNodes(hasContentDescription("Ability: ", substring = true), useUnmergedTree = true).fetchSemanticsNodes()
+            .let { assertTrue(it.isNotEmpty(), "the abilities' texts") }
+        assertTrue(compose.onAllNodes(hasContentDescription("Highlighted: ", substring = true), useUnmergedTree = true).fetchSemanticsNodes().isEmpty(),
+            "nothing highlighted")
         captureShot("$SCREENSHOTS/combat-costs/both.png",
             "Alice's Ember Charger staged against Bob's Ember Bulwark and Chime: the panel holds its exert, paid, and the {2} it must pay, \"Total to pay: {2}, Exert\"; Autotap's two Mountains are outlined on the table.")
         pressPanelMain(kit.toolkit, "Attack")

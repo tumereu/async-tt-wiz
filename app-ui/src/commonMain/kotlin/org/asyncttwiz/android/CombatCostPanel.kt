@@ -190,10 +190,15 @@ private fun AbilityTexts(play: TableBoard, costs: List<CombatCostShown>) {
     for (cost in costs) {
         // STK-181: the ability's whole text, its lines kept, as the choice panels show it
         val text = spellText(cost.text) ?: continue
+        // STK-230 (owner 2026-11-25): nothing highlighted: the text is the one ability asking the cost, and where its cost's words sit
+        // in it isn't known exactly (the parser keeps no place for a cost to attack or block)
+        LaunchedEffect(cost.source, text) {
+            AppLog.info("combat", "Costs panel text of ${cost.source ?: "no card"}'s ${cost.label}: \"${text.take(160)}\", nothing highlighted: " +
+                "the text is the ability asking the cost, its cost's words not placed in it")
+        }
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             cost.source?.let { ChoiceSourceName(combatName(play, it), small = true) }
-            CardText(text, Modifier.semantics { contentDescription = "Ability: $text" }, color = Color(0xff4b5a5f),
-                style = TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
+            AskedText(text, null, "Ability")
         }
     }
 }

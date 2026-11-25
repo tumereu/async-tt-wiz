@@ -205,7 +205,8 @@ fun DockButtons(content: @Composable RowScope.() -> Unit) {
  * many are picked of how many (owner playtest 2026-11-09), beside the title. STK-178 (owner 2026-11-21, E12): [source] names
  * what the choice comes from, between the title and the sentence. */
 @Composable
-fun RowScope.TargetBarTitle(title: String, line: String?, count: String? = null, pieces: List<PickPiece>? = null, source: String? = null) {
+fun RowScope.TargetBarTitle(title: String, line: String?, count: String? = null, pieces: List<PickPiece>? = null, source: String? = null,
+    asked: AskedSpan? = null) {
     Column(Modifier.weight(1f).padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CardText(title, Modifier.weight(1f, fill = false).semantics { heading() }, style = androidx.compose.ui.text.TextStyle(fontSize = 13.sp,
@@ -216,6 +217,9 @@ fun RowScope.TargetBarTitle(title: String, line: String?, count: String? = null,
         if (source != null) ChoiceSourceName(source, small = true)
         // STK-047 (owner 2026-11-11, which pick is which): the whole text, the phrase picked now shining, earlier picks named
         if (!pieces.isNullOrEmpty()) TargetBarLine(pieces.joinToString("") { it.text }, pieces)
+        // STK-230, STK-142 (owner 2026-11-25): the part [asked] about (a payment's "you may pay") shines as the phrase picked now does
+        else if (line != null && asked != null && asked.end <= line.length) TargetBarLine(line, listOf(PickPiece(line.substring(0, asked.start)),
+            PickPiece(asked.of(line), now = true), PickPiece(line.substring(asked.end))).filter { it.text.isNotEmpty() })
         else if (line != null) TargetBarLine(line, null)
     }
 }
@@ -239,8 +243,7 @@ private fun TargetBarLine(line: String, pieces: List<PickPiece>?) {
     val scroll = rememberScrollState()
     val viewer = LocalChoiceFrame.current.viewer
     val now = pieces?.firstOrNull { it.now }?.text
-    val glow = if (now == null) 0f else androidx.compose.animation.core.rememberInfiniteTransition(label = "pick now").animateFloat(.12f, .30f,
-        androidx.compose.animation.core.infiniteRepeatable(tween(1400), androidx.compose.animation.core.RepeatMode.Reverse), label = "pick now glow").value
+    val glow = pickNowGlow(now != null)
     Box((if (cut) Modifier.clickable(onClickLabel = if (whole) "Show less" else "Show the whole sentence") { whole = !whole } else Modifier)
         .heightIn(max = screenHeightDp().dp / 2).verticalScroll(scroll, enabled = whole)) {
         val style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 13.sp)
@@ -249,8 +252,7 @@ private fun TargetBarLine(line: String, pieces: List<PickPiece>?) {
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, onTextLayout = { if (!whole) cut = it.hasVisualOverflow })
         else CardTextStyled(pieces.map { piece ->
             piece.text to when {
-                piece.now -> androidx.compose.ui.text.SpanStyle(color = PickNowViolet, fontWeight = FontWeight.SemiBold,
-                    background = AutomatumViolet.copy(alpha = glow))
+                piece.now -> pickNowStyle(glow)
                 piece.controller != null -> androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Medium,
                     color = if (piece.controller == viewer) OwnTableColor else OpponentTableColor)
                 else -> null
@@ -258,6 +260,38 @@ private fun TargetBarLine(line: String, pieces: List<PickPiece>?) {
         }, textModifier, color = Color(0xff4b5a5f), style = style, maxLines = if (whole) Int.MAX_VALUE else 4,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, onTextLayout = { if (!whole) cut = it.hasVisualOverflow })
         if (now != null) Box(Modifier.size(0.dp).semantics { contentDescription = "Choosing now: $now" })
+    }
+}
+
+/** STK-142: how strongly the phrase picked now glows, softly pulsing while [on]; 0 when not. */
+@Composable
+private fun pickNowGlow(on: Boolean): Float = if (!on) 0f else androidx.compose.animation.core.rememberInfiniteTransition(label = "pick now")
+    .animateFloat(.12f, .30f, androidx.compose.animation.core.infiniteRepeatable(tween(1400), androidx.compose.animation.core.RepeatMode.Reverse),
+        label = "pick now glow").value
+
+/** STK-142: the phrase picked now, violet on a light violet [glow]. */
+private fun pickNowStyle(glow: Float) = androidx.compose.ui.text.SpanStyle(color = PickNowViolet, fontWeight = FontWeight.SemiBold,
+    background = AutomatumViolet.copy(alpha = glow))
+
+/**
+ * STK-230, STK-142 (owner 2026-11-25): a spell's or ability's whole [text] under a panel's title, small and grey, with the part
+ * the panel is about ([asked]: the clause its question asks, the reveal it shows) drawn as the target bar draws the phrase
+ * picked now: violet on a softly pulsing light violet. Its semantics say the text (with [label] before it) and, apart, the part
+ * highlighted ("Highlighted: …").
+ */
+@Composable
+fun AskedText(text: String, asked: AskedSpan?, label: String, modifier: Modifier = Modifier) {
+    val style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp)
+    val textModifier = modifier.semantics { contentDescription = "$label: $text" }
+    if (asked == null || asked.end > text.length) {
+        CardText(text, textModifier, color = Color(0xff4b5a5f), style = style)
+        return
+    }
+    val glow = pickNowGlow(true)
+    Box {
+        CardTextStyled(listOf(text.substring(0, asked.start) to null, asked.of(text) to pickNowStyle(glow), text.substring(asked.end) to null)
+            .filter { it.first.isNotEmpty() }, textModifier, color = Color(0xff4b5a5f), style = style)
+        Box(Modifier.size(0.dp).semantics { contentDescription = "Highlighted: ${asked.of(text)}" })
     }
 }
 

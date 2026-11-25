@@ -51,7 +51,7 @@ still draft, and the pod's members challenge each other to games with their pod 
 - **DRF-011** The Pods screen (main menu: LOB-015) has a New pod button at the top right. (r21)
 - **DRF-012** The Pods screen shows "MY PODS (N)" (N counts your pods) above one list in the shared pod order (DRF-189): pod rows with the compact stack of the other members' avatars (up to two plus "+N"; only yourself when alone), the name and status (a small dot after it while the pod's chat holds messages of other members you haven't read, DRF-237), and pod invitations with Accept and Decline. (r62)
 - **DRF-013** Pod statuses read "Your pick · 2 packs" (just "Your pick" in Rotisserie, Winston, Winchester and Arena), "Build your deck" (once your own draft is done, DRF-119), "Setup", "Drafting" or "Deck submitted" (also while others still draft); "Your pick" rows are highlighted. (r35)
-- **DRF-189** One pod order everywhere (Pods screen, menu panel, side menu), shaped like the game order (LOB-022): pods waiting for your pick or build (longest waiting first), then pod invitations to you (newest first), then the rest (newest first). (r35)
+- **DRF-189** One pod order on the Pods screen and the menu panel (the side menu has its own, LOB-018), shaped like the game order (LOB-022): pods waiting for your pick or build (longest waiting first), then pod invitations to you (newest first), then the rest (newest first). (r35)
 
 ## Pod setup
 

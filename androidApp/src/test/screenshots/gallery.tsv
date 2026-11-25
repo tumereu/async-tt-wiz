@@ -395,3 +395,11 @@ number	item	screenshot	catalog	decisions	sequence
 570	Pod setup of a solo draft: the creator alone with two bots, warned that there is no one to play against	draft/setup-solo.png	DRF-296 DRF-301 DRF-035		
 571	Landscape with large hand cards: the battlefield seen under the hand, the hand cards drawn over it, the hand row white only in the bar	battlefield/under-large-hand-landscape.png	TBL-238 TBL-144		
 572	Pile choice for the player who chooses: a face-up pile drawn as its cards, a face-down pile as card backs, each with its count and a Choose button	choice-source/pile-choice.png	STK-229 STK-044	ChooseOption	
+573	Side menu (portrait drawer): one list of five above the buttons, one of each: your move red, a pod invitation blue, a deck to build green, a game without a dot, the challenge you can't accept yet last	side-menu/drawer-mix.png	LOB-018 LOB-269 LOB-267 LOB-025		Side menu list
+574	Side menu: with eight games and pods, only the five most important show	side-menu/drawer-five-of-many.png	LOB-018 LOB-267		Side menu list
+575	Side menu at a game's table: the open game keeps its place first, highlighted, without its dot	side-menu/drawer-open-game.png	LOB-018 LOB-269		Side menu list
+576	Side menu with only two games and pods: two rows	side-menu/drawer-two.png	LOB-018		Side menu list
+577	Side menu of a player with no games or pods: only the buttons	side-menu/drawer-empty.png	LOB-018		Side menu list
+578	Side menu: landscape's permanent side area with the same list	side-menu/landscape.png	LOB-018 WEB-037		Side menu list
+579	Side menu: the desktop's permanent side menu with the same list	side-menu/desktop.png	LOB-018 WEB-037		Side menu list
+580	Menu screen: only a pod invitation waits, the hamburger and its Pods panel row blue	side-menu/menu-pod-invitation.png	LOB-268 LOB-269 LOB-017		Side menu list

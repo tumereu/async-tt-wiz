@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.GameLifecycle
 import org.asyncttwiz.protocol.GameSummary
 import org.asyncttwiz.protocol.PodAttention
+import org.asyncttwiz.protocol.PodInvitation
 import org.asyncttwiz.protocol.PodSummary
 
 /**
@@ -25,7 +26,7 @@ import org.asyncttwiz.protocol.PodSummary
 sealed class WaitingDot(val rank: Int, val color: Color, val tag: String) {
     /** Your move in a game (TRN-058), an invitation to you, or a pod challenge you can accept now. */
     data object Move : WaitingDot(3, Color(0xffe0393e), "move")
-    /** Your pick in a pod. */
+    /** Your pick in a pod, or an invitation to a pod (owner, 2026-11-25). */
     data object Pick : WaitingDot(2, Color(0xff2f7fe0), "pick")
     /** Your deck to build in a pod (DRF-013's "Build your deck"). */
     data object Build : WaitingDot(1, Color(0xff2f9e52), "build")
@@ -46,22 +47,27 @@ fun podWaitingDot(pod: PodSummary): WaitingDot? = when (pod.attention) {
     PodAttention.NONE -> null
 }
 
+/** LOB-267 (owner, 2026-11-25): an invitation to a pod you are not in yet waits for you in blue, as a pick. */
+val podInvitationWaitingDot: WaitingDot = WaitingDot.Pick
+
 /** The hamburger's dot and what lights it ([why]: the game or pod, for the log). */
 data class NavigationDot(val dot: WaitingDot, val why: String)
 
 /**
  * LOB-268: the hamburger's one dot, in the highest colour of everything waiting for [accountId] in [games] (the games and
- * invitations) and [pods], except the game ([openGame]) or pod ([openPod]) being looked at and (owner 2026-11-24) every
- * game of the pod open, its challenges and its started games alike, which that pod's own Games list shows; null when nothing
- * waits.
+ * invitations), [pods] and [podInvitations] (to pods you are not in yet; blue, owner 2026-11-25), except the game ([openGame])
+ * or pod ([openPod]) being looked at and (owner 2026-11-24) every game of the pod open, its challenges and its started games
+ * alike, which that pod's own Games list shows; null when nothing waits.
  */
-fun navigationDot(games: List<GameSummary>, pods: List<PodSummary>, accountId: String, openGame: String? = null,
-    openPod: String? = null): NavigationDot? {
+fun navigationDot(games: List<GameSummary>, pods: List<PodSummary>, podInvitations: List<PodInvitation>, accountId: String,
+    openGame: String? = null, openPod: String? = null): NavigationDot? {
     val waiting = games.distinctBy { it.id }.filter { it.id != openGame && (openPod == null || it.podId != openPod) }.mapNotNull { game ->
         gameWaitingDot(game, accountId)?.let { NavigationDot(it, "game ${game.id.take(8)} \"${game.gameName}\" (" +
             "${if (game.lifecycle == GameLifecycle.ACTIVE) "your move" else if (game.podId != null) "pod challenge" else "invitation"})") }
     } + pods.distinctBy { it.id }.filter { it.id != openPod }.mapNotNull { pod ->
         podWaitingDot(pod)?.let { NavigationDot(it, "pod ${pod.id.take(8)} \"${pod.name}\" (${podStatus(pod)})") }
+    } + podInvitations.distinctBy { it.podId }.filter { invite -> invite.podId != openPod && pods.none { it.id == invite.podId } }.map { invite ->
+        NavigationDot(podInvitationWaitingDot, "pod ${invite.podId.take(8)} \"${invite.name}\" (invitation from ${invite.creator.username})")
     }
     return waiting.maxByOrNull { it.dot.rank }
 }

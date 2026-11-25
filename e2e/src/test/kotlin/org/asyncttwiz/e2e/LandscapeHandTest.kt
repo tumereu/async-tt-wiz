@@ -72,7 +72,9 @@ class LandscapeHandTest : E2e() {
         sizes.customizeAreas(true)
         sizes.setSize(2.5f, CardArea.HAND)
         try {
-            startGame(deal = { a, _ -> "Mountain" in hand(a) })
+            // At 2.5x her hand row shows its first three cards whole (the rest scroll into view): a Mountain among them (before,
+            // any Mountain: a deal with both further right timed out, nothing to tap in view)
+            startGame(deal = { a, _ -> "Mountain" in hand(a).take(3) })
             bothOpen()
             alice.tap("Keep")
             bob.tap("Keep")

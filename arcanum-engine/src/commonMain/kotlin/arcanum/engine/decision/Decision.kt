@@ -147,7 +147,16 @@ sealed interface Decision {
         val options: List<String>,
         val text: String? = null,
         val naming: Map<String, ObjectId> = emptyMap(),
+        /** For choosing one of two separated piles (options "first" and "second", CR 701.20 Fact or Fiction style): the piles'
+         * cards, so a host can show them; null for other choices. */
+        val piles: Piles? = null,
     ) : Decision
+
+    /** The two piles of a pile choice ([ChooseOption.piles]): [first] answers "first", [second] "second". [secondFaceDown]: the
+     * second pile is face down ("a face-down pile and a face-up pile"): its cards stay hidden from the chooser and every player
+     * but the one who separated them, so a host shows only how many it holds; the first pile is then face up and shown to all. */
+    @Serializable
+    data class Piles(val first: List<ObjectId>, val second: List<ObjectId>, val secondFaceDown: Boolean = false)
 
     /** Choose a colour among [among]. */
     @Serializable @SerialName("color")

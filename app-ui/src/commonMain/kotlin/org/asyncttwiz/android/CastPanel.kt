@@ -529,7 +529,10 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
             }
         }
         is Decision.Modes -> ModesSection(cast, decision)
-        is Decision.ChooseOption -> Section(choiceWhat(decision), choiceHint(decision)) {
+        // STK-229: a pile choice shows both piles
+        is Decision.ChooseOption -> { val piles = decision.piles
+            if (piles != null) PileChoiceSection(cast, flow, play, decision, piles)
+            else Section(choiceWhat(decision), choiceHint(decision)) {
             // 9HBW6Y: what the buttons show (an option's cost drawn in mana symbols, TBL-159), so a report of them explains itself
             LaunchedEffect(decision.id) {
                 AppLog.info("decision", "Option choice ${decision.id.value} shown: ${decision.options.joinToString(" | ") { option ->
@@ -541,7 +544,7 @@ fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, name
                     cast.answer(Answer.Option(option))
                 }
             }
-        }
+        } }
         is Decision.ChooseColor -> Section(choiceWhat(decision), choiceHint(decision)) {
             NumberedOptions(decision.among.map { color -> { cast.answer(Answer.ColorChoice(color)) } })
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

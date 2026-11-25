@@ -69,7 +69,10 @@ class GameLog(gameId: String, private val me: PlayerId) {
             is Decision.ChooseObjects -> "\"${d.text}\" ${d.min}..${d.max} of ${d.options.map { if (d.player == me) "${name(state, it)} ($it)" else "$it" }}"
             is Decision.Targets -> "slot ${d.slot} ${d.min}..${d.max} of ${d.options}"
             is Decision.May -> "\"${d.text}\""
-            is Decision.ChooseOption -> "${d.options}"
+            // STK-229: a pile choice's piles, a face-down one's cards by id only
+            is Decision.ChooseOption -> "${d.options}" + d.piles?.let { piles -> " piles " +
+                "${piles.first.map { if (d.player == me) "${name(state, it)} ($it)" else "$it" }} / " +
+                if (piles.secondFaceDown) "face down ${piles.second}" else "${piles.second.map { if (d.player == me) "${name(state, it)} ($it)" else "$it" }}" }.orEmpty()
             else -> ""
         }
         // D10: the object it asks about (a copy's new targets name the spell or ability it copies, CR 707.10c)

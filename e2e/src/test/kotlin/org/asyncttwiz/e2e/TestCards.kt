@@ -519,6 +519,11 @@ object TestCards {
     val excavation = card("Ember Excavation", "Sorcery", "{0}", "Exile the top three cards of your library. Choose one of them. You may " +
         "play that card this turn.")
 
+    /** STK-229: a free sorcery separating its caster's top three cards into a face-down and a face-up pile, an opponent choosing the pile
+     * that goes to the caster's hand (Curator of Destinies' wording as a sorcery). */
+    val destiny = card("Ember Destiny", "Sorcery", "{0}", "Look at the top three cards of your library and separate them into a face-down " +
+        "pile and a face-up pile. An opponent chooses one of the piles. Put that pile into your hand and the other into your graveyard.")
+
     /** Every test card, by name (the catalog's collector numbers follow this order). */
     val all: List<TestCard> by lazy {
         TestCards::class.java.declaredFields.filter { TestCard::class.java.isAssignableFrom(it.type) }

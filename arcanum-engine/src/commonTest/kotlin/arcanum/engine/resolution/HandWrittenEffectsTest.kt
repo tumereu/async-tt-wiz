@@ -362,11 +362,44 @@ class HandWrittenEffectsTest {
         resolve()
         assertEquals(bob.id, decision<Decision.ChooseObjects>().player)
         bob.chooses("Forest")
+        // The chooser's question carries both piles, both face up here
+        val piles = decision<Decision.ChooseOption>().piles
+        assertEquals(Decision.Piles(listOf(card("Forest")), listOf(card("Island"), card("Swamp")), secondFaceDown = false), piles)
         answer(Answer.Option("second"))
 
         expect {
             alice.hand.names shouldBe listOf("Island", "Swamp")
             alice.graveyard.names shouldBe listOf("Forest", card)
+        }
+    }
+
+    @Test
+    fun separateIntoAFaceDownAndAFaceUpPile() = scenario {
+        /** "Look at the top three cards of your library and separate them into a face-down pile and a face-up pile. Target
+         * opponent chooses one of those piles. Put that pile into your hand and the other into your graveyard." */
+        val card = spell("Test Destiny",
+            Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(3), fromTop = true), Players.You, bind = "looked").step(),
+            Effect.SeparatePiles(Objects.Bound("looked"), separator = Players.You, chooser = Players.Target("opponent"),
+                chosenBind = "kept", otherBind = "rest", faceDownPile = true).step(),
+            Effect.Move(Objects.Bound("kept"), arcanum.api.Destination(Zone.Hand)).step(),
+            Effect.Move(Objects.Bound("rest"), arcanum.api.Destination(Zone.Graveyard)).step(),
+            targets = listOf(TargetSlot("opponent", TargetKind.Players(PlayerFilter.Opponent), Value.Fixed(1), Value.Fixed(1))))
+        alice.hand(card)
+        alice.library("Forest", "Island", "Swamp")
+
+        alice.castsWithoutCosts(card, target = "bob")
+        resolve()
+        assertEquals(alice.id, decision<Decision.ChooseObjects>().player)
+        alice.chooses("Forest")
+        // The opponent chooses between the face-up pile (first) and the face-down one, which the question marks as face down
+        val choice = decision<Decision.ChooseOption>()
+        assertEquals(bob.id, choice.player)
+        assertEquals(Decision.Piles(listOf(card("Forest")), listOf(card("Island"), card("Swamp")), secondFaceDown = true), choice.piles)
+        answer(Answer.Option("first"))
+
+        expect {
+            alice.hand.names shouldBe listOf("Forest")
+            alice.graveyard.names shouldBe listOf("Island", "Swamp", card)
         }
     }
 

@@ -174,7 +174,18 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
             val allowed = status.isJsonPrimitive && status.asJsonPrimitive.isString && status.asString.lowercase() in setOf("legal", "restricted")
             if (bit >= 0 && allowed) mask or (1L shl bit) else mask
         } ?: 0L,
-        related = relatedTokens(json, token), printedText = printedText(json))
+        related = relatedTokens(json, token), printedText = printedText(json), printedFaceName = printedFaceName(json))
+
+    /** LOB-150: MTGJSON's `facePrintedName` where a face of a card of several faces prints another name than its Oracle
+     * face name and MTGJSON gives no `faceFlavorName` for it (Through the Omenpaths' double-faced cards, printed under
+     * Omenpaths names), else empty. Lenient, like [searchTraits]. */
+    private fun printedFaceName(json: JsonObject): String {
+        fun field(key: String) = json.get(key)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString.orEmpty()
+        val face = field("faceName")
+        val printed = field("facePrintedName")
+        if (face.isEmpty() || printed.isEmpty() || field("faceFlavorName").isNotEmpty()) return ""
+        return printed.takeUnless { it.equals(face, ignoreCase = true) || it.length > 256 }.orEmpty()
+    }
 
     /** TBL-209 (owner 2026-11-21, E6: reminders follow what the shown printing prints): MTGJSON's `originalText` where it is the
      * Oracle `text` with reminder text left out or added, and nothing else changed (a retro frame's "Disturb {1}{W}" without its

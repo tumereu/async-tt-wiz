@@ -23,11 +23,14 @@ class SetBoostersTest {
         val play = base.copy(name = "Play")
         val draft = base.copy(name = "Draft")
         val default = base.copy(name = "Default")
-        val booster = linkedMapOf("collector" to base, "default" to default, "draft" to draft, "play" to play)
+        val arena = base.copy(name = "Arena")
+        val booster = linkedMapOf("arena" to arena, "collector" to base, "default" to default, "draft" to draft, "play" to play)
         assertEquals(play, selectSetBoosterRecipe(booster))
         assertEquals(draft, selectSetBoosterRecipe(booster - "play"))
         assertEquals(default, selectSetBoosterRecipe(booster - "play" - "draft"))
-        assertNull(selectSetBoosterRecipe(mapOf("collector" to base)))
+        // A set sold only on Arena (Through the Omenpaths, owner 2026-11-25) follows its Arena Booster
+        assertEquals(arena, selectSetBoosterRecipe(booster - "play" - "draft" - "default"))
+        assertNull(selectSetBoosterRecipe(mapOf("collector" to base, "prerelease" to base)))
         assertNull(selectSetBoosterRecipe(emptyMap()))
     }
 

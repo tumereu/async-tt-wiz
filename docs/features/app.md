@@ -68,7 +68,7 @@ pictures come from Scryfall when first needed and are kept on the phone.
 - **LOB-143** While card records install, content that needs them shows a placeholder with LOB-096's line in its place: a game's table (one opened from a notification), a saved deck's or cube's cards, the Sets tab of a pod's source, pod picks, and the avatar choices.
 - **LOB-110** Card records (the server's card catalog, LOB-091) include rarity, format legalities and colour identity for search (LOB-108). (r35)
 - **LOB-125** Card records (the server's card catalog) include which tokens each card makes and which cards make each token, for token pictures (SYS-072). (r57)
-- **LOB-150** Card records keep, beside a card's Oracle name, the name a printing gives it where it is printed under another one (Secret Lair drops, Universes Within), for each face of a card of several faces too. (r76)
+- **LOB-150** Card records keep, beside a card's Oracle name, the name a printing gives it where it is printed under another one (Secret Lair drops, Universes Within), for each face of a card of several faces too, Through the Omenpaths' double-faced mythics included (their Omenpaths names, owner 2026-11-25). (r76)
 
 ## Card pictures
 

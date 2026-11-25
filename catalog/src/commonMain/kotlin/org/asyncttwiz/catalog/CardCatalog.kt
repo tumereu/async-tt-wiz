@@ -106,7 +106,7 @@ data class CatalogPrintingRecord(
     val printedText: String = "",
 ) : CatalogRecord
 
-/** The booster recipe a draftable set's packs follow (DRF-090: Play, else Draft, else default), with the printings it names. */
+/** The booster recipe a draftable set's packs follow (DRF-090: Play, else Draft, else default, else Arena), with the printings it names. */
 @Serializable @SerialName("recipe")
 data class CatalogRecipeRecord(val set: String, val recipe: SetBoosterRecipe) : CatalogRecord
 

@@ -18,9 +18,12 @@ data class CatalogPrinting(val id: String, val name: String, val set: String, va
  * ids; a token's names of the cards that make it, lower case), which Automatum's token pictures use. [printedText]
  * (TBL-209, owner 2026-11-21): the text the printing prints where it differs from the Oracle text only in reminder text
  * (MTGJSON's `originalText`: a retro frame leaving it out, a core set printing adding it), else empty; the catalog keeps it
- * on the printing, for the rules reminders of what the printing shows. */
+ * on the printing, for the rules reminders of what the printing shows. [printedFaceName] (LOB-150): the name a face of a card
+ * of several faces prints where it is another than the face's Oracle name and MTGJSON gives it only as `facePrintedName`,
+ * without a `faceFlavorName` (Through the Omenpaths' double-faced cards), else empty; the catalog keeps it as the face's
+ * printed name. */
 data class CatalogPrintingTraits(val rarity: String, val identity: Int?, val legal: Long,
-    val related: List<String> = emptyList(), val printedText: String = "")
+    val related: List<String> = emptyList(), val printedText: String = "", val printedFaceName: String = "")
 
 /** Where [MtgJsonCatalog.import] puts what it reads: the app's card records index (test fixtures), or the catalog build. */
 interface MtgJsonCatalogSink {

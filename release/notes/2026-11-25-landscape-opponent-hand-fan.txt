@@ -1,0 +1,1 @@
+3: Fixed: in landscape the other player's hand is again the small fan of card backs with its count, as everywhere else, instead of a row of cards across the top bar.

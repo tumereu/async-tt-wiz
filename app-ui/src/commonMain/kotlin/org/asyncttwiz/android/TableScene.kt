@@ -448,6 +448,16 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 layout = layout.copy(scroll = layout.scroll - stillFan)
             }
         }
+        // ZON-126, ZON-138 (logging rule, owner-reported 2026-11-25): how both hands are drawn, once for each layout the table
+        // takes (the other player's hand as the small fan of backs, yours as a row or a fan), with where each lies
+        val handsShown = scene.items.filter { it.kind == TableItemKind.HAND }.joinToString("; ") { hand ->
+            "${if (hand.owner == accountId) "own" else "other player's"} hand ${if (hand.handFan) "fan" else "row"} at " +
+                "${hand.bounds.x.toInt()},${hand.bounds.y.toInt()} ${hand.bounds.width.toInt()}x${hand.bounds.height.toInt()}"
+        }
+        val layoutKind = if (desktop != null) "desktop" else if (landscape) "landscape" else "portrait"
+        LaunchedEffect(layoutKind, maxWidth, maxHeight) {
+            AppLog.info("table", "Table laid out $layoutKind ${maxWidth.value.toInt()}x${maxHeight.value.toInt()}: $handsShown")
+        }
         // The pictures at the sizes the cards are drawn now (a zoom asks again only past a size step, TABLE_ARTWORK_STEP)
         val artItems = remember(animation, sceneNow) { derivedStateOf {
             frameRevision.intValue

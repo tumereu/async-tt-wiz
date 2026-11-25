@@ -1,0 +1,1 @@
+Rotisserie Picks sorted By rating with two cards of each step (top 10%, next 15%, four of the middle, next 15%, bottom 10%), the chips in the default: gold, pale gold, light grey, grey and dark grey.

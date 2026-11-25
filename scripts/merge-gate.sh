@@ -196,6 +196,22 @@ stage() { # stage <name> <gradle arguments...>
         find "$wt" -path '*/build/kotlin' -type d -prune -not -path '*/node_modules/*' -exec rm -rf {} +
         (cd "$wt" && "$slot" "$@") >"$out" 2>&1
         rc=$?
+    elif [ $rc != 0 ] && grep -q -e 'Timeout waiting to lock artifact cache' -e 'Timeout waiting to lock cache directory' \
+        -e 'Timeout waiting to lock file hash cache' "$out"; then
+        # Another build (a worker's, through a long test run) held Gradle's shared cache lock past Gradle's own wait
+        # (2026-11-25, three times in a row): that says nothing about the branch, so the stage runs again every 2 minutes
+        # while the lock stays taken, up to 30 minutes, its time included.
+        local tries=0 owner
+        while [ $rc != 0 ] && [ $tries -lt 15 ] && grep -q -e 'Timeout waiting to lock artifact cache' \
+            -e 'Timeout waiting to lock cache directory' -e 'Timeout waiting to lock file hash cache' "$out"; do
+            tries=$((tries + 1))
+            owner=$(sed -n 's/^ *Owner PID: \([0-9]*\).*/\1/p' "$out" | head -1)
+            say "[$name] Gradle's shared cache was locked by another build (pid ${owner:-?}) after $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s: running the stage again in 2 minutes (try $tries)"
+            mv "$out" "$out.cache-locked-$tries"
+            sleep 120
+            (cd "$wt" && "$slot" "$@") >"$out" 2>&1
+            rc=$?
+        done
     fi
     local waited; waited=$(sed -n 's/^gradle-slot: waited \([0-9]*\)s.*/\1/p' "$out" | head -1)
     say "[$name] $([ $rc = 0 ] && echo passed || echo "FAILED (exit $rc)") in $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s${waited:+ (${waited}s of it waiting for a build slot)}"

@@ -86,10 +86,12 @@ class LandscapeHandTest : E2e() {
             fun mountain(): Rect? = alice.nodes(hasContentDescription("Mountain, owner ${alice.name}, ", substring = true))
                 .fetchSemanticsNodes().map { it.boundsInRoot }.filter { it.bottom > bar && it.height > 75f }.minByOrNull { it.left }
             fun field() = runCatching { alice.battlefieldBounds() }.getOrNull()
-            // (before, the battlefield stopped 4 dp above the hand cards; the fan stands lower than the row did, ZON-138)
-            waitUntil("Alice's 2.5x hand laid out, her battlefield seen under it") {
+            // Her battlefield is laid out down to her fan's top (its land row's colour going on under the cards to the bar, TBL-238).
+            // (Before, it stopped 4 dp above a row of hand cards standing higher; now the fan stands lower, ZON-138, and with the other
+            // player's hand a small fan in the top bar, ZON-126, the empty rows fit their room instead of reaching under the cards)
+            waitUntil("Alice's 2.5x hand laid out, her battlefield seen down to it") {
                 val card = mountain(); val field = field()
-                card != null && field != null && card.top < bar - 20f && field.bottom > card.top + 5f && field.bottom <= bar + .5f &&
+                card != null && field != null && card.top < bar - 20f && field.bottom > card.top - 8f && field.bottom <= bar + .5f &&
                     alice.settled(this)
             }
             val card = mountain()!!

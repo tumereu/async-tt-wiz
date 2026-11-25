@@ -196,6 +196,15 @@ stage() { # stage <name> <gradle arguments...>
         find "$wt" -path '*/build/kotlin' -type d -prune -not -path '*/node_modules/*' -exec rm -rf {} +
         (cd "$wt" && "$slot" "$@") >"$out" 2>&1
         rc=$?
+    elif [ $rc != 0 ] && grep -q -e 'Timeout waiting to lock artifact cache' -e 'Timeout waiting to lock cache directory' "$out"; then
+        # Another build (a worker's) held Gradle's shared cache lock past Gradle's own wait (2026-11-25, twice): that says
+        # nothing about the branch, so wait two minutes for it to let go and run the stage once more, its time included.
+        local owner; owner=$(sed -n 's/^ *Owner PID: \([0-9]*\).*/\1/p' "$out" | head -1)
+        say "[$name] Gradle's shared cache was locked by another build (pid ${owner:-?}) after $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s: running the stage once more in 2 minutes"
+        mv "$out" "$out.cache-locked"
+        sleep 120
+        (cd "$wt" && "$slot" "$@") >"$out" 2>&1
+        rc=$?
     fi
     local waited; waited=$(sed -n 's/^gradle-slot: waited \([0-9]*\)s.*/\1/p' "$out" | head -1)
     say "[$name] $([ $rc = 0 ] && echo passed || echo "FAILED (exit $rc)") in $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s${waited:+ (${waited}s of it waiting for a build slot)}"

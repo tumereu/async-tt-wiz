@@ -7,12 +7,13 @@ import org.junit.Test
 import kotlin.test.assertTrue
 
 /**
- * Owner gallery review, 2026-11-06 (rule explainers): Alice casts a Cinder Lark (flying, haste) and stages it as an
- * attacker; its copy in the combat band shows the "flying" badge, and holding the badge explains flying in plain words.
+ * Owner decision 2026-11-25 (was: owner gallery review 2026-11-06, rule explainers on the badges): Alice casts a Cinder Lark
+ * (flying, haste) and stages it as an attacker; its copy in the combat band shows the "flying" badge, and holding the badge
+ * inspects the Lark, as holding anywhere on the card does, with no rule explanation popping up.
  */
 class KeywordExplainerTest : E2e() {
-    // TBL-132, CMB-035, CMB-064: holding the flying badge of a staged attacker's copy shows what flying means
-    @Test fun holdingAKeywordBadgeExplainsIt() {
+    // TBL-240, TBL-104, CMB-035, CMB-064: holding the flying badge of a staged attacker's copy inspects the card
+    @Test fun holdingAKeywordBadgeInspectsTheCard() {
         startGame(TestDeck.larks(), deal = { a, _ -> "Mountain" in hand(a) && "Cinder Lark" in hand(a) })
         bothOpen()
         bothKeep(bobAway = false)
@@ -27,10 +28,13 @@ class KeywordExplainerTest : E2e() {
         alice.stageAttacker("Cinder Lark", this)
         waitUntil("the Lark staged with its flying badge") { alice.shows(hasContentDescription("flying")) }
         val flying = RulesGlossary.keywords.getValue("flying")
-        assertTrue(!alice.showsText(flying.text), "no explanation before the hold")
         holding(alice.node(hasContentDescription("flying"))) {
-            assertTrue(alice.shows(hasContentDescription("Rule explanation")) && alice.showsText(flying.text), alice.screen())
+            assertTrue(alice.shows(hasContentDescription("Card inspection content")) &&
+                alice.shows(hasContentDescription("Card image: Cinder Lark")), "the Lark inspected: ${alice.screen()}")
+            assertTrue(!alice.shows(hasContentDescription("Rule explanation")) && !alice.showsText(flying.text), "no explanation popup")
         }
+        assertTrue(!alice.shows(hasContentDescription("Card inspection content")), "closed on release")
+        assertTrue(alice.stepArrow() == "Attack (1)", "the hold changed nothing of the staging")
         assertTrue(!alice.refusalSeen, "no refusal")
     }
 }

@@ -28,7 +28,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ### Draft history ratings review (owner, 2026-11-25; after the landscape fan; needs the bots' rating table)
 
-- Booster and Glimpse draft history (DRF-165, DRF-207) gets 17Lands ratings once your own draft is done (DRF-119), only in a single-set pod whose set has ratings (same table and rule as the draft bots); nowhere before that. A "By rating" chip in the history's header beside "Returning packs only" (DRF-209) sorts each pick's pack best first (keeps ✓ and burns 🔥 stay marked wherever they land), remembered per device. Each rated card shows a small chip centred on its bottom edge with its GIH WR ("58.4%"); unrated cards none. The chip's colour is its rank within the set in five steps (top 10%, next 15%, middle, next 15%, bottom 10%), never green or red (keep/burn colours): gold at the top down to grey; a couple of colour options in the gallery for the owner to choose. Purpose: self-evaluating picks.
+- Every draft history dialog gets 17Lands ratings once your own draft is done (DRF-119), only in a single-set pod whose set has ratings (same table and rule as the draft bots); nowhere before that. Booster and Glimpse's draft history (DRF-165, DRF-207), Arena's draft history (DRF-289) and the other modes' Picks dialog (Winston, Winchester, Grid, Rochester, Rotisserie, DRF-160, DRF-227; only cards shown face up get a chip, card backs none). Each rated card shows a small chip centred on its bottom edge with its GIH WR ("58.4%"); unrated cards none. The chip's colour is its rank within the set in five steps (top 10%, next 15%, middle, next 15%, bottom 10%), never green or red (keep/burn colours): gold at the top down to grey; a couple of colour options in the gallery for the owner to choose. A "By rating" chip in each dialog's header (beside "Returning packs only", DRF-209, where it shows) sorts best first: each pick's offer (keeps ✓ and burns 🔥 stay marked wherever they land), or each opponent's picks; remembered per device. Verify in the code which modes have which dialog (the catalog says DRF-228). Purpose: self-evaluating picks.
 
 ### Earlier
 
@@ -63,7 +63,7 @@ Each owner-reported bug gets an e2e test that fails before the fix.
 
 ## Needs discussion
 
-- Draft history for the other modes (owner, 2026-11-25): Grid, Rochester, Rotisserie, Winston and Winchester have no draft history; discuss a history dialog for them (and with it the ratings review).
+- Own-picks history for the other modes (owner, 2026-11-25): Winston, Winchester, Grid, Rochester and Rotisserie's History icon opens only the opponents' picks (DRF-160), not your own picks with what you were offered as Booster's (DRF-207) and Arena's (DRF-289) do; discuss giving them that.
 - Owner's own review of the Arcanum engine (owner, 2026-11-11): the owner reads the engine code by hand and discusses improvements with Claude, looking for things that slipped in while unreviewed, like the per-creature `Engine.combatCost`. The public API part was discussed on 2026-11-12 and settled in the engine API rework (merged 2026-11-12). Still open: reading the engine's code itself, including its ~107 `!!`. Nothing there is changed before that discussion.
 
 

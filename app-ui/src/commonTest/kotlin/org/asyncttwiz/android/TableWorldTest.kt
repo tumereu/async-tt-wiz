@@ -296,7 +296,8 @@ class TableWorldTest {
             val own = scene.items.single { it.kind == TableItemKind.HAND && it.owner == f.a }
             val other = scene.items.single { it.kind == TableItemKind.HAND && it.owner == f.b }
             assertEquals(minOf(bar, own.bounds.y) - 4f, laid.bottom, .001f)
-            assertEquals(header + 4f + 40f * (size - 1f), laid.y, .001f)
+            // ZON-126: the other player's hand is a small fan in their top bar: the room starts 4 dp under the bar
+            assertEquals(header + 4f, laid.y, .001f)
             assertEquals(TableBounds(0f, laid.y - 4f, 892f, laid.height + 8f), world.clearOfHands)
             assertEquals(world.clearOfHands, scene.boardArea, "the review dim and centre texts stay clear of the hand cards")
             // TBL-121: the opening view centred on the battlefields in that room, as before
@@ -307,15 +308,16 @@ class TableWorldTest {
             assertTrue(scene.worldInput(TablePoint(4f, bar - 4f)) && scene.worldInput(TablePoint(4f, header + 4f)))
             // Only the other player's hand row's part in its bar is the row; your fan's own part is its part in the bar (ZON-138)
             assertEquals(TableBounds(own.bounds.x, bar, own.bounds.width, 412f - bar), own.handBand)
-            assertEquals(TableBounds(other.bounds.x, other.bounds.y, other.bounds.width, header - other.bounds.y), other.handBand)
+            assertTrue(other.handFan && other.handBand == null && other.bounds.bottom <= header, "the other player's small fan in their bar")
             // Battlefield cards are drawn and touched only where no hand card lies over them
             val handCards = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND }
             for (card in scene.items.filter { it.battlefieldCard }) for (part in card.visible) for (hand in handCards)
                 for (cover in hand.visible) assertNull(part.intersection(cover)?.takeIf { it.width > .01f && it.height > .01f },
                     "${card.label} drawn over ${hand.label}")
         }
-        // Here the land rows reach under the hand cards: part of a land shows beside them, below the room the rows lie in
-        val scene = largeHands(3f)
+        // Panned down to the end at 1.2x, the land rows reach under the hand cards: part of a land shows beside them, below the room
+        // the rows lie in (ZON-126: opened, they fit the room now that the other player's hand is a small fan in their bar)
+        val scene = largeHands(3f, largeHands(3f).world!!.clamp(TableCamera(-10000f, -10000f, 1.2f)))
         assertTrue(scene.items.any { card -> card.battlefieldCard && card.visible.any { it.bottom > scene.world!!.viewport.bottom + 4f } })
     }
 

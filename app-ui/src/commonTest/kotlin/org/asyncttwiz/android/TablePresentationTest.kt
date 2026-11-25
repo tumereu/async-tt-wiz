@@ -27,7 +27,7 @@ class TablePresentationTest {
         }
         // TBL-121, TBL-010 (B1, three rows each): larger cards don't fit even at the least zoom: it opens there, centred on
         // the battlefields
-        val large = scene(true, size = 1.25f)
+        val large = scene(true, size = 1.5f)
         assertEquals(TablePresentation.MIN_ZOOM, large.camera.zoom, .001f)
         assertEquals(large.world!!.viewport.center.y, (large.fields.first().gridBounds.y + large.fields.last().gridBounds.bottom) / 2, 1f)
         assertEquals(TableCamera(), scene(false).camera)
@@ -116,7 +116,9 @@ class TablePresentationTest {
                 assertEquals(if (own) TableBounds(10f, bottomBar, dock.width, TableControlsHeight)
                     else TableBounds(48f + 4f + (if (width >= 892f) 128f else 80f) + 4f, 0f, dock.width, TablePresentation.HEADER), dock)
                 if (own) assertTrue(dock.right <= width / 2, "clear of the controls: $dock")
-                else assertTrue(dock.right < scene.items.single { it.id == "b/HAND" }.bounds.x, "before the opponent's hand")
+                // ZON-126: the opponent's hand is a small fan in their row, after their piles
+                else assertTrue(scene.items.single { it.id == "b/EXILE" }.bounds.right < scene.items.single { it.id == "b/HAND" }.bounds.x &&
+                    scene.items.single { it.id == "b/HAND" }.bounds.bottom <= TablePresentation.HEADER, "the opponent's hand after their piles")
                 val life = scene.items.single { it.id == "life/$owner" }
                 assertTrue(life.bounds.width >= 40f && life.bounds.height >= 40f, "${life.bounds}")
                 assertEquals(life.bounds, life.bounds.intersection(dock))
@@ -214,7 +216,9 @@ class TablePresentationTest {
             cards.forEach { c ->
                 // ZON-001, ZON-125: the other player's hand in portrait is a fan of smaller, turned cards: their faces are measured
                 // (ZON-138: your landscape hand's fan keeps its cards' size)
-                val scale = if (c.zone == PlayZone.BATTLEFIELD) zoom else if (c.cardTransform != null && c.handSlot == null) TablePresentation.FAN_CARD else 1f
+                // (ZON-126: the other player's small fan in landscape is of the bar row's piles, at most 32 dp tall)
+                val scale = if (c.zone == PlayZone.BATTLEFIELD) zoom else if (c.cardTransform != null && c.handSlot == null)
+                    TablePresentation.FAN_CARD * (if (landscape) minOf(1f, TablePresentation.Landscape.PILE_HEIGHT / 40f) else 1f) else 1f
                 val face = c.faceTransform()
                 assertEquals(28 * scale, minOf(face.width, face.height), .001f)
                 assertEquals(40 * scale, maxOf(face.width, face.height), .001f)
@@ -365,9 +369,9 @@ class TablePresentationTest {
             val scene = TableFixture.scene(p, landscape)
             for (owner in listOf("a", "b")) {
                 val id = TableFixture.container(owner, PlayZone.HAND)
-                if (!landscape && owner == "b") {
-                    // ZON-001, ZON-125: the other player's hand in portrait is a fan in their row after their piles: every card there, in
-                    // the hand's order
+                if (owner == "b") {
+                    // ZON-001, ZON-125, ZON-126: the other player's hand is a fan in their row after their piles (in landscape in their
+                    // top bar): every card there, in the hand's order
                     val row = scene.viewports.single { it.id == "dock/b" }.bounds
                     val fan = scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == "b" }
                     assertEquals(p.board.containers.single { it.id == id }.cards, fan.map { it.cardId })

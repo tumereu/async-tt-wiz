@@ -95,10 +95,12 @@ class CardAppearanceTest {
                     assertEquals(28f * scale, fan!!.width, .001f, item.id)
                     assertEquals(40f * scale, fan.height, .001f, item.id)
                 } else if (fan != null) {
-                    // ZON-001, ZON-125: the other player's hand in portrait is a fan in their row, its cards the piles' size times FAN_CARD
-                    assertTrue(!landscape && item.owner != f.a, item.id)
-                    assertEquals(28f * scale * TablePresentation.FAN_CARD, fan.width, .001f, item.id)
-                    assertEquals(40f * scale * TablePresentation.FAN_CARD, fan.height, .001f, item.id)
+                    // ZON-001, ZON-125, ZON-126: the other player's hand is a fan in their row (in landscape in their top bar), its cards
+                    // the piles' size (in landscape at most the bar row's) times FAN_CARD
+                    assertTrue(item.owner != f.a, item.id)
+                    val piles = if (landscape) minOf(scale, .8f) else scale
+                    assertEquals(28f * piles * TablePresentation.FAN_CARD, fan.width, .001f, item.id)
+                    assertEquals(40f * piles * TablePresentation.FAN_CARD, fan.height, .001f, item.id)
                 } else if (landscape && item.zone == PlayZone.STACK) {
                     assertTrue(item.bounds.height <= 40f * scale + .001f && item.bounds.height + 24f <= scene.world!!.viewport.height + .001f, item.id)
                     assertEquals(item.bounds.height * .7f, item.bounds.width, .001f, item.id)

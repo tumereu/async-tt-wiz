@@ -421,4 +421,4 @@ number	item	screenshot	catalog	decisions	sequence
 609	Landscape hand fan: a raised card turned away stays raised, popped out over the end it went past (choice)	hand/landscape-fan-raised-turned-away.png	ZON-141		Landscape hand fan
 610	Landscape hand fan: a card castable from the graveyard stays at the right end after the divider while the hand turns (choice: outside the turning part)	hand/landscape-fan-other-zones.png	ZON-138 ZON-079		Landscape hand fan
 611	Clip: turning the landscape hand fan with a flick: it carries on, slows down and rests on a whole card (choice: how far and always on a whole card)	clips/landscape-fan-flick.webp	ZON-139		Landscape hand fan
-612	Landscape hand fan: the other player's hand stays a row of card backs in the top bar while yours is a fan (open question: make it a fan of backs too?)	hand/landscape-fan-opponent-row.png	ZON-126 ZON-138		Landscape hand fan
+612	Landscape: the other player's hand is the small fan of card backs with its count after their piles in the top bar (owner-reported fix), yours the large fan	hand/landscape-fan-opponent-row.png	ZON-126 ZON-001 ZON-138		Landscape hand fan

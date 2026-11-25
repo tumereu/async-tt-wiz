@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material3.*
@@ -38,38 +39,58 @@ fun podOpponentPicks(detail: PodDetail, accountId: String): List<PodOpponentPick
 fun podPicksPrefetchCards(picks: List<PodOpponentPicks>): List<DraftCopy> = picks.flatMap { it.cards }.filterNotNull()
 
 /** The History icon in the pod's header of a Winston, Winchester, Grid, Rochester or Rotisserie pod, where Booster's and
- * Glimpse's is (DRF-165): it opens [PodPicksDialog] (DRF-160). */
+ * Glimpse's is (DRF-165): it opens [PodPicksDialog] (DRF-160), with the card ratings once your own draft is done (DRF-315). */
 @Composable
-fun PodPicksHeaderButton(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>) {
+fun PodPicksHeaderButton(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>, filters: PodCardFilters) {
     var open by remember { mutableStateOf(false) }
     HoldTip("History") {
         IconButton({ open = true }, Modifier.size(48.dp).testTag("pod-picks")) { EntryIcon("History", "history") }
     }
-    if (open) PodPicksDialog(podOpponentPicks(detail, accountId), definitions) { open = false }
+    val ratings = rememberPodHistoryRatings(detail, filters)
+    if (open) PodPicksDialog(podOpponentPicks(detail, accountId), definitions, ratings) { open = false }
+    LaunchedEffect(open, ratings) {
+        if (open) AppLog.info("pods", "Picks of pod ${detail.id} (${detail.settings.mode.name.lowercase()}): " +
+            (ratings?.let { "card ratings shown ($it)" } ?: "no card ratings: ${podHistoryNoRatingsReason(detail) ?: "not read yet"}"))
+    }
 }
 
-/** Each opponent's picks (DRF-160): a chip per opponent, then their cards newest first, unseen ones as backs. */
+/** Each opponent's picks (DRF-160): a chip per opponent, then their cards newest first, unseen ones as backs. With card
+ * [ratings] (DRF-315) each face-up rated card shows its rating, the citation heads the cards (DRF-317) and "By rating" in
+ * the title row sorts them best first (DRF-316). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<String, CardDefinition>, dismiss: () -> Unit) {
+fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<String, CardDefinition>, ratings: PodHistoryRatings? = null,
+    dismiss: () -> Unit) {
     var chosen by remember { mutableStateOf(picks.firstOrNull()?.account?.accountId) }
     val preview = remember { PodLimitedPreview() }
+    val byRatingChoice = rememberPodByRating()
     PodArtPrefetch(remember(picks) { podPicksPrefetchCards(picks) }, definitions, preview.tileSize)
-    ScreenDialog(dismiss, title = "Picks", close = "Close picks") {
+    ScreenDialog(dismiss, title = "Picks", close = "Close picks",
+        titleActions = if (ratings == null) null else {{ PodByRatingChip(byRatingChoice, "Picks") }}) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             picks.forEach { entry -> FilterChip(chosen == entry.account.accountId, { chosen = entry.account.accountId },
                 label = { Text("${entry.account.username} (${entry.cards.size})") },
                 leadingIcon = { Avatar(entry.account, size = 20.dp) }) }
         }
-        val cards = picks.firstOrNull { it.account.accountId == chosen }?.cards.orEmpty()
+        val shown = picks.firstOrNull { it.account.accountId == chosen }?.cards.orEmpty()
+        // DRF-316: best first by rating; card backs and unrated cards after, in their order
+        val cards = podPicksRatingOrder(shown, definitions, ratings?.takeIf { byRatingChoice.value })
         Box(Modifier.fillMaxWidth().heightIn(min = 72.dp, max = 480.dp), contentAlignment = Alignment.TopCenter) {
             if (cards.isEmpty()) Text("No picks yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
             else LazyVerticalGrid(GridCells.Fixed(4), Modifier.fillMaxWidth().testTag("pod-picks-cards"),
                 horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                itemsIndexed(cards, key = { index, _ -> index }) { index, copy ->
+                // DRF-317 (owner, 2026-11-25): 17Lands asks for a citation in sight wherever its numbers show
+                if (ratings != null) item(span = { GridItemSpan(maxLineSpan) }, key = "ratings-citation") { PodRatingsCitation() }
+                itemsIndexed(cards, key = { index, copy -> copy?.id ?: "back-$index" }) { index, copy ->
                     if (copy == null) PodCardBack("pod-picks-back-$index", preview)
-                    else PodLimitedCard(copy, definitions[copy.definition], null, emptyList(), emptyMap(), false,
-                        "pod-picks-${copy.id}", preview) {}
+                    else Box {
+                        PodLimitedCard(copy, definitions[copy.definition], null, emptyList(), emptyMap(), false,
+                            "pod-picks-${copy.id}", preview) {}
+                        // DRF-315: only cards shown face up get a rating; card backs none
+                        ratings?.rating(definitions[copy.definition])?.let { rating ->
+                            PodRatingChip(rating, ratings.step(rating), "pod-picks-${copy.id}-rating", Modifier.align(Alignment.BottomCenter))
+                        }
+                    }
                 }
             }
         }

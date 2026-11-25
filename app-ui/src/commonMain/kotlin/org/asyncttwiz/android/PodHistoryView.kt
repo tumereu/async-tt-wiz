@@ -103,10 +103,19 @@ fun PodHistoryHeaderButton(controller: PodController, detail: PodDetail, self: S
     HoldTip("History") {
         IconButton({ controller.loadHistory(); open = true }, Modifier.size(48.dp).testTag("pod-history")) { EntryIcon("History", "history") }
     }
+    // DRF-315: the pod's card ratings once your own draft is done, in a pod of one set that has them
+    val ratings = rememberPodHistoryRatings(detail, controller.filters)
     if (open) PodHistoryDialog(detail.id, controller.history, controller.historyFailed, definitions, columns.count,
         detail.members.map { it.account }, self, controller::loadHistory,
-        arena = detail.settings.takeIf { it.mode == DraftMode.ARENA }?.let { it to detail.source.kind }) { open = false }
+        arena = detail.settings.takeIf { it.mode == DraftMode.ARENA }?.let { it to detail.source.kind }, ratings = ratings) { open = false }
+    LaunchedEffect(open, ratings) {
+        if (open) AppLog.info("pods", "Draft history of pod ${detail.id} (${detail.settings.mode.name.lowercase()}): " +
+            (ratings?.let { "card ratings shown ($it)" } ?: "no card ratings: ${podHistoryNoRatingsReason(detail) ?: "not read yet"}"))
+    }
 }
+
+/** DRF-316: from this width the draft history's title, "By rating" and "Returning packs only" share one row. */
+private val PodHistoryOneRowWidth = 480.dp
 
 /** DRF-165 (owner, 2026-11-11): the "Returning packs only" chip of pod [pod]'s history, remembered on the device (personal UI). */
 private fun podHistoryReturningKey(pod: String) = "history-returning-$pod"
@@ -126,7 +135,9 @@ fun podHistoryPlayerName(names: Map<String, String>, id: String): String =
 fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, definitions: Map<String, CardDefinition>,
     columns: Int, players: List<AccountIdentity>, self: String, retry: () -> Unit,
     /** DRF-289: an Arena pod's settings and source kind: its picks in one list, no seating ring or returning chip. */
-    arena: Pair<DraftSettings, PodSourceKind>? = null, dismiss: () -> Unit) {
+    arena: Pair<DraftSettings, PodSourceKind>? = null,
+    /** DRF-315: the card ratings to show, null for none (before your own draft is done, or a pod without them). */
+    ratings: PodHistoryRatings? = null, dismiss: () -> Unit) {
     val known = remember(definitions, history) { definitions + history?.definitions.orEmpty().associate { it.digest to it.definition } }
     val preview = remember { PodLimitedPreview() }
     val platform = AppPlatform.current
@@ -138,7 +149,13 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
         if (arena != null) listOf(1 to history?.picks.orEmpty().withIndex().toList()).filter { it.second.isNotEmpty() }
         else podHistoryRounds(history?.picks.orEmpty(), returningOnly)
     }
-    val itemRounds = remember(rounds) { podHistoryItemRounds(rounds) }
+    // DRF-316: best first by rating, remembered on the device; only while ratings show
+    val byRatingChoice = rememberPodByRating()
+    val byRating = ratings?.takeIf { byRatingChoice.value }
+    // DRF-317: the citation is the list's first item, in the first round
+    val itemRounds = remember(rounds, ratings != null) {
+        (if (ratings != null) listOfNotNull(rounds.firstOrNull()?.first) else emptyList()) + podHistoryItemRounds(rounds)
+    }
     // The round at the top of the list; scrolled to its end, the last round (which may never reach the top)
     val shownRound by remember(itemRounds) { derivedStateOf {
         (if (grid.canScrollBackward && !grid.canScrollForward) itemRounds.lastOrNull() else itemRounds.getOrNull(grid.firstVisibleItemIndex))
@@ -152,9 +169,8 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
         ScreenTheme {
             Surface(Modifier.fillMaxSize().testTag("pod-history-dialog"), color = MaterialTheme.colorScheme.surface) {
                 Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Draft history", Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.titleMedium)
-                        if (arena == null) FilterChip(returningOnly, {
+                    val returningChip: @Composable () -> Unit = {
+                        FilterChip(returningOnly, {
                             returningOnly = !returningOnly
                             // Remembered per pod on this device; off is the default, so only an "on" is kept
                             preferences.edit().apply { if (returningOnly) putBoolean(podHistoryReturningKey(pod), true)
@@ -162,7 +178,28 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
                             AppLog.info("pods", "Draft history of pod $pod: returning packs only ${if (returningOnly) "on" else "off"}")
                         }, { Text("Returning packs only") }, Modifier.testTag("pod-history-returning"),
                             leadingIcon = if (returningOnly) {{ Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }} else null)
-                        ScreenIconButton("Close draft history", "close", dismiss)
+                    }
+                    val byRatingChip: @Composable () -> Unit = { PodByRatingChip(byRatingChoice, "Draft history of pod $pod") }
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        // DRF-316: "By rating" beside "Returning packs only"; where both don't fit beside the title, the two
+                        // chips take a row of their own under it, at its end
+                        val chipsBelow = ratings != null && arena == null && maxWidth < PodHistoryOneRowWidth
+                        Column {
+                            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("Draft history", Modifier.weight(1f).padding(start = 8.dp), style = MaterialTheme.typography.titleMedium)
+                                if (!chipsBelow) {
+                                    if (ratings != null) byRatingChip()
+                                    if (ratings != null && arena == null) Spacer(Modifier.width(8.dp))
+                                    if (arena == null) returningChip()
+                                }
+                                ScreenIconButton("Close draft history", "close", dismiss)
+                            }
+                            if (chipsBelow) Row(Modifier.fillMaxWidth().padding(end = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                                byRatingChip()
+                                returningChip()
+                            }
+                        }
                     }
                     // DRF-165, DRF-043: the seating, with the direction of the round at the top of the list
                     if (arena == null && history != null && podHistoryPassedTo(seating, self, shownRound) != null) {
@@ -189,7 +226,7 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
                         returningOnly && history.picks.none { it.returning } -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("No packs have come back to you yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        else -> PodHistoryPicks(rounds, grid, known, columns.coerceAtLeast(1), preview,
+                        else -> PodHistoryPicks(rounds, grid, known, columns.coerceAtLeast(1), preview, ratings, byRating,
                             pickHeader = { pick -> arena?.let { (settings, kind) -> podArenaHistoryHeader(settings, pick.round, kind) } ?: podHistoryHeader(pick) },
                             roundHeader = { round -> if (arena != null) null else podHistoryRoundHeader(round, seating, self, name) })
                     }
@@ -203,12 +240,16 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
 
 @Composable
 private fun PodHistoryPicks(rounds: List<Pair<Int, List<IndexedValue<DraftHistoryPick>>>>, grid: LazyGridState,
-    definitions: Map<String, CardDefinition>, columns: Int, preview: PodLimitedPreview, pickHeader: (DraftHistoryPick) -> String,
-    roundHeader: (Int) -> String?) {
+    definitions: Map<String, CardDefinition>, columns: Int, preview: PodLimitedPreview, ratings: PodHistoryRatings?,
+    byRating: PodHistoryRatings?, pickHeader: (DraftHistoryPick) -> String, roundHeader: (Int) -> String?) {
     // The items, in order, are the ones podHistoryItemRounds counts: the seat ring follows the round at the top
     LazyVerticalGrid(GridCells.Fixed(columns), Modifier.fillMaxSize().testTag("pod-history-picks"), state = grid,
         contentPadding = PaddingValues(bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        // DRF-317 (owner, 2026-11-25): 17Lands asks for a citation in sight wherever its numbers show
+        if (ratings != null) item(span = { GridItemSpan(maxLineSpan) }, key = "ratings-citation") {
+            PodRatingsCitation(Modifier.padding(start = 2.dp, bottom = 2.dp))
+        }
         rounds.forEachIndexed { place, (round, shown) ->
             // DRF-165 (owner, 2026-11-10): a header per round, a strong divider between rounds
             roundHeader(round)?.let { header ->
@@ -228,7 +269,9 @@ private fun PodHistoryPicks(rounds: List<Pair<Int, List<IndexedValue<DraftHistor
                         Text(pickHeader(pick), Modifier.testTag("pod-history-header-$index"), style = MaterialTheme.typography.labelLarge)
                     }
                 }
-                items(podHistoryOrder(pick.cards, definitions), key = { "card-$index-${it.id}" }) { copy ->
+                // DRF-316: best first by rating, the keeps and burns marked wherever they land
+                items(podHistoryRatingOrder(podHistoryOrder(pick.cards, definitions), definitions, byRating),
+                    key = { "card-$index-${it.id}" }) { copy ->
                     // DRF-207 (owner, 2026-11-22): the cards thrown away after the pick (DRF-045, DRF-046) show as burns
                     val mark = when (copy.id) {
                         in pick.kept -> PodPickMark.KEEP
@@ -236,15 +279,16 @@ private fun PodHistoryPicks(rounds: List<Pair<Int, List<IndexedValue<DraftHistor
                         else -> null
                     }
                     PodHistoryCard(copy, definitions[copy.definition], mark, copy.id in pick.librarians, false,
-                        "pod-history-$index-${copy.id}", preview)
+                        "pod-history-$index-${copy.id}", preview, ratings)
                 }
                 if (pick.takenSince.isNotEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }, key = "since-$index") {
                         Text("Taken since you last saw it", Modifier.padding(top = 4.dp).testTag("pod-history-since-$index"),
                             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    items(podHistoryOrder(pick.takenSince, definitions), key = { "since-$index-${it.id}" }) { copy ->
-                        PodHistoryCard(copy, definitions[copy.definition], null, false, true, "pod-history-$index-${copy.id}", preview)
+                    items(podHistoryRatingOrder(podHistoryOrder(pick.takenSince, definitions), definitions, byRating),
+                        key = { "since-$index-${it.id}" }) { copy ->
+                        PodHistoryCard(copy, definitions[copy.definition], null, false, true, "pod-history-$index-${copy.id}", preview, ratings)
                     }
                 }
             }
@@ -255,12 +299,13 @@ private fun PodHistoryPicks(rounds: List<Pair<Int, List<IndexedValue<DraftHistor
 /** One history card: a keep's green border and ✓, a burn's red border and 🔥, a spent Librarian's book; [gone] greys it. */
 @Composable
 private fun PodHistoryCard(copy: DraftCopy, definition: CardDefinition?, mark: PodPickMark?, spent: Boolean, gone: Boolean,
-    tag: String, preview: PodLimitedPreview) {
+    tag: String, preview: PodLimitedPreview, ratings: PodHistoryRatings? = null) {
     val shape = RoundedCornerShape(4.dp)
     val name = definition?.shownName ?: cardDataUnavailable("PodHistoryView", copy.definition)
     val state = when { mark == PodPickMark.KEEP -> "kept"; mark == PodPickMark.BURN -> "burned"; gone -> "taken since"; else -> null }
+    val rating = ratings?.rating(definition)
     Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f).onSizeChanged { preview.tileSize = it }.testTag(tag)
-        .semantics { contentDescription = listOfNotNull(name, state).joinToString(", ") }
+        .semantics { contentDescription = listOfNotNull(name, state, rating?.let { "rated ${podRatingText(it)}" }).joinToString(", ") }
         .clip(shape).background(MaterialTheme.colorScheme.surfaceVariant)) {
         PodLimitedArt(copy, definition, Modifier.fillMaxSize().alpha(if (gone) .4f else 1f).pointerInput(copy) {
             podPickGestures(onTap = {}, onInspect = { preview.hold(copy, it) }, onInspectScroll = { preview.scroll.dispatchRawDelta(it) })
@@ -274,6 +319,8 @@ private fun PodHistoryCard(copy: DraftCopy, definition: CardDefinition?, mark: P
         }
         if (spent) Icon(Icons.Default.MenuBook, "Spent Librarian", Modifier.align(Alignment.TopStart)
             .background(PodPickGreen, RoundedCornerShape(4.dp)).padding(2.dp).size(14.dp), tint = Color.White)
+        // DRF-315: a rated card's GIH WR on its bottom edge, coloured by its step in its set
+        if (rating != null && ratings != null) PodRatingChip(rating, ratings.step(rating), "$tag-rating", Modifier.align(Alignment.BottomCenter))
     }
 }
 

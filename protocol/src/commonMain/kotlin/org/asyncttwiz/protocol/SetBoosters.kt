@@ -62,9 +62,10 @@ data class SetBoosterSheet(
     val totalWeight: Long = cards.values.sum(),
 )
 
-/** The recipe a set's packs follow (DRF-090): Play Booster, else Draft Booster, else default. */
+/** The recipe a set's packs follow (DRF-090): Play Booster, else Draft Booster, else default, else Arena Booster (a set sold
+ * only on Arena, such as Through the Omenpaths). */
 fun selectSetBoosterRecipe(booster: Map<String, SetBoosterRecipe>): SetBoosterRecipe? =
-    listOf("play", "draft", "default").firstNotNullOfOrNull { booster[it] }
+    listOf("play", "draft", "default", "arena").firstNotNullOfOrNull { booster[it] }
 
 @Serializable enum class SetSourceIssue {
     SET_CODE, SET_NAME, CARDS, CARD, DUPLICATE_UUID, DEFINITION_COLORS,

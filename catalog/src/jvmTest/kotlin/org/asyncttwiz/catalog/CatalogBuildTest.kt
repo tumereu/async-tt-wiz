@@ -119,6 +119,43 @@ class CatalogBuildTest {
         assertFalse("flavorName" in CardCatalogFormat.encode(bolt), "left out when empty")
     }
 
+    // LOB-150, TBL-138: a card of several faces whose faces print other names only as MTGJSON's facePrintedName, without a
+    // faceFlavorName (Through the Omenpaths' double-faced mythics, owner 2026-11-25), keeps them as its printed names
+    @Test fun `faces printed under other names only per face keep them as their printed names`() {
+        val omenpaths = CatalogBuilder(lines("supported-sets.txt").map { it.substringBefore(' ') }.toSet(), lines("supported-cards.txt").toSet())
+            .build { TestOmenpaths.allPrintings(fixtures).inputStream() }.catalog
+        val front = omenpaths.printing.getValue(TestOmenpaths.FRONT)
+        val back = omenpaths.printing.getValue(TestOmenpaths.BACK)
+        assertEquals("Veyra, Thread Weaver", front.faceFlavorName)
+        assertEquals("Veyra, Loom Ascendant", back.faceFlavorName)
+        assertEquals("Veyra, Thread Weaver // Veyra, Loom Ascendant", front.flavorName)
+        assertEquals(front.flavorName, back.flavorName)
+        val definition = CatalogCards.definition(omenpaths, front)
+        assertEquals("Lena Marsh // Crimson Wisp", definition.name, "the rules read the Oracle names")
+        assertEquals(listOf("Veyra, Thread Weaver", "Veyra, Loom Ascendant"), definition.faces.map { it.printedName })
+        assertEquals("Veyra, Thread Weaver // Veyra, Loom Ascendant", definition.shownName)
+        assertTrue(DeckValidation.definition(definition))
+        assertEquals("", omenpaths.printing.getValue(TestOmenpaths.LANTERN).flavorName, "a card printed under its own name has none")
+        // A face with a faceFlavorName keeps that one (Morning Hiker), and the other test cards are as before
+        assertEquals("Morning Hiker", omenpaths.printings.single { it.faceFlavorName == "Morning Hiker" }.faceFlavorName)
+        assertEquals(catalog.printings, omenpaths.printings.filter { it.set != "OMN" })
+    }
+
+    // DRF-090 (owner 2026-11-25): a set sold only on Arena (Through the Omenpaths) follows its Arena Booster recipe
+    @Test fun `a set with only an Arena Booster follows it`() {
+        val omenpaths = CatalogBuilder(lines("supported-sets.txt").map { it.substringBefore(' ') }.toSet(), lines("supported-cards.txt").toSet())
+            .build { TestOmenpaths.allPrintings(fixtures).inputStream() }.catalog
+        val recipe = omenpaths.recipe.getValue("OMN")
+        assertEquals("arena", recipe.name)
+        assertEquals(setOf("common", "rareMythic"), recipe.sheets.keys)
+        val source = assertNotNull(CatalogSetSources.build(omenpaths, "OMN"))
+        assertTrue(CatalogSetSources.validate(source.snapshot).isEmpty())
+        val pack = SetBoosters.generate(source.snapshot, 1, RandomV1.encodeSeed(ByteArray(32) { 7 })).single().cards
+        val names = source.definitions.associate { it.digest to it.definition.name }
+        assertEquals(3, pack.size)
+        assertEquals(1, pack.count { names.getValue(it.definition) == "Lena Marsh // Crimson Wisp" }, "its mythic slot: $pack")
+    }
+
     // TBL-209 (owner 2026-11-21, E6: the reminders follow what the shown printing prints): a printing whose printed text (MTGJSON
     // originalText) is its Oracle text without its reminder text keeps it, on its card data and its record; one printed as the
     // Oracle text, or worded otherwise, keeps none

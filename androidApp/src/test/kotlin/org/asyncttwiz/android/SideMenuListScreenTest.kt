@@ -88,6 +88,29 @@ class SideMenuListScreenTest {
                 .assertCountEquals(if (each == dot) 1 else 0)
     }
 
+    /** LOB-269 (owner gallery review 2026-11-25): each of [rows] (tag to its name) has its dot's slot, reserved with or without a dot,
+     * at one x between the avatar column and the name, its dot (if any) inside it. */
+    private fun dotSlotsAligned(rows: Map<String, String>) {
+        fun bounds(matcher: SemanticsMatcher, row: String) =
+            compose.onNode(matcher and hasAnyAncestor(hasTestTag(row)), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val slots = rows.mapValues { (row, _) -> bounds(hasTestTag(WAITING_DOT_SLOT_TAG), row) }
+        val x = slots.values.first().left
+        for ((row, name) in rows) {
+            val slot = slots.getValue(row)
+            assertTrue(kotlin.math.abs(slot.left - x) < 0.5f, "$row's dot slot at ${slot.left}, the first row's at $x")
+            val text = bounds(hasText(name), row)
+            assertTrue(slot.right <= text.left, "$row's dot slot ($slot) before its name ($text)")
+            for (each in listOf(WaitingDot.Move, WaitingDot.Pick, WaitingDot.Build)) {
+                val dot = compose.onAllNodes(hasTestTag("waiting-dot-${each.tag}") and hasAnyAncestor(hasTestTag(row)), useUnmergedTree = true)
+                    .fetchSemanticsNodes().singleOrNull()?.boundsInRoot ?: continue
+                assertTrue(dot.left >= slot.left - 0.5f && dot.right <= slot.right + 0.5f, "$row's dot ($dot) in its slot ($slot)")
+                assertTrue(dot.top >= text.top && dot.bottom <= text.bottom, "$row's dot ($dot) on its name's line ($text)")
+            }
+        }
+    }
+    private val mixNames = mapOf("navigation-game-g-move" to "Azure Spark", "navigation-pod-invitation-p-invited" to "Friday sealed",
+        "navigation-pod-p-build" to "Sealed league", "navigation-game-g-wait" to "Crackling Mist", "navigation-game-g-held" to "Sealed league #2")
+
     private fun seed(games: List<GameSummary>, invitations: List<GameSummary>, podList: List<PodSummary>, podInvitations: List<PodInvitation>,
         destination: ShellDestination = ShellDestination.MENU, selectedGame: String? = null, drawer: Boolean = true) {
         fixtures.lobby.seed(LobbyState(loaded = true, games = games, invitations = invitations, selected = selectedGame,
@@ -113,7 +136,7 @@ class SideMenuListScreenTest {
     private fun seedMix() = seed(listOf(yourMove, theirMove), listOf(heldChallenge), listOf(build), listOf(podInvitation))
 
     // LOB-018, LOB-269, LOB-025: one of each: red (Alex's move), blue (an invitation to a pod), green (his deck to build), no dot
-    // (Morgan's move), and last the challenge he can't answer yet
+    // (Morgan's move), and last the challenge he can't answer yet; every dot before its name at one x, the names lined up
     @Test fun thePortraitDrawerListsEveryKindOfRow() {
         seedMix()
         showDrawer()
@@ -124,10 +147,11 @@ class SideMenuListScreenTest {
         dotIn("navigation-pod-p-build", WaitingDot.Build)
         dotIn("navigation-game-g-wait", null)
         dotIn("navigation-game-g-held", null)
+        dotSlotsAligned(mixNames)
         shot("drawer-mix", "The side menu opened over the Menu screen in portrait, one list above the buttons Menu, Games, Pods, " +
-            "Manage decks, Contacts, Stats and Settings: Azure Spark (Alex's move) red, Morgan's " +
-            "invitation to the pod Friday sealed blue, Sealed league (his deck to build) green, Crackling Mist (Morgan's move) with " +
-            "no dot, and last Morgan's challenge he can't accept before submitting his deck.")
+            "Manage decks, Contacts, Stats and Settings, each row's dot in its own slot between the avatars and the name: Azure Spark " +
+            "(Alex's move) red, Morgan's invitation to the pod Friday sealed blue, Sealed league (his deck to build) green, Crackling " +
+            "Mist (Morgan's move) with an empty slot, and last Morgan's challenge he can't accept before submitting his deck.")
     }
 
     // LOB-018: always five rows: with seven, Cube night (blue) comes in, and the oldest game without a dot and the held challenge
@@ -189,8 +213,13 @@ class SideMenuListScreenTest {
         settle()
         compose.onNodeWithTag("navigation-dot-pick", useUnmergedTree = true).assertExists()
         dotIn("quick-pod-p-invited", WaitingDot.Pick)
+        // LOB-269 (owner 2026-11-25): the panels' rows have the dot's slot before the name too, empty on Crackling Mist's
+        dotIn("quick-continue-g-wait", null)
+        dotSlotsAligned(mapOf("quick-pod-p-invited" to "Friday sealed"))
+        dotSlotsAligned(mapOf("quick-continue-g-wait" to "Crackling Mist"))
         shot("menu-pod-invitation", "The Menu screen in portrait when only Morgan's invitation to the pod Friday sealed waits for Alex: " +
-            "the hamburger's dot is blue, and so is the invitation's row in the Pods panel.")
+            "the hamburger's dot is blue, and so is the invitation's row in the Pods panel, its dot before the name; Crackling Mist's " +
+            "row in the Games panel keeps the dot's place empty.")
     }
 
     // LOB-018, WEB-037: landscape's permanent side area holds the same list
@@ -207,6 +236,8 @@ class SideMenuListScreenTest {
         } } } }
         settle()
         assertEquals("navigation-game-g-move", rowTags().first())
+        // LOB-269 (owner 2026-11-25)
+        dotSlotsAligned(mixNames)
         shot("landscape", "The Menu screen in landscape with the side area always open at its left: the same list (Azure Spark " +
             "red, Friday sealed blue, Sealed league green, Crackling Mist, the held challenge) above the buttons.")
     }
@@ -229,6 +260,8 @@ class SideMenuListScreenTest {
         } } } }
         settle()
         assertEquals(5, rowTags().size)
+        // LOB-269 (owner 2026-11-25)
+        dotSlotsAligned(mixNames)
         shot("desktop", "The desktop layout's Menu screen with its side menu always open at the left: the same list (Azure Spark " +
             "red, Friday sealed blue, Sealed league green, Crackling Mist, the held challenge) above the buttons.")
     }

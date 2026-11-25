@@ -247,16 +247,17 @@ private fun NavigationItem(label: String, icon: String?, selected: Boolean, inde
     }
 }
 
-/** LOB-018: a side-menu row's frame: the open game or pod ([selected]) highlighted, the avatar column [stackWidth] wide. */
+/** LOB-018: a side-menu row's frame: the open game or pod ([selected]) highlighted, the avatar column [stackWidth] wide, then
+ * (LOB-269, owner 2026-11-25) the slot of its waiting dot [dot] before the name and its lines, on every row. */
 @Composable
-private fun NavigationRow(modifier: Modifier, selected: Boolean, stackWidth: androidx.compose.ui.unit.Dp,
+private fun NavigationRow(modifier: Modifier, selected: Boolean, stackWidth: androidx.compose.ui.unit.Dp, dot: WaitingDot?,
     avatars: @Composable () -> Unit, lines: @Composable ColumnScope.() -> Unit) {
     Surface(modifier.fillMaxWidth().heightIn(min = 72.dp).semantics { this.selected = selected }, shape = MaterialTheme.shapes.extraLarge,
         color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
         Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.width(stackWidth)) { avatars() }
-            Column(Modifier.weight(1f), content = lines)
+            AfterDotSlot(dot, content = lines)
             EntryIcon(null, "chevron")
         }
     }
@@ -275,9 +276,9 @@ private fun NavigationGameRow(controller: AuthController, lobby: LobbyController
             // Like the Menu list: an invitation is answered on the Games screen, not opened as a lobby.
             if (incoming) { lobby.back(); controller.navigate(ShellDestination.GAMES) }
             else { controller.navigate(ShellDestination.GAMES); lobby.open(game.id) }
-        }, selectedGame, stackWidth, { Avatar(game.opponent(accountId)) }) {
         // LOB-269: the row's waiting dot, never for the game you are looking at
-        WaitingName(game.gameName, gameWaitingDot(game, accountId).takeUnless { selectedGame })
+        }, selectedGame, stackWidth, gameWaitingDot(game, accountId).takeUnless { selectedGame }, { Avatar(game.opponent(accountId)) }) {
+        RowName(game.gameName)
         // Its own line: beside the chevron the narrow drawer squeezed the name to one letter.
         if (incoming) Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         // LOB-252: an invitation whose creator lends you decks says so
@@ -295,12 +296,12 @@ private fun NavigationPodRow(controller: AuthController, pods: PodController?, p
     accountId: String, stackWidth: androidx.compose.ui.unit.Dp) {
     val selectedPod = controller.state.destination == ShellDestination.PODS && pods?.state?.selected == pod.id
     NavigationRow(Modifier.testTag("navigation-pod-${pod.id}").clickable { pods?.open(pod.id); controller.navigate(ShellDestination.PODS) },
-        selectedPod, stackWidth, {
+        // LOB-269: the row's waiting dot, never for the pod you are looking at
+        selectedPod, stackWidth, podWaitingDot(pod).takeUnless { selectedPod }, {
             AvatarStack(podNavigationAvatars(pod.members, accountId),
                 ring = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.White, width = stackWidth)
         }) {
-        // LOB-269: the row's waiting dot, never for the pod you are looking at
-        WaitingName(pod.name, podWaitingDot(pod).takeUnless { selectedPod })
+        RowName(pod.name)
         Text(podStatus(pod), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             minLines = 2, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
@@ -313,8 +314,8 @@ private fun NavigationPodInvitationRow(controller: AuthController, pods: PodCont
     stackWidth: androidx.compose.ui.unit.Dp) {
     NavigationRow(Modifier.testTag("navigation-pod-invitation-${invitation.podId}").clickable {
         pods?.showList(); controller.navigate(ShellDestination.PODS)
-    }, false, stackWidth, { Avatar(invitation.creator) }) {
-        WaitingName(invitation.name, podInvitationWaitingDot)
+    }, false, stackWidth, podInvitationWaitingDot, { Avatar(invitation.creator) }) {
+        RowName(invitation.name)
         Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Text("${invitation.creator.username} · ${podModeName(invitation.mode)}", style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant, minLines = 2, maxLines = 2,
@@ -396,7 +397,7 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
                                          .gameRowActions(lobby, game, enabled = ready || incoming, desktop = desktopLayout()) {
                                              navigate(ShellDestination.GAMES)
                                              if (!incoming) lobby.open(game.id)
-                                         }, dot = gameWaitingDot(game, accountId), trailing = if (incoming) ({
+                                         }, dot = gameWaitingDot(game, accountId), dotSlot = true, trailing = if (incoming) ({
                                              MenuInvitationActions(game.id in lobby.state.connectedGames && game.id !in lobby.state.pendingGames,
                                                  acceptEnabled = !game.invitationHeld && ready) {
                                                  lobby.respond(game, it)

@@ -24,6 +24,7 @@ pictures come from Scryfall when first needed and are kept on the phone.
 - **LOB-113** Automatum → "Response mode in new games" (Control, Normal or Quick, the default, each with what it means), "Assume resolves in new games" (Never, Normal, When they have no mana, the default for every account, or Always, each with what it means, HIS-096) and "Autotap mana sources" (on by default, STK-024). (r60)
 - **LOB-228** The Automatum settings (LOB-113) are kept on the server for your account (every device shows the same) and given to each new game; each game's own are changed from its quick actions (TRN-059). (r60)
 - **LOB-083** About & account → What's new, Report a problem, Send error reports (LOB-104), the version line "Version <name> (<code>) <type> · commit <hash>" (selectable), and Log out. (r35)
+- **LOB-275** About & account has one credit line above the version line: "Draft bots' card ratings: 17Lands public data (17lands.com), CC BY 4.0" (DRF-312). (owner, 2026-11-25)
 - **LOB-264** Games → "Autoconfirm draft picks", under the Your move sound (and its vibration): a switch, off by default and kept on the device; on, new drafts start with Auto on beside the pick's Confirm (DRF-293). (owner, 2026-11-21)
 - **LOB-263** Test builds only (debug and the personal test build; never a release, on the phone or in the browser): About & account has "Show bot picks" under Send error reports, a switch, off by default and kept on the device, that shows the draft bot's scores and picks on the draft screens (DRF-292).
 
@@ -52,7 +53,7 @@ pictures come from Scryfall when first needed and are kept on the phone.
 
 ## Card catalog and card records
 
-- **SYS-081** The server serves one card catalog, built at release from the pinned MTGJSON build (the repository's catalog pin) and deployed with it; the one before stays beside it. The app's card records come from it (LOB-091).
+- **SYS-081** The server serves one card catalog, built at release from the pinned MTGJSON build and the pinned draft bots' card ratings (DRF-312; the repository's catalog pin) and deployed with it; the one before stays beside it. The app's card records come from it (LOB-091).
 - **SYS-203** Open without sign-in: the card catalog's current version (its checksum, size, MTGJSON build and counts) and the file by its checksum, cached for good.
 - **SYS-082** The card catalog (SYS-081) says which cards and draft sets Automatum supports, worked out when it is built with that release's parser and engine. The server decides set pods by it (DRF-162), and the app shows it (LOB-115, LOB-144, DRF-088, DRF-161).
 - **SYS-204** Automatum supports a card when a printing of it is in a supported set or it is on the list of cards supported one by one (first the owner's Powered Synergy Cube), and Automatum finds nothing in it left to the players; a draft set when every card its packs can hold is supported. A reversible printing (the same card on both sides) counts as the card it shows.

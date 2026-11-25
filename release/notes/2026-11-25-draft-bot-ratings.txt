@@ -1,0 +1,1 @@
+1: Draft bots now pick by card ratings from 17Lands in drafts of one set that has them, and splash a strong card of a third colour; bots that pick without ratings (cubes, mixed sets, sets without ratings) show a warning sign

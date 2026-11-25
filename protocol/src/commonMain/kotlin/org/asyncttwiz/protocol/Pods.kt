@@ -57,6 +57,9 @@ import kotlinx.serialization.SerialName
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val packSets: List<String> = emptyList(),
     /** Arena pods in setup: the cards of each rarity the source holds, for the setup summary (DRF-285). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val rarities: ArenaCounts? = null,
+    /** DRF-312: the pod's bots pick by card ratings (a pod of one set the server's card catalog has ratings for); false
+     * for a cube, a draft of several sets or a set without ratings, where bot seats show a warning (DRF-314). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val botRatings: Boolean = false,
 )
 /** Boards/log of the grids the caller has seen, plus only the caller's pool and pickable grids. */
 @Serializable data class PodGridView(val publicView: GridPublicView, val mine: GridPrivateView)

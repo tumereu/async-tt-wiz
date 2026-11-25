@@ -84,8 +84,9 @@ connected. Replace 8080 in the command if you change `API_PORT`.
 ## 3. Start the stack
 
 Draft pods from sets need the server's card catalog, built from the pinned MTGJSON file
-(`catalog/pin.properties`; put that `AllPrintings.json.gz` at `ATW_ALLPRINTINGS` first). The
-server reads it from `deploy/catalog` (or `CATALOG_HOST_DIR`):
+(`catalog/pin.properties`; put that `AllPrintings.json.gz` at `ATW_ALLPRINTINGS` first) and the pinned
+draft bots' card ratings (at `ATW_RATINGS`, default `~/projects/atw-cache/17lands-ratings.tsv.gz`;
+`scripts/catalog-pin.sh ratings-move` fetches and pins them anew). The server reads it from `deploy/catalog` (or `CATALOG_HOST_DIR`):
 
 ```sh
 scripts/catalog-pin.sh build deploy/catalog

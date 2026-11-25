@@ -10,6 +10,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -387,6 +390,32 @@ fun PodAddBotButton(settings: DraftSettings, enabled: Boolean, add: () -> Unit, 
         }
     }
     if (why != null) HoldTip(why, modifier) { button() } else Box(modifier) { button() }
+}
+
+/**
+ * DRF-314 (owner, 2026-11-25): what holding the warning on a pod's bot seats says, where its bots pick without card
+ * ratings ([PodSource.botRatings] false: a cube, a draft of several sets, or a set without ratings); null where they pick
+ * by them.
+ */
+fun podBotWarning(source: PodSource): String? = when {
+    source.botRatings -> null
+    source.kind == PodSourceKind.CUBE -> "Bots pick less well here: there are no card ratings for cubes."
+    source.packSets.distinct().size > 1 -> "Bots pick less well here: there are no card ratings for drafts of mixed sets."
+    else -> "Bots pick less well here: there are no card ratings for this set."
+}
+
+/** DRF-314: a small amber warning sign at the top right corner of a bot's [size] avatar in the started pod's header;
+ * holding it says [tip]. */
+@Composable
+fun PodBotAvatarWarning(tip: String, size: androidx.compose.ui.unit.Dp, content: @Composable () -> Unit) {
+    HoldTip(tip) {
+        Box(Modifier.size(size).testTag("pod-bot-warning-avatar").semantics { contentDescription = tip }) {
+            content()
+            Icon(androidx.compose.material.icons.Icons.Outlined.WarningAmber, null,
+                Modifier.align(Alignment.TopEnd).size(13.dp).background(Color.White, androidx.compose.foundation.shape.CircleShape)
+                    .padding(1.dp), tint = AutomatumWarning)
+        }
+    }
 }
 
 /** DRF-020: one full-width button showing the pod's mode with a switch icon; it opens a popup list of the modes,

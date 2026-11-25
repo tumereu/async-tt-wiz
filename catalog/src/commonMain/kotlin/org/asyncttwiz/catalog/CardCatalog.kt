@@ -34,7 +34,9 @@ data class CatalogHeader(
 /** A set (DRF-088's set list). [keyrune]: MTGJSON's `keyruneCode`, the Keyrune set symbol the app shows for it (empty
  * when MTGJSON gives none). [draftable]: a kind of set the Sets tab lists (expansion, core, masters, draft
  * innovation). [automatum] (SYS-082): a draftable set Automatum can play every card of its packs; [unsupported] the
- * names of its pack cards it can't, sorted (DRF-161's hold). */
+ * names of its pack cards it can't, sorted (DRF-161's hold). [ratings]: the draft bots' card ratings of the set (DRF-312):
+ * each rated card's GIH WR in Premier Draft (17Lands' public data) in tenths of a percent (573: 57.3 %), by the name of its
+ * card ([CatalogCards.cardName]), sorted; empty for a set without ratings. */
 @Serializable @SerialName("set")
 data class CatalogSetRecord(
     val code: String,
@@ -45,6 +47,7 @@ data class CatalogSetRecord(
     val draftable: Boolean = false,
     val automatum: Boolean = false,
     val unsupported: List<String> = emptyList(),
+    val ratings: Map<String, Int> = emptyMap(),
 ) : CatalogRecord
 
 /**
@@ -128,7 +131,7 @@ class CardCatalog(
 /** Reading and writing catalog lines. */
 object CardCatalogFormat {
     /** The format of [CatalogHeader.format]; a change makes clients download the catalog again (with a new version). */
-    const val FORMAT = 4
+    const val FORMAT = 5
 
     val json = Json {
         classDiscriminator = "t"

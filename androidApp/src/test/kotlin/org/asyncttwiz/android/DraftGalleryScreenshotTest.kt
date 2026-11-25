@@ -401,9 +401,9 @@ class DraftGalleryScreenshotTest {
             "with a green border and ✓, also in the keep tray above Confirm.")
     }
 
-    // DRF-292, LOB-263: with "Show bot picks" on, Alice's ninth Booster pick shows the bot's score on every card and its pick
-    // framed; a tap on the pick's score lists its parts. Her picks so far are white and blue, so the red Dragon pays for its
-    // colour but stays the pick
+    // DRF-292, LOB-263, DRF-313: with "Show bot picks" on, Alice's ninth Booster pick shows the bot's score on every card and its
+    // pick framed; a tap on a score lists its parts. Her picks so far are white and blue, so the red Dragon (two red symbols)
+    // pays the full off-colour penalty, while Hex Grasp, strong with one black symbol, is a splash and ties it, its name first
     @Test fun botPicks() {
         fun card(n: Int, name: String, cost: String, type: String, text: String = "", power: String = "", toughness: String = "") =
             SubmittedDefinition("bot-$n", CardDefinition(name, listOf(DefinitionFace("face", name, typeLine = type, manaCost = cost,
@@ -433,16 +433,17 @@ class DraftGalleryScreenshotTest {
                 PodsDestination(bots, alice.accountId, {}, null, {}, mainMenu = {})
             } } } }
             settle()
-            compose.onNodeWithTag("draft-bot-b0").assertTextEquals("Bot pick 54")
-            compose.onNodeWithTag("draft-bot-b2").assertTextEquals("Bot 47")
-            compose.onNodeWithTag("draft-bot-frame-b0").assertExists()
+            compose.onNodeWithTag("draft-bot-b0").assertTextEquals("Bot 54")
+            compose.onNodeWithTag("draft-bot-b2").assertTextEquals("Bot pick 54")
+            compose.onNodeWithTag("draft-bot-frame-b2").assertExists()
             compose.onNodeWithTag("draft-bot-b0").performClick()
             settle()
             compose.onNodeWithText("Off colour R -9").assertIsDisplayed()
             compose.onNodeWithText("Total 54").assertIsDisplayed()
             shot("bot-picks", "A test build with Show bot picks on: Alice's ninth Booster pick shows the bot's score at the bottom " +
-                "left of every card, and its pick, Skyrend Tyrant, reads \"Bot pick 54\" in purple with a purple frame; a tap on it " +
-                "lists the parts (base, rare, stats, flying, removal, and -9 because her picks so far are white and blue).")
+                "left of every card, and its pick, Hex Grasp, reads \"Bot pick 54\" in purple with a purple frame (a splash of black, " +
+                "tied with Skyrend Tyrant and first by name); a tap on the Tyrant's \"Bot 54\" lists its parts (base, rare, stats, " +
+                "flying, removal, and -9 for red, off her white and blue picks).")
         } finally { bots.close() }
     }
 

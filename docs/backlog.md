@@ -70,6 +70,8 @@ Each owner-reported bug gets an e2e test that fails before the fix.
 
 ## Later (nice to have)
 
+- OM1's bonus sheet (owner, 2026-11-25): OM1 packs use the Arena recipe, whose bonus slot (1 in 24 packs) draws from 40 OMB cards; 14 aren't supported yet (Mindbreak Trap, Opposition Agent, Wedding Ring, Hex, Tangle and others), so under the bonus-sheet rule the whole sheet is left out and the slot becomes a common. Kept out for now; revisit when more sets are supported (support the 14, or drop only unsupported bonus cards).
+
 - Repeating a loop ("infinite" combos; owner 2026-11-14): record a sequence of actions as a macro and repeat it N times, with the engine handling large numbers (mana, life, damage, counters) and many tokens (a counted token pile instead of a million objects). **Don't build until properly specified** (owner: "needs more design").
 
 - Automatic answers (owner wishlist, 2026-11-12): remembered answers to "you may" choices (always yes / always no per ability), perhaps for other repeated choices too, like the remembered trigger orders below.

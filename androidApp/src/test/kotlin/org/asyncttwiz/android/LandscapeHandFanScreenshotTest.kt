@@ -186,14 +186,14 @@ class LandscapeHandFanScreenshotTest {
             "Alice's 2.5x hand turns (+N at its right end), while her Ember Flare castable from her graveyard by flashback stays at the fan's right end after the thin divider, with its Graveyard badge, outside the turning part.")
     }
 
-    // ZON-126, ZON-138 (open question for the owner): the other player's hand stays a row of card backs in the top bar, while
-    // yours is a fan
-    @Test fun theOtherPlayersHandStaysARow() {
+    // ZON-126, ZON-001, ZON-138 (owner-reported 2026-11-25): the other player's hand is the small fan of card backs with its count
+    // after their piles in their top bar, as in every other layout, while yours is the large fan
+    @Test fun theOtherPlayersHandIsASmallFan() {
         val scene = render(8, size = 2.5f)
         val other = scene.items.single { it.kind == TableItemKind.HAND && it.owner == "b" }
-        assertTrue(!other.handFan && scene.hand().handFan)
+        assertTrue(other.handFan && scene.hand().handFan && other.bounds.bottom <= TablePresentation.HEADER)
         captureShot("$SCREENSHOTS/hand/landscape-fan-opponent-row.png",
-            "Landscape table with 2.5x hand cards, both players holding eight cards: Alice's hand is a fan at the bottom, while Bob's stays a row of card backs in the top bar, as before.")
+            "Landscape table with 2.5x hand cards, both players holding eight cards: Bob's hand is the small fan of card backs with its count 8 after his piles in the top bar, Alice's the large fan at the bottom.")
     }
 
     // ZON-139: the clip of turning a large hand with a flick: it carries on, slows down and rests on a whole card

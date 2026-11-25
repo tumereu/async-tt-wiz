@@ -62,4 +62,27 @@ class LandscapeHandFanTest : E2e() {
             assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
         } finally { sizes.setSize(1f, CardArea.HAND); sizes.customizeAreas(false) }
     }
+
+    // ZON-126, ZON-001, WEB-076 (owner-reported 2026-11-25): in landscape the other player's hand is the small fan of card backs every
+    // other layout shows, after their piles in their top bar with its count, not a row of full-size backs across the bar
+    @Config(qualifiers = "w892dp-h412dp-land-mdpi")
+    @Test fun theOtherPlayersHandIsASmallFanInTheTopBar() {
+        startGame()
+        bothOpen()
+        alice.tap("Keep")
+        bob.tap("Keep")
+        waitUntil("Alice's Main 1", along = listOf(bob)) { alice.inOwnMain() }
+        fun backs(): List<Rect> = alice.nodes(hasContentDescription("Covered card, owner ${bob.name}, ", substring = true))
+            .fetchSemanticsNodes().map { it.boundsInRoot }
+        waitUntil("Bob's seven cards on Alice's table") { backs().size == 7 && alice.settled(this) }
+        val cards = backs()
+        // (before, a row of full-size backs across the top bar: only the first few were in view, the rest scrolled away)
+        assertTrue(cards.all { it.width > 0f }, "all seven in view: $cards")
+        val exile = alice.described("${bob.name} exile,", substring = true).fetchSemanticsNode().boundsInRoot
+        assertTrue(cards.all { it.bottom <= 48f && it.height <= 32f }, "small cards inside the top bar: $cards")
+        assertTrue(cards.all { it.left > exile.right }, "after his piles: $cards, exile $exile")
+        assertTrue(cards.maxOf { it.right } - cards.minOf { it.left } < 80f, "fanned together, not spread across the bar: $cards")
+        assertTrue(AppLog.text().lines().any { "Table laid out landscape" in it && "other player's hand fan" in it }, "the layout is logged")
+        assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
+    }
 }

@@ -10,6 +10,10 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
+### Side menu: one list (owner, 2026-11-25)
+
+- The side menu (LOB-018, LOB-019, LOB-021, LOB-269; landscape's and the desktop's permanent side area too) drops its Games and Pods sections. Its nav buttons now include Games and Pods (Menu, Games, Pods, Manage decks, Contacts, Stats, Settings), and above them sits one list of always 5 games and pods (fewer only when you have fewer), most important first, in dot order (LOB-268): red (your move, a game invitation you can answer, a pod challenge you can accept now), then blue (your pick, and pod invitations, which now get a blue dot), then green (build your deck), then the rest by most recent activity, and last game invitations you can't answer yet (pod deck not ready, no dot). Ties within a colour: longest waiting first (LOB-022), games and pods mixed. A pod's games are rows of their own. The game or pod you are looking at stays in the list (still no dot on it). The main menu's panels (LOB-016, LOB-017) stay as they are. e2e covers the flow.
+
 ### Earlier
 
 Playtest and gallery notes (owner, 2026-11-11):

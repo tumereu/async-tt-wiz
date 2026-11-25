@@ -137,7 +137,6 @@ class EngineMotionQueue {
         // HIS-112: the board before the first step stays drawn until the plays shown land ([board])
         if (heldBefore.value == run) return
         val stops = when (stopAt) {
-            org.asyncttwiz.protocol.game.GameDevice.CombatMoment.Attackers -> EngineMotion.attackers(steps[at].board).isNotEmpty()
             org.asyncttwiz.protocol.game.GameDevice.CombatMoment.Damage -> steps[at].damageDealt
             null -> false
         } || stopEntries.isNotEmpty() && org.asyncttwiz.protocol.CombatStackRules.stack(steps[at].board).cards.any { it in stopEntries }

@@ -12,7 +12,7 @@ attackers by tapping or dragging your creatures into a lane, and blockers by tap
 it blocks; each block is an arrow. Costs and choices to attack or block show as chips under the copies and are paid
 when the main button declares. While the defender is away, the attacker may assume their blocks. Before damage both
 players see what it would do; afterwards the band shows what it did, and a creature dealing damage to several may
-need its damage divided. In playback, your view holds on the attackers and on the damage so a combat stays readable.
+need its damage divided. In playback, your view holds on the damage so a combat stays readable.
 
 ## The combat band
 
@@ -130,8 +130,8 @@ need its damage divided. In playback, your view holds on the attackers and on th
 
 ## Combat holds in playback
 
-- **HIS-113** A combat stays readable: whoever's combat it is, live and in catch-up playback, your view holds once when the attackers show and once on the damage (each combat damage step that deals any), each for the "Show plays and combat" time (LOB-082; at 0, Off, no hold). Declaring no attackers holds nothing. (r63)
+- **HIS-113** A combat stays readable: whoever's combat it is, live and in catch-up playback, your view holds on the damage (each combat damage step that deals any) for the "Show plays and combat" time (LOB-082; at 0, Off, no hold). Declaring attackers holds nothing, neither your own attack nor the other player's. (r63; owner, 2026-11-25)
 - **HIS-146** During a combat hold your view waits (HIS-128): the later events are held as at a playback stop and your phone makes none of its own steps until it is done. (r63)
 - **HIS-147** The damage's hold shows the board right after the damage is dealt: damage marked and life changed, what it did on the band and to each creature (CMB-050: a splash, or a skull on each it destroys), the creatures it destroys still on the battlefield; they die once the hold ends. Nothing shows for it but the board itself. (r63)
 - **HIS-148** During a combat hold taps and double taps on the table act as at any other time, and a finger held there pauses it until lifted (HIS-126); no touch ends it early: the main button skips it (TRN-165). (r77)
-- **HIS-149** When one board brings both, the attackers' step holds first (TBL-125). Combat holds and plays shown come in order. A combat hold ends when you enter timeline mode, when it is taken back, or when you went on past it on another device of yours. (r63)
+- **HIS-149** Combat holds and plays shown come in order (TBL-125). A combat hold ends when you enter timeline mode, when it is taken back, or when you went on past it on another device of yours. (r63; owner, 2026-11-25)

@@ -382,7 +382,7 @@ class PlayShowTest {
         fun play(event: String, n: Int) = GameDevice.PlayShow(event, bob, arcanum.engine.state.ObjectId.StackItem("s$n"),
             GameDevice.PlayKind.Triggered, null)
         val a1 = play("e1", 1); val a2 = play("e1", 2); val b1 = play("e2", 3)
-        val hold = GameDevice.CombatHold("e0", GameDevice.CombatMoment.Attackers)
+        val hold = GameDevice.CombatHold("e0", GameDevice.CombatMoment.Damage)
         assertEquals(listOf(a1, a2), playShowGroup(listOf(a1, a2, b1), emptyList()))
         assertEquals(listOf(a1), playShowGroup(listOf(a1, a2, b1), listOf(a2)))
         assertEquals(listOf(b1), playShowGroup(listOf(a1, a2, b1), listOf(a1, a2)))

@@ -202,17 +202,17 @@ fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger:
             stackAnimation.settled(play, moveMultiplier, routes.viewPause, gameWaits)
         }
     } }
-    // HIS-113: a combat holds the view on the attackers and on the damage, each for the plays' time, once the table shows
-    // it (owner playtest 2026-11-09: the damage right after it is dealt, before the creatures it destroys die); a held
+    // HIS-113: a combat holds the view on the damage (owner 2026-11-25: not on the attackers) for the plays' time, once the table
+    // shows it (owner playtest 2026-11-09: the damage right after it is dealt, before the creatures it destroys die); a held
     // finger pauses that time; the main button skips it (TRN-165); timeline mode ends it (EngineAsyncHost)
     val combatHold = shown.combatHold?.takeIf { reviewId == null }
     SideEffect { motion.stopAt = combatHold?.kind }
     val combatHoldMillis by playbackPreferences.showPlaysState()
     if (combatHold != null) LaunchedEffect(combatHold) {
         snapshotFlow { !motion.playing || motion.stoppedAt(combatHold.kind) }.first { it }
-        // Problem report QVERHX: when the hold's time starts (the steps reached the attackers or the damage, or ended)
+        // Problem report QVERHX: when the hold's time starts (the steps reached the damage, or ended)
         AppLog.info("game", "Combat hold ${combatHold.kind::class.simpleName} in ${combatHold.event.take(8)}: ${combatHoldMillis} ms" +
-            (if (motion.playing) " (steps stopped at the ${if (combatHold.kind == GameDevice.CombatMoment.Damage) "damage dealt" else "attackers"})"
+            (if (motion.playing) " (steps stopped at the damage dealt)"
                 else " (steps over, the board as it is)") + if (routes.viewPause.paused) ", paused by a finger or Inspect" else "")
         // WEB-067: the frame times name the hold among what animates while it lasts
         DebugJank.animation("combat hold", true)

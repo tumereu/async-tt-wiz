@@ -403,3 +403,9 @@ number	item	screenshot	catalog	decisions	sequence
 578	Side menu: landscape's permanent side area with the same list	side-menu/landscape.png	LOB-018 WEB-037		Side menu list
 579	Side menu: the desktop's permanent side menu with the same list	side-menu/desktop.png	LOB-018 WEB-037		Side menu list
 580	Menu screen: only a pod invitation waits, the hamburger and its Pods panel row blue	side-menu/menu-pod-invitation.png	LOB-268 LOB-269 LOB-017		Side menu list
+581	Exert toggle off: a staged attacker that may exert as it attacks, its Exert chip white with an empty box	combat-band/exert-off.png	CMB-037		Exert toggle
+582	Exert toggle on: the chip tapped, filled violet with a checked box	combat-band/exert-on.png	CMB-037		Exert toggle
+583	Exert toggle held: the ability's text with what exerting means	combat-band/exert-held.png	CMB-037 TBL-132 TBL-240		Exert toggle
+584	Exert toggle on the other player's table: shown checked, not theirs to change	combat-band/exert-other-player.png	CMB-037 TBL-240		Exert toggle
+585	Attack cost chip unheld: the amber {2} chip on a staged attacker's copy (as 216)	combat-band/attack-cost.png	CMB-044		Attack cost chip
+586	Attack cost chip held: the ability that makes the attacker pay it, with Inspect of the card opened by the same hold	combat-band/attack-cost-held.png	CMB-044 TBL-240		Attack cost chip

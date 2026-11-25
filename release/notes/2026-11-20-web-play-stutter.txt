@@ -1,1 +1,1 @@
-fix: In the browser the table stutters less when plays and combat are shown
+2: In the browser the table stutters less when plays and combat are shown

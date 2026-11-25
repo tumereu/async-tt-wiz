@@ -1,1 +1,1 @@
-add: Cards that came onto the battlefield this turn show their name in blue
+2: Cards that came onto the battlefield this turn show their name in blue

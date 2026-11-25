@@ -1,1 +1,1 @@
-mod: After you cast or activate something in a step, your phone no longer passes the rest of that step for you: you can follow up with another trick, then press to go on.
+2: After you cast or activate something in a step, your phone no longer passes the rest of that step for you: you can follow up with another trick, then press to go on.

@@ -1,1 +1,1 @@
-mod: The list of the other player's cards playable from other zones is titled "Playable from other zones", and each card shows its zone in its top-right corner, as in your own hand row.
+2: The list of the other player's cards playable from other zones is titled "Playable from other zones", and each card shows its zone in its top-right corner, as in your own hand row.

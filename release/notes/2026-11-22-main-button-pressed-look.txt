@@ -1,1 +1,1 @@
-fix: The main button takes its pressed look across its whole width.
+2: The main button takes its pressed look across its whole width.

@@ -1,1 +1,1 @@
-fix: When you choose one of two piles a card separated, you now see both piles: the cards of a face-up pile, and how many cards lie in a face-down one.
+1: When you choose one of two piles of cards the other player separated, you now see both piles: the cards of a face-up pile, and how many cards lie in a face-down one.

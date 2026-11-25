@@ -1,1 +1,1 @@
-mod: Chat messages and the message of an undo request now start each sentence with a capital letter on your phone's keyboard.
+3: Chat messages and the message of an undo request now start each sentence with a capital letter on your phone's keyboard.

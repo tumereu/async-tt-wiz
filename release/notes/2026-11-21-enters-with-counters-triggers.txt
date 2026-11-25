@@ -1,1 +1,1 @@
-fix: Abilities that trigger when counters are put on a permanent (such as Aragorn, Company Leader's) now also trigger when it enters with counters
+2: Abilities that trigger when counters are put on a permanent (such as Aragorn, Company Leader's) now also trigger when it enters with counters

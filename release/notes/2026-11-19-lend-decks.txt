@@ -1,1 +1,1 @@
-add: Lend your decks: when you create a game you can lend the other player your decks (all, or chosen categories), even make it a battle box where both players are dealt a lent deck at random, so a new player can play without a deck of their own.
+2: Lend your decks: when you create a game you can lend the other player your decks (all, or chosen categories), even make it a battle box where both players are dealt a lent deck at random, so a new player can play without a deck of their own.

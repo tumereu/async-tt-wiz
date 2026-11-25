@@ -1,1 +1,1 @@
-add: A copy of a spell or ability shows as it goes on the Stack, reads "Copy of …" and has a small copy marker.
+2: A copy of a spell or ability shows as it goes on the Stack, reads "Copy of …" and has a small copy marker.

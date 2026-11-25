@@ -1,1 +1,1 @@
-add: A new token joins a pile of the same tokens on the battlefield (up to three per pile), and new tokens that are not lands, including copies, always appear in the creature row.
+2: A new token joins a pile of the same tokens on the battlefield (up to three per pile), and new tokens that are not lands, including copies, always appear in the creature row.

@@ -1,1 +1,1 @@
-fix: A copy of a spell on the Stack now shows the copied card with its picture, name and text instead of a blank frame.
+2: A copy of a spell on the Stack now shows the copied card with its picture, name and text instead of a blank frame.

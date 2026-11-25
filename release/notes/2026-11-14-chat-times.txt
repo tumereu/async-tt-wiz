@@ -1,1 +1,1 @@
-add: Chat messages in games and pods show the time they were sent, with a date line between days.
+2: Chat messages in games and pods show the time they were sent, with a date line between days.

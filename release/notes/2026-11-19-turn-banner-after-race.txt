@@ -1,1 +1,1 @@
-fix: When both players act at the same moment and the game corrects your table, the turn banner still shows a new turn.
+2: When both players act at the same moment and the game corrects your table, the turn banner still shows a new turn.

@@ -1,1 +1,1 @@
-mod: More deck and cube list formats can be imported.
+2: More deck and cube list formats can be imported.

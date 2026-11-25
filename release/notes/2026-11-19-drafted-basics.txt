@@ -1,1 +1,1 @@
-mod: A basic land you draft now adds one to your basic land count in Build instead of showing as a card.
+2: A basic land you draft now adds one to your basic land count in Build instead of showing as a card.

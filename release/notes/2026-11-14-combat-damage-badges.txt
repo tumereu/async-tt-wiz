@@ -1,1 +1,1 @@
-fix: The pause after combat damage shows again what each creature took: a red splash with the damage, or a skull on each creature that dies.
+2: The pause after combat damage shows again what each creature took: a red splash with the damage, or a skull on each creature that dies.

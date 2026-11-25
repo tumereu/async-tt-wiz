@@ -1,1 +1,1 @@
-fix: A pod's tab names stay on one line on narrow screens, drawn a little smaller instead of wrapping.
+3: A pod's tab names stay on one line on narrow screens, drawn a little smaller instead of wrapping.

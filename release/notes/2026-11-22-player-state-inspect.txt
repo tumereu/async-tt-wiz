@@ -1,1 +1,1 @@
-mod: Holding a player's round chip (monarch, speed, the Ring and the like) shows their states and emblems together, full screen.
+2: Holding a player's round chip (monarch, speed, the Ring and the like) shows their states and emblems together, full screen.

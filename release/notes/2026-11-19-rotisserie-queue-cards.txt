@@ -1,1 +1,1 @@
-mod: Rotisserie draft: your pick queue shows small cards instead of names; hold one to see the whole card.
+2: Rotisserie draft: your pick queue shows small cards instead of names; hold one to see the whole card.

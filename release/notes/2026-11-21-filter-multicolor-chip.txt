@@ -1,1 +1,1 @@
-mod: The draft filter shows Multicolor as a golden M beside the colour chips.
+2: The draft filter shows Multicolor as a golden M beside the colour chips.

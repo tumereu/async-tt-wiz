@@ -1,1 +1,1 @@
-fix: A draft pick made just as your connection drops now shows at once that it wasn't confirmed, with Retry, instead of looking done for up to ten seconds.
+2: A draft pick made just as your connection drops now shows at once that it wasn't confirmed, with Retry, instead of looking done for up to ten seconds.

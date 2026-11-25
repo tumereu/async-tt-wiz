@@ -1,1 +1,1 @@
-fix: Web: when the browser has no room to keep card records or pictures (or a private window keeps nothing), the app goes on and Settings says the card records download again on your next visit, instead of reporting a crash
+2: Web: when the browser has no room to keep card records or pictures (or a private window keeps nothing), the app goes on and Settings says the card records download again on your next visit, instead of reporting a crash

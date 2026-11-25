@@ -1,1 +1,1 @@
-fix: OK on a card that lets you pick one of the cards you looked at and puts the rest on the bottom in a random order works while the other player hasn't caught up yet
+2: OK on a card that lets you pick one of the cards you looked at and puts the rest on the bottom in a random order works while the other player hasn't caught up yet

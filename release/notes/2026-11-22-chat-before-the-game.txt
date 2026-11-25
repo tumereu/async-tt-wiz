@@ -1,1 +1,1 @@
-add: You can chat with the other player before a game starts: from the chat button in the game's lobby, or by holding the game in your games list.
+2: You can chat with the other player before a game starts: from the chat button in the game's lobby, or by holding the game in your games list.

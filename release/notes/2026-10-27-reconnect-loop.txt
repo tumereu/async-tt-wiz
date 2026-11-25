@@ -1,1 +1,1 @@
-fix: Games no longer keep reconnecting after a finished game returns to the lobby.
+2: Games no longer keep reconnecting after a finished game returns to the lobby.

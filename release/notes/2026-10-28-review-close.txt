@@ -1,1 +1,1 @@
-mod: The one-by-one card review has a close button and closes by itself after the last card, showing a short summary on the Build screen.
+2: The one-by-one card review has a close button and closes by itself after the last card, showing a short summary on the Build screen.

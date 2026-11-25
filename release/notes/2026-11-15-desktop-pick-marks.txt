@@ -1,1 +1,1 @@
-mod: In the browser's desktop layout, the keep and burn marks in a draft pick are larger and easier to see.
+2: In the browser's desktop layout, the keep and burn marks in a draft pick are larger and easier to see.

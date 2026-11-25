@@ -1,1 +1,1 @@
-fix: The desktop table no longer stays paused when you let go of Alt in another window or start typing in the chat, and a card the other player played no longer stays in the middle of the table after you played on in the same game on your phone.
+2: The desktop table no longer stays paused when you let go of Alt in another window or start typing in the chat, and a card the other player played no longer stays in the middle of the table after you played on in the same game on your phone.

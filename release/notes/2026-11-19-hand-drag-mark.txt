@@ -1,1 +1,1 @@
-fix: Dragging a card from your hand no longer tints your hand or draws a line there, as hands are never reordered.
+2: Dragging a card from your hand no longer tints your hand or draws a line there, as hands are never reordered.

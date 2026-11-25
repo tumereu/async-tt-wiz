@@ -1,1 +1,1 @@
-fix: Gandalf's Sanction sends its extra damage to the creature's controller even when damage to the creature is prevented, and damage doublers now double both parts correctly
+2: Gandalf's Sanction sends its extra damage to the creature's controller even when damage to the creature is prevented, and damage doublers now double both parts correctly

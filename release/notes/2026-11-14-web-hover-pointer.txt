@@ -1,1 +1,1 @@
-add: In the web version the mouse pointer turns into a hand over buttons and cards you can click, and into a text cursor over text fields.
+2: In the web version the mouse pointer turns into a hand over buttons and cards you can click, and into a text cursor over text fields.

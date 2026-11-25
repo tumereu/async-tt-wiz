@@ -1,1 +1,1 @@
-mod: Your own face-down cards look dimmed and say Face down when you inspect them.
+2: Your own face-down cards look dimmed and say Face down when you inspect them.

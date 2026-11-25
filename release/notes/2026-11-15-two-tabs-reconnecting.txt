@@ -1,1 +1,1 @@
-fix: With another ATW tab open in the same browser, plays made in the browser no longer get stuck on "Reconnecting": they reach the other player.
+2: With another ATW tab open in the same browser, plays made in the browser no longer get stuck on "Reconnecting": they reach the other player.

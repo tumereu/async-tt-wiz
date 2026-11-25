@@ -1,1 +1,1 @@
-fix: In the web version the table runs more smoothly, especially in Firefox, and card pictures no longer blink away while you zoom.
+2: In the web version the table runs more smoothly, especially in Firefox, and card pictures no longer blink away while you zoom.

@@ -1,1 +1,1 @@
-add: Lands and other permanents that can only make mana right now get a fainter blue glow of their own.
+2: Lands and other permanents that can only make mana right now get a fainter blue glow of their own.

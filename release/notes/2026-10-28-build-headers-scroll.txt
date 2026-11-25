@@ -1,1 +1,1 @@
-mod: In Build, the deck name and the Main, Side and Trash headers now scroll away with the cards instead of staying at the top.
+2: In Build, the deck name and the Main, Side and Trash headers now scroll away with the cards instead of staying at the top.

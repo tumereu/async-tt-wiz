@@ -1,1 +1,1 @@
-fix: The web app tries again when one of its own files fails to load on a shaky connection, instead of stopping at "ATW couldn't load" at once
+2: The web app tries again when one of its own files fails to load on a shaky connection, instead of stopping at "ATW couldn't load" at once

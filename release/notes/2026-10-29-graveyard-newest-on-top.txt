@@ -1,1 +1,1 @@
-fix: The graveyard and exile piles now show the card you put there last on top.
+2: The graveyard and exile piles now show the card you put there last on top.

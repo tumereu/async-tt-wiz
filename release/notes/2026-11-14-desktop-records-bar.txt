@@ -1,1 +1,1 @@
-fix: In the web version on a large screen, the card records download bar no longer pushes the page down or makes it jump when it finishes.
+2: In the web version on a large screen, the card records download bar no longer pushes the page down or makes it jump when it finishes.

@@ -1,1 +1,1 @@
-fix: In drafts you always finish a round's packs before seeing the next round's.
+2: In drafts you always finish a round's packs before seeing the next round's.

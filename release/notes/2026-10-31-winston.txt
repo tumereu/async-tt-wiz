@@ -1,1 +1,1 @@
-add: New pod mode Winston: take a pile or pass it on; piles you have looked at stay face up for you, even days later.
+2: New pod mode Winston: take a pile or pass it on; piles you have looked at stay face up for you, even days later.

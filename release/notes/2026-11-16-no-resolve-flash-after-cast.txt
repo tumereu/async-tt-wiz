@@ -1,1 +1,1 @@
-fix: Right after you cast a spell, the main button no longer flashes "Resolve" for a moment when your phone then passes for you by itself.
+2: Right after you cast a spell, the main button no longer flashes "Resolve" for a moment when your phone then passes for you by itself.

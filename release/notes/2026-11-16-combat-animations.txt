@@ -1,1 +1,1 @@
-fix: Combat animates again: the target chips fade in once, the damage shows just beside each target, and when combat ends everything on the combat area fades out as it closes, for the attacker too.
+2: Combat animates again: the target chips fade in once, the damage shows just beside each target, and when combat ends everything on the combat area fades out as it closes, for the attacker too.

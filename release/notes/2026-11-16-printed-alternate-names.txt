@@ -1,1 +1,1 @@
-add: Cards printed under another name (Secret Lair, Universes Within) show that name, with the real card name in Inspect, and deck lists and search find them by it too.
+2: Cards printed under another name (Secret Lair, Universes Within) show that name, with the real card name in Inspect, and deck lists and search find them by it too.

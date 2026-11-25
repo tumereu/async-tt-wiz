@@ -1,1 +1,1 @@
-fix: When several creatures explore at once, their controller now chooses which goes next, since each reveals what the one before left on top.
+2: When several creatures explore at once, their controller now chooses which goes next, since each reveals what the one before left on top.

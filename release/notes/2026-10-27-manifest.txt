@@ -1,1 +1,1 @@
-add: Manifest the top card of a library.
+2: Manifest the top card of a library.

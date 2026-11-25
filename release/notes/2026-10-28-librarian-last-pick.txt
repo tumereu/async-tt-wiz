@@ -1,1 +1,1 @@
-fix: A Cogwork Librarian spent on a pack's last pick is now removed instead of being passed on to the next player.
+2: A Cogwork Librarian spent on a pack's last pick is now removed instead of being passed on to the next player.

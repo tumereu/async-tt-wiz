@@ -1,1 +1,1 @@
-mod: A player's statuses (monarch, initiative, city's blessing, speed, the Ring, poison, energy, experience and more) show as icons with their level, instead of letters.
+2: A player's statuses (monarch, initiative, city's blessing, speed, the Ring, poison, energy, experience and more) show as icons with their level, instead of letters.

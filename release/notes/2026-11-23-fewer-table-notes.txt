@@ -1,1 +1,1 @@
-mod: Fewer notes at the top of the table: no note when the other player answered differently from what your phone assumed, and none when they undo.
+2: Fewer notes at the top of the table: no note when the other player answered differently from what your phone assumed, and none when they undo.

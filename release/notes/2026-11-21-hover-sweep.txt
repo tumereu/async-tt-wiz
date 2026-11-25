@@ -1,1 +1,1 @@
-add: In the browser with a mouse, buttons, chips and cards light up faintly when the pointer is over them, so you see what can be clicked
+2: In the browser with a mouse, buttons, chips and cards light up faintly when the pointer is over them, so you see what can be clicked

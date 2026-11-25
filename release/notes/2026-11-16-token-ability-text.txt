@@ -1,1 +1,1 @@
-fix: Food, Treasure, Clue and other tokens show what their abilities do again, in their menus, ability buttons and on the Stack.
+2: Food, Treasure, Clue and other tokens show what their abilities do again, in their menus, ability buttons and on the Stack.

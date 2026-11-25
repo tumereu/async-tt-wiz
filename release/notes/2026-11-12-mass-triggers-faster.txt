@@ -1,1 +1,1 @@
-fix: Many triggers at once (a board wipe with death triggers on the battlefield) resolve faster.
+2: Many triggers at once (a board wipe with death triggers on the battlefield) resolve faster.

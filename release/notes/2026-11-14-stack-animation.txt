@@ -1,1 +1,1 @@
-mod: A spell or ability shown in the middle of the table now goes onto the Stack only once, where it lands; its arrows grow to its targets before it resolves, and nothing stays on the Stack longer than its own animation.
+2: A spell or ability shown in the middle of the table now goes onto the Stack only once, where it lands; its arrows grow to its targets before it resolves, and nothing stays on the Stack longer than its own animation.

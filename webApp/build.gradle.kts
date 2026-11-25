@@ -55,7 +55,7 @@ abstract class WebAssets : DefaultTask() {
         val output = outputDirectory.get().asFile
         output.deleteRecursively()
         output.resolve("fonts").mkdirs()
-        val line = Regex("(set|add|mod|fix): (.*)")
+        val line = Regex("(set|[123]): (.*)")
         val entries = notes.get().asFile.listFiles().orEmpty().filter { it.name.endsWith(".txt") }.sortedBy { it.name }.map { file ->
             val note = requireNotNull(line.matchEntire(file.readText().trim())) { "Release note ${file.name} is malformed" }
             mapOf("id" to file.name.removeSuffix(".txt"), "kind" to note.groupValues[1], "text" to note.groupValues[2].trim())

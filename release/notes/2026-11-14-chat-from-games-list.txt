@@ -1,1 +1,1 @@
-add: A game's chat opens from the games list: hold the game to see how many messages wait and open its chat without opening the game.
+2: A game's chat opens from the games list: hold the game to see how many messages wait and open its chat without opening the game.

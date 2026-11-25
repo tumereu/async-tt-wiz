@@ -1,1 +1,1 @@
-add: Battlefield cards show small icons of their card types, and small tags for the creature, artifact and other subtypes that a card you can see counts or cares about.
+2: Battlefield cards show small icons of their card types, and small tags for the creature, artifact and other subtypes that a card you can see counts or cares about.

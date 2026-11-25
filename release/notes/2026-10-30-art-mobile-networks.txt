@@ -1,1 +1,1 @@
-fix: Card pictures load on more mobile networks.
+2: Card pictures load on more mobile networks.

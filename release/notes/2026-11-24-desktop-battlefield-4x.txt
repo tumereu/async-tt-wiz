@@ -1,1 +1,1 @@
-mod: In the desktop browser the battlefield cards are twice as large, and you can zoom out further so both battlefields still fit the window
+2: In the desktop browser the battlefield cards are twice as large, and you can zoom out further so both battlefields still fit the window

@@ -1,1 +1,1 @@
-fix: Tokens on an open table show their pictures as soon as the card records finish downloading, without opening the game again.
+2: Tokens on an open table show their pictures as soon as the card records finish downloading, without opening the game again.

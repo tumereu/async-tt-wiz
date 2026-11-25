@@ -1,1 +1,1 @@
-mod: Dragging life totals and counters changes them faster: each step needs a shorter drag
+2: Dragging life totals and counters changes them faster: each step needs a shorter drag

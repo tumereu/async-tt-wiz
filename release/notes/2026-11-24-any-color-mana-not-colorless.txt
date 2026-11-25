@@ -1,1 +1,1 @@
-fix: Mana you may spend "as though it were mana of any color" no longer pays costs that need colorless mana.
+2: Mana you may spend "as though it were mana of any color" no longer pays costs that need colorless mana.

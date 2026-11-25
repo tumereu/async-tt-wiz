@@ -1,1 +1,1 @@
-fix: Choosing new targets for a copy shows the card it comes from, and a spell cast while something resolves shows its text while you pick its targets.
+2: Choosing new targets for a copy shows the card it comes from, and a spell cast while something resolves shows its text while you pick its targets.

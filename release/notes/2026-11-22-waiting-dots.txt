@@ -1,1 +1,1 @@
-add: Coloured dots on the menu button and in the side menu show what waits for you elsewhere: red for your move or an invitation, blue for your pick in a draft, green for building your deck.
+2: Coloured dots on the menu button and in the side menu show what waits for you elsewhere: red for your move or an invitation, blue for your pick in a draft, green for building your deck.

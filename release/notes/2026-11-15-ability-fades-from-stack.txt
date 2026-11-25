@@ -1,1 +1,1 @@
-mod: An ability or trigger that leaves the Stack now rises a little and fades out instead of flying back to its card.
+2: An ability or trigger that leaves the Stack now rises a little and fades out instead of flying back to its card.

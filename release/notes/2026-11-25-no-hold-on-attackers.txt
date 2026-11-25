@@ -1,1 +1,1 @@
-mod: The table no longer pauses when attackers are declared; it still pauses on the combat damage.
+2: The table no longer pauses when attackers are declared; it still pauses on the combat damage.

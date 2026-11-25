@@ -428,6 +428,28 @@ class TablePresentationTest {
         assertFalse(hidden.cardId in scene.rectangle(hidden.bounds))
     }
 
+    // TBL-018 (owner-reported 2026-11-25): a token lying over a card lets that card show through its cut corners: the card
+    // under it is drawn there (its visible parts keep the corner squares), while a touch in them still reaches the token
+    @Test fun aTokensCutCornersShowTheCardUnderIt() {
+        val screen = TableBounds(0f, 0f, 412f, 820f)
+        val field = TableViewport("field", screen, 412f, 0f)
+        val bounds = TableBounds(100f, 100f, 56f, 80f)
+        fun clipped(token: Boolean) = TablePresentation.clip(TableScene(listOf(
+            TableItem("under", bounds, "", "", zone = PlayZone.BATTLEFIELD, kind = TableItemKind.CARD, viewport = field.id),
+            TableItem("over", bounds, "", "", zone = PlayZone.BATTLEFIELD, kind = TableItemKind.CARD, viewport = field.id, token = token)),
+            emptyList(), listOf(field)), screen.width, screen.height)
+        val card = clipped(token = false)
+        assertTrue(card.items.single { it.id == "under" }.visible.isEmpty(), "a card hides the card under it wholly")
+        val scene = clipped(token = true)
+        val under = scene.items.single { it.id == "under" }
+        val cut = 56f * .22f
+        for (corner in listOf(TablePoint(101f, 101f), TablePoint(155f, 101f), TablePoint(101f, 179f), TablePoint(155f, 179f))) {
+            assertTrue(under.visible.any { it.contains(corner) }, "the card under the token shows at $corner: ${under.visible}")
+            assertEquals("over", scene.hit(corner)?.id, "a touch in the cut corner still reaches the token")
+        }
+        assertTrue(under.visible.all { it.width <= cut + .01f && it.height <= cut + .01f }, "only the corners: ${under.visible}")
+    }
+
     @Test fun animatedDrawnBoundsNotDestinationBoundsOwnTargets() {
         val scene = TableFixture.scene(TableFixture.play(board = 1))
         val old = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }

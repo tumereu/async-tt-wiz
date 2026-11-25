@@ -71,3 +71,5 @@ Each owner-reported bug gets an e2e test that fails before the fix.
 - Remembered trigger orders (owner, 2026-11-06): conveniences like "always resolve these triggers in this order".
 
 - Choose a card's printing (art) in decks and cubes.
+
+- Desktop zoom range (owner, 2026-11-25): if the 4× desktop battlefield cards turn out a problem, allow zooming further in both directions, past today's least 0.325× and largest 2× (WEB-084, TBL-010). Not a blocker.

@@ -10,6 +10,11 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
+Full-verify findings before 0.3.4 (owner, 2026-11-26: test failures go to the backlog, the release goes ahead):
+
+- E2E race in `MainPhaseUndoTest.whenTheOtherPlayerHasSeenItsPassesUndoIsStillFree` (HIS-076, HIS-168): Bob's phone shows Alice's undo (logged), but under load his table plays on to her next pass before the test reads `transition.undone`; the test should keep the undo it saw as it passed (a first try with an `everyRun` hook still failed alone: find why).
+- Older-history stall in timeline mode (HIS-005; found by `TimelineWholeGameTest` under load): a page holding only events the strip doesn't show asked for no further page; the fix (also ask after each board published) is on branch `fix/older-history-stall`, to gate after the release.
+
 ### Earlier
 
 Playtest and gallery notes (owner, 2026-11-11):

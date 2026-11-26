@@ -198,7 +198,9 @@ class ActivityRuntimeIntegrationTest {
         val route = ActivityRoute.parse(account.accountId, owner.binding, "GAME", game.id, identity)!!
         assertEquals(identity, route.identity); assertEquals(owner.binding, route.binding)
         assertNull(ActivityRoute.parse(account.accountId, owner.binding, "GAME", game.id, "covered-card-name"))
-        assertNull(ActivityRoute.parse(account.accountId, owner.binding, "CHAT", game.id, identity))
+        // An unknown kind (LOB-277 made CHAT a real one: a chat notification opens its game)
+        assertNull(ActivityRoute.parse(account.accountId, owner.binding, "BOARD_PREVIEW", game.id, identity))
+        assertEquals(ActivityKind.CHAT, ActivityRoute.parse(account.accountId, owner.binding, "CHAT", game.id, identity)?.kind)
     }
     @Test fun typedActivityTargetAndDelayedRouteCannotRestoreCancelledOrDeletedChatAndDialogs() {
         for (terminal in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED)) {

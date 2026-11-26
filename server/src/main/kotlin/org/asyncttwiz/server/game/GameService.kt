@@ -360,9 +360,11 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             // (I-D57: never while this player still plays on assumptions about them)
             val opponentMoves = (if (seated != null) summary.playId?.let { engineGames.waits(sql, UUID.fromString(it)) } else null)
                 ?.get(opponent.toString()) ?: (summary.attentionHolder == opponent.toString())
+            // LOB-277: a message notifies in its own chat notice; LOB-184: the game's own notices tell " · new message" from now
+            // on (the game's notice itself isn't sent again for it)
             insertedChat?.let { message ->
-                org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
-                    game.id, uuid(message.id), inbox.accountId, yourMove = opponentMoves, newMessage = true)
+                org.asyncttwiz.server.activity.ActivityService.messageArrived(sql, opponent, game.id, uuid(message.id),
+                    inbox.accountId, yourMove = opponentMoves)
             }
             // The other player's earlier Ready is otherwise never answered when this Ready starts the game.
             if (play != null && play.startRequestId == command.requestId) {

@@ -23,10 +23,13 @@ object ActivityDisplay {
         detail?.takeIf { inGames && selected == it.id && it.lifecycle == GameLifecycle.ACTIVE }?.id
 }
 
-/** What the resumed app shows. Its notifications are cleared on open and not posted while shown. */
+/** What the resumed app shows. Its notifications are cleared on open and not posted while shown (LOB-277: a game's chat's
+ * with the game, a pod's chat's with the pod). */
 data class ActivityScreen(val game: String? = null, val pod: String? = null, val podList: Boolean = false) {
-    fun shows(key: String): Boolean = game != null && key == "game:$game" ||
-        pod != null && (key == "pod:$pod" || key == "pod-chat:$pod") || podList && key.startsWith("pod-invite:")
+    fun shows(key: String): Boolean = key in keys() || podList && key.startsWith("pod-invite:")
+    /** The notification keys of the game or pod shown. */
+    fun keys(): List<String> = listOfNotNull(game?.let { "game:$it" }, game?.let { "chat:$it" }, pod?.let { "pod:$it" },
+        pod?.let { "pod-chat:$it" })
 
     companion object {
         val NONE = ActivityScreen()
@@ -40,10 +43,13 @@ data class ActivityScreen(val game: String? = null, val pod: String? = null, val
 }
 
 fun ActivityKind.isPodActivity(): Boolean = name.startsWith("POD_")
-/** The notification a hint shows in: one per game, invitation, pod invitation and pod; a pod challenge is its pod's one
+/** The notification a hint shows in: one per game, game chat, invitation, pod invitation, pod and pod chat; a pod challenge is its pod's one
  * notification (DRF-135, DRF-122), so it and the pod's other notices replace each other, the newer showing. */
 fun ActivityHint.notificationKey(): String = when {
     kind == ActivityKind.GAME || kind == ActivityKind.GAME_REMOVAL -> "game:$gameId"
+    // LOB-277: one per chat, a game's or a pod's
+    kind == ActivityKind.CHAT -> "chat:$gameId"
+    kind == ActivityKind.POD_CHAT -> "pod-chat:$gameId"
     kind == ActivityKind.INVITATION && podId != null -> "pod:$podId"
     kind == ActivityKind.INVITATION -> "invite:$identity"
     kind == ActivityKind.POD_INVITATION -> "pod-invite:$gameId"

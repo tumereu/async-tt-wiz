@@ -243,7 +243,7 @@ number	item	screenshot	catalog	decisions	sequence
 252	Desktop: Settings' groups as cards in two columns	desktop/settings.png	WEB-043 WEB-035		Desktop screens
 253	Desktop: the draft pick, click keeps and right-click burns, the trays at the bottom with Confirm at the end of their row, the tabs in the header's row	desktop/draft-pick.png	WEB-044 WEB-036 WEB-062 DRF-056		Desktop screens
 254	Desktop: Build's overlapping columns with a card's edge zones under the pointer, no review	desktop/build-edge-zones.png	WEB-045 WEB-063		Desktop screens
-255	Web: Settings → This browser, notifications on with their kinds, and Install app	web/browser-settings.png	WEB-050 WEB-051 WEB-054		Browser notifications
+255	Web: Settings → This browser, notifications on (the kinds are the account's, under Notifications), and Install app	web/browser-settings.png	WEB-050 WEB-051 WEB-054		Browser notifications
 256	Web: notifications refused by the browser, the switch back off	web/browser-notifications-blocked.png	WEB-050		Browser notifications
 257	Web: the Games list's hint to turn notifications on	web/games-hint.png	WEB-053		Browser notifications
 258	Desktop table at its default sizes in a 1920 × 1080 window, Mountain and Ember Cub out	desktop/table-1920.png	WEB-015 WEB-016 WEB-020 WEB-022		Desktop sizes
@@ -484,3 +484,4 @@ number	item	screenshot	catalog	decisions	sequence
 707	Landscape costs panel "Declare attackers": at the left, standing on the bottom bar, the combat band beside it	landscape-panels/costs-panel.png	STK-044 CMB-098		Landscape panels
 708	Landscape with 2.5x hand cards: the hand cards standing over the battlefield are drawn in front of the choice panel (dimmed as the hand is while a choice is open); they cover the panel's No / Yes, which still take the taps	landscape-panels/large-hand-cards.png	STK-044 TBL-238	May	Landscape panels
 709	Choice: the side menu row's badge is a white 16 dp disc with a thin outline on the first avatar's bottom-left corner (the corner a pod's second avatar leaves free), crossed swords for a game or game invitation, the Pods table for a pod or pod invitation (as in 573)	side-menu/drawer-mix.png	LOB-018		
+710	Settings → Notifications: a switch per kind with what it covers (choice: these lines), Sound and vibration under them (Android)	settings/notifications.png	LOB-276 LOB-278 LOB-072		Notification settings

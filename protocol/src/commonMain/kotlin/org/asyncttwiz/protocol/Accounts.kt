@@ -56,12 +56,14 @@ enum class DeckVisibility { VISIBLE, HIDDEN, AFTER_FIRST_GAME }
  * response mode, Assume resolves and Autotap mana a new game on engine state starts with (LOB-113, I-D56 §7).
  * [moveSound]: the sound the move passing to you makes at an open table (TRN-075, LOB-146). [keyBindings]: the desktop
  * layout's hotkeys that differ from the defaults (WEB-033), by hotkey id: the key as "Shift+Space", "Ctrl+Z", "T", or "" for
- * none; at most [MAX_KEY_BINDINGS] entries, each id and key at most [MAX_KEY_TEXT] characters. */
+ * none; at most [MAX_KEY_BINDINGS] entries, each id and key at most [MAX_KEY_TEXT] characters. [notifications]: the kinds of
+ * notification the account gets on every phone and browser (LOB-276). */
 @Serializable
 data class AccountSettings(val deckVisibility: DeckVisibility = DeckVisibility.AFTER_FIRST_GAME,
     val playDefaults: org.asyncttwiz.protocol.game.PlaySettings = org.asyncttwiz.protocol.game.PlaySettings.NEW_GAMES,
     val moveSound: MoveSound = MoveSound.DEFAULT,
-    val keyBindings: Map<String, String> = emptyMap()) {
+    val keyBindings: Map<String, String> = emptyMap(),
+    val notifications: NotificationSettings = NotificationSettings.ALL_ON) {
     /** Whether [keyBindings] is within the bounds the server keeps. */
     val keyBindingsValid: Boolean get() = keyBindings.size <= MAX_KEY_BINDINGS &&
         keyBindings.all { (id, key) -> id.isNotEmpty() && id.length <= MAX_KEY_TEXT && key.length <= MAX_KEY_TEXT }

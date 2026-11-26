@@ -6,6 +6,7 @@ import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.PodChat.POD_CHAT
 import org.asyncttwiz.server.generated.tables.PodChatReadCursor.POD_CHAT_READ_CURSOR as CURSOR
+import org.asyncttwiz.server.generated.tables.PodMember.POD_MEMBER
 import org.asyncttwiz.server.generated.tables.records.PodChatRecord
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
@@ -63,7 +64,11 @@ internal object PodChatStore {
         sql.insertInto(CURSOR).set(CURSOR.POD_ID, pod).set(CURSOR.ACCOUNT_ID, account).set(CURSOR.ORDINAL, ordinal)
             .onConflict(CURSOR.POD_ID, CURSOR.ACCOUNT_ID).doUpdate()
             .set(CURSOR.ORDINAL, DSL.greatest(CURSOR.ORDINAL, DSL.`val`(ordinal))).execute()
-        return readState(sql, pod, account)
+        return readState(sql, pod, account).also { state ->
+            // LOB-277: read through, the chat's notice clears on every device
+            if (state.unread == 0) org.asyncttwiz.server.activity.ActivityNotices.chatSeen(sql, account, pod, pod = true,
+                why = "the chat read through")
+        }
     }
 
     /** What a send did: the stored [message], or why it was refused ([refusal]: "invalid_text", "request_conflict"). */
@@ -71,8 +76,8 @@ internal object PodChatStore {
 
     /**
      * Stores [text] by [author] in [pod] (under its exclusive row lock) as message [id]. A retried send of the same message
-     * returns it again; the same id with other content is refused. It notifies no one (owner, 2026-11-10: people use real
-     * chat apps for urgent things); the other members see it by the in-app dots (DRF-170). The author has read their own
+     * returns it again; the same id with other content is refused. Every other member gets a chat notice of it (LOB-277:
+     * their Chat notifications decide whether it shows) besides the in-app dots (DRF-170). The author has read their own
      * message.
      */
     fun send(sql: DSLContext, pod: UUID, author: UUID, id: UUID, text: String): Sent {
@@ -85,6 +90,9 @@ internal object PodChatStore {
         val stored = sql.insertInto(POD_CHAT).set(POD_CHAT.ID, id).set(POD_CHAT.POD_ID, pod).set(POD_CHAT.AUTHOR_ID, author)
             .set(POD_CHAT.TEXT, text).set(POD_CHAT.ORDINAL, ordinal).returning().fetchSingle()
         read(sql, pod, author, id)
+        val members = sql.select(POD_MEMBER.ACCOUNT_ID).from(POD_MEMBER).where(POD_MEMBER.POD_ID.eq(pod))
+            .and(POD_MEMBER.ACCOUNT_ID.ne(author)).fetch(POD_MEMBER.ACCOUNT_ID)
+        for (member in members) org.asyncttwiz.server.activity.ActivityService.record(sql, member!!, ActivityKind.POD_CHAT, pod, id, author)
         return Sent(message(stored))
     }
 }

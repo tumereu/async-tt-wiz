@@ -34,9 +34,13 @@ internal object ChatStore {
                 org.jooq.impl.DSL.`val`(revision))).execute()
         return readState(sql, game, account).also { state ->
             // LOB-072 (owner, 2026-11-07): " · new message" follows the chat's read state: it goes once nothing is unread
-            if (state.unread == 0) sql.update(ACTIVITY_SUMMARY).set(ACTIVITY_SUMMARY.NEW_MESSAGE, false)
-                .where(ACTIVITY_SUMMARY.ACCOUNT_ID.eq(account)).and(ACTIVITY_SUMMARY.GAME_ID.eq(game))
-                .and(ACTIVITY_SUMMARY.KIND.eq("GAME")).execute()
+            if (state.unread == 0) {
+                sql.update(ACTIVITY_SUMMARY).set(ACTIVITY_SUMMARY.NEW_MESSAGE, false)
+                    .where(ACTIVITY_SUMMARY.ACCOUNT_ID.eq(account)).and(ACTIVITY_SUMMARY.GAME_ID.eq(game))
+                    .and(ACTIVITY_SUMMARY.KIND.eq("GAME")).execute()
+                // LOB-277: the chat's notice clears on every device
+                org.asyncttwiz.server.activity.ActivityNotices.chatSeen(sql, account, game, why = "the chat read through")
+            }
         }
     }
 

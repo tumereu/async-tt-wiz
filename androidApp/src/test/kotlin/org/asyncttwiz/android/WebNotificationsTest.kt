@@ -14,7 +14,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** The browser's notification switch, its kinds, the Games list's hint and the tab's title (WEB-050). */
+/** The browser's notification switch, the Games list's hint and the tab's title (WEB-050). */
 class WebNotificationsTest {
     private class MemoryPreferences : Preferences {
         val values = mutableMapOf<String, Any>()
@@ -108,17 +108,14 @@ class WebNotificationsTest {
         assertFalse(noSubscription.state.on); assertEquals(WebNotifications.FAILED, noSubscription.state.note)
     }
 
-    // WEB-051: each kind is a switch kept in the browser, and the server is told at once
-    @Test fun kindsAreKeptAndRegistered() = runBlocking {
-        val preferences = MemoryPreferences()
+    // WEB-051, LOB-276 (owner, 2026-11-26): the browser has no kind switches of its own: it registers its subscription alone, and
+    // the account's Notifications choose what is sent to it
+    @Test fun theBrowserRegistersItsSubscriptionAloneTheAccountChoosesTheKinds() = runBlocking {
         val server = Server()
-        val web = notifications(Browser(), server, preferences)
+        val browser = Browser()
+        val web = notifications(browser, server)
         web.session(owner); web.turnOn()
-        assertEquals(NotificationKind.all.toSet(), web.state.kinds)
-        web.kind(NotificationKind.Games, false)
-        val registration = server.registered.last().webPush!!
-        assertTrue(registration.invitations); assertFalse(registration.games); assertTrue(registration.drafts)
-        assertEquals(setOf(NotificationKind.Invitations, NotificationKind.Drafts), notifications(Browser(), Server(), preferences).state.kinds)
+        assertEquals(browser.subscription, server.registered.last().webPush)
     }
 
     // WEB-050: turning off tells the server and drops the browser's subscription; a permission taken back in the browser's

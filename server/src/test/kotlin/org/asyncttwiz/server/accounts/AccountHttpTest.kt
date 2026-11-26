@@ -128,6 +128,20 @@ class AccountHttpTest {
                 assertEquals(keys, json.decodeFromString<AccountSettings>(get(token).body()).keyBindings)
                 assertEquals(emptyMap<String, String>(), json.decodeFromString<AccountSettings>(put(token, json.encodeToString(AccountSettings())).body()).keyBindings,
                     "back to the defaults")
+                // LOB-276 (owner, 2026-11-26): the kinds of notification, every one on by default, kept for the account's every
+                // device; all on again is stored as the default
+                assertEquals(NotificationSettings.ALL_ON, json.decodeFromString<AccountSettings>(get(token).body()).notifications)
+                val quiet = NotificationSettings(chat = false, reminders = false)
+                val kept = put(token, json.encodeToString(AccountSettings(notifications = quiet)))
+                assertEquals(200, kept.statusCode())
+                assertEquals(quiet, json.decodeFromString<AccountSettings>(kept.body()).notifications)
+                assertEquals(quiet, json.decodeFromString<AccountSettings>(get(secondDevice).body()).notifications)
+                assertEquals(NotificationSettings.ALL_ON, json.decodeFromString<AccountSettings>(get(other).body()).notifications)
+                assertEquals(400, put(token, """{"notifications":{"chat":"sometimes"}}""").statusCode())
+                assertEquals(quiet, json.decodeFromString<AccountSettings>(get(token).body()).notifications)
+                put(token, json.encodeToString(AccountSettings()))
+                assertEquals(0, db.connection().use { c -> c.createStatement().executeQuery(
+                    "SELECT count(*) FROM account WHERE notification_settings IS NOT NULL").use { it.next(); it.getInt(1) } })
             }
         }
     }

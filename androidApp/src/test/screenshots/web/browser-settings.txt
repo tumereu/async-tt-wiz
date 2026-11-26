@@ -1,1 +1,1 @@
-Settings in a browser: Browser notifications turned on (the browser allowed them), its three kinds with Game activity switched off, and Install app with the browser's prompt.
+Settings in a browser: Browser notifications turned on (the browser allowed them; the kinds are the account's, under Notifications), and Install app with the browser's prompt.

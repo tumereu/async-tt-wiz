@@ -9,18 +9,23 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import org.asyncttwiz.protocol.ActivityHint
 import org.asyncttwiz.protocol.ActivityKind
+import org.asyncttwiz.protocol.ActivityTexts
+import org.asyncttwiz.protocol.NotificationKind
 
+/**
+ * LOB-072 (owner, 2026-11-26): one notification channel per kind of notification ([NotificationKind]): Your move, Reminders,
+ * Chat, Invitations, Draft, and Game over & warnings, each with its own sound and vibration in Android's settings (LOB-278).
+ */
 object ActivityChannels {
-    const val INVITATIONS = "invitations"
-    const val GAME_ACTIVITY = "game_activity"
-    const val DRAFT_ACTIVITY = "draft_activity"
-    val names = mapOf(INVITATIONS to "Invitations", GAME_ACTIVITY to "Game activity", DRAFT_ACTIVITY to "Draft activity")
-    fun channel(kind: ActivityKind) = when {
-        kind == ActivityKind.INVITATION || kind == ActivityKind.POD_INVITATION -> INVITATIONS
-        kind.isPodActivity() -> DRAFT_ACTIVITY
-        else -> GAME_ACTIVITY
-    }
+    /** The three channels before these, deleted (exactly one version of the app exists; a new id keeps none of their settings). */
+    val RETIRED = listOf("invitations", "game_activity", "draft_activity")
+    fun id(kind: NotificationKind) = "notice_${kind.id}"
+    /** Each channel's name by its id, in the order Settings lists the kinds. */
+    val names: Map<String, String> get() = NotificationKind.all.associate { id(it) to it.label }
+    /** The channel of [hint]'s notification; [reminder]: the app's own reminder of it (LOB-076). */
+    fun channel(hint: ActivityHint, reminder: Boolean = false): String = id(NotificationKind.of(hint, reminder))
     fun allowed(permission: Boolean, applicationEnabled: Boolean, channelEnabled: Boolean) =
         permission && applicationEnabled && channelEnabled
 }
@@ -34,15 +39,29 @@ internal object ActivityPermissionPrompt {
 
 class ActivityNotifications(private val context: Context, private val podName: (String) -> String? = { null }) {
     private val manager = context.getSystemService(NotificationManager::class.java)
-    fun channels() { manager.createNotificationChannels(ActivityChannels.names.map { (id, name) ->
-        NotificationChannel(id, name, NotificationManager.IMPORTANCE_DEFAULT)
-    }) }
-    fun allowed(kind: ActivityKind): Boolean = ActivityChannels.allowed(
+    fun channels() {
+        ActivityChannels.RETIRED.filter { manager.getNotificationChannel(it) != null }.forEach {
+            manager.deleteNotificationChannel(it)
+            AppLog.info("activity", "Notification channel $it deleted (replaced by one per kind)")
+        }
+        manager.createNotificationChannels(NotificationKind.all.map { kind ->
+            NotificationChannel(ActivityChannels.id(kind), kind.label, NotificationManager.IMPORTANCE_DEFAULT).apply { description = kind.explanation }
+        })
+    }
+    /** Whether Android lets the notification of [channel] show: the permission, the app's notifications, the channel. */
+    fun allowed(channel: String): Boolean = ActivityChannels.allowed(
         Build.VERSION.SDK_INT < 33 || context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED,
-        manager.areNotificationsEnabled(), manager.getNotificationChannel(ActivityChannels.channel(kind))?.importance != NotificationManager.IMPORTANCE_NONE)
-    fun post(owner: ActivityOwner, notice: ActivityNotice) {
+        manager.areNotificationsEnabled(), manager.getNotificationChannel(channel)?.importance != NotificationManager.IMPORTANCE_NONE)
+    fun allowed(hint: ActivityHint, reminder: Boolean = false): Boolean = allowed(ActivityChannels.channel(hint, reminder))
+    /** Posts [notice]; [reminder]: it is the app's own reminder of what waits (LOB-076), in the Reminders channel. */
+    fun post(owner: ActivityOwner, notice: ActivityNotice, reminder: Boolean = false) {
         // Recheck OS controls immediately before posting; never change a user's existing channel.
-        if (!allowed(notice.hint.kind)) return
+        val channel = ActivityChannels.channel(notice.hint, reminder)
+        if (!allowed(channel)) { AppLog.info("activity", "Notification ${notice.key} not posted: its channel $channel is off in Android"); return }
+        val tag = "activity:${owner.binding}:${notice.key}"
+        val chat = notice.hint.kind == ActivityKind.CHAT || notice.hint.kind == ActivityKind.POD_CHAT
+        // LOB-277: a chat's newer message updates its notification still showing without alerting again
+        val silent = notice.silent || chat && runCatching { manager.activeNotifications }.getOrNull().orEmpty().any { it.tag == tag }
         val route = Intent(context, MainActivity::class.java).setAction("org.asyncttwiz.ACTIVITY")
             .setData(android.net.Uri.parse("atw-activity://${owner.binding}/${notice.key}"))
             .putExtra("account", owner.accountId).putExtra("binding", owner.binding)
@@ -51,25 +70,31 @@ class ActivityNotifications(private val context: Context, private val podName: (
         val pending = PendingIntent.getActivity(context, 0, route, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val gameText = notice.hint.notice?.let(::gameNotificationText)
         val removal = if (notice.hint.kind == ActivityKind.GAME_REMOVAL) gameRemovalText(notice.hint) else null
-        val notification = Notification.Builder(context, ActivityChannels.channel(notice.hint.kind))
+        // LOB-277: a chat's: who wrote, where, and the newest message
+        val chatText = if (chat) ActivityTexts.chat(notice.hint, podName(notice.hint.gameId)) else null
+        val notification = Notification.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(if (notice.hint.kind == ActivityKind.INVITATION || notice.hint.kind == ActivityKind.POD_INVITATION)
+            .setContentTitle(if (chatText != null) chatText.first
+                else if (notice.hint.kind == ActivityKind.INVITATION || notice.hint.kind == ActivityKind.POD_INVITATION)
                     invitationText(notice.hint, podName(notice.hint.gameId))
                 else if (notice.hint.kind.isPodActivity()) podActivityText(notice.hint.kind, notice.hint.resourceName ?: podName(notice.hint.gameId))
                 else removal?.first ?: gameText?.title ?: "Game activity")
             // I-D57: a pod's notice names the set or cube it drafts; a game's names your deck in its header
-            .setContentText(removal?.second ?: gameText?.text ?: podNotificationDetail(notice.hint))
+            .setContentText(chatText?.second ?: removal?.second ?: gameText?.text ?: podNotificationDetail(notice.hint))
             .apply { gameText?.let { setWhen(it.whenMillis); setShowWhen(true); it.subText?.let(::setSubText)
                 setStyle(Notification.BigTextStyle().bigText(it.text)) } }
-            .setContentIntent(pending).setAutoCancel(true).setOnlyAlertOnce(notice.silent)
+            .apply { chatText?.let { setStyle(Notification.BigTextStyle().bigText(it.second)) } }
+            .setContentIntent(pending).setAutoCancel(true).setOnlyAlertOnce(silent)
             .apply { if (notice.hint.kind == ActivityKind.GAME || notice.hint.kind in WaitingChecks.POD_KINDS)
                 setDeleteIntent(dismissal(owner, notice, gameText)) }
             // Platform Notification.Builder has no setSilent. A child-only group
             // with summary-only alerts also silences an extension after dismissal.
-            .setGroup("activity:${owner.binding}:${notice.key}")
-            .setGroupAlertBehavior(if (notice.silent) Notification.GROUP_ALERT_SUMMARY else Notification.GROUP_ALERT_ALL)
+            .setGroup(tag)
+            .setGroupAlertBehavior(if (silent) Notification.GROUP_ALERT_SUMMARY else Notification.GROUP_ALERT_ALL)
             .setVisibility(Notification.VISIBILITY_PRIVATE).build()
-        manager.notify("activity:${owner.binding}:${notice.key}", 1, notification)
+        manager.notify(tag, 1, notification)
+        AppLog.info("activity", "Notification ${notice.key} posted in $channel${if (silent) ", quietly" else ""}" +
+            if (reminder) " (the app's own reminder)" else "")
     }
     /** Swiping a game or pod pick/build notice away (any source) is remembered against its latest event; see [WaitingChecks]. */
     private fun dismissal(owner: ActivityOwner, notice: ActivityNotice, text: GameNotificationText?): PendingIntent {
@@ -86,11 +111,11 @@ class ActivityNotifications(private val context: Context, private val podName: (
     fun showingPods(owner: ActivityOwner): Set<String> = showing("activity:${owner.binding}:pod:")
     private fun showing(prefix: String): Set<String> = runCatching { manager.activeNotifications }.getOrNull().orEmpty()
         .mapNotNull { it.tag?.takeIf { tag -> tag.startsWith(prefix) }?.removePrefix(prefix) }.toSet()
-    /** Clears notifications for what the app now shows; pod invitations are found among active ones. */
+    /** Clears notifications for what the app now shows (LOB-277: a game's or pod's chat's with it); pod invitations are found
+     * among active ones. */
     fun cancelShown(owner: ActivityOwner, screen: ActivityScreen) {
         val prefix = "activity:${owner.binding}:"
-        screen.game?.let { manager.cancel("${prefix}game:$it", 1) }
-        screen.pod?.let { manager.cancel("${prefix}pod:$it", 1) }
+        screen.keys().forEach { manager.cancel("$prefix$it", 1) }
         if (screen.podList) runCatching { manager.activeNotifications }.getOrNull().orEmpty().forEach {
             val tag = it.tag ?: return@forEach
             if (tag.startsWith(prefix) && screen.shows(tag.removePrefix(prefix))) manager.cancel(tag, it.id)

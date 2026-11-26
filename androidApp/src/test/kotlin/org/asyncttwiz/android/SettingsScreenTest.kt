@@ -120,6 +120,43 @@ class SettingsScreenTest {
         compose.runOnIdle { assertTrue(MoveVibrationPreferences(AppPlatform.current).enabled) }
     }
 
+    // LOB-276, LOB-278, LOB-079 (owner, 2026-11-26): Settings → Notifications, after Games: a switch per kind with what it covers,
+    // each on by default and saved to the account at once; on Android "Sound and vibration" under them opens Android's
+    // notification settings for the app
+    @Test fun notificationsHaveASwitchPerKindKeptOnTheAccountAndOpenAndroidsSettings() {
+        val source = FakeSettings(server = AccountSettings(notifications = NotificationSettings(draft = false)))
+        compose.setContent { ScreenTheme { SettingsContent(null, "notifications", {}, null, source) } }
+        compose.waitUntil { compose.onAllNodes(hasTestTag("notification-kind-draft") and isOff()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Notifications").performScrollTo().assertIsDisplayed()
+        assertTrue(compose.onNodeWithText("Notifications").getUnclippedBoundsInRoot().top >
+            compose.onNodeWithText("Games").getUnclippedBoundsInRoot().top, "after Games")
+        for (kind in NotificationKind.all) {
+            compose.onNodeWithTag("notification-kind-${kind.id}").performScrollTo()
+            if (kind == NotificationKind.Draft) compose.onNodeWithTag("notification-kind-${kind.id}").assertIsOff()
+            else compose.onNodeWithTag("notification-kind-${kind.id}").assertIsOn()
+            compose.onNodeWithText(kind.label).assertIsDisplayed(); compose.onNodeWithText(kind.explanation).assertIsDisplayed()
+        }
+        assertEquals(listOf("Your move", "Reminders", "Chat", "Invitations", "Draft", "Game over & warnings"),
+            NotificationKind.all.map { it.label })
+        compose.onNodeWithTag("notification-sound").performScrollTo()
+        val directory = File("$SCREENSHOTS/settings").also { it.mkdirs() }
+        captureShot(File(directory, "notifications.png").path,
+            "Settings → Notifications on Android, the account's Draft switched off on another device: a switch per kind with " +
+                "what it covers (choice: these lines), then Sound and vibration.")
+        compose.onNodeWithTag("notification-kind-chat").performClick().assertIsOff()
+        compose.runOnIdle { assertEquals(NotificationSettings(chat = false, draft = false), source.writes.last().notifications) }
+        compose.onNodeWithTag("notification-kind-chat").performClick().assertIsOn()
+        compose.runOnIdle { assertEquals(NotificationSettings(draft = false), source.writes.last().notifications) }
+        // LOB-278: Android's notification settings for the app
+        compose.onNodeWithTag("notification-sound").performScrollTo().assertHasClickAction()
+        compose.onNodeWithText("Sound and vibration").assertIsDisplayed()
+        compose.onNodeWithTag("notification-sound").performClick()
+        val opened = org.robolectric.Shadows.shadowOf(ApplicationProvider.getApplicationContext<android.app.Application>()).nextStartedActivity
+        assertEquals(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS, opened?.action)
+        assertEquals(ApplicationProvider.getApplicationContext<android.content.Context>().packageName,
+            opened?.getStringExtra(android.provider.Settings.EXTRA_APP_PACKAGE))
+    }
+
     // LOB-263: a test build's About & account has "Show bot picks" under Send error reports, off by default and kept on the device
     @Test fun showBotPicksIsATestBuildSwitchOffByDefault() {
         assertTrue(draftBotSettingOffered, "the unit tests are a debug build")

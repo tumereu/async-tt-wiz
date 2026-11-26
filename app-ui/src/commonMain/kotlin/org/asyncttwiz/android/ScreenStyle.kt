@@ -389,5 +389,6 @@ fun screenIcon(kind: String): ImageVector = when (kind) {
     "start" -> Icons.Outlined.PlayArrow
     "pass" -> Icons.AutoMirrored.Outlined.ArrowForward
     "take" -> Icons.Outlined.Download
+    "notification-sound" -> Icons.Outlined.NotificationsActive
     else -> Icons.AutoMirrored.Outlined.Login
 }

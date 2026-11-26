@@ -18,7 +18,7 @@ class ActivityShownNotificationsTest {
     private val owner = ActivityOwner("account", "binding")
 
     private fun post(key: String, binding: String = owner.binding) = manager.notify("activity:$binding:$key", 1,
-        Notification.Builder(context, ActivityChannels.DRAFT_ACTIVITY).setSmallIcon(android.R.drawable.ic_dialog_info).build())
+        Notification.Builder(context, ActivityChannels.id(org.asyncttwiz.protocol.NotificationKind.Draft)).setSmallIcon(android.R.drawable.ic_dialog_info).build())
     private fun active() = manager.activeNotifications.map { it.tag }.toSet()
 
     // LOB-072

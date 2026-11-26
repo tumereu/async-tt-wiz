@@ -1748,21 +1748,26 @@ class PodHttpTest {
         })
     }
 
-    // DRF-170, DRF-237 (owner, 2026-11-10): a message notifies no one: no notice for the other members (nor its author), so nothing
-    // reaches a phone's notifications; the chat's unread count still tells it
-    @Test fun `a pod chat message notifies no one`() = fixture { f ->
+    // DRF-170, DRF-237, LOB-277 (owner, 2026-11-26): a message notifies the other members (not its author) in the pod chat's one
+    // notice, "<pod>: <author>" over the message; the chat's unread count tells it too; reading it through, or opening the pod,
+    // clears it on every device
+    @Test fun `a pod chat message notifies the other members`() = fixture { f ->
         val pod = f.create().id
         f.join(pod); f.join(pod, f.c)
-        val before = listOf(f.a, f.b, f.c).associateWith { who -> f.activity(who, "0").entries.filter { it.gameId == pod } }
+        val cursors = listOf(f.a, f.b, f.c).associateWith { who -> f.activity(who).nextCursor }
         f.say(f.a, pod, "Draft tonight?")
-        val rows = f.db.connection().use { connection ->
-            connection.prepareStatement("select count(*) from account_activity where game_id = ? and kind = 'POD_MESSAGE'").use { statement ->
-                statement.setObject(1, UUID.fromString(pod)); statement.executeQuery().use { it.next(); it.getInt(1) }
-            }
+        assertTrue(f.activity(f.a, cursors.getValue(f.a)).readyNotices!!.none { it.kind == ActivityKind.POD_CHAT }, "not its author")
+        for (who in listOf(f.b, f.c)) {
+            val notice = f.activity(who, cursors.getValue(who)).readyNotices!!.single { it.kind == ActivityKind.POD_CHAT }
+            assertEquals(pod, notice.gameId); assertEquals(ChatNotice("Draft tonight?", 1), notice.chat)
+            assertEquals("Fixture pod: pod-a" to "Draft tonight?", ActivityTexts.notification(notice))
+            assertTrue("pod-chat:$pod" in f.activity(who, cursors.getValue(who)).openNotices!!)
         }
-        assertEquals(0, rows)
-        for (who in listOf(f.a, f.b, f.c)) assertEquals(before.getValue(who), f.activity(who, "0").entries.filter { it.gameId == pod })
         assertEquals(1, f.chat(f.b, pod).read.unread)
+        f.send(f.b, "PUT", "/v1/pods/$pod/chat/read", ReadChat(f.chat(f.b, pod).messages.last().id))
+        assertFalse("pod-chat:$pod" in f.activity(f.b, cursors.getValue(f.b)).openNotices!!, "read through")
+        f.send(f.c, "PUT", "/activity/seen", PodSeen(pod), 204)
+        assertFalse("pod-chat:$pod" in f.activity(f.c, cursors.getValue(f.c)).openNotices!!, "the pod opened")
     }
 
     // DRF-307, DRF-140, LOB-242 (owner, 2026-11-22): the creator cancels a pending invitation in setup: it leaves the invitee's

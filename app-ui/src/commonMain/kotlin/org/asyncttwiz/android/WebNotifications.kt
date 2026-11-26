@@ -70,34 +70,26 @@ interface WebPushServer {
     suspend fun unregister(token: String, installationId: String)
 }
 
-/** WEB-051: the three kinds of notification (LOB-072's channels), each a switch. */
-sealed class NotificationKind(val key: String, val label: String) {
-    data object Invitations : NotificationKind("invitations", "Invitations")
-    data object Games : NotificationKind("games", "Game activity")
-    data object Drafts : NotificationKind("drafts", "Draft activity")
-    companion object { val all = listOf(Invitations, Games, Drafts) }
-}
-
 /** Who is signed in: their session [token] and this page's [binding] of it (as the activity installation registers it). */
 data class WebPushOwner(val accountId: String, val binding: String, val token: String)
 
 /**
- * WEB-050, WEB-051, WEB-053: "Browser notifications", its kinds and the Games list's hint, kept in this browser's
- * [preferences]; the subscription is registered with the server for whoever is signed in ([session]).
+ * WEB-050, WEB-053: "Browser notifications" and the Games list's hint, kept in this browser's [preferences]; the
+ * subscription is registered with the server for whoever is signed in ([session]). Which kinds it gets are the account's
+ * (Settings → Notifications, LOB-276, WEB-051).
  */
 class WebNotifications(private val platform: BrowserPlatform, private val preferences: Preferences,
     private val server: WebPushServer, private val installationId: () -> String) {
-    /** The switch's state: [on], the kinds switched on, a [note] under it (why it couldn't turn on), [busy] while it turns
-     * on or off, and whether the Games list's hint was put away ([hintDismissed]). */
-    data class State(val on: Boolean, val kinds: Set<NotificationKind>, val permission: BrowserPermission,
+    /** The switch's state: [on], a [note] under it (why it couldn't turn on), [busy] while it turns on or off, and whether
+     * the Games list's hint was put away ([hintDismissed]). */
+    data class State(val on: Boolean, val permission: BrowserPermission,
         val install: BrowserInstall, val hintDismissed: Boolean, val note: String? = null, val busy: Boolean = false) {
         /** WEB-053: the hint shows while notifications are off, unless put away or the browser can't or won't show them. */
         val showHint: Boolean get() = !on && !hintDismissed && permission != BrowserPermission.Denied &&
             permission != BrowserPermission.Unsupported
     }
 
-    var state by mutableStateOf(State(preferences.getBoolean(ON, false),
-        NotificationKind.all.filter { preferences.getBoolean(it.key, true) }.toSet(), platform.permission(), platform.install(),
+    var state by mutableStateOf(State(preferences.getBoolean(ON, false), platform.permission(), platform.install(),
         preferences.getBoolean(HINT_DISMISSED, false)))
         private set
     private var owner: WebPushOwner? = null
@@ -156,14 +148,6 @@ class WebNotifications(private val platform: BrowserPlatform, private val prefer
         } finally { state = state.copy(busy = false) }
     }
 
-    /** WEB-051: one kind switched; the server is told at once. */
-    suspend fun kind(kind: NotificationKind, on: Boolean) {
-        preferences.edit().putBoolean(kind.key, on).apply()
-        state = state.copy(kinds = if (on) state.kinds + kind else state.kinds - kind)
-        AppLog.info(TAG, "Browser notifications: ${kind.label} ${if (on) "on" else "off"}")
-        if (state.on) sync("kinds changed")
-    }
-
     /** WEB-053: the hint's ✕: put away for good in this browser. */
     fun dismissHint() {
         preferences.edit().putBoolean(HINT_DISMISSED, true).apply()
@@ -179,7 +163,7 @@ class WebNotifications(private val platform: BrowserPlatform, private val prefer
         refresh()
     }
 
-    /** Registers this browser's subscription and kinds for the signed-in account; a permission taken back in the browser's
+    /** Registers this browser's subscription for the signed-in account; a permission taken back in the browser's
      * settings turns the switch off. */
     private suspend fun sync(why: String) {
         if (platform.permission() != BrowserPermission.Granted) {
@@ -197,11 +181,8 @@ class WebNotifications(private val platform: BrowserPlatform, private val prefer
         return try {
             val key = server.key(signedIn.token) ?: return NOT_SET_UP
             val subscription = platform.subscribe(key) ?: return FAILED
-            val kinds = state.kinds
-            server.register(signedIn.token, RegisterInstallation(installationId(), signedIn.binding, webPush = subscription.copy(
-                invitations = NotificationKind.Invitations in kinds, games = NotificationKind.Games in kinds,
-                drafts = NotificationKind.Drafts in kinds)))
-            AppLog.info(TAG, "Browser notifications registered ($why): ${kinds.joinToString { it.label }} via ${hostOf(subscription.endpoint)}")
+            server.register(signedIn.token, RegisterInstallation(installationId(), signedIn.binding, webPush = subscription))
+            AppLog.info(TAG, "Browser notifications registered ($why) via ${hostOf(subscription.endpoint)}")
             null
         } catch (failure: Exception) {
             AppLog.warn(TAG, "Browser notifications: subscribing failed ($why)", failure)
@@ -236,7 +217,8 @@ fun webTabTitle(games: List<GameSummary>, accountId: String?): String {
     return if (waiting > 0) "($waiting) ATW" else "ATW"
 }
 
-/** WEB-050, WEB-051, WEB-054: Settings' "This browser" rows: Browser notifications with its kinds, and Install app. */
+/** WEB-050, WEB-054: Settings' "This browser" rows: Browser notifications (its kinds are the account's Notifications,
+ * LOB-276, WEB-051) and Install app. */
 @Composable
 fun BrowserSettings(web: WebNotifications) {
     val scope = rememberCoroutineScope()
@@ -246,22 +228,13 @@ fun BrowserSettings(web: WebNotifications) {
             .toggleable(state.on, enabled = !state.busy, role = Role.Switch, onValueChange = { on ->
                 scope.launch { if (on) web.turnOn() else web.turnOff() }
             }), verticalAlignment = Alignment.CenterVertically) {
-            SettingsLabel("Browser notifications", "When it's your move, and for invitations and drafts, in this browser",
+            SettingsLabel("Browser notifications", "Your notifications in this browser too; Notifications chooses which",
                 Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
             Switch(checked = state.on, onCheckedChange = null, enabled = !state.busy)
         }
         state.note?.let { note ->
             Text(note, Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("browser-notifications-note"),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-        }
-        if (state.on) for (kind in NotificationKind.all) {
-            val on = kind in state.kinds
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = 16.dp).testTag("notification-kind-${kind.key}")
-                .toggleable(on, role = Role.Switch, onValueChange = { scope.launch { web.kind(kind, it) } }),
-                verticalAlignment = Alignment.CenterVertically) {
-                SettingsLabel(kind.label, modifier = Modifier.weight(1f).padding(end = 12.dp))
-                Switch(checked = on, onCheckedChange = null)
-            }
         }
         InstallAppRow(state.install) { scope.launch { web.install() } }
     }

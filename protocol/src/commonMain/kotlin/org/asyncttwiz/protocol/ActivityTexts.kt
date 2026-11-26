@@ -92,11 +92,26 @@ object ActivityTexts {
         else -> "Game activity"
     }
 
-    /** A notification's title and text as the Android app posts them (its ActivityNotifications): an invitation's, a pod's,
-     * a removal warning's or a game's. */
+    /**
+     * LOB-277: a chat's notification: a game's "<game> · vs <author>", a pod's "<pod>: <author>" ([podName]: the pod's name
+     * when the hint has none), over the newest message, after "<n> new messages · " while more than one is unread.
+     */
+    fun chat(hint: ActivityHint, podName: String? = null): Pair<String, String> {
+        val author = hint.opponentName ?: "Your opponent"
+        val title = if (hint.kind == ActivityKind.POD_CHAT) "${hint.resourceName ?: podName ?: "Pod"}: $author"
+            else "${hint.resourceName ?: "Game"} · vs $author"
+        val message = hint.chat
+        val text = message?.text ?: "New message"
+        val unread = message?.unread ?: 1
+        return title to if (unread > 1) "$unread new messages · $text" else text
+    }
+
+    /** A notification's title and text as the Android app posts them (its ActivityNotifications): an invitation's, a chat's,
+     * a pod's, a removal warning's or a game's. */
     fun notification(hint: ActivityHint, podName: String? = null): Pair<String, String?> {
         val game = hint.notice
         return when {
+            hint.kind == ActivityKind.CHAT || hint.kind == ActivityKind.POD_CHAT -> chat(hint, podName)
             hint.kind == ActivityKind.INVITATION || hint.kind == ActivityKind.POD_INVITATION -> invitation(hint, podName) to detail(hint)
             pod(hint.kind) -> podActivity(hint.kind, hint.resourceName ?: podName) to podDetail(hint)
             hint.kind == ActivityKind.GAME_REMOVAL -> gameRemoval(hint)
@@ -105,6 +120,6 @@ object ActivityTexts {
         }
     }
 
-    /** Whether [kind] is a pod's (the Draft activity kind of LOB-072). */
+    /** Whether [kind] is about a pod (the hint's gameId is the pod's). */
     fun pod(kind: ActivityKind): Boolean = kind.name.startsWith("POD_")
 }

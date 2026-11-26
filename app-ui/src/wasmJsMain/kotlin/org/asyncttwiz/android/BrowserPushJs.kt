@@ -137,9 +137,9 @@ internal class BrowserPlatformJs : BrowserPlatform {
 
     override suspend fun promptInstall(): Boolean = jsPromptInstall().await<JsBoolean>().toBoolean()
 
-    /** LOB-078, DRF-138 (WEB-052): the notifications of what [screen] shows are closed. */
+    /** LOB-078, DRF-138 (WEB-052): the notifications of what [screen] shows are closed (LOB-277: its chat's too). */
     fun cancelShown(screen: ActivityScreen) {
-        val tags = listOfNotNull(screen.game?.let { "game:$it" }, screen.pod?.let { "pod:$it" }).joinToString(",")
+        val tags = screen.keys().joinToString(",")
         val prefix = if (screen.podList) "pod-invite:" else ""
         if (tags.isNotEmpty() || prefix.isNotEmpty()) jsCloseNotifications(tags, prefix)
     }

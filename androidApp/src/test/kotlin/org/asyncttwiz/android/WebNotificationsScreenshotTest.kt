@@ -51,22 +51,21 @@ class WebNotificationsScreenshotTest {
         }
     }
 
-    // WEB-050, WEB-051, WEB-054, WEB-116: Settings → This browser, notifications turned on with its kinds, and Install app
+    // WEB-050, WEB-051, WEB-054, WEB-116 (owner, 2026-11-26): Settings → This browser, notifications turned on (no kind switches
+    // of its own: the account's Notifications choose them), and Install app
     @Test fun settingsRowsWithNotificationsOn() {
         val server = Server()
         val web = web(BrowserPermission.Granted, server)
         compose.setContent { ScreenTheme { CompositionLocalProvider(LocalWebNotifications provides web) {
             Surface(Modifier.fillMaxSize()) { NoRipples { SettingsContent(null, logout = {}) } }
         } } }
-        compose.onNodeWithText("Invitations").assertDoesNotExist()
         compose.onNodeWithTag("browser-notifications").performScrollTo().performClick()
-        compose.waitUntil(5_000) { web.state.on }
-        compose.onNodeWithTag("notification-kind-games").performScrollTo().performClick()
-        compose.waitUntil(5_000) { server.registered.lastOrNull()?.webPush?.games == false }
-        assertEquals(listOf(true, false), server.registered.map { it.webPush?.games })
+        compose.waitUntil(5_000) { web.state.on && server.registered.isNotEmpty() }
+        compose.onNodeWithText("Your notifications in this browser too; Notifications chooses which").assertExists()
+        compose.onAllNodes(hasTestTag("notification-kind-chat")).assertCountEquals(0)
         compose.onNodeWithTag("install-app").performScrollTo()
         compose.onNodeWithTag("browser-settings").captureShot("$SCREENSHOTS/web/browser-settings.png",
-            "Settings in a browser: Browser notifications turned on (the browser allowed them), its three kinds with Game activity switched off, and Install app with the browser's prompt.")
+            "Settings in a browser: Browser notifications turned on (the browser allowed them; the kinds are the account's, under Notifications), and Install app with the browser's prompt.")
     }
 
     // WEB-050, WEB-098: the browser refused: the switch is back off with where to change it

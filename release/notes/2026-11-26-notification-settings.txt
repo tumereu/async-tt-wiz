@@ -1,0 +1,1 @@
+1: Settings has a Notifications group: choose which notifications you get (your move, reminders, chat, invitations, draft, game over and warnings) on all your phones and browsers. On Android each kind has its own sound and vibration.

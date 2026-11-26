@@ -13,10 +13,10 @@ class RemovalNoticeTest {
         val game = ActivityHint("5", ActivityKind.GAME_REMOVAL, "g1", "i1", resourceName = "Azure Spark", opponentName = "riley")
         assertEquals("Azure Spark · vs riley" to "Removed in 3 days if nobody plays", gameRemovalText(game))
         assertEquals("game:g1", game.notificationKey())
-        assertEquals("game_activity", ActivityChannels.channel(ActivityKind.GAME_REMOVAL))
+        assertEquals("notice_game_over", ActivityChannels.channel(game))
         assertEquals("Cube night: Removed in 3 days if nobody picks or plays", podActivityText(ActivityKind.POD_REMOVAL, "Cube night"))
         val pod = ActivityHint("6", ActivityKind.POD_REMOVAL, "p1", "i2", resourceName = "Cube night")
         assertEquals("pod:p1", pod.notificationKey())
-        assertEquals("draft_activity", ActivityChannels.channel(ActivityKind.POD_REMOVAL))
+        assertEquals("notice_game_over", ActivityChannels.channel(pod))
     }
 }

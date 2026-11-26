@@ -63,6 +63,20 @@ data class CardPlay(
         @Serializable @SerialName("used") data object Used : Refusal
         /** The card belongs to (or is controlled by) another player: only they may play it. */
         @Serializable @SerialName("not-yours") data object NotYours : Refusal
+        /** A {T} ability of a permanent already tapped (CR 107.5). */
+        @Serializable @SerialName("tapped") data object Tapped : Refusal
+        /** A {Q} ability of a permanent already untapped (CR 107.6). */
+        @Serializable @SerialName("untapped") data object Untapped : Refusal
+        /** A creature's {T} or {Q} ability before it has been its controller's since their turn began (CR 302.6, 602.5a). */
+        @Serializable @SerialName("summoning-sick") data object SummoningSick : Refusal
+        /** No payment may exist for its mana cost now (CR 601.2g, 601.2h, 602.2b). */
+        @Serializable @SerialName("mana") data object Mana : Refusal
+        /** Not enough legal targets for it now (CR 601.2c, 602.2b). */
+        @Serializable @SerialName("no-target") data object NoTarget : Refusal
+        /** Turning face up a permanent that is face up (CR 702.37e, 702.168d). */
+        @Serializable @SerialName("face-up") data object FaceUp : Refusal
+        /** Its own restriction ("Activate only if …", CR 602.5b) or a special action's condition doesn't hold. */
+        @Serializable @SerialName("condition") data object Condition : Refusal
         /** Anything else: a cost that can't be paid, no legal target, a condition not met. [detail]: the engine's own refusal,
          * or null when it would begin it and the engine's options still leave it out (a target or a cost it can't have), for
          * the report a catch-all reason makes (LOB-090, TBL-123). */
@@ -123,6 +137,15 @@ class CardPlays private constructor(
                 val mine = (shown.controller ?: o.owner) == me
                 // The viewer's own hand card no cast or play is offered for: greyed, with the engine's reason
                 if (o.zone == Zone.Hand && o.owner == me && byCard[ids.atw(id.card)].isNullOrEmpty()) {
+                    val land = CardType.Land in characteristics.types
+                    val input = if (land) Input.PlayLand(me, id) else Input.Cast(me, id)
+                    add(id, CardPlay(if (land) CardPlay.Kind.Play else CardPlay.Kind.Cast, if (land) "Play" else "Cast", null, refusal(state, view, input)))
+                }
+                // ZON-107, TBL-118 (prod fault TP6NRM: a flashback card in the graveyard shook without a reason): a card outside the
+                // hand that a permission lets the viewer cast or play (their hand row's, ZON-105), with no cast or play offered now:
+                // greyed, with the engine's reason, as a hand card is
+                if (o.zone != Zone.Hand && byCard[ids.atw(id.card)].isNullOrEmpty() &&
+                    shown.statuses.any { s -> s is arcanum.engine.state.ObjectStatus.Playable && s.by.any { it.player == me && it.how != null } }) {
                     val land = CardType.Land in characteristics.types
                     val input = if (land) Input.PlayLand(me, id) else Input.Cast(me, id)
                     add(id, CardPlay(if (land) CardPlay.Kind.Play else CardPlay.Kind.Cast, if (land) "Play" else "Cast", null, refusal(state, view, input)))
@@ -203,14 +226,32 @@ class CardPlays private constructor(
             val player = when (input) { is Input.Activate -> input.player; is Input.Cast -> input.player; is Input.PlayLand -> input.player; else -> null }
             // Every cast, land play, activation and special action needs priority (CR 117.1, 116.2)
             if (state.priority.holder != player) return CardPlay.Refusal.Priority(state.priority.holder?.value)
-            val message = CastScreen.refusal(state, input, view) ?: return CardPlay.Refusal.Other()
+            // LOB-090, TBL-123 (prod faults 8M35M6, WCT9GA, HMZSXN: a catch-all for an ability with all its mana sources tapped):
+            // an activation the engine would begin says what then stops it, asked on a copy (casts keep their own words)
+            val message = CastScreen.refusal(state, input, view)
+                ?: (if (input is Input.Activate) CastScreen.leftOut(state, input, view, EnginePreferences.of(state)) else null)
+                ?: return CardPlay.Refusal.Other()
             val loyalty = (ability as? Ability.Activated)?.cost?.parts?.any { it is CostPart.Loyalty } == true
             return when {
-                loyalty && "loyalty ability" in message -> CardPlay.Refusal.Loyalty
-                "as a sorcery" in message || "main phase" in message || "sorcery" in message -> CardPlay.Refusal.Timing
-                "time(s) each turn" in message || "only once" in message || "no land plays left" in message -> CardPlay.Refusal.Used
-                else -> CardPlay.Refusal.Other(message.take(300))
+                // Prod faults 2VLVQG, NNJWE3, S2AJML, T3CN7C: the engine's specific reasons (CR 107.5, 302.6, 702.37e)
+                input !is Input.Activate -> legacy(message, loyalty)
+                "it's tapped" in message -> CardPlay.Refusal.Tapped
+                "it's untapped" in message -> CardPlay.Refusal.Untapped
+                "summoning sickness" in message -> CardPlay.Refusal.SummoningSick
+                message.startsWith("Not enough mana") -> CardPlay.Refusal.Mana
+                message.startsWith("Not enough legal targets") -> CardPlay.Refusal.NoTarget
+                "it isn't face down" in message -> CardPlay.Refusal.FaceUp
+                "its condition isn't met" in message -> CardPlay.Refusal.Condition
+                else -> legacy(message, loyalty)
             }
+        }
+
+        /** The refusals told by words common to casts, land plays and activations: timing, uses, else [CardPlay.Refusal.Other]. */
+        private fun legacy(message: String, loyalty: Boolean): CardPlay.Refusal = when {
+            loyalty && "loyalty ability" in message -> CardPlay.Refusal.Loyalty
+            "as a sorcery" in message || "main phase" in message || "sorcery" in message -> CardPlay.Refusal.Timing
+            "time(s) each turn" in message || "only once" in message || "no land plays left" in message -> CardPlay.Refusal.Used
+            else -> CardPlay.Refusal.Other(message.take(300))
         }
     }
 }

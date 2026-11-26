@@ -167,6 +167,14 @@ fun engineRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.
     org.asyncttwiz.automatum.CardPlay.Refusal.Timing -> "Only in your main phase while the Stack is empty."
     org.asyncttwiz.automatum.CardPlay.Refusal.Loyalty -> "A loyalty ability: once each turn, in your main phase while the Stack is empty."
     org.asyncttwiz.automatum.CardPlay.Refusal.Used -> "Already used as often as allowed this turn."
+    // TBL-123 (prod faults 2VLVQG, NNJWE3, S2AJML, 8M35M6, WCT9GA, HMZSXN, T3CN7C): the engine's own reason, not the catch-all
+    org.asyncttwiz.automatum.CardPlay.Refusal.Tapped -> "$name is tapped."
+    org.asyncttwiz.automatum.CardPlay.Refusal.Untapped -> "$name is untapped."
+    org.asyncttwiz.automatum.CardPlay.Refusal.SummoningSick -> "$name came under your control this turn (summoning sickness)."
+    org.asyncttwiz.automatum.CardPlay.Refusal.Mana -> "Not enough mana."
+    org.asyncttwiz.automatum.CardPlay.Refusal.NoTarget -> "Nothing it can target now."
+    org.asyncttwiz.automatum.CardPlay.Refusal.FaceUp -> "$name is face up already."
+    org.asyncttwiz.automatum.CardPlay.Refusal.Condition -> "Its condition isn't met now."
     org.asyncttwiz.automatum.CardPlay.Refusal.NotYours -> when (kind) {
         org.asyncttwiz.automatum.CardPlay.Kind.Cast, org.asyncttwiz.automatum.CardPlay.Kind.Play -> CastController.NOT_YOURS
         else -> "Only its controller can do that."

@@ -140,6 +140,43 @@ internal object Mana {
     }
 
     /**
+     * Why [canActivate] says no for [instance] of [id], in a few words with the rule: where it is, who may activate it, its
+     * condition, an effect that stops it, or the first part of its cost that can't be paid ("it's tapped (CR 107.5)", "summoning
+     * sickness (CR 302.6)"); null when it says yes. Worked out apart from [canActivate], which the mana search asks often.
+     */
+    fun cantActivate(snap: Snapshot, player: PlayerId, id: ObjectId, instance: AbilityInstance): String? {
+        val ability = instance.ability as? Ability.Activated ?: return "not an activated ability"
+        val o = snap.state.obj(id) ?: return "no such object"
+        val ov = snap.view[id] ?: return "no such object"
+        val instantOrSorcery = ov.characteristics?.let { it.isType(CardType.Instant) || it.isType(CardType.Sorcery) } == true
+        if (o.zone !in Functioning.zones(ability, instantOrSorcery)) return "it doesn't work from ${o.zone} (CR 113.6)"
+        val controller = snap.board.controller(id) ?: o.owner
+        val eval = snap.evaluator(controller, self = id)
+        if (!eval.matches(ability.rules.activatedBy, player)) return "$player may not activate it (CR 602.2)"
+        if (ability.rules.condition?.let { eval.holds(it) } == false) return "its condition isn't met (CR 602.5b)"
+        if (ov.has { it is Mechanic.CantBeActivated && (it.manaAbilities || !ability.isManaAbility()) }) return "an effect says it can't be activated (CR 602.5)"
+        if (snap.view.players[player]?.mechanics.orEmpty().any { applied ->
+                val m = applied.mechanic as? Mechanic.CantActivate ?: return@any false
+                abilityMatches(snap.evaluator(applied.controller, self = applied.source, names = applied.names), m.abilities, ability, id)
+            }) return "an effect says $player can't activate it (CR 602.5)"
+        for (part in ability.cost.parts) {
+            if (costPartPossible(snap, player, id, part)) continue
+            return when (part) {
+                CostPart.TapSelf, CostPart.UntapSelf -> when {
+                    o.zone != Zone.Battlefield -> "it isn't on the battlefield"
+                    part == CostPart.TapSelf && o.tapped -> "it's tapped (CR 107.5)"
+                    part == CostPart.UntapSelf && !o.tapped -> "it's untapped (CR 107.6)"
+                    else -> "summoning sickness: it hasn't been under its controller's control since their turn began (CR 302.6, 602.5a)"
+                }
+                is CostPart.Sacrifice -> "it can't be sacrificed (CR 701.21)"
+                is CostPart.PayLife -> "$player can't pay that life (CR 119.4, 119.8)"
+                else -> "its cost can't be paid (CR 602.2b)"
+            }
+        }
+        return null
+    }
+
+    /**
      * Whether [ability] of [id] functions where [id] is (CR 113.6, 602.2: its zone) and [player] may activate it there (who may
      * activate it, its condition), whatever else stops it now: the part of [canActivate] that
      * [arcanum.engine.casting.Legality.cantUse] shares.

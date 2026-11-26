@@ -67,4 +67,21 @@ object CastScreen {
      * an action out with this reason instead of trying it.
      */
     fun refusal(state: GameState, input: Input, view: View? = null): String? = Perform.refusal(state, input, view)
+
+    /**
+     * Why [Engine.options] doesn't list [input], a cast or an activation (special actions included), for a host that greys it
+     * out: [refusal]'s reason when it can't be begun; else, tried on a copy of [state] (blocking: as long as one trial cast
+     * of the options' search), what refuses it as it is begun, word for word (not enough legal targets, CR 601.2c; nothing
+     * to pay a cost with, CR 601.2h; an unpayable cost, CR 118.6), "Not enough mana: …" ([MANA_UNPAYABLE]) when no
+     * payment may exist for its mana cost as it stands, or [NO_WAY] when none of its choices leads to its end. Null when
+     * [Engine.options] would list it, and for any other input. [prefs] as for [Engine.options].
+     */
+    fun leftOut(state: GameState, input: Input, view: View? = null, prefs: Preferences = Preferences()): String? =
+        Options.leftOut(state, input, view, prefs)
+
+    /** [leftOut]'s words when no payment may exist for the mana cost as it stands; they begin "Not enough mana". */
+    const val MANA_UNPAYABLE: String = Options.MANA_UNPAYABLE
+
+    /** [leftOut]'s words when none of the choices of a cast or activation begun leads to its end. */
+    const val NO_WAY: String = Options.NO_WAY
 }

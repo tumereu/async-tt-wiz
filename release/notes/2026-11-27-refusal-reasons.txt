@@ -1,0 +1,1 @@
+3: A greyed-out ability now says why it can't be used: tapped, summoning sickness, not enough mana, nothing to target or already face up. A flashback card that can't be cast now says so when tapped.

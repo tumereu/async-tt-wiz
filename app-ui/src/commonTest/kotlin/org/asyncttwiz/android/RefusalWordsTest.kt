@@ -30,6 +30,28 @@ class RefusalWordsTest {
         assertEquals(1, reported { refusalReason(" ", "control") }.size, "a blank reason is none")
     }
 
+    // TBL-123, LOB-090 (prod faults 2VLVQG, 8M35M6, T3CN7C and more, 2026-11-26): an ability's specific reasons are said in the
+    // menu and on a chip, reporting nothing; only the catch-all is reported
+    @Test fun anAbilitysSpecificReasonsAreSaidWithoutAReport() {
+        val ability = org.asyncttwiz.automatum.CardPlay.Kind.Ability
+        fun said(refusal: org.asyncttwiz.automatum.CardPlay.Refusal) =
+            engineRefusal(refusal, ability, "Grovewatch Druid", emptyMap()).also {
+                assertEquals(it, chipRefusal(refusal, ability, "Grovewatch Druid", emptyMap()))
+            }
+        assertEquals(emptyList(), reported {
+            assertEquals("Grovewatch Druid is tapped.", said(org.asyncttwiz.automatum.CardPlay.Refusal.Tapped))
+            assertEquals("Grovewatch Druid is untapped.", said(org.asyncttwiz.automatum.CardPlay.Refusal.Untapped))
+            assertEquals("Grovewatch Druid came under your control this turn (summoning sickness).",
+                said(org.asyncttwiz.automatum.CardPlay.Refusal.SummoningSick))
+            assertEquals("Not enough mana.", said(org.asyncttwiz.automatum.CardPlay.Refusal.Mana))
+            assertEquals("Nothing it can target now.", said(org.asyncttwiz.automatum.CardPlay.Refusal.NoTarget))
+            assertEquals("Grovewatch Druid is face up already.", said(org.asyncttwiz.automatum.CardPlay.Refusal.FaceUp))
+            assertEquals("Its condition isn't met now.", said(org.asyncttwiz.automatum.CardPlay.Refusal.Condition))
+        })
+        val faults = reported { engineRefusal(org.asyncttwiz.automatum.CardPlay.Refusal.Other("x"), ability, "Grovewatch Druid", emptyMap(), "c1", "{T}: Add {G}.") }
+        assertEquals(listOf("Refusal: catch-all reason for Grovewatch Druid: {T}: Add {G}."), faults.map { it.key })
+    }
+
     // TBL-212, HIS-089: an Undo that can't do anything says why in plain words; an unknown reason is reported (TBL-213)
     @Test fun anUndoThatCantSaysWhy() {
         assertEquals("Nothing to undo yet.", undoRefusal("nothing"))

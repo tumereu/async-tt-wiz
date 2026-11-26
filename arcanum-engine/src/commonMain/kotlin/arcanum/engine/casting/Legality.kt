@@ -449,7 +449,9 @@ internal object Legality {
         if (ability is Ability.SpecialAction) return cantTakeSpecialAction(snap, player, source, instance, ability)
         ability as? Ability.Activated ?: return "not an activated ability"
         if (!hasPriority(snap, player)) return "$player doesn't have priority"
-        if (!Mana.canActivate(snap, player, source, instance)) return "it can't be activated now (zone, cost, condition or who may activate)"
+        // Prod faults 2VLVQG, NNJWE3, S2AJML (2026-11-26): what stops it, not a list of what might
+        if (!Mana.canActivate(snap, player, source, instance))
+            return Mana.cantActivate(snap, player, source, instance) ?: "it can't be activated now (zone, cost, condition or who may activate)"
         val loyalty = ability.cost.parts.any { it is CostPart.Loyalty }
         // CR 606.3: loyalty abilities as a sorcery, once each turn per permanent
         // fra: "you may activate loyalty abilities of … any time you could cast an instant" (still once each turn)
@@ -507,12 +509,17 @@ internal object Legality {
                 when {
                     o.zone !in Functioning.zones(ability, false) && !keywordFunctionsHere(snap, o, instance) -> "it doesn't work from ${o.zone}"
                     you != player -> "only its controller may take it"
-                    ability.condition != null && !snap.evaluator(you, self = source).holds(ability.condition!!) -> "its condition isn't met"
+                    // CR 702.37e, 702.168d: only a face-down permanent is turned face up (prod fault T3CN7C: a face-up Concealed Weapon)
+                    ability.condition != null && !snap.evaluator(you, self = source).holds(ability.condition!!) ->
+                        if (ability.condition == FACE_DOWN) "it isn't face down (CR 702.37e, 702.168d)" else "its condition isn't met"
                     else -> null
                 }
             }
             else -> "not an activated ability"
         }
+
+    /** A special action's condition that its object is face down (turning it face up, CR 702.37e, 702.168d). */
+    private val FACE_DOWN = arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.Self, arcanum.api.ObjectFilter.HasStatus(arcanum.api.Status.FaceDown))
 
     /** [cantUse]'s uses: an activated ability used as often as it may be each turn or at all (CR 602.5b), a special action
      * once each game used. */

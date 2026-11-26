@@ -255,14 +255,101 @@ object WhoActs {
      * differ, so their player always orders them), nor a selection up to a total (CR 701.59a: the engine lists a working
      * sample of them, and which cards go is theirs to confirm), nor a random or named-card decision. Judged with every card.
      */
-    fun quickAnswer(model: GameModel, decision: Decision): Input.Answer? {
-        if (decision is Decision.Random || decision is Decision.NamedCard || decision is Decision.OrderTriggers ||
-            (decision is Decision.ChooseObjects && decision.total != null)) return null
+    fun quickAnswer(model: GameModel, decision: Decision): Input.Answer? = quickJudged(model, decision).answer
+
+    /** [quickAnswer] and, in a few words, why [decision] has it or not (the device's record, problem report DH9MW5). */
+    data class QuickJudgement(val answer: Input.Answer?, val why: String)
+
+    /**
+     * [quickAnswer] with its reason. The engine's list of answers ([Engine.options]) has every answer of most decisions but only
+     * a sample of a choice of several (the first ones that work together), so the one answer listed is the only one only when
+     * no other is found ([another]). Problem report DH9MW5: after "no" to Thirst for Knowledge's "unless you discard an artifact
+     * card" (CR 118.12a), the first two cards of a hand of nine were taken for the only two to discard.
+     */
+    fun quickJudged(model: GameModel, decision: Decision): QuickJudgement {
+        when {
+            decision is Decision.Random || decision is Decision.NamedCard -> return QuickJudgement(null, "the host's to answer")
+            decision is Decision.OrderTriggers -> return QuickJudgement(null, "the order of triggers is always theirs (STK-030)")
+            decision is Decision.ChooseObjects && decision.total != null ->
+                return QuickJudgement(null, "cards picked up to an amount are theirs to confirm (STK-061)")
+        }
         val s = model.engine
-        if (s.pending?.decision?.id != decision.id) return null
-        return Engine.options(s, decision.player, model.keptView(), EnginePreferences.of(s)).filterIsInstance<Input.Answer>()
-            .filter { it.decision == decision.id }.singleOrNull()
+        if (s.pending?.decision?.id != decision.id) return QuickJudgement(null, "not the open decision")
+        val listed = Engine.options(s, decision.player, model.keptView(), EnginePreferences.of(s)).filterIsInstance<Input.Answer>()
+            .filter { it.decision == decision.id }
+        val only = listed.singleOrNull() ?: return QuickJudgement(null, "${listed.size} answers listed")
+        another(model, decision, only)?.let { return QuickJudgement(null, it) }
+        return QuickJudgement(only, "its one answer")
     }
+
+    /**
+     * Why [decision] on [model] may have an answer other than [listed], the one the engine lists, or null when it has none: a
+     * choice of several where another selection works too (cards alike, the same card in the same state, count as one, SYS-206:
+     * "discard two cards" from a hand of Mountains has one answer), a division that can go more than one way (STK-033), a number
+     * with more than one value, any creature type or card name.
+     */
+    private fun another(model: GameModel, decision: Decision, listed: Input.Answer): String? = when (decision) {
+        is Decision.ChooseObjects -> anotherSelection(model, decision.id, decision.options, decision.min, decision.max,
+            (listed.answer as? Answer.Objects)?.chosen, { alike(model.engine, it) }) { Answer.Objects(it) }
+        is Decision.Targets -> anotherSelection(model, decision.id, decision.options, decision.min, decision.max,
+            (listed.answer as? Answer.Targets)?.chosen, { it }) { Answer.Targets(it) }
+        is Decision.Modes -> {
+            val available = decision.options.filter { it.available }.map { it.index }
+            if (decision.repeatable && !(available.size <= 1 && decision.min == decision.max)) "modes that may repeat"
+            else anotherSelection(model, decision.id, available, decision.min, decision.max, (listed.answer as? Answer.Modes)?.chosen, { it }) {
+                Answer.Modes(it)
+            }
+        }
+        is Decision.Divide -> if (decision.among.size <= 1 || decision.amount == decision.minEach * decision.among.size) null
+            else "a division that can go more than one way (STK-033)"
+        is Decision.ChooseNumber -> if (decision.max == decision.min) null else "a number from ${decision.min} to ${decision.max ?: "any"}"
+        is Decision.Announce -> if (decision.max == decision.min) null else "a value from ${decision.min} to ${decision.max ?: "any"}"
+        is Decision.ChooseSubtype -> if (decision.among != null) null else "any creature type"
+        is Decision.ChooseCardName -> "any card name"
+        else -> null
+    }
+
+    /** How many other selections [anotherSelection] tries before it takes another one to exist: a choice is taken from its
+     * player only with proof that it has one answer. */
+    private const val SELECTIONS_TRIED = 64
+
+    /**
+     * Why a choice of [min] to [max] of [options] may have an answer other than [chosen], or null: another selection (options
+     * told apart by [alike]) that [Engine.perform] takes, of the first [SELECTIONS_TRIED] tried.
+     */
+    private fun <T> anotherSelection(model: GameModel, decision: arcanum.engine.decision.DecisionId, options: List<T>, min: Int, max: Int?,
+        chosen: List<T>?, alike: (T) -> Any, answer: (List<T>) -> Answer): String? {
+        if (chosen == null) return "an answer of another kind listed"
+        val top = minOf(max ?: options.size, options.size)
+        val groups = options.groupBy(alike).values.toList()
+        val listedKind = chosen.groupingBy(alike).eachCount()
+        var tried = 0
+        for (size in min.coerceAtMost(top)..top) for (pick in picks(groups, size)) {
+            if (pick.groupingBy(alike).eachCount() == listedKind) continue
+            if (tried++ == SELECTIONS_TRIED) return "over $SELECTIONS_TRIED other selections, not all tried"
+            val taken = try {
+                Engine.perform(model.engine, Input.Answer(decision, answer(pick)), model.keptView(), EnginePreferences.of(model.engine))
+                true
+            } catch (_: IllegalArgumentException) {
+                false
+            }
+            if (taken) return "another selection works too (${pick.size} of ${options.size})"
+        }
+        return null
+    }
+
+    /** Every selection of [size] from [groups] (options alike in each), one per way of taking so many of each group. */
+    private fun <T> picks(groups: List<List<T>>, size: Int, from: Int = 0): Sequence<List<T>> = sequence {
+        if (size == 0) { yield(emptyList()); return@sequence }
+        if (from == groups.size) return@sequence
+        for (n in minOf(size, groups[from].size) downTo 0) picks(groups, size - n, from + 1).forEach { yield(groups[from].take(n) + it) }
+    }
+
+    /** What tells the object [id] apart from others in a choice on [state] ([another]): the same card in the same state is alike. */
+    private fun alike(state: GameState, id: arcanum.engine.state.ObjectId): Any = state.obj(id)?.let { o ->
+        listOf(o.definition, o.face, o.zone, o.owner, o.controller, o.token, o.tapped, o.faceDown, o.phasedOut, o.marks, o.counters,
+            o.damage, o.attachedTo, o.linked, o.cast, o.statuses)
+    } ?: id
 
     /**
      * The engine-automatic answer to the open [decision] on [model] (§6 c), or null: the decider's own early answer to it

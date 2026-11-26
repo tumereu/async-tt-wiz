@@ -91,9 +91,9 @@ class PodChatTest : E2e() {
         assertFalse(bob.shows(gameTab and newMessages), "the tapped bubble's message counts as seen: ${bob.screen()}")
     }
 
-    // DRF-170, DRF-237, DRF-012 (owner, 2026-11-10): a pod message sends no notification: the server records no notice for the other
-    // member, so nothing reaches their phone's notifications, while the in-app dot on the Pods list still shows it
-    @Test fun aPodMessageSendsNoNotification() {
+    // DRF-170, DRF-237, DRF-012, LOB-277 (owner, 2026-11-26): a pod message notifies the other member (one chat notice, never its
+    // author), and the in-app dot on the Pods list shows it too
+    @Test fun aPodMessageNotifiesTheOtherMember() {
         launchPlayers()
         val name = "E2E pod chat quiet ${UUID.randomUUID().toString().take(6)}"
         val game = ServerSetup.readyBoth(alice.account, bob.account, ServerSetup.podGame(alice.account, bob.account, name))
@@ -103,7 +103,7 @@ class PodChatTest : E2e() {
         ServerSetup.podChat(alice.account, pod, "Anyone up for a rematch?")
         bob.auth.navigate(ShellDestination.PODS)
         waitUntil("the dot on Bob's pod row") { bob.shows(hasTestTag("pod-chat-unread-$pod")) }
-        kotlin.test.assertEquals(before, ServerSetup.notices(bob.account, pod), "no notice of the message for Bob")
+        kotlin.test.assertEquals(before + "POD_CHAT", ServerSetup.notices(bob.account, pod), "the message's notice for Bob")
         kotlin.test.assertEquals(hers, ServerSetup.notices(alice.account, pod), "none for Alice either")
     }
 

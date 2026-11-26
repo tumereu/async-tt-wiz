@@ -116,10 +116,19 @@ class NotificationSettingsTest : E2e() {
 
                 // Bob's browser: Settings → Notifications → Chat on again; the server keeps it for all his devices
                 web.page.mouse().move(200.0, 400.0)
-                waitUntil("Chat on screen in Bob's browser") {
-                    val box = web.page.locator("#notification-kind-chat").first().boundingBox()
-                    (box != null && box.height > 0 && box.y > 60 && box.y + box.height < 800).also {
-                        if (!it) web.page.mouse().wheel(0.0, if (box != null && box.y <= 60) -200.0 else 200.0) }
+                // Scrolled with the mouse wheel (the page is the app's canvas) until the row stays in view, then tapped
+                fun chatRow() = web.page.locator("#notification-kind-chat").first().boundingBox()
+                    ?.takeIf { it.height > 0 && it.y > 60 && it.y + it.height < 800 }
+                waitUntil("Chat on screen in Bob's browser, the page still") {
+                    val before = chatRow()
+                    if (before == null) {
+                        // (an element out of view has an empty box; the row comes after Games)
+                        val box = web.page.locator("#notification-kind-chat").first().boundingBox()
+                        web.page.mouse().wheel(0.0, if (box != null && box.height > 0 && box.y <= 60) -150.0 else 150.0)
+                    }
+                    web.page.waitForTimeout(700.0)
+                    val after = chatRow()
+                    before != null && after != null && after.y == before.y
                 }
                 web.tap("#notification-kind-chat")
                 waitUntil("Chat on again on the server") { notificationSettings(bob.account).chat }

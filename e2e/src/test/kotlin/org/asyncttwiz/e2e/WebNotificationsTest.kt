@@ -86,7 +86,8 @@ class WebNotificationsTest {
                 waitFor("Browser notifications on screen") {
                     val box = page.locator("#browser-notifications").first().boundingBox()
                     (box != null && box.height > 0 && box.y > 60 && box.y + box.height < 800).also {
-                        if (!it) page.mouse().wheel(0.0, if (box != null && box.y > 60) 200.0 else -200.0) }
+                        // (out of view its box is empty: This browser comes after Notifications)
+                        if (!it) page.mouse().wheel(0.0, if (box != null && box.height > 0 && box.y <= 60) -200.0 else 200.0) }
                 }
                 web.tap("#browser-notifications")
                 waitFor("Alice's browser forgotten") { subscriptions(alice).isEmpty() }

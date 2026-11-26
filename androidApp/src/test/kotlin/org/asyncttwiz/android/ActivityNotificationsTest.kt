@@ -2,7 +2,7 @@ package org.asyncttwiz.android
 
 import kotlin.test.*
 import org.junit.Test
-import org.asyncttwiz.protocol.ActivityKind
+import org.asyncttwiz.protocol.*
 import java.time.Instant
 
 class ActivityNotificationsTest {
@@ -86,16 +86,33 @@ class ActivityNotificationsTest {
         }
     }
 
-    // DRF-135, LOB-072
-    @Test fun threeDefaultChannelsAndAllPathsRespectAllOsControls() {
-        assertEquals(setOf("Invitations", "Game activity", "Draft activity"), ActivityChannels.names.values.toSet())
-        assertEquals(3, ActivityChannels.names.size)
-        assertEquals("invitations", ActivityChannels.channel(ActivityKind.INVITATION))
-        assertEquals("game_activity", ActivityChannels.channel(ActivityKind.GAME))
-        assertEquals("invitations", ActivityChannels.channel(ActivityKind.POD_INVITATION))
-        ActivityKind.entries.filter { it.isPodActivity() && it != ActivityKind.POD_INVITATION }.forEach {
-            assertEquals("draft_activity", ActivityChannels.channel(it))
-        }
+    // DRF-135, LOB-072, LOB-076, LOB-111, LOB-114, LOB-116, LOB-134, LOB-277 (owner, 2026-11-26): six channels, one per kind:
+    // each notification in its kind's (a game's by what it tells); the app's own reminders in Reminders
+    @Test fun sixChannelsOnePerKindAndAllPathsRespectAllOsControls() {
+        assertEquals(listOf("Your move", "Reminders", "Chat", "Invitations", "Draft", "Game over & warnings"),
+            ActivityChannels.names.values.toList())
+        assertTrue(ActivityChannels.names.keys.none { it in ActivityChannels.RETIRED }, "new channels keep none of the old ones' settings")
+        fun hint(kind: ActivityKind, notice: GameNoticeContent? = null) = ActivityHint("1", kind, "g", "i", notice = notice)
+        fun channel(hint: ActivityHint, reminder: Boolean = false) =
+            ActivityChannels.names.getValue(ActivityChannels.channel(hint, reminder))
+        val move = GameNoticeContent("Azure Spark", "Alex", "2026-11-26T10:00:00Z", yourMove = true)
+        assertEquals("Your move", channel(hint(ActivityKind.GAME, move)))
+        assertEquals("Your move", channel(hint(ActivityKind.GAME, move.copy(yourMove = false))))
+        assertEquals("Your move", channel(hint(ActivityKind.GAME, move.copy(opponentReady = true))))
+        assertEquals("Reminders", channel(hint(ActivityKind.GAME, move.copy(reminder = true))))
+        assertEquals("Game over & warnings", channel(hint(ActivityKind.GAME, move.copy(gameOver = SuggestedResult.WIN))))
+        assertEquals("Game over & warnings", channel(hint(ActivityKind.GAME, move.copy(branched = true))))
+        assertEquals("Game over & warnings", channel(hint(ActivityKind.GAME_REMOVAL)))
+        assertEquals("Chat", channel(hint(ActivityKind.CHAT))); assertEquals("Chat", channel(hint(ActivityKind.POD_CHAT)))
+        assertEquals("Invitations", channel(hint(ActivityKind.INVITATION)))
+        assertEquals("Invitations", channel(hint(ActivityKind.POD_INVITATION)))
+        for (kind in listOf(ActivityKind.POD_YOUR_PICK, ActivityKind.POD_DRAFT_COMPLETE, ActivityKind.POD_DECKS_READY,
+                ActivityKind.POD_DRAFT_CANCELLED, ActivityKind.POD_AUTO_START_OFF)) assertEquals("Draft", channel(hint(kind)), kind.name)
+        for (kind in listOf(ActivityKind.POD_REMOVAL, ActivityKind.POD_DESTROYED, ActivityKind.POD_MEMBER_REMOVED))
+            assertEquals("Game over & warnings", channel(hint(kind)), kind.name)
+        // LOB-076: the app's own reminder of a pick or a game
+        assertEquals("Reminders", channel(hint(ActivityKind.POD_YOUR_PICK), reminder = true))
+        assertEquals("Reminders", channel(hint(ActivityKind.GAME, move), reminder = true))
         for (permission in listOf(false, true)) for (application in listOf(false, true)) for (channel in listOf(false, true))
             assertEquals(permission && application && channel, ActivityChannels.allowed(permission, application, channel))
     }

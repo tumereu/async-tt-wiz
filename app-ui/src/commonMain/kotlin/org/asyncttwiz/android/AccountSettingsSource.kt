@@ -111,6 +111,19 @@ class AccountSettingsState(private val source: AccountSettingsSource, private va
             }
         }
     }
+    /** LOB-276: one kind of notification switched on or off, kept on the server for every phone and browser of the account. */
+    fun setNotification(kind: NotificationKind, on: Boolean) {
+        val current = settings ?: AccountSettings()
+        val next = current.copy(notifications = current.notifications.with(kind, on))
+        if (next == settings) return
+        settings = next
+        AppLog.info("settings", "Notifications: ${kind.id} ${if (on) "on" else "off"}")
+        scope.launch {
+            runCatching { source.set(next) }.onFailure {
+                error = "Couldn't save your notifications to the server. They are kept on this device and sent later."
+            }
+        }
+    }
     /** WEB-033: the desktop hotkeys, kept on the server for every browser of the account; [applied] tells the screens at once. */
     fun setKeyBindings(bindings: KeyBindings, applied: KeyBindingsState?) {
         applied?.set(bindings)

@@ -10,8 +10,7 @@ import org.junit.jupiter.api.Test
 class WebPushDeliveryTest {
     private fun id() = ActivityFixture.id()
     private val browserKey = "B" + "A".repeat(86)
-    private fun subscription(games: Boolean = true, invitations: Boolean = true) =
-        WebPushSubscription("https://fcm.googleapis.com/fcm/send/${id()}", browserKey, "A".repeat(22), invitations, games, true)
+    private fun subscription() = WebPushSubscription("https://fcm.googleapis.com/fcm/send/${id()}", browserKey, "A".repeat(22))
 
     // WEB-052, LOB-072, LOB-183, LOB-185, LOB-077: an invitation and a game's move reach the browser as notifications with their words, its
     // tag and the address a click opens; Android installations still get their opaque hint beside it
@@ -48,32 +47,44 @@ class WebPushDeliveryTest {
         }
     }
 
-    // WEB-051: a kind switched off in the browser is never sent to it (its pending push is dropped), the others still are
-    @Test fun `a kind the browser switched off isn't sent, and a gone subscription is forgotten`() {
+    // WEB-051, LOB-276 (owner, 2026-11-26): a kind the account switched off in Settings is sent to none of its devices (its
+    // pending push is dropped, for a browser and for an Android installation alike), the others still are; a gone
+    // subscription is forgotten
+    @Test fun `a kind the account switched off isn't sent, and a gone subscription is forgotten`() {
         ActivityFixture().use { f ->
             val clock = ActivityClock(); val service = ActivityService(f.runtime, clock)
-            val browser = RegisterInstallation(id(), id(), webPush = subscription(games = false))
+            val settings = org.asyncttwiz.server.accounts.AccountSettingsService(f.runtime)
+            settings.set(f.b.account.accountId, AccountSettings(notifications = NotificationSettings(yourMove = false)))
+            val browser = RegisterInstallation(id(), id(), webPush = subscription())
             service.register(f.b, browser)
+            service.register(f.b, RegisterInstallation(id(), id(), "synthetic-android-token"))
             val sent = mutableListOf<WebPushNotice>()
+            val hints = mutableListOf<ActivityPushHint>()
             var answer = PushResult(PushStatus.DELIVERED)
-            ActivityDelivery(f.runtime, null, clock, { _, notice -> sent += notice; answer }).use { delivery ->
+            ActivityDelivery(f.runtime, { _, hint -> hints += hint; PushResult(PushStatus.DELIVERED) }, clock,
+                { _, notice -> sent += notice; answer }).use { delivery ->
                 val invited = f.create()
                 clock.time = Instant.now().plusSeconds(1); delivery.deliverDue()
                 assertEquals(listOf("invite"), sent.map { it.tag.substringBefore(':') }, "Invitations are on")
-                sent.clear()
+                assertEquals(1, hints.size)
+                sent.clear(); hints.clear()
                 val game = f.accept(invited)
                 clock.time = Instant.now().plusSeconds(1); delivery.deliverDue()
                 f.record(game, id(), clock.time); clock.time = clock.time.plusSeconds(61); delivery.deliverDue()
                 // (the accepted invitation's notice is cleared meanwhile, LOB-242)
                 assertEquals(listOf("invite"), sent.filter { it.clear }.map { it.tag.substringBefore(':') })
                 sent.removeAll { it.clear }
-                assertTrue(sent.isEmpty(), "Game activity is off in this browser")
+                assertTrue(sent.isEmpty(), "Your move is off for the account: nothing to its browser")
+                assertEquals(1, hints.size, "only the invitation's clear reached the Android installation: ${hints.map { it.gameId }}")
                 assertEquals(0L, f.number("SELECT count(*) FROM activity_push"))
-                // Game activity on again: the next move is sent; the push service says the subscription is gone
-                service.register(f.b, browser.copy(webPush = browser.webPush!!.copy(games = true)))
+                assertTrue(service.page(f.b, null).let { service.page(f.b, it.nextCursor) }.readyNotices!!.isEmpty(),
+                    "no device is told to show it")
+                // Your move on again: the next move is sent; the push service says the subscription is gone
+                settings.set(f.b.account.accountId, AccountSettings())
                 answer = PushResult(PushStatus.INVALID_REGISTRATION)
                 f.record(game, id(), clock.time); clock.time = clock.time.plusSeconds(61); delivery.deliverDue()
                 assertEquals(1, sent.size)
+                assertEquals(2, hints.size, "and to the Android installation")
                 assertEquals(0L, f.number("SELECT count(*) FROM activity_installation WHERE web_push IS NOT NULL"))
                 f.record(game, id(), clock.time); clock.time = clock.time.plusSeconds(61); delivery.deliverDue()
                 assertEquals(1, sent.size, "nothing more until the browser subscribes again")
@@ -95,8 +106,9 @@ class WebPushDeliveryTest {
             }
             val browser = RegisterInstallation(id(), id(), webPush = subscription())
             val first = service.register(f.b, browser)
-            assertEquals(first, service.register(f.b, browser.copy(webPush = browser.webPush!!.copy(drafts = false))), "the same browser")
-            assertEquals(1L, f.number("SELECT count(*) FROM activity_installation WHERE web_push LIKE '%\"drafts\":false%'"))
+            val renewed = browser.webPush!!.copy(endpoint = "https://fcm.googleapis.com/fcm/send/${id()}")
+            assertEquals(first, service.register(f.b, browser.copy(webPush = renewed)), "the same browser")
+            assertEquals(1L, f.number("SELECT count(*) FROM activity_installation WHERE web_push LIKE '%${renewed.endpoint}%'"))
             service.unregister(f.b, browser.installationId)
             assertEquals(0L, f.number("SELECT count(*) FROM activity_installation"))
         }

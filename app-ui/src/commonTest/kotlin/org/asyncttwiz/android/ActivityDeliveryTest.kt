@@ -152,6 +152,24 @@ class ActivityDeliveryTest {
         delivery.apply(alice, page(hint(6, "f", ActivityKind.POD_YOUR_PICK, "pod"))) { true }
         assertEquals("pod:pod", posted.last().key); assertEquals(4, posted.size)
     }
+    // LOB-277 (owner, 2026-11-26): one notification per chat, a game's and a pod's apart from the game's and the pod's own; none
+    // posted while that game or pod is shown in front, and opening it clears them (its keys); a filtered kind posts nothing
+    @Test fun aChatHasItsOwnNotificationNotPostedWhileItsGameOrPodIsShown() {
+        val store = Store(); val posted = mutableListOf<ActivityNotice>()
+        val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice) }
+        assertEquals(listOf("game:g", "chat:g"), ActivityScreen(game = "g").keys())
+        assertEquals(listOf("pod:p", "pod-chat:p"), ActivityScreen(pod = "p").keys())
+        assertTrue(ActivityScreen(game = "g").shows("chat:g")); assertTrue(ActivityScreen(pod = "p").shows("pod-chat:p"))
+        delivery.display(ActivityScreen(game = "g"), true)
+        delivery.apply(alice, page(hint(1, "m1", ActivityKind.CHAT, "g"), hint(2, "m2", ActivityKind.CHAT, "other"),
+            hint(3, "m3", ActivityKind.POD_CHAT, "p"))) { true }
+        assertEquals(listOf("chat:other", "pod-chat:p"), posted.map { it.key })
+        delivery.display(ActivityScreen(pod = "p"), true)
+        delivery.apply(alice, page(hint(4, "m4", ActivityKind.POD_CHAT, "p"), hint(5, "m5", ActivityKind.CHAT, "g"))) { true }
+        assertEquals(listOf("chat:other", "pod-chat:p", "chat:g"), posted.map { it.key })
+        delivery.apply(alice, page(hint(6, "m6", ActivityKind.CHAT, "g"))) { it.kind != ActivityKind.CHAT }
+        assertEquals(3, posted.size, "the Chat kind filtered out")
+    }
     // DRF-135, DRF-122 (owner, 2026-11-20): one notification per pod: a challenge of the pod shows in the pod's notification,
     // replacing "Draft complete: build your deck", and the newer always shows; an older one coming late replaces nothing;
     // a game invitation keeps its own

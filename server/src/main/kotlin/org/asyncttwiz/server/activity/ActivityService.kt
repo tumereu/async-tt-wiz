@@ -17,6 +17,8 @@ import org.asyncttwiz.server.generated.tables.ActivityPush.ACTIVITY_PUSH as PUSH
 import org.asyncttwiz.server.generated.tables.ActivityPresence.ACTIVITY_PRESENCE as PRESENCE
 import org.asyncttwiz.server.generated.tables.EngineSeat.ENGINE_SEAT
 import org.asyncttwiz.server.generated.tables.Game.GAME
+import org.asyncttwiz.server.generated.tables.GameChat.GAME_CHAT
+import org.asyncttwiz.server.generated.tables.PodChat.POD_CHAT
 import org.asyncttwiz.server.generated.tables.PlayerPreparation.PLAYER_PREPARATION
 import org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
@@ -60,10 +62,11 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 .set(PRESENCE.INPUT_AT, inputAt).set(PRESENCE.LEFT_GAME, input.left).execute()
             val after = rows.filter { it.presenceId != presence } + PresenceRow(presence, time, inputAt, input.left)
             if (!input.left) {
-                // LOB-072 (owner, 2026-11-07): opening the game doesn't read its chat: " · new message" stays until it is read
+                // LOB-072 (owner, 2026-11-07): opening the game doesn't read its chat: " · new message" stays until it is read;
+                // LOB-277: its chat's notice is seen, though (none comes while the game is open)
                 sql.update(SUMMARY).set(SUMMARY.SEEN_THROUGH, SUMMARY.ACTIVITY_ID).where(SUMMARY.ACCOUNT_ID.eq(owner))
-                    .and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).execute()
-                sql.deleteFrom(PUSH).where(PUSH.GAME_ID.eq(game)).and(PUSH.KIND.eq("GAME"))
+                    .and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.`in`("GAME", "CHAT")).execute()
+                sql.deleteFrom(PUSH).where(PUSH.GAME_ID.eq(game)).and(PUSH.KIND.`in`("GAME", "CHAT"))
                     .and(PUSH.GENERATION.`in`(sql.select(INSTALL.GENERATION).from(INSTALL).where(INSTALL.ACCOUNT_ID.eq(owner)))).execute()
             }
             if (OpponentPresences.bucket(rows, time) == OpponentPresences.bucket(after, time)) null
@@ -87,6 +90,8 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             val which = SUMMARY.ACCOUNT_ID.eq(owner).and(SUMMARY.KIND.`in`(kinds)).and(pod?.let { SUMMARY.GAME_ID.eq(it) } ?: DSL.noCondition())
             val marked = sql.update(SUMMARY).set(SUMMARY.SEEN_THROUGH, SUMMARY.ACTIVITY_ID).where(which)
                 .and(SUMMARY.ACTIVITY_ID.gt(SUMMARY.SEEN_THROUGH)).execute()
+            // LOB-277: no chat notice of a pod open in front: its chat's is seen
+            if (pod != null) ActivityNotices.chatSeen(sql, owner, pod, pod = true, why = "the pod open in front")
             if (marked > 0) {
                 sql.deleteFrom(PUSH).where(PUSH.KIND.`in`(kinds)).and(pod?.let { PUSH.GAME_ID.eq(it) } ?: DSL.noCondition())
                     .and(PUSH.GENERATION.`in`(sql.select(INSTALL.GENERATION).from(INSTALL).where(INSTALL.ACCOUNT_ID.eq(owner)))).execute()
@@ -185,7 +190,11 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
     fun page(principal: AccountService.Principal, after: String?): ActivityPage = transaction { sql ->
         val owner = account(principal)
         sql.insertInto(CURSOR).set(CURSOR.ACCOUNT_ID, owner).onConflictDoNothing().execute()
-        val state = sql.selectFrom(CURSOR).where(CURSOR.ACCOUNT_ID.eq(owner)).forUpdate().fetchSingle()
+        // LOB-276: the account's notification kinds in the same statement (the feed's cost, RequestCostTest)
+        val kinds = org.asyncttwiz.server.accounts.NotificationSettingsStore.field(owner)
+        val locked = sql.select(CURSOR.fields().toList() + kinds).from(CURSOR).where(CURSOR.ACCOUNT_ID.eq(owner)).forUpdate().of(CURSOR).fetchSingle()
+        val state = locked.into(CURSOR)
+        val settings = org.asyncttwiz.server.accounts.NotificationSettingsStore.decode(locked[kinds])
         // Actual contiguous prefix, not a fictitious minimum based on surviving rows.
         val floor = prune(sql, owner, state.retentionFloor!!)
         val high = state.highWater!!
@@ -230,10 +239,21 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         // A sent reminder stays listed (client watermarks dedupe it) until the recipient moves.
         val reminders = reminders(sql, owner, SUMMARY.REMINDER_ACTIVITY_ID.le(high))
         val notices = (ready + reminders).sortedByDescending { ActivityWire.ordinal(it.activityId) }.take(50)
-        val told = entries.filter { it.kind != ActivityKind.GAME } + notices
+        // LOB-276: only the kinds the account gets; LOB-277: a chat's notice only while it waits (no game open)
+        val told = (chatsWaiting(sql, owner, entries.filter { it.kind != ActivityKind.GAME }) + notices).filter { settings.allows(it) }
         // LOB-078: what this page may make the device show is remembered until nothing waits for it (ActivityNotices.sweep)
         if (!reset) ActivityNotices.shown(sql, owner, told.map { ActivityNotices.key(it) }, now())
         ActivityPage(entries, next, floor.toString(), reset, more, told, ActivityNotices.open(sql, owner).sorted())
+    }
+
+    /** [hints] without the chat notices that no longer wait for [owner] (LOB-277): seen since ([ActivityNotices.chatWaits]),
+     * or a game's while [owner] has it open (none comes then); the other hints as they are. */
+    private fun chatsWaiting(sql: DSLContext, owner: UUID, hints: List<ActivityHint>): List<ActivityHint> {
+        val time = now()
+        return hints.filter { hint -> chatWaits(sql, owner, hint, time).also { waits ->
+            if (!waits) log.info("Chat notice {} of {} {} for account {} not told: seen already or the game open", hint.activityId,
+                hint.kind, hint.gameId, owner)
+        } }
     }
 
     /** The feed's entries for [owner]'s [rows] of the event log or, after a reset, the summaries ([activity] ... [author]
@@ -253,9 +273,12 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             recipientName.USERNAME).from(GAME).join(inviterName).on(inviterName.ID.eq(GAME.INVITER_ID))
             .join(recipientName).on(recipientName.ID.eq(GAME.RECIPIENT_ID)).where(GAME.ID.`in`(warned)).fetch()
             .associate { it.value1()!! to (it.value2()!! to if (it.value3() == owner) it.value5()!! else it.value4()!!) }
-        // DRF-137, LOB-072: an invitation names who sent it, in one query
-        val invitingKinds = setOf(ActivityKind.INVITATION, ActivityKind.POD_INVITATION)
+        // DRF-137, LOB-072: an invitation names who sent it, in one query; LOB-277: a chat's notice who wrote its message
+        val chatKinds = setOf(ActivityKind.CHAT, ActivityKind.POD_CHAT)
+        val invitingKinds = setOf(ActivityKind.INVITATION, ActivityKind.POD_INVITATION) + chatKinds
         val inviters = rows.filterIndexed { index, _ -> kinds[index] in invitingKinds }.mapNotNull { it[author] }.toSet()
+        val messages = chatMessages(sql, owner, rows.indices.filter { kinds[it] in chatKinds }
+            .map { ChatRef(rows[it][game]!!, rows[it][identity]!!, kinds[it] == ActivityKind.POD_CHAT) })
         val inviterNames = if (inviters.isEmpty()) emptyMap() else sql.select(ACCOUNT.ID, ACCOUNT.USERNAME).from(ACCOUNT)
             .where(ACCOUNT.ID.`in`(inviters)).fetch().associate { it.value1()!! to it.value2()!! }
         return rows.mapIndexed { index, row ->
@@ -268,13 +291,31 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             // I-D57: a pod's notice names the set or cube it drafts
             ActivityHint(row[activity].toString(), type, row[game].toString(), row[identity].toString(), row[author]?.toString(),
                 resourceName = pod?.first ?: named?.first ?: (if (challengePod != null) row[GAME.POD_NAME] else row[GAME.GAME_NAME])
-                    ?.takeIf { invitation },
+                    ?.takeIf { invitation || type == ActivityKind.CHAT },
                 sourceName = pod?.second,
                 opponentName = named?.second ?: row[author]?.takeIf { type in invitingKinds }?.let(inviterNames::get),
                 podId = challengePod?.toString(), held = challengePod != null && row[GAME.POD_INVITATION_HELD] == true,
                 // LOB-252: a game invitation says when its creator lends the recipient decks
-                lendsDecks = invitation && challengePod == null && org.asyncttwiz.server.decks.Lending.decode(row[GAME.DECK_SETTINGS], row[game]).lending)
+                lendsDecks = invitation && challengePod == null && org.asyncttwiz.server.decks.Lending.decode(row[GAME.DECK_SETTINGS], row[game]).lending,
+                chat = if (type in chatKinds) messages[row[identity]] else null)
         }
+    }
+
+    /** A chat message a notice tells (LOB-277): its [resource] (the game, or the pod when [pod]) and its id ([message]). */
+    private data class ChatRef(val resource: UUID, val message: UUID, val pod: Boolean)
+
+    /** LOB-277: what the chat notices of [refs] tell [owner], by message id: the message and how many of its chat's messages
+     * [owner] hasn't read. A message no longer stored is left out. */
+    private fun chatMessages(sql: DSLContext, owner: UUID, refs: List<ChatRef>): Map<UUID, ChatNotice> {
+        if (refs.isEmpty()) return emptyMap()
+        val (pods, games) = refs.partition { it.pod }
+        val texts = (if (games.isEmpty()) emptyMap() else sql.select(GAME_CHAT.ID, GAME_CHAT.TEXT).from(GAME_CHAT)
+            .where(GAME_CHAT.ID.`in`(games.map { it.message })).fetch().associate { it.value1()!! to it.value2()!! }) +
+            (if (pods.isEmpty()) emptyMap() else sql.select(POD_CHAT.ID, POD_CHAT.TEXT).from(POD_CHAT)
+                .where(POD_CHAT.ID.`in`(pods.map { it.message })).fetch().associate { it.value1()!! to it.value2()!! })
+        val unread = games.map { it.resource }.toSet().associateWith { org.asyncttwiz.server.game.ChatStore.readState(sql, it, owner).unread } +
+            pods.map { it.resource }.toSet().associateWith { org.asyncttwiz.server.pods.PodChatStore.readState(sql, it, owner).unread }
+        return refs.mapNotNull { ref -> texts[ref.message]?.let { ref.message to ChatNotice(it, (unread[ref.resource] ?: 1).coerceAtLeast(1)) } }.toMap()
     }
 
     /** A game's notice for [owner] from their summary [row] (LOB-072, LOB-111, LOB-114, LOB-116), null when there is none to
@@ -386,6 +427,12 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 row[SUMMARY.IDENTITY].toString(), row[SUMMARY.AUTHOR_ID].toString(), GameNoticeContent(row[GAME.GAME_NAME]!!,
                     row[ACCOUNT.USERNAME]!!, row[SUMMARY.LAST_EVENT_AT].toString(), true, row[SUMMARY.NEW_MESSAGE]!!, reminder = true))
         }
+        // LOB-076, LOB-276: these are the app's own reminders: none while the account's Reminders are off
+        val settings = org.asyncttwiz.server.accounts.NotificationSettingsStore.read(sql, owner)
+        if (!settings.allows(NotificationKind.Reminders)) {
+            log.info("Account {} has Reminders off: no waiting games or pods listed for the app's own reminders", owner)
+            return@transaction WaitingGames(emptyList())
+        }
         val waiting = (games + engineWaiting(sql, owner, time)).sortedByDescending { OffsetDateTime.parse(it.notice!!.lastEventAt) }
             .take(50) + waitingPods(sql, owner)
         // LOB-078: the app may post these (LOB-076); remembered until nothing waits for them
@@ -435,6 +482,18 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
 
     companion object {
         private val log = org.slf4j.LoggerFactory.getLogger(ActivityService::class.java)
+
+        /** LOB-277: whether [hint] (any other than a chat's: true) still waits for [owner] at [time]: its message's notice not
+         * seen since ([ActivityNotices.chatWaits]: the game or pod opened, the chat read through), a game's not while [owner]
+         * has the game open (none comes then). */
+        internal fun chatWaits(sql: DSLContext, owner: UUID, hint: ActivityHint, time: OffsetDateTime): Boolean {
+            if (hint.kind != ActivityKind.CHAT && hint.kind != ActivityKind.POD_CHAT) return true
+            val game = UUID.fromString(hint.gameId)
+            val seen = sql.select(SUMMARY.SEEN_THROUGH).from(SUMMARY).where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.GAME_ID.eq(game))
+                .and(SUMMARY.KIND.eq(hint.kind.name)).fetchOne(SUMMARY.SEEN_THROUGH) ?: 0L
+            if ((ActivityWire.ordinal(hint.activityId) ?: 0L) <= seen) return false
+            return hint.kind == ActivityKind.POD_CHAT || !ActivityTiming.present(ActivityTiming.leases(sql, game, owner), time)
+        }
         internal fun tokenHash(token: String) = java.security.MessageDigest.getInstance("SHA-256").digest(token.toByteArray())
             .joinToString("") { "%02x".format(it) }
         internal fun visible(owner: UUID, kind: org.jooq.Field<String>, identity: org.jooq.Field<UUID>) =
@@ -443,8 +502,9 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                     .and(GAME.CURRENT_INVITATION.eq(identity)).or(
                         kind.eq("GAME").and(GAME.INVITER_ID.eq(owner).or(GAME.RECIPIENT_ID.eq(owner)
                              .and(INVITATION.STATE.eq("ACCEPTED"))))).or(
-                        // Game history §4.5: the cleanup's warning to either player of a game in play
-                        kind.eq("GAME_REMOVAL").and(GAME.INVITER_ID.eq(owner).or(GAME.RECIPIENT_ID.eq(owner)))))
+                        // Game history §4.5: the cleanup's warning to either player of a game in play; LOB-277: a chat's
+                        // message to either player of a game in its lobby or in play
+                        kind.`in`("GAME_REMOVAL", "CHAT").and(GAME.INVITER_ID.eq(owner).or(GAME.RECIPIENT_ID.eq(owner)))))
 
         internal fun podVisible(owner: org.jooq.Field<UUID>, kind: org.jooq.Field<String>, resource: org.jooq.Field<UUID>,
             identity: org.jooq.Field<UUID>): org.jooq.Condition {
@@ -465,7 +525,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             // Game history §4.5: the cleanup's warning to every member of a stalled pod
             val anyMember = DSL.exists(DSL.selectOne().from(POD_MEMBER).where(POD_MEMBER.POD_ID.eq(resource)).and(POD_MEMBER.ACCOUNT_ID.eq(owner)))
             return kind.`in`("POD_DRAFT_CANCELLED", "POD_DESTROYED").or(member).or(kind.eq("POD_INVITATION").and(invited))
-                .or(kind.eq("POD_AUTO_START_OFF").and(autoStartOff)).or(kind.eq("POD_REMOVAL").and(anyMember))
+                .or(kind.eq("POD_AUTO_START_OFF").and(autoStartOff)).or(kind.`in`("POD_REMOVAL", "POD_CHAT").and(anyMember))
                 // DRF-308: "Removed from <pod>" while the player is not a member again
                 .or(kind.eq("POD_MEMBER_REMOVED").andNot(anyMember))
         }
@@ -518,6 +578,22 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 .set(SUMMARY.REMINDER_ACTIVITY_ID, if (armed) DSL.`when`(answered(), DSL.inline(null, SUMMARY.REMINDER_ACTIVITY_ID))
                     .otherwise(SUMMARY.REMINDER_ACTIVITY_ID) else SUMMARY.REMINDER_ACTIVITY_ID).execute()
             queuePush(sql, owner, kind, game, ids.zip(recorded.map { it.first }), time)
+        }
+
+        /**
+         * LOB-277, LOB-184: [author]'s chat message [message] in [game] arrived for [owner]: it is a chat notice of its own
+         * ([ActivityKind.CHAT]); the game's own notices from now on add " · new message" until the chat is read through,
+         * without the game's notice being sent again for it. [owner]'s game row keeps whose move it is ([yourMove]).
+         */
+        fun messageArrived(sql: DSLContext, owner: UUID, game: UUID, message: UUID, author: UUID, yourMove: Boolean,
+            time: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC)) {
+            // A game row without a notice of its own yet (activity 0: nothing to tell) holds the message's mark until the first
+            sql.insertInto(SUMMARY).set(SUMMARY.ACCOUNT_ID, owner).set(SUMMARY.GAME_ID, game).set(SUMMARY.KIND, ActivityKind.GAME.name)
+                .set(SUMMARY.ACTIVITY_ID, 0L).set(SUMMARY.IDENTITY, message).set(SUMMARY.AUTHOR_ID, author)
+                .set(SUMMARY.LAST_EVENT_AT, time).set(SUMMARY.YOUR_MOVE, yourMove).set(SUMMARY.NEW_MESSAGE, true)
+                .onConflict(SUMMARY.ACCOUNT_ID, SUMMARY.GAME_ID, SUMMARY.KIND).doUpdate()
+                .set(SUMMARY.NEW_MESSAGE, true).set(SUMMARY.YOUR_MOVE, yourMove).execute()
+            record(sql, owner, ActivityKind.CHAT, game, message, author, time)
         }
 
         /** The last of [count] new consecutive activity ids of [owner]. */

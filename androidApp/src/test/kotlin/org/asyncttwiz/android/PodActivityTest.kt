@@ -38,7 +38,7 @@ class PodActivityTest {
         assertEquals("Alex invited you to Cube night", invitationText(pod.copy(resourceName = null), podName = "Cube night"))
         assertEquals("New invitation", invitationText(game.copy(opponentName = null)))
         assertEquals("New pod invitation", invitationText(pod.copy(opponentName = null)))
-        assertEquals(ActivityChannels.INVITATIONS, ActivityChannels.channel(ActivityKind.INVITATION))
+        assertEquals(ActivityChannels.id(NotificationKind.Invitations), ActivityChannels.channel(challenge))
 
         val pod2 = UUID.randomUUID().toString()
         val held = ActivityRoute.parse(id, id, "INVITATION", id, identity, pod2)!!

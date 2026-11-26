@@ -6,19 +6,21 @@ import kotlinx.serialization.json.Json
 /** Account activity, never board state, covered-card names, read receipts or player progress.
  * Only the authenticated feed carries display content; ActivityPushHint stays opaque. */
 /** [GAME_REMOVAL] and [POD_REMOVAL]: the cleanup's warning 3 days before a game in play or a pod is deleted for lack of
- * activity (game history spec §4.5). A pod chat message notifies no one (DRF-170: the in-app dots tell it).
- * [POD_MEMBER_REMOVED] (DRF-308): the pod's creator removed the recipient from the pod in setup. */
+ * activity (game history spec §4.5).
+ * [POD_MEMBER_REMOVED] (DRF-308): the pod's creator removed the recipient from the pod in setup. [CHAT] and [POD_CHAT] (LOB-277): a
+ * new message of another player's in a game's chat (gameId the game) or a pod's (gameId the pod); identity is the message. */
 @Serializable enum class ActivityKind { INVITATION, GAME, POD_INVITATION, POD_YOUR_PICK, POD_DRAFT_COMPLETE, POD_DECKS_READY, POD_DRAFT_CANCELLED, POD_DESTROYED, POD_AUTO_START_OFF,
-    GAME_REMOVAL, POD_REMOVAL, POD_MEMBER_REMOVED }
+    GAME_REMOVAL, POD_REMOVAL, POD_MEMBER_REMOVED, CHAT, POD_CHAT }
 /** gameId is the pod ID for POD_* kinds; identity is the draft attempt for
  * POD_YOUR_PICK / POD_DRAFT_COMPLETE. The existing game hint shape is unchanged. [resourceName]: the pod's name for
- * POD_* kinds, the game's for GAME_REMOVAL and INVITATION (a pod challenge's: its pod's). */
+ * POD_* kinds, the game's for GAME_REMOVAL, INVITATION (a pod challenge's: its pod's) and CHAT. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class ActivityHint(val activityId: String, val kind: ActivityKind, val gameId: String,
     val identity: String, val authorId: String? = null, val notice: GameNoticeContent? = null, val resourceName: String? = null,
     /** POD_* kinds (I-D57): the set or cube the pod drafts. Omitted when unknown. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val sourceName: String? = null,
-    /** GAME_REMOVAL: the recipient's opponent in the game; INVITATION and POD_INVITATION: who invited them. Omitted otherwise. */
+    /** GAME_REMOVAL: the recipient's opponent in the game; INVITATION and POD_INVITATION: who invited them; CHAT and POD_CHAT:
+     * the message's author. Omitted otherwise. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val opponentName: String? = null,
     /** INVITATION of a pod challenge (DRF-123): the pod. Omitted otherwise. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val podId: String? = null,
@@ -26,7 +28,12 @@ import kotlinx.serialization.json.Json
      * their deck (LOB-025). Omitted when false. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val held: Boolean = false,
     /** INVITATION of a game whose creator lends the recipient decks (LOB-252). Omitted when false. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val lendsDecks: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val lendsDecks: Boolean = false,
+    /** CHAT and POD_CHAT (LOB-277): the message. Omitted otherwise. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val chat: ChatNotice? = null)
+/** LOB-277: a chat notification's message: its [text] and how many of the chat's messages the recipient hasn't read ([unread],
+ * this one included). */
+@Serializable data class ChatNotice(val text: String, val unread: Int = 1)
 /** Authenticated projection only; never included in the FCM data hint. [reminder]: the one-off
  * "opponent is waiting" notice after their moves went unanswered (omitted when false). [gameOver]: the opponent
  * accepted the recipient's result suggestion, which was this outcome from the recipient's (its author's) side
@@ -77,11 +84,10 @@ import kotlinx.serialization.json.Json
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val webPush: WebPushSubscription? = null)
 
 /**
- * WEB-050, WEB-051: a browser's push subscription as its push service gave it ([endpoint], the browser's public key [p256dh]
- * and [auth] secret, both base64url without padding), and which of the three kinds of notification (LOB-072) it wants.
+ * WEB-050: a browser's push subscription as its push service gave it ([endpoint], the browser's public key [p256dh] and [auth]
+ * secret, both base64url without padding). Which kinds it is sent are the account's (LOB-276, WEB-051).
  */
-@Serializable data class WebPushSubscription(val endpoint: String, val p256dh: String, val auth: String,
-    val invitations: Boolean = true, val games: Boolean = true, val drafts: Boolean = true)
+@Serializable data class WebPushSubscription(val endpoint: String, val p256dh: String, val auth: String)
 
 /** GET /activity/web-push: the server's public VAPID key (base64url, an uncompressed P-256 point), which a browser's
  * subscription is made for. */
@@ -96,7 +102,9 @@ import kotlinx.serialization.json.Json
 @Serializable data class WebPushNotice(val title: String, val body: String? = null, val tag: String, val path: String,
     val time: Long? = null,
     /** LOB-078: nothing waits for the notice of [tag] any more: the browser closes it and shows nothing. Omitted when false. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val clear: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val clear: Boolean = false,
+    /** LOB-277: a chat's notice replacing one of [tag] still showing doesn't alert again. Omitted when false. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val quiet: Boolean = false)
 @Serializable data class ActivityRegistration(val generation: String)
 @Serializable data class ActivityPushHint(val generation: String, val gameId: String, val activityId: String,
     val identity: String)

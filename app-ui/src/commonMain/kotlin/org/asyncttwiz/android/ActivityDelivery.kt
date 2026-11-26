@@ -63,11 +63,11 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
     fun nextDue(expected: ActivityOwner): Long? = synchronized(lock) {
         if (owner != expected) null else (store as? ActivityWindowStore)?.pending()?.values?.minOfOrNull { it.dueAt }
     }
-    fun drain(expected: ActivityOwner, allowed: (ActivityKind) -> Boolean): Boolean = synchronized(lock) {
+    fun drain(expected: ActivityOwner, allowed: (ActivityHint) -> Boolean): Boolean = synchronized(lock) {
         val windows = store as? ActivityWindowStore ?: return true
         applyWindow(expected, ActivityPage(emptyList(), store.cursor() ?: "0", "0", false, false), allowed, windows)
     }
-    fun apply(expected: ActivityOwner, page: ActivityPage, allowed: (ActivityKind) -> Boolean): Boolean = synchronized(lock) {
+    fun apply(expected: ActivityOwner, page: ActivityPage, allowed: (ActivityHint) -> Boolean): Boolean = synchronized(lock) {
         if (owner != expected) return false
         if (page.readyNotices != null) return applyReady(page, allowed)
         (store as? ActivityWindowStore)?.let { return applyWindow(expected, page, allowed, it) }
@@ -81,7 +81,7 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
             if (previous != null && previous.activity >= id) continue
             marks[key] = ActivityWatermark(id, hint.identity)
             notices.removeAll { it.key == key }
-            if (!page.summaryReset && allowed(hint.kind) && !displaying(hint)) {
+            if (!page.summaryReset && allowed(hint) && !displaying(hint)) {
                 notices += ActivityNotice(key, hint, !hint.kind.isPodActivity() && store.watermark(key)?.identity == hint.identity)
             }
         }
@@ -94,7 +94,7 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
     /** The resumed app is showing this notification's game, pod or pod list. */
     private fun displaying(hint: ActivityHint) = foreground && screen.shows(hint.notificationKey())
 
-    private fun applyReady(page: ActivityPage, allowed: (ActivityKind) -> Boolean): Boolean {
+    private fun applyReady(page: ActivityPage, allowed: (ActivityHint) -> Boolean): Boolean {
         val marks = linkedMapOf<String, ActivityWatermark>()
         val notices = linkedMapOf<String, ActivityNotice>()
         val hints = if (page.summaryReset) page.entries + page.readyNotices.orEmpty() else page.readyNotices.orEmpty()
@@ -105,7 +105,7 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
             if (id <= (previous?.activity ?: -1)) continue
             val shown = displaying(hint)
             marks[key] = ActivityWatermark(id, hint.identity, if (shown) false else hint.notice?.yourMove, alertNext = shown)
-            if (!page.summaryReset && allowed(hint.kind) && !shown) {
+            if (!page.summaryReset && allowed(hint) && !shown) {
                 // Updating a still-shown notice is silent; a new turn, a waiting reminder or the first
                 // notice since the game was opened alerts. One alert in a batch survives its replacement.
                 val silent = hint.kind == ActivityKind.GAME && previous != null && !previous.alertNext &&
@@ -121,14 +121,14 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
         return saved
     }
 
-    private fun applyWindow(expected: ActivityOwner, page: ActivityPage, allowed: (ActivityKind) -> Boolean,
+    private fun applyWindow(expected: ActivityOwner, page: ActivityPage, allowed: (ActivityHint) -> Boolean,
         windows: ActivityWindowStore): Boolean {
         if (owner != expected) return false
         val time = now()
         val pending = windows.pending().toMutableMap()
         val marks = linkedMapOf<String, ActivityWatermark>()
         val notices = mutableListOf<ActivityNotice>()
-        fun suppressed(hint: ActivityHint) = !allowed(hint.kind) || displaying(hint)
+        fun suppressed(hint: ActivityHint) = !allowed(hint) || displaying(hint)
         fun consume(key: String, hint: ActivityHint, notify: Boolean) {
             val old = marks[key] ?: store.watermark(key)
             marks[key] = ActivityWatermark(requireNotNull(ActivityWire.ordinal(hint.activityId)), hint.identity)

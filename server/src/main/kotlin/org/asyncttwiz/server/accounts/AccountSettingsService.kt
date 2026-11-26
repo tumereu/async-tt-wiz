@@ -5,6 +5,7 @@ import kotlinx.serialization.builtins.serializer
 import org.asyncttwiz.protocol.AccountSettings
 import org.asyncttwiz.protocol.GameWire
 import org.asyncttwiz.protocol.MoveSound
+import org.asyncttwiz.protocol.NotificationSettings
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.game.DeckVisibilityStore
@@ -32,12 +33,37 @@ class AccountSettingsService(private val runtime: ServiceRuntime) {
         PlayDefaultsStore.save(sql, account, settings.playDefaults)
         MoveSoundStore.save(sql, account, settings.moveSound)
         KeyBindingsStore.save(sql, account, settings.keyBindings)
+        val before = NotificationSettingsStore.read(sql, account)
+        NotificationSettingsStore.save(sql, account, settings.notifications)
+        if (before != settings.notifications) log.info("Account {} notifications: {}", account,
+            settings.notifications.off.takeIf { it.isNotEmpty() }?.joinToString(prefix = "off: ") { it.id } ?: "all on")
         read(sql, account)
     }
 
     private fun read(sql: DSLContext, account: UUID) =
         AccountSettings(DeckVisibilityStore.setting(sql, account), PlayDefaultsStore.read(sql, account), MoveSoundStore.read(sql, account),
-            KeyBindingsStore.read(sql, account))
+            KeyBindingsStore.read(sql, account), NotificationSettingsStore.read(sql, account))
+
+    private companion object { val log = org.slf4j.LoggerFactory.getLogger(AccountSettingsService::class.java) }
+}
+
+/** LOB-276: the kinds of notification the account gets, as JSON; null in the database: every kind. */
+internal object NotificationSettingsStore {
+    fun read(sql: DSLContext, account: UUID): NotificationSettings =
+        decode(sql.select(ACCOUNT.NOTIFICATION_SETTINGS).from(ACCOUNT).where(ACCOUNT.ID.eq(account)).fetchOne(ACCOUNT.NOTIFICATION_SETTINGS))
+
+    /** The stored settings of [account] as a column of a caller's own statement (no extra round trip); [decode] reads it. */
+    fun field(account: UUID): org.jooq.Field<String?> =
+        DSL.field(DSL.select(ACCOUNT.NOTIFICATION_SETTINGS).from(ACCOUNT).where(ACCOUNT.ID.eq(account))).`as`("notification_settings")
+
+    fun decode(stored: String?): NotificationSettings =
+        stored?.let { runCatching { GameWire.json.decodeFromString(NotificationSettings.serializer(), it) }.getOrNull() }
+            ?: NotificationSettings.ALL_ON
+
+    fun save(sql: DSLContext, account: UUID, settings: NotificationSettings) {
+        sql.update(ACCOUNT).set(ACCOUNT.NOTIFICATION_SETTINGS, if (settings == NotificationSettings.ALL_ON) null
+            else GameWire.json.encodeToString(NotificationSettings.serializer(), settings)).where(ACCOUNT.ID.eq(account)).execute()
+    }
 }
 
 /** The account's desktop hotkeys that differ from the defaults (WEB-033), as JSON; null in the database: none differ. */

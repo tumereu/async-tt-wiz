@@ -34,13 +34,16 @@ object ActivityNotices {
     private val log = LoggerFactory.getLogger(ActivityNotices::class.java)
 
     /** A clear's push kind ([PUSH] row) per key prefix; its game_id and identity hold the key's id. */
-    private val clearKinds = mapOf("game" to "CLEAR_GAME", "invite" to "CLEAR_INVITE", "pod" to "CLEAR_POD", "pod-invite" to "CLEAR_POD_INVITE")
+    private val clearKinds = mapOf("game" to "CLEAR_GAME", "invite" to "CLEAR_INVITE", "pod" to "CLEAR_POD", "pod-invite" to "CLEAR_POD_INVITE",
+        "chat" to "CLEAR_CHAT", "pod-chat" to "CLEAR_POD_CHAT")
     const val CLEAR_PREFIX = "CLEAR_"
 
     /** The apps' notification key of a notice of [kind] about [resource] with [identity] (ActivityHint.notificationKey); a
-     * pod challenge ([pod]: its pod) is its pod's one notification (DRF-135, DRF-122). */
+     * pod challenge ([pod]: its pod) is its pod's one notification (DRF-135, DRF-122); a chat has its own (LOB-277). */
     fun key(kind: ActivityKind, resource: String, identity: String, pod: String? = null): String = when (kind) {
         ActivityKind.GAME, ActivityKind.GAME_REMOVAL -> "game:$resource"
+        ActivityKind.CHAT -> "chat:$resource"
+        ActivityKind.POD_CHAT -> "pod-chat:$resource"
         ActivityKind.INVITATION -> if (pod != null) "pod:$pod" else "invite:$identity"
         ActivityKind.POD_INVITATION -> "pod-invite:$resource"
         else -> "pod:$resource"
@@ -57,14 +60,6 @@ object ActivityNotices {
     /** The key a clear push ([PUSH] kind [kind], its id [id]) clears; null for any other push. */
     fun clearedKey(kind: String, id: UUID): String? = clearKinds.entries.firstOrNull { it.value == kind }?.let { "${it.key}:$id" }
 
-    /** The kind of notice whose browser switch (WEB-051) a clear push of [kind] follows. */
-    fun clearedKind(kind: String): ActivityKind = when (kind) {
-        "CLEAR_INVITE" -> ActivityKind.INVITATION
-        "CLEAR_POD_INVITE" -> ActivityKind.POD_INVITATION
-        "CLEAR_POD" -> ActivityKind.POD_YOUR_PICK
-        else -> ActivityKind.GAME
-    }
-
     /**
      * The notification keys of [owner] that still wait for them, so that a notice of them may stay:
      * a game with an event they haven't seen on any device, an unanswered waiting reminder, or their move (or an engine
@@ -72,7 +67,8 @@ object ActivityNotices {
      * to them (a pod challenge's key is its pod's); a pod whose latest notice, newer than any challenge of the pod to them,
      * still waits (their pick: packs in their queue;
      * their build: not submitted; the other pod notices tell something: until the player opened the pod on any device, or
-     * for a destroyed pod the Pods list, [ActivityService.podSeen]); a pending pod invitation.
+     * for a destroyed pod the Pods list, [ActivityService.podSeen]); a pending pod invitation; a game's or pod's chat whose
+     * newest message's notice hasn't been seen ([chatWaits], LOB-277).
      */
     fun open(sql: DSLContext, owner: UUID): Set<String> {
         val seat = DSL.exists(DSL.selectOne().from(ENGINE_SEAT).where(ENGINE_SEAT.PLAY_ID.eq(GAME.CURRENT_PLAY))
@@ -92,7 +88,7 @@ object ActivityNotices {
             .join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
             .where(GAME.RECIPIENT_ID.eq(owner)).and(GAME.LIFECYCLE.eq("LOBBY")).and(INVITATION.STATE.eq("PENDING"))
         // A pod's notification shows its latest notice: whether that one still waits (the other notices tell something)
-        val podNotice = SUMMARY.KIND.like("POD\\_%").and(SUMMARY.KIND.notIn("POD_INVITATION", "POD_MESSAGE"))
+        val podNotice = SUMMARY.KIND.like("POD\\_%").and(SUMMARY.KIND.notIn("POD_INVITATION", "POD_CHAT"))
         val newer = SUMMARY.`as`("newer")
         val unsubmitted = DSL.exists(DSL.selectOne().from(POD_MEMBER).where(POD_MEMBER.POD_ID.eq(SUMMARY.GAME_ID))
             .and(POD_MEMBER.ACCOUNT_ID.eq(owner)).and(POD_MEMBER.SUBMITTED_DECK.isNull))
@@ -103,7 +99,7 @@ object ActivityNotices {
         val pods = DSL.select(DSL.inline("pod:").concat(SUMMARY.GAME_ID.cast(String::class.java))).from(SUMMARY)
             .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(podNotice)
             .andNotExists(DSL.selectOne().from(newer).where(newer.ACCOUNT_ID.eq(owner)).and(newer.GAME_ID.eq(SUMMARY.GAME_ID))
-                .and(newer.KIND.like("POD\\_%")).and(newer.KIND.notIn("POD_INVITATION", "POD_MESSAGE"))
+                .and(newer.KIND.like("POD\\_%")).and(newer.KIND.notIn("POD_INVITATION", "POD_CHAT"))
                 .and(newer.ACTIVITY_ID.gt(SUMMARY.ACTIVITY_ID)))
             .andNotExists(DSL.selectOne().from(challenge).join(challengeGame).on(challengeGame.ID.eq(challenge.GAME_ID))
                 .where(challenge.ACCOUNT_ID.eq(owner)).and(challenge.KIND.eq(ActivityKind.INVITATION.name))
@@ -115,8 +111,35 @@ object ActivityNotices {
         val podInvitations = DSL.select(DSL.inline("pod-invite:").concat(POD_INVITATION.POD_ID.cast(String::class.java)))
             .from(POD_INVITATION).join(POD).on(POD.ID.eq(POD_INVITATION.POD_ID))
             .where(POD_INVITATION.ACCOUNT_ID.eq(owner)).and(POD_INVITATION.STATE.eq("PENDING")).and(POD.PHASE.eq("SETUP"))
-        // One statement for all four (the feed's cost, RequestCostTest)
-        return sql.fetch(games.unionAll(invitations).unionAll(pods).unionAll(podInvitations)).map { it.value1()!! }.toSet()
+        // LOB-277: a chat's notice waits until seen (its game or pod opened, or the chat read through), while the game is in its
+        // lobby or in play, or the player is still a member of the pod
+        val chatKey = DSL.`when`(SUMMARY.KIND.eq(ActivityKind.CHAT.name), DSL.inline("chat:")).otherwise(DSL.inline("pod-chat:"))
+            .concat(SUMMARY.GAME_ID.cast(String::class.java))
+        val chatGame = DSL.exists(DSL.selectOne().from(GAME).where(GAME.ID.eq(SUMMARY.GAME_ID)).and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE")))
+        val chatPod = DSL.exists(DSL.selectOne().from(POD_MEMBER).where(POD_MEMBER.POD_ID.eq(SUMMARY.GAME_ID)).and(POD_MEMBER.ACCOUNT_ID.eq(owner)))
+        val chats = DSL.select(chatKey).from(SUMMARY).where(SUMMARY.ACCOUNT_ID.eq(owner)).and(chatWaits())
+            .and(SUMMARY.KIND.eq(ActivityKind.CHAT.name).and(chatGame).or(SUMMARY.KIND.eq(ActivityKind.POD_CHAT.name).and(chatPod)))
+        // One statement for all five (the feed's cost, RequestCostTest)
+        return sql.fetch(games.unionAll(invitations).unionAll(pods).unionAll(podInvitations).unionAll(chats)).map { it.value1()!! }.toSet()
+    }
+
+    /** LOB-277: [SUMMARY]'s row is a chat's (a game's or a pod's) whose newest message's notice hasn't been seen: neither the
+     * game nor the pod was open in front since, nor the chat read through. */
+    fun chatWaits(): org.jooq.Condition = SUMMARY.KIND.`in`(ActivityKind.CHAT.name, ActivityKind.POD_CHAT.name)
+        .and(SUMMARY.ACTIVITY_ID.gt(SUMMARY.SEEN_THROUGH))
+
+    /** LOB-277: [owner]'s notice of the chat of [resource] (a game's; with [pod] a pod's) is seen ([chatWaits]): it clears on
+     * every device ([sweep]) and a push of it not sent yet is dropped. Returns whether one waited. */
+    fun chatSeen(sql: DSLContext, owner: UUID, resource: UUID, pod: Boolean = false, why: String): Boolean {
+        val kind = if (pod) ActivityKind.POD_CHAT.name else ActivityKind.CHAT.name
+        val marked = sql.update(SUMMARY).set(SUMMARY.SEEN_THROUGH, SUMMARY.ACTIVITY_ID).where(SUMMARY.ACCOUNT_ID.eq(owner))
+            .and(SUMMARY.GAME_ID.eq(resource)).and(SUMMARY.KIND.eq(kind)).and(SUMMARY.ACTIVITY_ID.gt(SUMMARY.SEEN_THROUGH)).execute() > 0
+        if (marked) {
+            sql.deleteFrom(PUSH).where(PUSH.GAME_ID.eq(resource)).and(PUSH.KIND.eq(kind))
+                .and(PUSH.GENERATION.`in`(DSL.select(INSTALL.GENERATION).from(INSTALL).where(INSTALL.ACCOUNT_ID.eq(owner)))).execute()
+            log.info("Account {}'s chat notice of {} {} seen ({}): it clears on every device", owner, if (pod) "pod" else "game", resource, why)
+        }
+        return marked
     }
 
     /** [owner]'s devices may now show the notices of [keys] (a feed page, the waiting check or a push told them). */
@@ -160,7 +183,9 @@ object ActivityNotices {
             "game" -> PUSH.GAME_ID.eq(id).and(PUSH.KIND.`in`("GAME", "GAME_REMOVAL"))
             "invite" -> PUSH.IDENTITY.eq(id).and(PUSH.KIND.eq("INVITATION"))
             "pod-invite" -> PUSH.GAME_ID.eq(id).and(PUSH.KIND.eq("POD_INVITATION"))
-            else -> PUSH.GAME_ID.eq(id).and(PUSH.KIND.like("POD\\_%")).and(PUSH.KIND.ne("POD_INVITATION"))
+            "chat" -> PUSH.GAME_ID.eq(id).and(PUSH.KIND.eq(ActivityKind.CHAT.name))
+            "pod-chat" -> PUSH.GAME_ID.eq(id).and(PUSH.KIND.eq(ActivityKind.POD_CHAT.name))
+            else -> PUSH.GAME_ID.eq(id).and(PUSH.KIND.like("POD\\_%")).and(PUSH.KIND.notIn("POD_INVITATION", ActivityKind.POD_CHAT.name))
         }
         sql.deleteFrom(PUSH).where(own).and(PUSH.GENERATION.`in`(DSL.select(INSTALL.GENERATION).from(INSTALL).where(mine))).execute()
         val browsers = sql.select(BROWSER.GENERATION).from(BROWSER).join(INSTALL).on(INSTALL.GENERATION.eq(BROWSER.GENERATION))

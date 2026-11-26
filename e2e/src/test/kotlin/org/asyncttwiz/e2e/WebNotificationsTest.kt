@@ -9,7 +9,7 @@ import org.junit.Test
  * The web client's notifications, install and tab title in a real browser (WEB-054, WEB-050):
  * the manifest and its icon load, the service worker registers, the tab's title counts the games waiting for Alice, and
  * Browser notifications turns on from the Games list's hint (the browser allowing it), registers this browser with the
- * server, changes a kind and turns off in Settings. Headless Chrome has no push service, so the browser's subscription is
+ * server, the account's Notifications change a kind in Settings, and it turns off there. Headless Chrome has no push service, so the browser's subscription is
  * a stand-in with a push service's address; the server keeps it as it would a real one.
  */
 class WebNotificationsTest {
@@ -24,9 +24,10 @@ class WebNotificationsTest {
         }
     }
 
-    // WEB-054, WEB-055, WEB-050, WEB-051, WEB-053: installable (manifest, icons, service worker); "(N) ATW"; the hint's Turn
-    // on asks the browser (allowed) and the server keeps this browser's subscription with every kind; Settings switches a kind
-    // (the server told at once) and turns notifications off (the server forgets this browser); the hint stays away
+    // WEB-054, WEB-055, WEB-050, WEB-051, WEB-053, LOB-276: installable (manifest, icons, service worker); "(N) ATW"; the hint's
+    // Turn on asks the browser (allowed) and the server keeps this browser's subscription (no kinds of its own); Settings →
+    // Notifications switches a kind for the account (the server told at once) and This browser turns notifications off (the
+    // server forgets this browser); the hint stays away
     @Test fun installableTitledAndNotificationsTurnOnAndOff() {
         val (alice, bob) = ServerSetup.fresh()
         val started = ServerSetup.prepare(alice, bob, TestDeck.thirds(), TestDeck.thirds(), name = "Web notified game").ready()
@@ -64,29 +65,31 @@ class WebNotificationsTest {
                 web.tap("#notifications-hint-on")
                 waitFor("Alice's browser registered") { subscriptions(alice).any { it.contains("fcm.googleapis.com") } }
                 val registered = subscriptions(alice).single()
-                assertTrue(registered.contains("\"invitations\":true") && registered.contains("\"games\":true") &&
-                    registered.contains("\"drafts\":true"), registered)
+                assertTrue(!registered.contains("drafts") && !registered.contains("games"), registered)
                 waitFor("the hint gone") { !web.shows("#notifications-hint") }
 
-                // WEB-050, WEB-051: Settings shows the switch on with its kinds; Draft activity off is told to the server
+                // WEB-051, LOB-276: Settings → Notifications (the account's kinds); Draft off is told to the server for the account
                 web.navigate("/settings")
-                web.waitFor("#notification-kind-drafts", 120_000.0)
+                web.waitFor("#notification-kind-draft", 120_000.0)
                 // Scrolled into view with the mouse wheel (the page is the app's canvas)
                 page.mouse().move(200.0, 500.0)
-                waitFor("Draft activity on screen") {
-                    val box = page.locator("#notification-kind-drafts").first().boundingBox()
+                waitFor("Draft on screen") {
+                    val box = page.locator("#notification-kind-draft").first().boundingBox()
                     (box != null && box.height > 0 && box.y > 0 && box.y + box.height < 800).also { if (!it) page.mouse().wheel(0.0, 300.0) }
                 }
-                web.tap("#notification-kind-drafts")
-                waitFor("Draft activity off on the server") { subscriptions(alice).singleOrNull()?.contains("\"drafts\":false") == true }
+                web.tap("#notification-kind-draft")
+                waitFor("Draft off on the server") {
+                    runCatching { kotlinx.coroutines.runBlocking { org.asyncttwiz.android.AccountApi(E2eStack.origin).use {
+                        it.accountSettings(alice.token) } }.notifications.draft == false }.getOrDefault(false)
+                }
                 // Off: the server forgets this browser
                 waitFor("Browser notifications on screen") {
                     val box = page.locator("#browser-notifications").first().boundingBox()
-                    (box != null && box.height > 0 && box.y > 60).also { if (!it) page.mouse().wheel(0.0, -200.0) }
+                    (box != null && box.height > 0 && box.y > 60 && box.y + box.height < 800).also {
+                        if (!it) page.mouse().wheel(0.0, if (box != null && box.y > 60) 200.0 else -200.0) }
                 }
                 web.tap("#browser-notifications")
                 waitFor("Alice's browser forgotten") { subscriptions(alice).isEmpty() }
-                waitFor("the kinds hidden") { !web.shows("#notification-kind-drafts") }
 
                 // WEB-053: turning on put the hint away for good
                 web.navigate("/games")

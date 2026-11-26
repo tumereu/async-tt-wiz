@@ -1,0 +1,1 @@
+2: New chat messages in games and pods now notify you, one notification per chat, never while that game is open.

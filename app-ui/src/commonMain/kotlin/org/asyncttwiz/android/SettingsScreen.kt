@@ -57,6 +57,9 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
                     PodAutoconfirmSetting()
                 }
                 HorizontalDivider()
+                // LOB-276: which kinds of notification the account gets
+                SettingsSection("Notifications") { NotificationSettingsRows(account) }
+                HorizontalDivider()
             }
             // WEB-050, WEB-054: this browser's notifications and install (in a browser only)
             LocalWebNotifications.current?.let { web ->
@@ -106,7 +109,7 @@ fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logout: () ->
 
 /**
  * WEB-043 (wireframe D10): Settings on the desktop layout, the same groups as the phone's as cards in two columns: Profile,
- * Games, This browser, Table, Timeline playback and Automatum on the left; About & account, Card records and Keyboard on the right (one
+ * Games, Notifications, This browser, Table, Timeline playback and Automatum on the left; About & account, Card records and Keyboard on the right (one
  * column where two don't fit).
  */
 @Composable
@@ -119,6 +122,7 @@ private fun DesktopSettings(catalog: CatalogViewModel?, accountId: String, logou
             MoveSoundSetting(account)
             PodAutoconfirmSetting()
         }
+        if (account != null) SettingsGroup("Notifications") { NotificationSettingsRows(account) }
         LocalWebNotifications.current?.let { web -> SettingsGroup("This browser") { BrowserSettings(web) } }
         SettingsGroup("Table") {
             LayoutSetting()

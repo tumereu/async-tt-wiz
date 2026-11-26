@@ -128,7 +128,10 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
      * showing or the player swiped it away while it still waits on the same latest event (for pods: pick or build). */
     suspend fun checkWaiting(binding: String) {
         val expected = synchronized(lock) { owner?.takeIf { it.binding == binding && !opened } } ?: return
-        if (!notifications.allowed(ActivityKind.GAME) && !notifications.allowed(ActivityKind.POD_YOUR_PICK)) return
+        // LOB-076, LOB-072: the app's own reminders show in the Reminders channel (the server lists none while they are off, LOB-276)
+        if (!notifications.allowed(ActivityChannels.id(NotificationKind.Reminders))) {
+            AppLog.info("activity", "Waiting check skipped: the Reminders channel is off in Android"); return
+        }
         val stored = ProtectedSessionStore(context, BuildConfig.ACCOUNT_ORIGIN).load()
         val token = (stored as? StoredSession.Present)?.token ?: run { clear(binding); return }
         if (synchronized(lock) { owner != expected || ownerFingerprint != fingerprint(token) }) return
@@ -144,7 +147,7 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
             val pods = WaitingChecks.selectPods(waiting.games, notifications.showingPods(expected)) {
                 WaitingDismissal.decode(preferences.getString("dismissed-pod:$it", null))
             }
-            (games + pods).forEach { notifications.post(expected, ActivityNotice(it.notificationKey(), it, silent = false)) }
+            (games + pods).forEach { notifications.post(expected, ActivityNotice(it.notificationKey(), it, silent = false), reminder = true) }
         }
     }
     fun dismissed(binding: String, game: String, mark: WaitingDismissal, pod: Boolean = false): Unit = synchronized(lock) {
@@ -183,7 +186,7 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
                     synchronized(lock) {
                         if (owner != expected) false else {
                             activityHints?.invoke(page.entries)
-                            delivery.apply(expected, page, notifications::allowed).also { applied ->
+                            delivery.apply(expected, page) { notifications.allowed(it) }.also { applied ->
                                 // LOB-242: the server tells what still waits; any other shown notification goes
                                 if (applied) notifications.settle(expected, page, delivery)
                             }

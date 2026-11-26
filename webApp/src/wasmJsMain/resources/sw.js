@@ -26,12 +26,13 @@ self.addEventListener('push', (event) => {
             .then((shown) => shown.forEach((notification) => notification.close())));
         return;
     }
-    event.waitUntil(tabs().then((open) => {
+    event.waitUntil(Promise.all([tabs(), self.registration.getNotifications({ tag: notice.tag })]).then(([open, showing]) => {
         if (open.some((tab) => tab.visibilityState === 'visible' && tab.focused !== false && shows(tab, notice.path))) return undefined;
+        // LOB-277: a chat's newer message updates its notification still showing without alerting again
         return self.registration.showNotification(notice.title, {
             body: notice.body || undefined,
             tag: notice.tag,
-            renotify: true,
+            renotify: !(notice.quiet === true && showing.length > 0),
             icon: '/icons/icon-192.png',
             badge: '/icons/badge-96.png',
             timestamp: typeof notice.time === 'number' ? notice.time : undefined,

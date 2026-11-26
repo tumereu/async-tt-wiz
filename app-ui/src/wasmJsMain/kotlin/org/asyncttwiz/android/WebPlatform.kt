@@ -260,7 +260,8 @@ internal class BrowserActivityDelivery(origin: String) : PlatformActivityDeliver
     private data class Owner(val account: String, val binding: String, val token: String)
     private var owner: Owner? = null
     private val browser = BrowserPlatformJs()
-    /** Browser notifications, their kinds and the Games list's hint (WEB-050, WEB-051, WEB-053), kept in this browser. */
+    /** Browser notifications and the Games list's hint (WEB-050, WEB-053), kept in this browser; their kinds are the
+     * account's (LOB-276, WEB-051). */
     val notifications = WebNotifications(browser, org.asyncttwiz.appui.AppPlatform.current.preferences("web-notifications"),
         BrowserPushServer(origin)) {
         // The activity installation's id, the one the game connection names too (AuthViewModel's)

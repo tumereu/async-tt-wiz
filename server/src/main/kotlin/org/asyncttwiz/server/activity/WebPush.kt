@@ -218,7 +218,7 @@ class WebPushSender @JvmOverloads constructor(private val keys: WebPushKeys, pri
     }
 }
 
-/** WEB-051, WEB-052: what a browser is sent for a notice, and which of its switches lets it through. */
+/** WEB-052: what a browser is sent for a notice (the account's Notifications, LOB-276, decide which are sent at all). */
 object WebPushNotices {
     /** [hint]'s notification in the Android app's words (LOB-072), replacing the earlier one of its game, pod or invitation
      * (its tag), and the app address its click opens: the game, the pod (a held pod challenge: the pod's Games tab). */
@@ -234,13 +234,8 @@ object WebPushNotices {
             else -> "/games/${hint.gameId}"
         }
         val time = hint.notice?.lastEventAt?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
-        return WebPushNotice(title.take(300), body?.take(600), tag, path, time)
-    }
-
-    /** Whether [subscription]'s switches let [kind] through: Invitations, Draft activity or Game activity (LOB-072). */
-    fun wanted(subscription: WebPushSubscription, kind: ActivityKind): Boolean = when {
-        kind == ActivityKind.INVITATION || kind == ActivityKind.POD_INVITATION -> subscription.invitations
-        ActivityTexts.pod(kind) -> subscription.drafts
-        else -> subscription.games
+        // LOB-277: a chat's newer message updates its notice still showing without alerting again
+        val quiet = kind == ActivityKind.CHAT || kind == ActivityKind.POD_CHAT
+        return WebPushNotice(title.take(300), body?.take(600), tag, path, time, quiet = quiet)
     }
 }

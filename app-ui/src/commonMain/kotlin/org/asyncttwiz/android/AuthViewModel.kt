@@ -64,7 +64,9 @@ class AuthViewModel constructor(services: AppServices) : ViewModel() {
             lobby.activityUnavailable("This notification belongs to an earlier sign-in. Showing your current Games.")
             return
         }
-        if (route.kind == org.asyncttwiz.protocol.ActivityKind.GAME) lobby.openNotified(route.gameId)
+        // LOB-277: a chat's notification opens its game, as the game's does
+        if (route.kind == org.asyncttwiz.protocol.ActivityKind.GAME || route.kind == org.asyncttwiz.protocol.ActivityKind.CHAT)
+            lobby.openNotified(route.gameId)
         else lobby.openActivity(route) { activity.accepts(route.accountId, route.binding) }
     }
     private fun authenticationRequired(token: String) {

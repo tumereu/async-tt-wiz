@@ -37,18 +37,20 @@ class WebEndTurnRespondTest : E2e() {
                 // WEB-031: Shift+Space is End turn
                 web.page.waitForTimeout(500.0)
                 web.page.keyboard().press("Shift+Space")
-                // Bob's playback stops at her end step (her device assumed his pass there; he could respond): he casts there
-                waitUntil("Bob stopped at Alice's end step", along = listOf(bob)) {
+                // Bob holds priority at her end step (he could respond): at his playback's stop at her device's assumption of his
+                // pass there, or as his own move when his phone got there before her assumption did. Nobody presses for him
+                // meanwhile (playing along would press To next turn there: gate run 2026-11-26)
+                waitUntil("Bob holding priority at Alice's end step") {
                     bob.state.let { s -> s.turn.active == alice && s.turn.step == TurnStep.End && s.priority.holder == bob.me } &&
-                        bob.status is GameDevice.Status.Stopped
+                        (bob.status is GameDevice.Status.Stopped || bob.status == GameDevice.Status.YourMove)
                 }
                 bob.playFromHand("Idle Glimmer", this)
                 waitUntil("Bob's Glimmer on the Stack at Alice's end step, on the server") {
                     bob.state.let { s -> s.stack.size == 1 && s.turn.step == TurnStep.End && s.turn.active == alice } &&
                         bob.engine { device.session.pending.isEmpty() }
                 }
-                // HIS-097, HIS-190: his cast took back her assumption of his pass: her table waits at the branch point for her
-                // click on the centre text, which plays his cast back (in the report her device then passed over it at once)
+                // HIS-097, HIS-190: when his cast took back her assumption of his pass, her table waits at the branch point for
+                // her click on the centre text, which plays his cast back (in the report her device then passed over it at once)
                 val centre = "#centre-action"
                 var clicked = 0L
                 waitUntil("Resolve on Alice's main button in her browser", timeoutSeconds = 90) {
@@ -72,7 +74,7 @@ class WebEndTurnRespondTest : E2e() {
                 val bobHand = bob.state.player(bob.me).hand.size
                 web.tap("#main-button")
                 web.cursorAt(560.0, 300.0)
-                waitUntil("Bob's Glimmer resolved on his phone", along = listOf(bob)) {
+                waitUntil("Bob's Glimmer resolved on his phone") {
                     bob.state.let { s -> s.stack.isEmpty() && s.player(bob.me).hand.size == bobHand + 1 }
                 }
                 val faults = web.faults()

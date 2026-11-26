@@ -180,6 +180,11 @@ class GameDevice(
      * fault). An End turn going on isn't told: its press is logged, and passing there is what it does. The host logs it. */
     var ownMainPass: ((why: String) -> Unit)? = null
 
+    /** TRN-057, TRN-168 (problem report UJP7DE): told when an End turn begins, ends before its turn does (the other player's spell or
+     * ability, or taken back by an undo or a branch) and when a change of the line leaves it going on, so the app log says
+     * why the device passed (or stopped passing) the player's priority. The host logs it. */
+    var endTurnSaid: ((line: String) -> Unit)? = null
+
     /** SYS-063 (problem report DH9MW5): told whether Quick answers a decision by itself (its player's, or the other player's
      * on Quick) and why, once per judgement. The host logs it. */
     var quickAnswers: ((line: String) -> Unit)? = null
@@ -1438,7 +1443,8 @@ class GameDevice(
     }
 
     /** Ends the turn for this player (TRN-057): their device passes their priority until the turn ends, declaring no
-     * attackers; the other player's points are assumed, automatic or waited for as usual. */
+     * attackers, or until the other player casts a spell or activates an ability in it ([endTurnInterrupted], TRN-168); the
+     * other player's points are assumed, automatic or waited for as usual. */
     fun endTurn(now: Long) {
         endChain("end turn")
         endTurn = model.engine.turn.number
@@ -1446,6 +1452,7 @@ class GameDevice(
         endTurnFirst = null
         endTurnMade = true
         holdAt = null
+        endTurnSaid?.invoke("begins at ${session.tip.take(8)} (turn ${model.engine.turn.number} ${model.engine.turn.step}): the device passes the player's priority until the turn ends")
         advance(now)
         endTurnMade = false
     }
@@ -1454,15 +1461,38 @@ class GameDevice(
      * HIS-097, HIS-084: the main line changed after [at] (a branch there, a rewind to it). An End turn going on was taken
      * back with it when the point it was tapped at is gone or is [at] itself, or its own first event is gone: it ends, so
      * the device passes nothing more for it on the new line (before, it carried the new line to the end of the turn by
-     * itself, with the player's later actions "taken back"). A change after its start (an answer at its end step) leaves
-     * it going on, as live.
+     * itself, with the player's later actions "taken back"). A change after its start leaves it going on, as live, unless
+     * it is the other player's spell or ability ([endTurnInterrupted], TRN-168: that ends it, live or as a branch).
      */
     private fun endTurnTakenBack(at: String) {
         if (endTurn == null) return
         fun gone(id: String) = !session.knows(id) && session.pending.none { it.id == id }
         val tapped = endTurnAt
-        if (tapped != null && !gone(tapped) && tapped != at && endTurnFirst?.let(::gone) != true) return
+        if (tapped != null && !gone(tapped) && tapped != at && endTurnFirst?.let(::gone) != true) {
+            endTurnSaid?.invoke("goes on (turn $endTurn): the line changed after ${at.take(8)}, after its start at ${tapped.take(8)}")
+            return
+        }
+        endTurnSaid?.invoke("taken back (turn $endTurn): the line changed after ${at.take(8)}, tapped at ${tapped?.take(8)}")
         endTurn = null; endTurnAt = null; endTurnFirst = null
+    }
+
+    /**
+     * TRN-168, CR 733.2b, CR 733.2c (owner problem report UJP7DE): the other player's real [event] cast a spell or activated
+     * an ability in the turn of an End turn going on: they shortened the shortcut there, so it is over and the player answers
+     * it themselves (before, the device passed their priority over that spell, and over it again each time it was taken back
+     * and cast anew, so they could never respond). Their passes, and their answers inside what was already going on, leave it.
+     */
+    private fun endTurnInterrupted(event: GameEvent) {
+        val turn = endTurn ?: return
+        val acted = event.engine?.steps.orEmpty().mapNotNull { it.input }.firstOrNull { input ->
+            (input is Input.Cast && input.player == opponent) || (input is Input.Activate && input.player == opponent)
+        } ?: return
+        endTurn = null; endTurnAt = null; endTurnFirst = null
+        val what = if (acted is Input.Cast) "cast ${acted.card}" else "activated ${(acted as Input.Activate).source}"
+        remember("End turn of turn $turn ends: ${opponent.value.take(8)} $what in ${event.id}")
+        // An End turn of an earlier turn passes nothing any more: only that one's end is news for the log
+        if (turn == model.engine.turn.number)
+            endTurnSaid?.invoke("ends: the other player $what in ${event.id.take(8)} (turn $turn): the player answers it themselves")
     }
 
     /** The End turn's first event among [dropped] (the server took another event first; it goes on as SYS-076 says): no
@@ -2548,6 +2578,7 @@ class GameDevice(
                 (r is GameSession.Received.Applied || r is GameSession.Received.Changed)) {
                 opponentInputs++
                 endChain("their input ${event.id}")
+                endTurnInterrupted(event)
             }
             when (r) {
                 GameSession.Received.Reload -> { needsReload = true; remember("reload at ${event.id} on ${event.parentId}: ${followed()}"); break }

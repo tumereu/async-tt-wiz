@@ -180,6 +180,10 @@ class GameDevice(
      * fault). An End turn going on isn't told: its press is logged, and passing there is what it does. The host logs it. */
     var ownMainPass: ((why: String) -> Unit)? = null
 
+    /** SYS-063 (problem report DH9MW5): told whether Quick answers a decision by itself (its player's, or the other player's
+     * on Quick) and why, once per judgement. The host logs it. */
+    var quickAnswers: ((line: String) -> Unit)? = null
+
     /** The information rule's time so far, in nanoseconds, while [clock] is set (the caller takes differences). */
     var informationNanos: Long = 0L
         private set
@@ -1501,7 +1505,7 @@ class GameDevice(
      * lists one order of the many there are, and asks only when the triggers differ, so their player always orders them. Nor
      * a selection up to a total (CR 701.59a): the engine lists a working sample of them, and which cards go is theirs to confirm. */
     private fun oneAnswer(s: GameState, d: Decision, m: GameModel = model): Input? =
-        if (settings.mode != ResponseMode.AutoSkip) null else WhoActs.quickAnswer(m, d)
+        if (settings.mode != ResponseMode.AutoSkip) null else quickJudged(m, d, "the player's own")
 
     /**
      * SYS-063, item a819b9ffdd (owner 2026-11-19): the only answer to the other player's [d] on [m] while their response mode is
@@ -1512,8 +1516,27 @@ class GameDevice(
      */
     private fun theirOneAnswer(d: Decision, m: GameModel = model): Input.Answer? {
         if (opponentMode != ResponseMode.AutoSkip || Host.decider(m.engine, d.player) != opponent) return null
-        return WhoActs.quickAnswer(m, d)
+        return quickJudged(m, d, "the other player's")
     }
+
+    /**
+     * [WhoActs.quickJudged] of [whose] decision [d] on [m], said once per judgement in the device's record and to [quickAnswers]
+     * (problem report DH9MW5: whether Quick answers a choice by itself, and why).
+     */
+    private fun quickJudged(m: GameModel, d: Decision, whose: String): Input.Answer? {
+        val judged = WhoActs.quickJudged(m, d)
+        val line = "Quick ${if (judged.answer != null) "answers" else "leaves"} $whose ${d.kind} ${d.id.value}: ${judged.why}" +
+            (judged.answer?.let { " (${it.answer})" } ?: "")
+        if (line != quickSaid) {
+            quickSaid = line
+            remember(line)
+            quickAnswers?.invoke(line)
+        }
+        return judged.answer
+    }
+
+    /** The judgement [quickJudged] said last. */
+    private var quickSaid: String? = null
 
     /** The players on Quick as this device knows (itself, and the other player's [opponentMode]): any device may answer their
      * one-answer questions (SYS-063). */

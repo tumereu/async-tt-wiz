@@ -398,6 +398,9 @@ object TestCards {
     val revival = card("Ember Revival", "Sorcery", "{0}", "Return target artifact card from your graveyard to the battlefield.")
     /** SYS-206: a free sorcery whose "unless" asks each opponent a question their hand decides (one answer with only lands: no). */
     val prod = card("Ember Prod", "Sorcery", "{0}", "Each opponent discards two cards unless they discard a nonland card.")
+    /** Problem report DH9MW5 (CR 118.12a): a free instant that draws three, then asks "discard two cards unless you discard an artifact
+     * card": its caster picks the cards either way. */
+    val reverie = card("Cog Reverie", "Instant", "{0}", "Draw three cards. Then discard two cards unless you discard an artifact card.")
     /** STK-214: a free artifact whose mana ability's cost exiles a card of its controller's choosing from their graveyard. */
     val urn = card("Ash Urn", "Artifact", "{0}", "{T}, Exile a card from your graveyard: Add one mana of any color.")
     /** HIS-233: a free sorcery exiling the top two cards of its controller's library face up (shown as a reveal). */

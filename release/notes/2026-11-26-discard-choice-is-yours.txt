@@ -1,0 +1,1 @@
+1: Quick no longer picks the cards you discard for you: when you discard two cards (as after "no" to "Discard an artifact card?"), you choose which ones

@@ -355,6 +355,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             device.clock = clock
             device.namedCards = namedCards
             device.ownMainPass = { why -> AppLog.warn("game", gameLog.ownMainPass(device.model.engine, why)) }
+            device.quickAnswers = { line -> AppLog.info("decision", gameLog.quickAnswer(device.model.engine, line)) }
             device.showPlays = showPlays
             device.assumeReveals(reveals)
             previous = if (undone != null) previous else null

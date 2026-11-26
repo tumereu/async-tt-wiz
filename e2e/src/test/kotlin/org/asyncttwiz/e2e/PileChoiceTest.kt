@@ -51,6 +51,8 @@ class PileChoiceTest : E2e() {
         // STK-229, STK-181 (owner gallery review 2026-11-25): "Choose a pile" showed only "An opponent chooses one of the piles.": the
         // chooser sees the Destiny's whole text under the title
         assertTrue(bob.shows(hasContentDescription("Question: ${TestCards.destiny.faces.first().rulesText}") and inChoice), "the whole text: ${bob.screen()}")
+        // STK-230 (owner 2026-11-26): with its sentence choosing the pile highlighted
+        assertTrue(bob.shows(hasContentDescription("Highlighted: An opponent chooses one of the piles.") and inChoice), "highlighted: ${bob.screen()}")
         val faceUp = piles.first.map { assertNotNull(cardName(bob.state, it)) }
         for (name in faceUp) assertTrue(bob.shows(hasContentDescription(name) and area("Face-up pile")), "$name drawn face up: ${bob.screen()}")
         assertEquals(1, bob.nodes(hasContentDescription("Hidden card") and area("Face-down pile")).fetchSemanticsNodes().size,

@@ -1,1 +1,1 @@
-The desktop layout's Menu screen with its side menu always open at the left: the same list (Azure Spark red, Friday sealed blue, Sealed league green, Crackling Mist, the held challenge) above the buttons.
+The desktop layout's Menu screen with its side menu always open at the left: the same list (Azure Spark red, Friday sealed blue, Sealed league green, Crackling Mist, the held challenge), each row's game or pod badge on its first avatar, above the buttons.

@@ -48,6 +48,10 @@ object AskedPart {
     /** Words that say cards are exiled ("exile", "exiles"). */
     val EXILE = Regex("""\bexiles?\b""", RegexOption.IGNORE_CASE)
 
+    /** STK-229 (owner, 2026-11-26): words that make the choice of one of two piles ("An opponent chooses one of the piles.", "Put
+     * one pile into your hand"); a sentence separating the cards into piles names no choosing of one. */
+    val PILE_CHOICE = Regex("""\bchooses?\b.*\bpiles?\b|\bone (?:of (?:the|those|these) )?piles?\b""", RegexOption.IGNORE_CASE)
+
     /** A sentence moving cards out of a graveyard or exile into [to] ("hand", "library"), naming both. */
     fun leaving(from: String, to: String): Regex =
         Regex("""^(?=.*\b(?:$from)\b)(?=.*\b(?:$to)\b)""", RegexOption.IGNORE_CASE)

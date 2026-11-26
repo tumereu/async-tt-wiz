@@ -585,7 +585,8 @@ private fun TargetChip(lane: CombatLaneLabel, change: Int, width: Float, viewer:
 const val PRESS_GLOW_MILLIS = 90
 
 /** A chip of a staged attacker or drafted blocker (CMB-036–CMB-038): [onTap] null when the viewer can't change it (the
- * other player sees the choices); [cost] an amber cost to pay (CMB-037). Holding it says [hold]. */
+ * other player sees the choices); [cost] an amber cost to pay (CMB-037). Holding a toggle the viewer changes says [hold]; a chip
+ * without [onTap] takes no touch (TBL-240). */
 class StagingChip(val text: String, val icon: androidx.compose.ui.graphics.vector.ImageVector?, val on: Boolean, val picking: Boolean,
     val hold: String, val description: String, val cost: Boolean = false, val onTap: (() -> Unit)? = null)
 
@@ -635,11 +636,11 @@ private fun StagingChipView(chip: StagingChip, width: Float) {
     val room = (width - (if (chip.icon != null) 18f else 6f) * z).coerceAtLeast(1f)
     val natural = CombatStackPresentation.laneTextWidth(chip.text, 10f)
     val size = if (chip.cost) 13f * z else if (natural * z <= room) 10f * z else maxOf(MIN_CHIP_TEXT, 10f * room / natural)
-    // TBL-132 (owner gallery review 2026-11-06): holding a chip naming a keyword ("Exert") explains it too, unless what
-    // holding it says explains it already ("Enlist: …"). TBL-240 (owner 2026-11-25): a chip that only shows (the other player's
-    // choices, one that can't be changed now) takes no touch: holding it inspects the card; a toggle the viewer changes
-    // (CMB-036–CMB-038) and an amber cost chip (CMB-044) keep theirs
-    val passive = chip.onTap == null && !chip.cost
+    // TBL-132 (owner gallery review 2026-11-06): holding a toggle naming a keyword explains it too, unless what holding it says
+    // explains it already ("Enlist: …"). TBL-240 (owner 2026-11-25): a chip that only shows (the other player's choices, one that
+    // can't be changed now) takes no touch: holding it inspects the card; a toggle the viewer changes (CMB-036–CMB-038) keeps
+    // its own. CMB-037, CMB-044 (owner 2026-11-26): an amber cost chip ("Exert", "{2}") takes none either: Inspect lists its cost
+    val passive = chip.onTap == null
     RuleTip(if (passive || chip.hold.startsWith("${chip.text}:")) "" else chip.text, lead = chip.hold.takeUnless { passive }) {
         Row(Modifier.width(width.dp).heightIn(min = (22f * z).dp).background(if (chip.on) color else Color.White, shape)
             .border(((if (chip.picking) 2.5f else 1.5f) * z).dp, color, shape)

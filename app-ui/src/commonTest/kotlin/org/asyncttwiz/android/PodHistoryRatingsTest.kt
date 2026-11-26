@@ -71,13 +71,14 @@ class PodHistoryRatingsTest {
         assertEquals(picks, podPicksRatingOrder(picks, definitions, null))
     }
 
-    // DRF-315 (owner, 2026-11-25): the chips' colours are never green or red (the keeps' and burns' colours), gold at the top down
-    // to grey at the bottom
-    @Test fun theChipColoursAreNeverGreenOrRed() {
-        val palettes = listOf(PodRatingPalette.GoldToGrey, PodRatingPalette.Medals, PodRatingPalette.GoldVioletGrey)
+    // DRF-315 (owner, 2026-11-25; colours owner 2026-11-26): the chips' five colours from the top down are gold, violet, bronze,
+    // grey and dark grey, never green or red (the keeps' and burns' colours)
+    @Test fun theChipColoursGoFromGoldToDarkGreyNeverGreenOrRed() {
         val steps = listOf(PodRatingStep.Top, PodRatingStep.High, PodRatingStep.Middle, PodRatingStep.Low, PodRatingStep.Bottom)
-        for (palette in palettes) for (step in steps) {
-            val color = palette.fill(step)
+        assertEquals(listOf(0xFFE2B53E, 0xFFB79AE0, 0xFFC4996B, 0xFF8E9297, 0xFF55595E).map { androidx.compose.ui.graphics.Color(it) },
+            steps.map(PodRatingColours::fill), "gold, violet, bronze, grey, dark grey")
+        for (step in steps) {
+            val color = PodRatingColours.fill(step)
             val r = color.red; val g = color.green; val b = color.blue
             val high = max(r, max(g, b)); val low = min(r, min(g, b))
             val saturation = if (high == 0f) 0f else (high - low) / high
@@ -87,13 +88,10 @@ class PodHistoryRatingsTest {
                 g -> 60 * ((b - r) / (high - low) + 2)
                 else -> 60 * ((r - g) / (high - low) + 4)
             }.let { if (it < 0) it + 360 else it }
-            assertFalse(hue < 20 || hue > 340, "${palette.name} $step is red: hue $hue")
-            assertFalse(hue in 75f..165f, "${palette.name} $step is green: hue $hue")
+            assertFalse(hue < 20 || hue > 340, "$step is red: hue $hue")
+            assertFalse(hue in 75f..165f, "$step is green: hue $hue")
         }
-        for (palette in palettes) {
-            assertEquals(androidx.compose.ui.graphics.Color(0xFFE2B53E), palette.fill(PodRatingStep.Top), "${palette.name}: gold at the top")
-            val bottom = palette.fill(PodRatingStep.Bottom)
-            assertTrue(bottom.red == bottom.green || kotlin.math.abs(bottom.red - bottom.blue) < .05f, "${palette.name}: grey at the bottom")
-        }
+        // Dark text on the three light steps, white on the greys
+        assertEquals(listOf(false, false, false, true, true), steps.map { PodRatingColours.text(it) == androidx.compose.ui.graphics.Color.White })
     }
 }

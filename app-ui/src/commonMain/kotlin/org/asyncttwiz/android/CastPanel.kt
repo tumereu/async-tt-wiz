@@ -80,7 +80,8 @@ fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: Tabl
     BackHandler { cast.cancel() }
     val stack = scene?.stackRegion ?: scene?.items?.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds
     // The slim bar sits over the own hand row (hand cards are never targets), so the battlefield stays free to tap
-    val handRow = scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == toolkit.viewer }?.bounds
+    // STK-044 (owner 2026-11-26): in landscape the hand's part in the bottom bar, the panel standing on the bar
+    val handRow = handRow(scene, toolkit.viewer)
     // STK-044: the card cast (an ability as its token) at the right of the panel and of its target bar
     val source = castSource(play, toolkit.viewer, flow, cast.abilityText)
     if (cast.targeting) {
@@ -110,12 +111,15 @@ fun castSource(play: TableBoard, viewer: String, flow: CastShown, abilityText: S
 private fun DockedAboveHand(hand: TableBounds?, place: PromptPlace, content: @Composable () -> Unit) {
     LocalDesktopGeometry.current?.let { DesktopPrompt(it, place, content); return }
     val docked = dockedPanelReporter()
-    Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+    // STK-044 (owner 2026-11-26): the hand's cards standing over the battlefield in front of it
+    val placed = remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(1) }
+    Layout(content = content, modifier = Modifier.fillMaxSize().handInFront(placed)) { measurables, constraints ->
         val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
         val placeable = measurables.firstOrNull()?.measure(Constraints(minWidth = constraints.maxWidth, maxWidth = constraints.maxWidth,
             maxHeight = bottom))
         // D2: the table pans past the open panel
         docked((placeable?.height ?: 0).toDp().value)
+        placed[0] = placeable?.let { androidx.compose.ui.geometry.Rect(0f, (bottom - it.height).toFloat(), it.width.toFloat(), bottom.toFloat()) }
         layout(constraints.maxWidth, constraints.maxHeight) {
             placeable?.place(0, bottom - placeable.height)
         }

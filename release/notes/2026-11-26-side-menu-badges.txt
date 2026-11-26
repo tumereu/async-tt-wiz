@@ -1,0 +1,1 @@
+3: The side menu now marks each row with a small badge: crossed swords for a game, a table for a pod.

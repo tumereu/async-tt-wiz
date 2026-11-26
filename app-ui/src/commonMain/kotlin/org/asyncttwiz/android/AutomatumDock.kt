@@ -33,7 +33,10 @@ import org.asyncttwiz.protocol.CombatStackRules
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
@@ -49,20 +52,46 @@ import org.asyncttwiz.appui.screenHeightDp
  * One place for every Automatum panel (UI review #4, decided for the owner 2026-11-03): like the cast panel (I-D47), the
  * table's full width with its bottom exactly on the top of the viewer's hand row [hand] (the table's bottom without one),
  * so the hand is never covered. In landscape it is at most [LANDSCAPE_WIDTH] wide from the left edge, so the combat area and
- * its damage preview in the middle of the wide table stay visible (CMB-029).
+ * its damage preview in the middle of the wide table stay visible (CMB-029); there [hand] is the bottom bar's part of the hand
+ * ([handRow]), so the panel stands on the bar, and the hand's cards standing over the battlefield are drawn in front of it
+ * ([LocalHandFront], STK-044, owner 2026-11-26).
  */
 @Composable
 fun AboveHand(hand: TableBounds?, place: PromptPlace = PromptPlace.Board, content: @Composable () -> Unit) {
     // WEB-019: on the desktop table a strip bottom-centre or a centred overlay, by [place]
     LocalDesktopGeometry.current?.let { DesktopPrompt(it, place, content); return }
     val docked = dockedPanelReporter()
-    Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+    val placed = remember { arrayOfNulls<Rect>(1) }
+    Layout(content = content, modifier = Modifier.fillMaxSize().handInFront(placed)) { measurables, constraints ->
         val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
         val width = if (constraints.maxWidth > constraints.maxHeight) minOf(LANDSCAPE_WIDTH.roundToPx(), constraints.maxWidth)
             else constraints.maxWidth
         val placeable = measurables.firstOrNull()?.measure(Constraints(minWidth = width, maxWidth = width, maxHeight = bottom))
         docked((placeable?.height ?: 0).toDp().value)
+        placed[0] = placeable?.let { Rect(0f, (bottom - it.height).toFloat(), it.width.toFloat(), bottom.toFloat()) }
         layout(constraints.maxWidth, constraints.maxHeight) { placeable?.place(0, bottom - placeable.height) }
+    }
+}
+
+/**
+ * STK-044, TBL-238 (owner 2026-11-26): draws the viewer's hand cards standing over the battlefield again, within [clip] (px, the
+ * docked panel's place), in front of what lies there: the table provides one in the phone's landscape layout, where a panel
+ * stands on the bottom bar under the hand's large cards; none elsewhere.
+ */
+fun interface HandFront {
+    fun DrawScope.drawFront(clip: Rect)
+}
+
+/** The table's [HandFront], null where nothing docked has hand cards in front of it. */
+val LocalHandFront = compositionLocalOf<HandFront?> { null }
+
+/** A docked panel's layout drawing the hand's cards in front of the panel where it was placed ([placed], px), with [LocalHandFront]. */
+@Composable
+fun Modifier.handInFront(placed: Array<Rect?>): Modifier {
+    val front = LocalHandFront.current ?: return this
+    return drawWithContent {
+        drawContent()
+        placed[0]?.let { with(front) { drawFront(it) } }
     }
 }
 
@@ -90,9 +119,10 @@ fun dockedPanelReporter(): (Float) -> Unit {
 
 val LANDSCAPE_WIDTH = 420.dp
 
-/** The viewer's hand row on [scene], where Automatum's panels dock ([AboveHand]). */
+/** The viewer's hand row on [scene], where Automatum's panels dock ([AboveHand]): in the phone's landscape layout its part in the
+ * bottom bar (STK-044, owner 2026-11-26: a panel stands on the bar, its fan's cards above it drawn in front of the panel). */
 fun handRow(scene: TableScene?, viewer: String): TableBounds? =
-    scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == viewer }?.bounds
+    scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == viewer }?.let { it.handBand ?: it.bounds }
 
 /**
  * An Automatum panel docked above the hand ([AboveHand]) in the cast panel's look: white with a violet top edge, its

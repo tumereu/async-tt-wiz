@@ -55,13 +55,50 @@ object CombatCosts {
     fun parts(cost: CombatCostShown): List<String> = cost.label.split(", ").map { it.trim() }.filter { it.isNotEmpty() }
 
     /**
-     * CMB-098: the panel's "Total to pay" line: the declaration's mana as one payment ([mana], the payment's cost; CR 508.1h,
-     * 509.1d), then every other part of [costs] in order ("{3}, 2 life, Exert"); null when nothing is to be paid.
+     * CMB-098 (owner, 2026-11-26): the panel's "Total to pay" line: the declaration's mana as one payment ([mana], the payment's
+     * cost; CR 508.1h, 509.1d), then every other part of [costs] in order ("{3}, 2 life"); only real costs: an exert is no cost
+     * (CR 701.43), so it is never listed. Null when nothing is to be paid.
      */
     fun total(mana: String?, costs: List<CombatCostShown>): String? {
-        val others = costs.flatMap(::parts).filterNot { it.startsWith("{") }
-        val printedMana = if (mana.isNullOrEmpty()) costs.flatMap(::parts).filter { it.startsWith("{") } else listOf(mana)
+        val paid = costs.flatMap(::parts).filterNot { it == EXERT }
+        val others = paid.filterNot { it.startsWith("{") }
+        val printedMana = if (mana.isNullOrEmpty()) paid.filter { it.startsWith("{") } else listOf(mana)
         return (printedMana + others).takeIf { it.isNotEmpty() }?.joinToString(", ")
+    }
+
+    /**
+     * CMB-098: the declaration's mana [cost] as one total: its generic parts added up first ("{1}{1}{1}{1}", four attackers' {1}
+     * each, as "{4}"), then its other symbols in order ("{3}{R}").
+     */
+    fun manaTotal(cost: arcanum.api.ManaCost): String {
+        val generic = cost.symbols.filterIsInstance<arcanum.api.ManaSymbol.Generic>().sumOf { it.amount }
+        val others = cost.symbols.filterNot { it is arcanum.api.ManaSymbol.Generic }
+        val symbols = (if (generic > 0 || others.isEmpty() && cost.symbols.isNotEmpty()) listOf(arcanum.api.ManaSymbol.Generic(generic)) else emptyList()) + others
+        return arcanum.api.ManaCost(symbols).toString()
+    }
+
+    /** The words of an exert ([CombatFlow.costLabel] of exerting, CR 701.43): chosen as an attacker attacks, but no cost. */
+    const val EXERT = "Exert"
+
+    /**
+     * CMB-037, CMB-044, TBL-134 (owner, 2026-11-26): what Inspect lists of the costs of the declaration [shown] on [board], by ATW
+     * card: "Exerts as it attacks" for an exert chosen for a staged attacker (any other optional cost chosen "Pays … as it
+     * attacks"), "Pays {2} to attack" ("Pays {1} to block") for each cost a creature must pay, each with its source's name
+     * ([name]); none while no declaration is awaited. The same on both tables, as the chips are.
+     */
+    fun inspectLines(board: BoardState, shown: CombatShown, name: (String) -> String): Map<String, List<InspectChange>> {
+        val choices = shown.choices
+        if (choices.declaring == null) return emptyMap()
+        val (attacks, blocks) = CombatFlow.lanes(board.combat)
+        val creatures = if (choices.attackers) attacks.map { it.cardId } else blocks.map { it.blockerId }.distinct()
+        val given = if (choices.attackers) CombatFlow.attackChoices(board) else emptyMap()
+        val what = if (choices.attackers) "attack" else "block"
+        return creatures.associateWith { card ->
+            val optional = choices.optional[card].orEmpty().filter { it.key in given[card]?.paying.orEmpty() }.map { cost ->
+                InspectChange(if (cost.label == EXERT) "Exerts as it attacks" else "Pays ${cost.label} as it attacks", cost.source?.let(name))
+            }
+            optional + shown.costs[card].orEmpty().map { InspectChange("Pays ${it.label} to $what", it.source?.let(name)) }
+        }.filterValues { it.isNotEmpty() }
     }
 }
 
@@ -92,9 +129,9 @@ fun CombatCostPanel(toolkit: TableToolkitController, play: TableBoard) {
     // The payment of the declaration as the lanes and choices hold it now, once worked out on this board
     val loaded = flows.flowOn(play) != null
     val payment = if (loaded) flows.declarationPayment else null
-    val due = payment?.cost?.toString()?.takeIf { it.isNotEmpty() }
-    // The total of what the creatures must pay, with the optional costs chosen beside them
-    val total = if (required.isEmpty()) null else CombatCosts.total(due, required.map { it.second } + optional.filter { it.paid }.map { it.cost })
+    val due = payment?.cost?.let(CombatCosts::manaTotal)?.takeIf { it.isNotEmpty() }
+    // CMB-098 (owner, 2026-11-26): the total of the real costs: what the creatures must pay and the optional costs chosen, an exert not
+    val total = CombatCosts.total(due, required.map { it.second } + optional.filter { it.paid }.map { it.cost })
     val inspector = remember { ChoiceInspector() }
     var hidden by remember { mutableStateOf(false) }
     val what = if (attackers) "attack" else "block"
@@ -114,13 +151,16 @@ fun CombatCostPanel(toolkit: TableToolkitController, play: TableBoard) {
         tooltip = if (attackers) "Attack, paying these costs" else "Block, paying these costs", swords = attackers) {
         if (flows.declareWithCosts()) AppLog.info("combat", "Costs panel: the declaration went out")
     })
-    AutomatumDockPanel("Costs to $what", hidden, { hidden = !hidden }, "costs panel", buttons = {
+    // CMB-098 (owner, 2026-11-26): titled with what it declares
+    val title = if (attackers) "Declare attackers" else "Declare blockers"
+    AutomatumDockPanel(COSTS_PANEL, hidden, { hidden = !hidden }, "costs panel", buttons = {
         TextButton({ combat.closeCosts(play, "Back to staging") }, Modifier.testTag(COSTS_BACK_TAG)) {
             IconText(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
         }
     }) {
-        ChoiceHead(if (attackers) "Costs to attack" else "Costs to block", null, inspector)
-        if (optional.isNotEmpty()) Section("As they attack, you may pay", "Tap a card to pay its cost, again not to.") {
+        ChoiceHead(title, null, inspector)
+        // CMB-098 (owner, 2026-11-26): an exert is no cost (CR 701.43): "you may", not "you may pay"
+        if (optional.isNotEmpty()) Section("As they attack, you may", "Tap a card to pay its cost, again not to.") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (row in optional) OptionalCard(play, viewer, row, inspector) {
                     AppLog.info("combat", "Costs panel: ${row.card}'s ${row.cost.label} ${if (row.paid) "no longer paid" else "paid"}")
@@ -240,6 +280,9 @@ private fun CostsMana(flows: SharedFlowController, play: TableBoard, payment: ar
         }
     }
 }
+
+/** What the costs panel is called for accessibility ([CombatCostPanel]); its title says what it declares. */
+const val COSTS_PANEL = "Costs panel"
 
 /** The test tag of the costs panel's Back ([CombatCostPanel]). */
 const val COSTS_BACK_TAG = "costs-back"

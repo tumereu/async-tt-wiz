@@ -11,8 +11,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasStateDescription
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import arcanum.api.Mechanic
@@ -150,7 +153,8 @@ class CombatCostPanelTest {
     private fun cubKit() = EngineTableKit(EngineCombatScenario(EngineGameFixture(creatures = true, bobCards = listOf(bulwark, chime))))
 
     // CMB-098, CMB-037 (CR 508.1g, 701.43d): Alice stages her Ember Charger ("You may exert this creature as it attacks") and the
-    // main button opens the costs panel, Autotap on: the Charger's card under "As they attack, you may pay", not paid, nothing
+    // main button opens the costs panel, Autotap on: titled "Declare attackers" (owner 2026-11-26), the Charger's card under "As
+    // they attack, you may", not paid, nothing
     // declared; a tap on it pays its exert (the card ringed, the box checked, an amber "Exert" chip on its copy); Attack declares
     // with it exerted
     @Test fun anOptionalCostIsChosenInThePanel() {
@@ -163,14 +167,19 @@ class CombatCostPanelTest {
         render(kit)
         val optional = compose.onNodeWithTag(COSTS_OPTIONAL_TAG, useUnmergedTree = true)
         optional.assert(hasStateDescription("not paid"))
+        compose.onNode(hasText("Declare attackers") and isHeading(), useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("As they attack, you may", useUnmergedTree = true).assertExists()
+        // CMB-098 (owner 2026-11-26): an exert is no cost: nothing to pay, no total
+        compose.onNode(hasContentDescription("Total to pay", substring = true), useUnmergedTree = true).assertDoesNotExist()
         captureShot("$SCREENSHOTS/combat-costs/optional.png",
-            "Alice staged her Ember Charger and pressed Attack (1): the costs panel above her hand shows the Charger's card under \"As they attack, you may pay\" with an empty Exert box and the ability's whole text; nothing is declared yet and the main button reads Attack.")
+            "Alice staged her Ember Charger and pressed Attack (1): the costs panel above her hand, titled \"Declare attackers\", shows the Charger's card under \"As they attack, you may\" with an empty Exert box and the ability's whole text, and no total (nothing to pay); nothing is declared yet and the main button reads Attack.")
         optional.performClick()
         kit.settle()
         showCombat(kit)
         render(kit)
         optional.assert(hasStateDescription("paid"))
         compose.onNode(hasContentDescription("Pays Exert"), useUnmergedTree = true).assertExists()
+        compose.onNode(hasContentDescription("Total to pay", substring = true), useUnmergedTree = true).assertDoesNotExist()
         captureShot("$SCREENSHOTS/combat-costs/optional-paid.png",
             "Alice tapped the Charger's card in the costs panel: it is ringed in violet with its Exert box checked, and the Charger's copy on the band carries an amber Exert chip (a choice: the chosen cost shows on the band as a cost to pay does).")
         pressPanelMain(kit.toolkit, "Attack")
@@ -231,20 +240,74 @@ class CombatCostPanelTest {
         showCombat(kit)
         render(kit)
         assertTrue(kit.toolkit.flows.paid, "Autotap's payment")
-        compose.onNode(hasContentDescription("Total to pay: {2}, Exert"), useUnmergedTree = true).assertExists()
+        // CMB-098 (owner 2026-11-26): only the real costs: the exert is none
+        compose.onNode(hasContentDescription("Total to pay: {2}"), useUnmergedTree = true).assertExists()
         // STK-230: the abilities' texts show with nothing highlighted: each is the one ability asking its cost, the cost's words not placed in it
         compose.onAllNodes(hasContentDescription("Ability: ", substring = true), useUnmergedTree = true).fetchSemanticsNodes()
             .let { assertTrue(it.isNotEmpty(), "the abilities' texts") }
         assertTrue(compose.onAllNodes(hasContentDescription("Highlighted: ", substring = true), useUnmergedTree = true).fetchSemanticsNodes().isEmpty(),
             "nothing highlighted")
         captureShot("$SCREENSHOTS/combat-costs/both.png",
-            "Alice's Ember Charger staged against Bob's Ember Bulwark and Chime: the panel holds its exert, paid, and the {2} it must pay, \"Total to pay: {2}, Exert\"; Autotap's two Mountains are outlined on the table.")
+            "Alice's Ember Charger staged against Bob's Ember Bulwark and Chime: the panel holds its exert, chosen, and the {2} it must pay, \"Total to pay: {2}\" (the exert is no cost); Autotap's two Mountains are outlined on the table.")
         pressPanelMain(kit.toolkit, "Attack")
         kit.settle()
         val obj = kit.field(charger).single()
         assertEquals(listOf(obj), kit.state().combat?.attackers?.map { it.id })
         assertTrue(Engine.view(kit.state())[obj]?.mechanics.orEmpty().any { it.mechanic == Mechanic.DoesntUntap }, "exerted")
         assertTrue(kit.field("Mountain").all { kit.state().obj(it)?.tapped == true }, "the Mountains paid")
+    }
+
+    // CMB-098, CMB-037, CMB-044 (owner 2026-11-26: how the panel looks with several creatures; CR 508.1g, 508.1h): Bob's Ember Bulwark
+    // makes each attacker cost {1}; Alice stages four Ember Chargers and chooses two of their exerts: the four Chargers under "As they
+    // attack, you may" (two ringed), all four with their amber {1} under "To attack, they must pay", "Total to pay: {4}"
+    @Test fun fourAttackersTwoOfThemExerted() {
+        val geode = EngineGameFixture.Choices.GEODE
+        // The deck's order puts five Chargers and two Geodes in Alice's hand by her second turn
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(geode, charger, EngineGameFixture.Choices.RAIDER),
+            bobCards = listOf(bulwark))))
+        kit.bobMain = { s ->
+            val held = kit.scenario.cards(s, kit.other, s.player(kit.other).hand, bulwark).firstOrNull()
+                ?.takeIf { kit.scenario.cards(s, kit.other, s.battlefield, bulwark).isEmpty() }
+            if (held == null) false else { kit.bob.send(kit.scenario.cast(s, kit.other, Input.Cast(kit.other, held))); true }
+        }
+        kit.opening()
+        assertTrue(kit.toolkit.automatumStep(TableActionIntent.End(kit.scope)), "End turn")
+        kit.playOn("Alice's second turn") { kit.aliceMain() && kit.state().turn.number >= 3 }
+        kit.bobMain = null
+        assertEquals(1, kit.field(bulwark, kit.other).size, "Bob's Bulwark")
+        // Two Geodes ({T}: Add {R}{R}) to pay {4} with, and four Chargers (haste)
+        for (name in listOf(geode, geode, charger, charger, charger, charger)) {
+            val card = kit.atw(assertNotNull(kit.hand(name).firstOrNull(), "a $name in Alice's hand: " +
+                kit.state().player(kit.me).hand.map { kit.state().obj(it)?.definition?.faces?.first()?.name }))
+            assertTrue(kit.toolkit.cast.start(card), "$name cast: ${kit.toolkit.error}")
+            kit.playOn("$name on the battlefield") { card in kit.field(name).map(kit::atw) && kit.aliceMain() }
+        }
+        kit.toAttacks()
+        val attackers = kit.field(charger).map(kit::atw)
+        assertEquals(4, attackers.size)
+        showCombat(kit)
+        assertTrue(kit.toolkit.stage(kit.alice.play(), attackers, null), "the four staged: ${kit.toolkit.error}")
+        kit.settle()
+        showCombat(kit)
+        assertEquals(attackers.toSet(), CombatFlow.lanes(kit.alice.play().board.combat).first.map { it.cardId }.toSet(), "all four staged")
+        pressMain(kit)
+        assertTrue(kit.toolkit.combat.costPanelOpen(kit.alice.play()), "the costs panel")
+        // The costs panel's taps on two of the Chargers' cards
+        for (card in attackers.take(2)) {
+            assertTrue(kit.toolkit.combat.toggleOptional(card, kit.toolkit.combat.view.choices.optional.getValue(card).single().key))
+            kit.settle()
+            showCombat(kit)
+        }
+        render(kit)
+        assertEquals(2, compose.onAllNodes(hasContentDescription("Pays Exert"), useUnmergedTree = true).fetchSemanticsNodes().size, "two exerted")
+        val total = compose.onAllNodes(hasContentDescription("Total to pay", substring = true), useUnmergedTree = true).fetchSemanticsNodes()
+            .map { it.config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].joinToString() }
+        assertEquals(listOf("Total to pay: {4}"), total, "the four {1} as one total, no exert: ${AppLog.text().takeLast(3000)}")
+        captureShot("$SCREENSHOTS/combat-costs/four-attackers.png",
+            "Alice staged four Ember Chargers against Bob's Ember Bulwark (each attacker costs {1}) and chose two of their exerts: the " +
+                "panel \"Declare attackers\" shows the four Chargers under \"As they attack, you may\", two ringed with their Exert box " +
+                "checked, all four with their amber {1} under \"To attack, they must pay\" with the Bulwark's text once, \"Total to pay: " +
+                "{4}\" (the exerts are no cost) and Autotap's two Geodes paying it; on the band two copies carry Exert and {1} chips, two {1}.")
     }
 
     // CMB-075 (CR 508.1h): with Autotap on and only the {2} the Cub must pay there is nothing to decide: no panel, the main button
@@ -287,7 +350,7 @@ class CombatCostPanelTest {
     }
 
     // CMB-098, CMB-099 (CR 509.1d): Alice's Ember Tollward attacks ("creatures can't block unless their controller pays {1}");
-    // Bob, Autotap off, places his Ash Pup to block it and the main button opens his panel, "Costs to block"; his Mountain tapped
+    // Bob, Autotap off, places his Ash Pup to block it and the main button opens his panel, "Declare blockers"; his Mountain tapped
     // on his table pays it and Block declares
     @Test fun aBlockCostIsPaidInThePanel() {
         val tollward = EngineGameFixture.Choices.TOLLWARD
@@ -333,8 +396,9 @@ class CombatCostPanelTest {
         kit.tap(kit.item(mountain, viewer = kit.f.b), kit.bobToolkit, kit.f.b)
         render(kit, kit.f.b)
         assertTrue(kit.bobToolkit.flows.paid, "his Mountain pays {1}")
+        compose.onNode(hasText("Declare blockers") and isHeading(), useUnmergedTree = true).assertExists()
         captureShot("$SCREENSHOTS/combat-costs/block.png",
-            "Bob placed his Ash Pup to block Alice's attacking Ember Tollward, whose ability makes each blocker cost {1}, and pressed Block (1) with Autotap off: the panel \"Costs to block\" shows the Pup with its amber {1}, the Tollward's whole text, and his Mountain, tapped on the table, outlined as paying it.")
+            "Bob placed his Ash Pup to block Alice's attacking Ember Tollward, whose ability makes each blocker cost {1}, and pressed Block (1) with Autotap off: the panel \"Declare blockers\" shows the Pup with its amber {1}, the Tollward's whole text, and his Mountain, tapped on the table, outlined as paying it.")
         val life = bobState().player(kit.other).life
         pressPanelMain(kit.bobToolkit, "Block")
         kit.settle(bobActs = false)

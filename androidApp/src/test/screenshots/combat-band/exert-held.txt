@@ -1,1 +1,1 @@
-Alice holds the amber Exert chip: the Charger's ability text shows over the band, with what exerting means, while she holds it (the same hold also opens Inspect of the Charger under it).
+Alice holds the amber Exert chip: it takes no touch of its own, so the hold inspects her Ember Charger, whose lines list "Exerts as it attacks"; no tip of its own.

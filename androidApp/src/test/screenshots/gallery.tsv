@@ -109,11 +109,11 @@ number	item	screenshot	catalog	decisions	sequence
 108	Targeting: opened group of 2	battlefield/group-opened-targets-2.png	TBL-130 TBL-002	Targets
 109	Targeting: opened group of 3	battlefield/group-opened-targets-3.png	TBL-130 TBL-002	Targets
 110	Targeting: opened group of 6, one tapped, one picked	battlefield/group-opened-targets-6.png	TBL-130 TBL-002 STK-047	Targets
-111	Targeting: opened group of 6 in landscape	battlefield/group-opened-targets-6-landscape.png	TBL-130 TBL-002 STK-047	Targets
+111	Targeting: opened group of 6 in landscape, the target bar standing on the bottom bar (owner 2026-11-26)	battlefield/group-opened-targets-6-landscape.png	TBL-130 TBL-002 STK-047 STK-044	Targets
 112	Targeting: opened group with non-targets dimmed	battlefield/group-opened-targets-dimmed.png	TBL-130	Targets
 113	Targeting: a picked card alone	battlefield/target-picked-alone.png	STK-047 TBL-117	Targets
 114	Issue: cast panel covers your lands (portrait)	cast-panel/covers-lands.png	STK-024 STK-023
-115	Issue: target bar covers your lands (landscape)	battlefield/group-opened-targets-6-landscape.png	STK-047	Targets
+115	Issue: target bar covers your lands (landscape); now it stands on the bottom bar, nothing of the bar covered (owner 2026-11-26)	battlefield/group-opened-targets-6-landscape.png	STK-047 STK-044	Targets
 116	Draft: Pods list with pick, build and setup statuses	draft/pods-list.png	DRF-012 DRF-013
 117	Draft: pod setup with the mode button and setting tiles	draft/setup-booster.png	DRF-016 DRF-020 DRF-022 DRF-026 DRF-027 DRF-030 DRF-036 DRF-051 DRF-142
 118	Draft: mode popup with every mode and its player range	non-gameplay/pod-mode-portrait.png	DRF-020
@@ -394,8 +394,8 @@ number	item	screenshot	catalog	decisions	sequence
 569	Payment with restricted mana in the pool: the Gildleaf Shard's mana (creature spells only) has the violet sparkle, held to show its restriction in its own words with its source	cast-panel/pool-mana-restricted.png	STK-228 TBL-136 TBL-120	ManaPayment
 570	Pod setup of a solo draft: the creator alone with two bots, warned that there is no one to play against	draft/setup-solo.png	DRF-296 DRF-301 DRF-035		
 571	Landscape with large hand cards: the battlefield seen beside and under your hand's fan, its cards standing over it, no hand row behind them	battlefield/under-large-hand-landscape.png	TBL-238 TBL-144 ZON-138		
-572	Pile choice for the player who chooses: the spell's whole text under the title (owner-reported fix), a face-up pile drawn as its cards, a face-down pile as card backs, each with its count and a Choose button	choice-source/pile-choice.png	STK-229 STK-181 STK-044	ChooseOption	
-573	Side menu (portrait drawer): one list of five above the buttons, one of each: your move red, a pod invitation blue, a deck to build green, a game without a dot, the challenge you can't accept yet last	side-menu/drawer-mix.png	LOB-018 LOB-269 LOB-267 LOB-025		Side menu list
+572	Pile choice for the player who chooses: the spell's whole text under the title (owner-reported fix), "An opponent chooses one of the piles." highlighted in it (owner 2026-11-26), a face-up pile drawn as its cards, a face-down pile as card backs, each with its count and a Choose button	choice-source/pile-choice.png	STK-229 STK-230 STK-181 STK-044	ChooseOption	
+573	Side menu (portrait drawer): one list of five above the buttons, one of each: your move red, a pod invitation blue, a deck to build green, a game without a dot, the challenge you can't accept yet last; each first avatar with its game or pod badge (owner 2026-11-26)	side-menu/drawer-mix.png	LOB-018 LOB-269 LOB-267 LOB-025		Side menu list
 574	Side menu: with eight games and pods, only the five most important show	side-menu/drawer-five-of-many.png	LOB-018 LOB-267		Side menu list
 575	Side menu at a game's table: the open game keeps its place first, highlighted, without its dot	side-menu/drawer-open-game.png	LOB-018 LOB-269		Side menu list
 576	Side menu with only two games and pods: two rows	side-menu/drawer-two.png	LOB-018		Side menu list
@@ -404,11 +404,11 @@ number	item	screenshot	catalog	decisions	sequence
 579	Side menu: the desktop's permanent side menu with the same list	side-menu/desktop.png	LOB-018 WEB-037		Side menu list
 580	Menu screen: only a pod invitation waits, the hamburger and its Pods panel row blue	side-menu/menu-pod-invitation.png	LOB-268 LOB-269 LOB-017		Side menu list
 581	Exert on the band: a staged attacker that may exert as it attacks has no toggle any more (chosen in the costs panel, 670)	combat-band/exert-off.png	CMB-037		Exert chip
-582	Exert chosen in the costs panel: an amber Exert cost chip under the staged copy (choice: as a cost it must pay shows)	combat-band/exert-on.png	CMB-037 CMB-044		Exert chip
-583	Exert chip held: the ability's text with what exerting means	combat-band/exert-held.png	CMB-037 TBL-132 TBL-240		Exert chip
+582	Exert chosen in the costs panel: an amber Exert cost chip under the staged copy (choice: as a cost it must pay shows); it takes no touch of its own (owner 2026-11-26)	combat-band/exert-on.png	CMB-037 CMB-044 TBL-240		Exert chip
+583	Exert chip held: the hold is the card's, Inspect of the Charger lists "Exerts as it attacks"; no popup of its own (owner 2026-11-26)	combat-band/exert-held.png	CMB-037 TBL-240 TBL-134		Exert chip
 584	Exert chip on the other player's table: the same amber chip, not theirs to change	combat-band/exert-other-player.png	CMB-037 TBL-240		Exert chip
 585	Attack cost chip unheld: the amber {2} chip on a staged attacker's copy (as 216)	combat-band/attack-cost.png	CMB-044		Attack cost chip
-586	Attack cost chip held: the ability that makes the attacker pay it, with Inspect of the card opened by the same hold	combat-band/attack-cost-held.png	CMB-044 TBL-240		Attack cost chip
+586	Attack cost chip held: the hold is the card's, Inspect of the Cub lists "Pays {2} to attack" with its source; no popup of its own (owner 2026-11-26)	combat-band/attack-cost-held.png	CMB-044 TBL-240 TBL-134		Attack cost chip
 590	Bots without card ratings: a cube pod's setup, an amber warning sign on each bot (strip and rows) and beside Add bot	draft/bot-warning-setup.png	DRF-314 DRF-296		Bots without card ratings
 591	Bots without card ratings: the warning held, saying why bots pick less well here	draft/bot-warning-hold.png	DRF-314		Bots without card ratings
 592	Bots without card ratings: a set with card ratings has no warning	draft/bot-warning-rated-set.png	DRF-314 DRF-312		Bots without card ratings
@@ -449,23 +449,20 @@ number	item	screenshot	catalog	decisions	sequence
 643	Draft history ratings: the cards taken since a pack came back carry chips and sort too (choice)	draft/history-ratings-taken-since.png	DRF-315 DRF-316 DRF-208		Draft history ratings
 644	Draft history ratings in landscape: the title, By rating and Returning packs only on one row (choice)	draft/history-ratings-landscape.png	DRF-316 DRF-209		Draft history ratings
 645	Draft history before your own draft is done: no ratings, no citation and no By rating chip (choice: the chip shows only with ratings)	draft/history-ratings-before-done.png	DRF-315 DRF-119		Draft history ratings
-646	Rating chip colours, default: gold, pale gold, light grey, grey, dark grey	draft/rating-colours-gold-to-grey.png	DRF-315		Rating chip colours
-647	Rating chip colours, option 2 (medals): gold, silver, bronze, grey, dark grey	draft/rating-colours-medals.png	DRF-315		Rating chip colours
-648	Rating chip colours, option 3: gold, violet, light grey, grey, dark grey	draft/rating-colours-gold-violet-grey.png	DRF-315		Rating chip colours
 660	Choice ability text: separating piles shows the spell's whole text under "Separate into piles"	choice-text/separate-piles.png	STK-181 STK-043	ChooseObjects	Choice ability text
 661	Choice ability text: a spell's search shows the spell's whole text under the search's title (before: none)	choice-text/spell-search.png	STK-181 STK-056	ChooseObjects	Choice ability text
 662	Choice ability text: a spell's "you may" shows the spell's whole text, its own words not repeated (before: only the "you may" sentence)	choice-text/spell-may.png	STK-181 STK-182	May	Choice ability text
 663	Choice ability text: the cast panel's X shows the spell's whole text, both sentences (before: only the first)	choice-text/cast-x.png	STK-136 STK-181 STK-023	Announce	Choice ability text
-670	Costs panel, optional cost only: Attack (1) with an Ember Charger staged opens it, the Charger's card under "As they attack, you may pay", its Exert box empty, the ability's whole text; nothing declared, Attack on the main button	combat-costs/optional.png	CMB-098 CMB-037 CMB-100		Costs panel
+670	Costs panel, optional cost only: Attack (1) with an Ember Charger staged opens it, titled "Declare attackers", the Charger's card under "As they attack, you may", its Exert box empty, the ability's whole text, no total (an exert is no cost); nothing declared, Attack on the main button	combat-costs/optional.png	CMB-098 CMB-037 CMB-100		Costs panel
 671	Costs panel, optional cost tapped: the card ringed in violet with its Exert box checked; the copy on the band carries an amber Exert chip (choice: ring and checked box mark it paid)	combat-costs/optional-paid.png	CMB-098 CMB-037		Costs panel
 672	Costs panel, a required cost with Autotap off: the Cub's card with its amber {2}, the Bulwark's text under its name, "Total to pay: {2}", in red "Still owed {2}"; Attack, Rest and Clear greyed	combat-costs/required-autotap-off.png	CMB-098 CMB-099 CMB-100 CMB-101		Costs panel
 673	Costs panel, paid by hand: the two Mountains tapped on the table, outlined in amber; "Outlined sources pay"; Attack usable	combat-costs/required-paid.png	CMB-099 CMB-100		Costs panel
-674	Costs panel, both together: the Charger's exert (paid) and the {2} it must pay in one panel, "Total to pay: {2}, Exert", Autotap's Mountains outlined	combat-costs/both.png	CMB-098 CMB-099		Costs panel
-675	Costs panel for a block: "Costs to block", Bob's Ash Pup with its amber {1} from the attacking Tollward, his Mountain paying it; Block on the main button	combat-costs/block.png	CMB-098 CMB-099 CMB-100		Costs panel
+674	Costs panel, both together: the Charger's exert (chosen) and the {2} it must pay in one panel, "Total to pay: {2}" (the exert not listed, owner 2026-11-26), Autotap's Mountains outlined	combat-costs/both.png	CMB-098 CMB-099		Costs panel
+675	Costs panel for a block: "Declare blockers", Bob's Ash Pup with its amber {1} from the attacking Tollward, his Mountain paying it; Block on the main button	combat-costs/block.png	CMB-098 CMB-099 CMB-100		Costs panel
 676	Autotap on with only a required cost: no panel, the board after Attack (1): the Cub attacking, both Mountains tapped for its {2}	combat-costs/autotap-no-panel.png	CMB-075		Costs panel
 677	Back to staging: the panel closed, nothing declared, the Cub still staged with its {2} chip, the main button Attack (1) again (Undo does the same)	combat-costs/back.png	CMB-100		Costs panel
 678	Choice: while the costs panel is open the staging is frozen: a tap on a creature or copy only shakes ("Go Back to staging to change it."), Rest and Clear greyed (as in 672)	combat-costs/required-autotap-off.png	CMB-101		Costs panel
-679	Choice: the panel's words: titles "Costs to attack" / "Costs to block", sections "As they attack, you may pay" and "To attack, they must pay", "Total to pay" with the mana first, Back in the bottom row (as in 674)	combat-costs/both.png	CMB-098		Costs panel
+679	The panel's words (owner 2026-11-26): titles "Declare attackers" / "Declare blockers", sections "As they attack, you may" and "To attack, they must pay", "Total to pay" with the mana first and only real costs, Back in the bottom row (as in 674)	combat-costs/both.png	CMB-098		Costs panel
 680	Choice: with Autotap off a cost without mana ("2 life", "Sacrifice") opens no panel: nothing to pay by hand, it is paid (or its choice asked) as the main button declares (no picture: 676 shows the board after a declaration without panel)	combat-costs/autotap-no-panel.png	CMB-075 CMB-098		Costs panel
 690	Highlighted ability text: a trigger's payment, the slim bar "Pay {1}" with the Tollkeeper's whole text, "you may pay {1}. If you do, draw a card." in violet on a softly pulsing light violet, its trigger condition plain	ability-highlight/pay-bar.png	STK-230 STK-142 STK-049	May	Highlighted ability text
 691	Highlighted ability text: a spell's "you may", "You may draw a card." highlighted in the Musing's whole text (before: plain)	ability-highlight/spell-may.png	STK-230 STK-181 STK-182	May	Highlighted ability text
@@ -478,3 +475,12 @@ number	item	screenshot	catalog	decisions	sequence
 698	Choice: a reveal's highlighted part is the one sentence of its source's text that says what happened ("reveal", "exile", or both where the cards came from and went: "Return target card from your graveyard to your hand."); when no sentence or several say it, nothing is highlighted (as in 694)	ability-highlight/reveal.png	STK-230 HIS-252		Highlighted ability text
 699	Choice: a reveal panel names no source above its text (its title already does, HIS-150); a reveal made by a cost, with nothing on the Stack, shows the lines of its source's text that say what happened, else the whole text (no picture: as in 694)	ability-highlight/reveal.png	HIS-252 HIS-150		Highlighted ability text
 700	Choice: the costs panel highlights nothing in its abilities' texts: each text is the one ability asking that cost, and where the cost's words sit in it isn't known exactly (the parser keeps no place for a cost to attack or block; as in 674)	combat-costs/both.png	STK-230 CMB-098		Highlighted ability text
+701	Rating chip colours (owner 2026-11-26): gold, violet, bronze, grey, dark grey for the top 10%, next 15%, middle, next 15%, bottom 10%	draft/rating-colours.png	DRF-315		Rating chip colours
+702	Costs panel with four attackers, two exerted (owner 2026-11-26): four Chargers against an Ember Bulwark ({1} each), two ringed under "As they attack, you may", all four with their amber {1}, "Total to pay: {4}" (the four {1} added up, fixed along the way: it read {1}{1}{1}{1})	combat-costs/four-attackers.png	CMB-098 CMB-037 CMB-044		
+703	Landscape cast panel: its bottom on the bottom bar, life, piles and the hand's fan in view (the cast panel keeps the table's whole width)	landscape-panels/cast-panel.png	STK-044		Landscape panels
+704	Landscape target bar: at the left, at most 420 dp wide, standing on the bottom bar	landscape-panels/target-bar.png	STK-044 STK-047		Landscape panels
+705	Landscape choice panel: at the left, at most 420 dp wide, standing on the bottom bar	landscape-panels/choice.png	STK-044	May	Landscape panels
+706	Landscape reveal panel: at the left, standing on the bottom bar	landscape-panels/reveal.png	STK-044 HIS-110		Landscape panels
+707	Landscape costs panel "Declare attackers": at the left, standing on the bottom bar, the combat band beside it	landscape-panels/costs-panel.png	STK-044 CMB-098		Landscape panels
+708	Landscape with 2.5x hand cards: the hand cards standing over the battlefield are drawn in front of the choice panel (dimmed as the hand is while a choice is open); they cover the panel's No / Yes, which still take the taps	landscape-panels/large-hand-cards.png	STK-044 TBL-238	May	Landscape panels
+709	Choice: the side menu row's badge is a white 16 dp disc with a thin outline on the first avatar's bottom-left corner (the corner a pod's second avatar leaves free), crossed swords for a game or game invitation, the Pods table for a pod or pod invitation (as in 573)	side-menu/drawer-mix.png	LOB-018		

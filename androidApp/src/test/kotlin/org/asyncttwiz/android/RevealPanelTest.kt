@@ -55,7 +55,7 @@ class RevealPanelTest {
     private val frame = mutableIntStateOf(0)
     private fun refresh() { compose.runOnIdle { frame.intValue++ }; compose.waitForIdle() }
 
-    private fun render(game: EngineGame, viewer: String, pump: () -> Unit = {}) {
+    private fun render(game: EngineGame, viewer: String, landscape: Boolean = false, pump: () -> Unit = {}) {
         val routes = EngineTableRoutes(viewer, { game }, pump, { game.play() }).apply { opponentName = names.getValue(if (viewer == f.a) f.b else f.a) }
         val toolkit = TableToolkitController(viewer, { game.play() }, { routes.canAct() }, { action, _ -> routes.local(listOf(action)) },
             playBatch = { actions, _ -> routes.local(actions) }, engine = routes)
@@ -65,7 +65,7 @@ class RevealPanelTest {
                     CompositionLocalProvider(LocalEngineRoutes provides routes) {
                         key(frame.intValue) {
                             Box(Modifier.fillMaxSize()) {
-                                TableSurface(f.game, game.play(), viewer, false, Modifier.fillMaxSize(), onIntent = toolkit::handle, toolkit = toolkit,
+                                TableSurface(f.game, game.play(), viewer, landscape, Modifier.fillMaxSize(), onIntent = toolkit::handle, toolkit = toolkit,
                                     runtime = TableRuntimeHooks(navigation = {}, chat = {}, waitingLine = routes.waitingLine(game.play())))
                             }
                         }
@@ -163,6 +163,19 @@ class RevealPanelTest {
 
     // HIS-110, HIS-151, TRN-063, TRN-114, STK-029 (owner playtest 2026-11-09): while the reveal panel is open the main button is its OK (Resolve
     // waits); a tap on it dismisses the reveal, and the main button is Resolve again and acts
+    // STK-044 (owner, 2026-11-26): in landscape the reveal panel stands at the left on top of the bottom bar, nothing of the bar covered
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun theRevealPanelInLandscapeStandsOnTheBar() {
+        val bob = bobAtReveal()
+        assertNotNull(bob.shown?.reveal, "stopped at Alice's reveal")
+        render(bob, f.b, landscape = true)
+        val box = compose.onNodeWithContentDescription("Reveal").fetchSemanticsNode().boundsInRoot
+        val barTop = 412f - TableControlsHeight
+        assertTrue(kotlin.math.abs(box.bottom - barTop) < 1f && box.left < 1f && box.width <= 421f, "on the bar at the left: $box")
+        captureShot("$SCREENSHOTS/landscape-panels/reveal.png",
+            "In landscape Bob catching up on Alice's turn stopped at her Ember Insight's reveal: the reveal panel stands at the left on " +
+                "top of the bottom bar, his life square, piles and hand in view under it.")
+    }
+
     @Test fun theMainButtonIsTheRevealsOk() {
         // Bob starts (Control: he holds priority wherever he gets it) with free Ember Glints, Alice holds free Ember Foresights
         val g = EngineGameFixture(startingPlayer = f.b, aliceCards = listOf(EngineGameFixture.Choices.FORESIGHT),

@@ -1,0 +1,1 @@
+3: Card rating chips in the draft history now go gold, violet, bronze, grey and dark grey from the best cards down.

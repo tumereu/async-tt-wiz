@@ -48,8 +48,6 @@ Each owner-reported bug gets an e2e test that fails before the fix.
 
 ## Needs discussion
 
-- The amber cost chip's hold on a staged copy (owner, 2026-11-25, left open when the costs panel was built): explain the ability as now, or fall through to Inspect of the card (gallery 585–586; CMB-044).
-
 - Own-picks history for the other modes (owner, 2026-11-25): Winston, Winchester, Grid, Rochester and Rotisserie's History icon opens only the opponents' picks (DRF-160), not your own picks with what you were offered as Booster's (DRF-207) and Arena's (DRF-289) do; discuss giving them that.
 - Owner's own review of the Arcanum engine (owner, 2026-11-11): the owner reads the engine code by hand and discusses improvements with Claude, looking for things that slipped in while unreviewed, like the per-creature `Engine.combatCost`. The public API part was discussed on 2026-11-12 and settled in the engine API rework (merged 2026-11-12). Still open: reading the engine's code itself, including its ~107 `!!`. Nothing there is changed before that discussion.
 

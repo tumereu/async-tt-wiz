@@ -53,13 +53,6 @@ import kotlin.test.assertTrue
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class CombatBandTest {
-    private companion object {
-        /** The Ember Bulwark's ability (EngineGameFixture). */
-        const val BULWARK_TEXT = "Creatures can't attack you unless their controller pays {X} for each creature they control that's attacking you, where X is the number of enchantments you control."
-        /** The Ember Charger's exert ability (EngineGameFixture). */
-        const val CHARGER_EXERT = "You may exert this creature as it attacks. When you do, it gets +1/+1 until end of turn."
-    }
-
     @get:Rule val compose = createComposeRule()
     private val k = EngineTableKit()
 
@@ -728,10 +721,9 @@ class CombatBandTest {
             "Bob's table: he has an Ember Bulwark (each creature attacking him costs {X}, X the number of his enchantments) and an Ember Chime, and Alice staged her Ember Cub: the amber cost chip on its copy reads {2}, worked out from his board, never the letter X (Alice's table shows the same).")
     }
 
-    // CMB-044, TBL-240 (owner, 2026-11-25: holding a combat chip, in the gallery): holding the amber cost chip of
-    // [aCostToAttackShowsItsAmountOnTheChip]'s attack shows the ability that makes the creature pay it, on Bob's table (the
-    // table under the chip, which takes no touch of its own, opens Inspect of the card as well)
-    @Test fun holdingTheAttackCostChipShowsTheAbility() {
+    // CMB-044, TBL-240, TBL-134 (owner, 2026-11-26): the amber cost chip of [aCostToAttackShowsItsAmountOnTheChip]'s attack takes no
+    // touch: holding it is holding the card, on Bob's table too, and Inspect lists "Pays {2} to attack" with its source; no tip
+    @Test fun holdingTheAttackCostChipInspectsTheCard() {
         val kit = attackCostStaged()
         val show = phones(kit)
         show(kit.f.b)
@@ -741,9 +733,10 @@ class CombatBandTest {
         chip.performTouchInput { down(center) }
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(100)
-        compose.onNodeWithText(BULWARK_TEXT, useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Pays {2} to attack", useUnmergedTree = true).assertExists()
+        compose.onNode(hasContentDescription("Rule explanation"), useUnmergedTree = true).assertDoesNotExist()
         captureShot("$SCREENSHOTS/combat-band/attack-cost-held.png",
-            "Bob holds the amber {2} cost chip on the copy of Alice's staged Ember Cub: the Ember Bulwark's ability that makes her pay it shows in the dark tip, and the same hold also opens Inspect of the Cub under it.")
+            "Bob holds the amber {2} cost chip on the copy of Alice's staged Ember Cub: the chip takes no touch of its own, so the hold inspects the Cub, whose lines list \"Pays {2} to attack\" (from his Ember Bulwark); no tip of its own.")
         chip.performTouchInput { cancel() }
         compose.mainClock.autoAdvance = true
     }
@@ -796,10 +789,10 @@ class CombatBandTest {
         return { who -> phone = who to phone.second + 1; compose.waitForIdle() }
     }
 
-    // CMB-037, TBL-132, TBL-240 (owner, 2026-11-25: the exert is chosen in the costs panel, CMB-098; CR 508.1g, 701.43d): Alice
-    // stages her Ember Charger ("You may exert this creature as it attacks. When you do, it gets +1/+1 until end of turn."): no
-    // toggle under its copy; once chosen (as the costs panel's tap does) an amber "Exert" cost chip; held, the ability's text with
-    // what exerting means; on Bob's table the same amber chip, not his to change
+    // CMB-037, TBL-240, TBL-134 (owner, 2026-11-25: the exert is chosen in the costs panel, CMB-098; CR 508.1g, 701.43d; owner
+    // 2026-11-26: the chip takes no touch): Alice stages her Ember Charger ("You may exert this creature as it attacks. When you do,
+    // it gets +1/+1 until end of turn."): no toggle under its copy; once chosen (as the costs panel's tap does) an amber "Exert"
+    // cost chip; held, it is the card's: Inspect lists "Exerts as it attacks", no tip; on Bob's table the same amber chip
     @Test fun theExertChosenShowsAsAnAmberChipOnBothPhones() {
         val charger = EngineGameFixture.Choices.CHARGER
         val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(aliceCards = listOf(charger, "Mountain"))))
@@ -831,9 +824,10 @@ class CombatBandTest {
         chip.performTouchInput { down(center) }
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(100)
-        compose.onNodeWithText(CHARGER_EXERT, useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Exerts as it attacks", useUnmergedTree = true).assertExists()
+        compose.onNode(hasContentDescription("Rule explanation"), useUnmergedTree = true).assertDoesNotExist()
         captureShot("$SCREENSHOTS/combat-band/exert-held.png",
-            "Alice holds the amber Exert chip: the Charger's ability text shows over the band, with what exerting means, while she holds it (the same hold also opens Inspect of the Charger under it).")
+            "Alice holds the amber Exert chip: it takes no touch of its own, so the hold inspects her Ember Charger, whose lines list \"Exerts as it attacks\"; no tip of its own.")
         chip.performTouchInput { cancel() }
         compose.mainClock.autoAdvance = true
         compose.waitForIdle()

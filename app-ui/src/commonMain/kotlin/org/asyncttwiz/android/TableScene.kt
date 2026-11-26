@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
@@ -698,7 +699,23 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 DesktopQuickLook(play, accountId, item, toolkit, desktopGeometry.tableRight, tableHeight)
             }
         }
-        CompositionLocalProvider(LocalDesktopGeometry provides desktopGeometry) {
+        // STK-044, TBL-238 (owner 2026-11-26): in the phone's landscape layout your hand cards standing over the battlefield are drawn
+        // in front of a panel docked on the bottom bar too, dimmed as on the table (ZON-095, CMB-096)
+        val frontDim = toolkit != null && !runtime.reviewing && (toolkit.handDimmed(play) || writable &&
+            LocalEngineRoutes.current?.mayAct() != false && toolkit.combat.declaring(play, accountId) != null)
+        val handFront = if (desktopGeometry != null || !landscape) null else HandFront { clip ->
+            val frame = rendered.value
+            val hand = frame.scene.items.filter { it.owner == accountId &&
+                (it.kind == TableItemKind.HAND || it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND) }
+            if (hand.any { it.kind == TableItemKind.CARD }) clipRect(clip.left, clip.top, clip.right, clip.bottom) {
+                val alphas = if (!frontDim) frame.alphas else frame.alphas + hand.filter { it.kind == TableItemKind.CARD }
+                    .associate { it.id to minOf(frame.alphas[it.id] ?: 1f, HAND_DIMMED) }
+                drawTable(frame.scene.copy(items = hand, fields = emptyList(), viewports = frame.scene.viewports.filter { it.hand },
+                    stackRegion = null, world = null, cardPanels = emptyList(), floats = emptyList(), desktopPlates = emptyMap()),
+                    accountId, play.board.turn.accountId, TableGesturePreview(), alphas, artwork, drawCache, pileBadges = false)
+            }
+        }
+        CompositionLocalProvider(LocalDesktopGeometry provides desktopGeometry, LocalHandFront provides handFront) {
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered, sceneNow)
         // WEB-020: on the desktop table the top row is the screen's, above the table
         if (desktopGeometry == null) TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)

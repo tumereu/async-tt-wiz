@@ -3,7 +3,6 @@ package org.asyncttwiz.android
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -109,9 +108,7 @@ class DraftHistoryRatingsScreenshotTest {
             "alice", {}, arena = arena, ratings = shown) {}
     }
 
-    private fun picksDialog(picks: List<PodOpponentPicks>, palette: PodRatingPalette = PodRatingPalette.GoldToGrey) = showContent {
-        CompositionLocalProvider(LocalPodRatingPalette provides palette) { PodPicksDialog(picks, definitions, ratings) {} }
-    }
+    private fun picksDialog(picks: List<PodOpponentPicks>) = showContent { PodPicksDialog(picks, definitions, ratings) {} }
 
     private fun rating(n: Int) = table.getValue(cards[n].first)
     private fun chipText(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true).onChild().fetchSemanticsNode()
@@ -277,19 +274,12 @@ class DraftHistoryRatingsScreenshotTest {
             .flatMap { (step, count) -> steps.getValue(step).take(count) }.map { copy(it) }
     }))
 
-    // DRF-315 (owner, 2026-11-25): the chips' colour options for the owner: the five steps in each palette, never green or red
-    @Test fun colourOptionGoldToGrey() = colourOption(PodRatingPalette.GoldToGrey, "rating-colours-gold-to-grey",
-        "the default: gold, pale gold, light grey, grey and dark grey")
-    @Test fun colourOptionMedals() = colourOption(PodRatingPalette.Medals, "rating-colours-medals",
-        "option 2, medals: gold, silver, bronze, grey and dark grey")
-    @Test fun colourOptionGoldVioletGrey() = colourOption(PodRatingPalette.GoldVioletGrey, "rating-colours-gold-violet-grey",
-        "option 3: gold, violet, light grey, grey and dark grey")
-
-    private fun colourOption(palette: PodRatingPalette, name: String, words: String) {
+    // DRF-315 (owner, 2026-11-25; colours owner 2026-11-26): the chips' five colours, gold, violet, bronze, grey and dark grey
+    @Test fun ratingChipColours() {
         preferences.edit().putBoolean("history-by-rating", true).apply()
-        picksDialog(stepPicks, palette)
-        shot(name, "Rotisserie Picks sorted By rating with two cards of each step (top 10%, next 15%, four of the middle, " +
-            "next 15%, bottom 10%), the chips in $words.")
+        picksDialog(stepPicks)
+        shot("rating-colours", "Rotisserie Picks sorted By rating with two cards of each step (top 10%, next 15%, four of the middle, " +
+            "next 15%, bottom 10%): the chips gold, violet, bronze, grey and dark grey.")
     }
 
     // DRF-316: on a wider screen the title, By rating and Returning packs only share one row (choice)

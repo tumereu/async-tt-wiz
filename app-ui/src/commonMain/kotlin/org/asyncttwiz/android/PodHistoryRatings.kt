@@ -95,24 +95,18 @@ fun podPicksRatingOrder(cards: List<DraftCopy?>, definitions: Map<String, CardDe
     ratings?.byRating(cards) { copy -> copy?.let { definitions[it.definition] } } ?: cards
 
 /**
- * DRF-315 (owner, 2026-11-25): the rating chips' colours, one per step from the top down: gold at the top down to grey,
- * never green or red (the keeps' and burns' colours). [GoldToGrey] is the one the app uses; the others are offered to the
- * owner in the gallery.
+ * DRF-315 (owner, 2026-11-25; colours owner 2026-11-26): the rating chips' colours, one per step from the top down: gold,
+ * violet, bronze, grey and dark grey, never green or red (the keeps' and burns' colours).
  */
-sealed class PodRatingPalette(val name: String, private val fills: List<Long>, private val darkText: Int) {
+object PodRatingColours {
+    private val fills = listOf(0xFFE2B53E, 0xFFB79AE0, 0xFFC4996B, 0xFF8E9297, 0xFF55595E)
+
     /** The chip's fill for [step]. */
     fun fill(step: PodRatingStep) = Color(fills[step.rank])
+
     /** The chip's text colour for [step]: dark on the light steps, white on the dark ones. */
-    fun text(step: PodRatingStep) = if (step.rank < darkText) Color(0xFF2B2100) else Color.White
-
-    data object GoldToGrey : PodRatingPalette("Gold to grey", listOf(0xFFE2B53E, 0xFFEBDCA6, 0xFFD0D3D8, 0xFF8E9297, 0xFF55595E), 3)
-    data object Medals : PodRatingPalette("Medals", listOf(0xFFE2B53E, 0xFFC5CCD6, 0xFFC4996B, 0xFF8E9297, 0xFF55595E), 3)
-    data object GoldVioletGrey : PodRatingPalette("Gold, violet, grey",
-        listOf(0xFFE2B53E, 0xFFB79AE0, 0xFFD0D3D8, 0xFF8E9297, 0xFF55595E), 3)
+    fun text(step: PodRatingStep) = if (step.rank < 3) Color(0xFF2B2100) else Color.White
 }
-
-/** DRF-315: the palette the rating chips use; the gallery's colour options provide another. */
-val LocalPodRatingPalette = staticCompositionLocalOf<PodRatingPalette> { PodRatingPalette.GoldToGrey }
 
 /**
  * DRF-315: pod [detail]'s card ratings for its draft history dialogs, read from card records through [filters] once they may
@@ -168,10 +162,9 @@ fun PodRatingsCitation(modifier: Modifier = Modifier) {
 /** DRF-315: a card's rating chip, centred on the bottom edge of the card it is drawn over ([BoxScope] of the card). */
 @Composable
 fun PodRatingChip(rating: Int, step: PodRatingStep, tag: String, modifier: Modifier = Modifier) {
-    val palette = LocalPodRatingPalette.current
-    Box(modifier.testTag(tag).padding(bottom = 2.dp).background(palette.fill(step), RoundedCornerShape(50))
+    Box(modifier.testTag(tag).padding(bottom = 2.dp).background(PodRatingColours.fill(step), RoundedCornerShape(50))
         .padding(horizontal = 4.dp, vertical = 1.dp), contentAlignment = Alignment.Center) {
-        Text(podRatingText(rating), color = palette.text(step), fontSize = 10.sp, lineHeight = 11.sp, fontWeight = FontWeight.Bold,
+        Text(podRatingText(rating), color = PodRatingColours.text(step), fontSize = 10.sp, lineHeight = 11.sp, fontWeight = FontWeight.Bold,
             maxLines = 1, softWrap = false)
     }
 }

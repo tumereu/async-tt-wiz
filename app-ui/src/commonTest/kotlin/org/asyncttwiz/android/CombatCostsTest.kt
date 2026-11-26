@@ -7,6 +7,7 @@ import org.asyncttwiz.protocol.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -52,14 +53,36 @@ class CombatCostsTest {
         assertFalse(CombatCosts.toDecide(board(listOf("cub")), CombatShown.NONE, autotap = false), "no declaration awaited")
     }
 
-    // CMB-098: "Total to pay" is the declaration's mana as one total, then the other parts in order; the costs' own mana where the
-    // payment isn't worked out
+    // CMB-098 (owner, 2026-11-26): "Total to pay" is the declaration's mana as one total, then the other parts in order, only real
+    // costs: an exert is none (CR 701.43); the costs' own mana where the payment isn't worked out; nothing to pay, no line
     @Test fun theTotalIsTheManaThenTheOtherCosts() {
-        assertEquals("{4}, 2 life, Exert", CombatCosts.total("{4}", listOf(two, two, life, exert)))
+        assertEquals("{4}, 2 life", CombatCosts.total("{4}", listOf(two, two, life, exert)))
+        assertNull(CombatCosts.total(null, listOf(exert)), "an exert alone is nothing to pay")
         assertEquals("{2}, {2}", CombatCosts.total(null, listOf(two, two)))
         assertEquals("{2}{R}, Sacrifice", CombatCosts.total("{2}{R}", listOf(CombatCostShown("{R}, Sacrifice", null), two)))
         assertNull(CombatCosts.total(null, emptyList()))
         assertTrue(CombatCosts.asksMana(CombatCostShown("{1}, 2 life", null)))
         assertFalse(CombatCosts.asksMana(life))
+    }
+
+    // CMB-098: the declaration's mana is one total: four attackers paying {1} each pay "{4}", not "{1}{1}{1}{1}"
+    @Test fun theDeclarationsManaIsOneTotal() {
+        fun total(printed: String) = CombatCosts.manaTotal(assertNotNull(arcanum.api.ManaCost.parse(printed)))
+        assertEquals("{4}", total("{1}{1}{1}{1}"))
+        assertEquals("{3}{R}", total("{2}{R}{1}"))
+        assertEquals("{R}{R}", total("{R}{R}"))
+        assertEquals("{0}", total("{0}"))
+    }
+
+    // CMB-044, TBL-134 (owner, 2026-11-26): Inspect lists each cost a staged creature must pay, one line each with its source:
+    // "Pays {2} to attack", "Pays 2 life to block"; nothing while no declaration is awaited
+    @Test fun inspectListsTheCostsToAttackAndBlock() {
+        val names = mapOf("prison" to "Ember Bulwark", "thorns" to "Thorn Hedge")
+        val attack = CombatCosts.inspectLines(board(listOf("bear", "cub")), attacking(costs = mapOf("bear" to listOf(two))), names::getValue)
+        assertEquals(mapOf("bear" to listOf(InspectChange("Pays {2} to attack", "Ember Bulwark"))), attack)
+        val blocking = CombatShown(CombatChoices("bob", attackers = false), costs = mapOf("ogre" to listOf(life)))
+        assertEquals(mapOf("ogre" to listOf(InspectChange("Pays 2 life to block", "Thorn Hedge"))),
+            CombatCosts.inspectLines(board(listOf("bear"), listOf("ogre")), blocking, names::getValue))
+        assertEquals(emptyMap(), CombatCosts.inspectLines(board(listOf("bear")), CombatShown.NONE, names::getValue))
     }
 }

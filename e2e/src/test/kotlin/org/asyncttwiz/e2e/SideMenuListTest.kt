@@ -59,6 +59,12 @@ class SideMenuListTest : E2e() {
             val slot = slots[expected.indexOf(row)]
             assertTrue(mark.left >= slot.left - 0.5f && mark.right <= slot.right + 0.5f, "$row's dot in its slot: $mark vs $slot")
         }
+        // LOB-018 (owner 2026-11-26): each row's game or pod badge: the pod invitation's a pod's, the games' a game's
+        for (row in expected) {
+            val pod = row.startsWith("navigation-pod-")
+            assertTrue(bob.shows(dotIn(if (pod) "navigation-badge-pod" else "navigation-badge-game", row)) &&
+                !bob.shows(dotIn(if (pod) "navigation-badge-game" else "navigation-badge-pod", row)), "$row's badge: ${bob.screen()}")
+        }
         // The buttons below the list, Games and Pods among them
         val buttons = listOf("Menu", "Games", "Pods", "Manage decks", "Contacts", "Stats", "Settings")
             .map { bob.tagged("navigation-$it").fetchSemanticsNode().boundsInRoot.top }

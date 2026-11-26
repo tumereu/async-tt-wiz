@@ -247,18 +247,35 @@ private fun NavigationItem(label: String, icon: String?, selected: Boolean, inde
     }
 }
 
-/** LOB-018: a side-menu row's frame: the open game or pod ([selected]) highlighted, the avatar column [stackWidth] wide, then
- * (LOB-269, owner 2026-11-25) the slot of its waiting dot [dot] before the name and its lines, on every row. */
+/** LOB-018: a side-menu row's frame: the open game or pod ([selected]) highlighted, the avatar column [stackWidth] wide with
+ * (owner 2026-11-26) the badge of what the row is ([pod]: the Pods table, else a game's crossed swords) on its first avatar's
+ * corner, then (LOB-269, owner 2026-11-25) the slot of its waiting dot [dot] before the name and its lines, on every row. */
 @Composable
-private fun NavigationRow(modifier: Modifier, selected: Boolean, stackWidth: androidx.compose.ui.unit.Dp, dot: WaitingDot?,
+private fun NavigationRow(modifier: Modifier, selected: Boolean, stackWidth: androidx.compose.ui.unit.Dp, dot: WaitingDot?, pod: Boolean,
     avatars: @Composable () -> Unit, lines: @Composable ColumnScope.() -> Unit) {
     Surface(modifier.fillMaxWidth().heightIn(min = 72.dp).semantics { this.selected = selected }, shape = MaterialTheme.shapes.extraLarge,
         color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent) {
         Row(Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.width(stackWidth)) { avatars() }
+            Box(Modifier.width(stackWidth)) {
+                avatars()
+                SideMenuKindBadge(pod, Modifier.align(Alignment.BottomStart))
+            }
             AfterDotSlot(dot, content = lines)
             EntryIcon(null, "chevron")
+        }
+    }
+}
+
+/** LOB-018 (owner 2026-11-26): a side-menu row's badge on its first avatar's bottom-left corner telling a pod (the Pods table, as the
+ * menu's Pods button) from a game (the crossed swords of its Games button): a white 16 dp disc with a thin outline and the icon. */
+@Composable
+private fun SideMenuKindBadge(pod: Boolean, modifier: Modifier) {
+    Surface(modifier.offset(x = (-3).dp, y = 3.dp).size(16.dp).semantics { contentDescription = if (pod) "Pod" else "Game" }
+        .testTag(if (pod) "navigation-badge-pod" else "navigation-badge-game"),
+        shape = androidx.compose.foundation.shape.CircleShape, color = Color.White, border = BorderStroke(1.dp, ScreenBorder)) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(screenIcon(if (pod) "pods" else "games"), null, Modifier.size(11.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -277,7 +294,7 @@ private fun NavigationGameRow(controller: AuthController, lobby: LobbyController
             if (incoming) { lobby.back(); controller.navigate(ShellDestination.GAMES) }
             else { controller.navigate(ShellDestination.GAMES); lobby.open(game.id) }
         // LOB-269: the row's waiting dot, never for the game you are looking at
-        }, selectedGame, stackWidth, gameWaitingDot(game, accountId).takeUnless { selectedGame }, { Avatar(game.opponent(accountId)) }) {
+        }, selectedGame, stackWidth, gameWaitingDot(game, accountId).takeUnless { selectedGame }, pod = false, { Avatar(game.opponent(accountId)) }) {
         RowName(game.gameName)
         // Its own line: beside the chevron the narrow drawer squeezed the name to one letter.
         if (incoming) Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
@@ -297,7 +314,7 @@ private fun NavigationPodRow(controller: AuthController, pods: PodController?, p
     val selectedPod = controller.state.destination == ShellDestination.PODS && pods?.state?.selected == pod.id
     NavigationRow(Modifier.testTag("navigation-pod-${pod.id}").clickable { pods?.open(pod.id); controller.navigate(ShellDestination.PODS) },
         // LOB-269: the row's waiting dot, never for the pod you are looking at
-        selectedPod, stackWidth, podWaitingDot(pod).takeUnless { selectedPod }, {
+        selectedPod, stackWidth, podWaitingDot(pod).takeUnless { selectedPod }, pod = true, {
             AvatarStack(podNavigationAvatars(pod.members, accountId),
                 ring = if (selectedPod) MaterialTheme.colorScheme.secondaryContainer else Color.White, width = stackWidth)
         }) {
@@ -314,7 +331,7 @@ private fun NavigationPodInvitationRow(controller: AuthController, pods: PodCont
     stackWidth: androidx.compose.ui.unit.Dp) {
     NavigationRow(Modifier.testTag("navigation-pod-invitation-${invitation.podId}").clickable {
         pods?.showList(); controller.navigate(ShellDestination.PODS)
-    }, false, stackWidth, podInvitationWaitingDot, { Avatar(invitation.creator) }) {
+    }, false, stackWidth, podInvitationWaitingDot, pod = true, { Avatar(invitation.creator) }) {
         RowName(invitation.name)
         Text("Invitation", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Text("${invitation.creator.username} · ${podModeName(invitation.mode)}", style = MaterialTheme.typography.bodySmall,

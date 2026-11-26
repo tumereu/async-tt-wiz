@@ -406,14 +406,18 @@ fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden
     // STK-230, STK-142 (owner 2026-11-25): the clause the question asks highlighted in that text, where its words are exactly one run of
     // its whole clauses
     val askedWords = if (pays) decision.text else askedWords(decision)
-    val asked = shownText?.let { AskedPart.clauses(it, askedWords) }
+    // STK-229, STK-230 (owner 2026-11-26): a pile choice has no words of its own: the one sentence of the text choosing a pile
+    val pileChoice = (decision as? Decision.ChooseOption)?.piles != null
+    val asked = shownText?.let { if (pileChoice) AskedPart.sentence(it, AskedPart.PILE_CHOICE, "the choice of a pile")
+        else AskedPart.clauses(it, askedWords) }
     LaunchedEffect(decision.id) {
         // STK-181 (owner 2026-11-25): what text the panel showed, so a report of it explains itself
         AppLog.info("decision", "Choice panel of ${decision.id.value} (${decision.kind}): from ${words?.name ?: "no source named"}" +
             (if (copy) " (for a copy)" else "") + ", ability text ${abilityText?.let { "\"${it.take(160)}\"" } ?: if (words?.text == null) "none" else "as its question"}" +
             ", line ${shownLine?.let { "\"${it.take(160)}\"" } ?: "none"}" +
             (if (askedLine != null && shownLine == null || ownRepeats) ", question repeats the ability text: not shown" else "") +
-            ", " + askedLog(shownText, askedWords, asked))
+            ", " + if (pileChoice && asked == null) "nothing highlighted: ${if (shownText == null) "no text shown" else
+                "no sentence or several of the text choose a pile, or it is the whole text"}" else askedLog(shownText, askedWords, asked))
     }
     AutomatumDockPanel("Automatum choice", hidden, toggleHidden, "Automatum panel", buttons = { slot.buttons?.invoke(this) }) {
         CompositionLocalProvider(LocalDockSlot provides slot) {

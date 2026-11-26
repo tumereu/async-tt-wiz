@@ -76,6 +76,8 @@ class PileChoiceTest {
         compose.onNodeWithText("Face-down pile · 2").assertExists()
         // STK-181, STK-229 (owner gallery review 2026-11-25): the Destiny's whole text under the title, not only its "chooses" sentence
         compose.onNodeWithContentDescription("Question: $DESTINY_TEXT").assertExists()
+        // STK-230 (owner 2026-11-26): the sentence choosing the pile is highlighted in it, as a choice's clause is
+        compose.onNodeWithContentDescription("Highlighted: An opponent chooses one of the piles.", useUnmergedTree = true).assertExists()
         // The face-up card is drawn as itself; the face-down ones only as backs
         fun name(id: arcanum.engine.state.ObjectId) = kit.state().obj(id)?.definition?.faces?.first()?.name
         val faceUp = assertNotNull(name(piles.first.single()))
@@ -84,7 +86,7 @@ class PileChoiceTest {
             .fetchSemanticsNodes().size)
         compose.onNodeWithTag("pile-choose-first", useUnmergedTree = true).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/pile-choice.png",
-            "Bob's Ember Destiny resolved: he put one of his top three cards face up and two face down, and Alice chooses: the panel is titled \"Choose a pile\" with the Destiny's name and whole text under it and its card at the right, the Face-up pile shows its card, the Face-down pile two card backs, each with its count and a Choose button.")
+            "Bob's Ember Destiny resolved: he put one of his top three cards face up and two face down, and Alice chooses: the panel is titled \"Choose a pile\" with the Destiny's name and whole text under it, \"An opponent chooses one of the piles.\" highlighted in it, and its card at the right, the Face-up pile shows its card, the Face-down pile two card backs, each with its count and a Choose button.")
         val handBefore = kit.state().player(kit.other).hand.size
         compose.onNodeWithTag("pile-choose-second", useUnmergedTree = true).performClick()
         compose.waitForIdle()

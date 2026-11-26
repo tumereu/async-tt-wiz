@@ -1,0 +1,1 @@
+3: The panel for declaring attackers or blockers is now titled "Declare attackers" or "Declare blockers", and its total leaves out exerting, which is not a cost; several creatures' mana costs now add up to one total.

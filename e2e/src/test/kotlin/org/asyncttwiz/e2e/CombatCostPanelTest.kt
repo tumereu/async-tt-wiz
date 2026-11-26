@@ -3,11 +3,13 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.performClick
 import arcanum.api.TurnStep
 import org.asyncttwiz.android.COSTS_BACK_TAG
 import org.asyncttwiz.android.COSTS_OPTIONAL_TAG
+import org.asyncttwiz.android.COSTS_PANEL
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.junit.Test
@@ -26,13 +28,16 @@ class CombatCostPanelTest : E2e() {
             player.stepArrow()?.takeIf { it in listOf("Pass", "Next", "Resolve") }?.let(player::tap)
     }
 
-    private fun E2ePlayer.costsPanel(what: String = "attack") = shows(hasContentDescription("Costs to $what"))
+    // CMB-098 (owner 2026-11-26): titled "Declare attackers" ("Declare blockers")
+    private fun E2ePlayer.costsPanel(what: String = "attack") =
+        shows(hasContentDescription(COSTS_PANEL)) && shows(hasText(if (what == "attack") "Declare attackers" else "Declare blockers"))
     private fun E2ePlayer.mainSays(label: String, enabled: Boolean = true) =
         shows(hasTestTag("main-button") and hasContentDescription(label) and if (enabled) isEnabled() else androidx.compose.ui.test.isNotEnabled())
 
     // CMB-098, CMB-100, CMB-037 (CR 508.1g, 701.43d): Alice casts her Ember Charger (haste) and stages it: Attack (1) opens the costs
-    // panel with nothing declared; a tap on the Charger's card pays its exert (Bob's phone shows the amber Exert chip); Attack on the
-    // main button declares it, exerted
+    // panel "Declare attackers" with nothing declared; a tap on the Charger's card chooses its exert, no total to pay (an exert is no
+    // cost, owner 2026-11-26); Bob's phone shows the amber Exert chip, and holding it inspects the Charger, "Exerts as it attacks"
+    // (TBL-240, TBL-134); Attack on the main button declares it, exerted
     @Test fun anOptionalCostToAttackIsChosenInThePanel() {
         startGame(TestDeck("Chargers", listOf(TestCards.mountain to 20, TestCards.charger to 20)), TestDeck.thirds(),
             deal = { a, _ -> "Ember Charger" in hand(a) })
@@ -48,7 +53,13 @@ class CombatCostPanelTest : E2e() {
         assertTrue(alice.state.combat == null, "nothing declared yet")
         alice.tagged(COSTS_OPTIONAL_TAG).performClick()
         waitUntil("the exert paid: ${alice.screen()}") { alice.shows(hasTestTag(COSTS_OPTIONAL_TAG) and hasStateDescription("paid")) }
+        assertFalse(alice.shows(hasContentDescription("Total to pay", substring = true)), "no total: the exert is no cost: ${alice.screen()}")
         waitUntil("the amber Exert chip on Bob's phone", along = listOf(alice)) { bob.shows(hasContentDescription("Pays Exert")) }
+        holding(bob.node(hasContentDescription("Pays Exert"))) {
+            assertTrue(bob.shows(hasContentDescription("Card image: Ember Charger")) && bob.showsText("Exerts as it attacks"),
+                "the Charger inspected with its exert: ${bob.screen()}")
+            assertFalse(bob.shows(hasContentDescription("Rule explanation")), "no popup of the chip's own")
+        }
         val life = alice.state.player(bob.me).life
         alice.tap("Attack")
         // Exerted, the 3/3 got +1/+1 ("When you do") and doesn't untap next turn
@@ -126,7 +137,7 @@ class CombatCostPanelTest : E2e() {
     }
 
     // CMB-098, CMB-099 (CR 509.1d): Alice's Ember Tollward attacks ("creatures can't block unless their controller pays {1}"); Bob,
-    // Autotap off, blocks with his Ash Pup: Block (1) opens his panel, "Costs to block"; his Mountain tapped on the table pays it and
+    // Autotap off, blocks with his Ash Pup: Block (1) opens his panel, "Declare blockers"; his Mountain tapped on the table pays it and
     // Block declares
     @Test fun aCostToBlockIsPaidInThePanel() {
         startGame(TestDeck("Tollwards", listOf(TestCards.mountain to 20, TestCards.tollward to 20)),

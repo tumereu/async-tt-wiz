@@ -1,0 +1,1 @@
+3: Holding the Exert chip or a cost chip under an attacker or blocker now shows the card itself, which lists "Exerts as it attacks" or what it pays to attack or block.

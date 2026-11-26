@@ -108,6 +108,25 @@ class SideMenuListScreenTest {
             }
         }
     }
+    /** LOB-018 (owner 2026-11-26): each of [rows] (tag to whether it is a pod) has one badge, a pod's or a game's, on its first
+     * avatar's bottom-left corner (choice). */
+    private fun badges(rows: Map<String, Boolean>) {
+        for ((row, pod) in rows) {
+            compose.onAllNodes(hasTestTag("navigation-badge-pod") and hasAnyAncestor(hasTestTag(row)), useUnmergedTree = true)
+                .assertCountEquals(if (pod) 1 else 0)
+            compose.onAllNodes(hasTestTag("navigation-badge-game") and hasAnyAncestor(hasTestTag(row)), useUnmergedTree = true)
+                .assertCountEquals(if (pod) 0 else 1)
+            val badge = compose.onNode(hasTestTag(if (pod) "navigation-badge-pod" else "navigation-badge-game") and hasAnyAncestor(hasTestTag(row)),
+                useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            val avatar = compose.onAllNodes(hasContentDescription("'s avatar", substring = true) and hasAnyAncestor(hasTestTag(row)),
+                useUnmergedTree = true).fetchSemanticsNodes().minBy { it.boundsInRoot.left }.boundsInRoot
+            assertTrue(badge.left < avatar.left + avatar.width / 2 && badge.bottom > avatar.bottom - avatar.height / 2,
+                "$row's badge ($badge) on its first avatar's bottom-left corner ($avatar)")
+        }
+    }
+    private val mixKinds = mapOf("navigation-game-g-move" to false, "navigation-pod-invitation-p-invited" to true,
+        "navigation-pod-p-build" to true, "navigation-game-g-wait" to false, "navigation-game-g-held" to false)
+
     private val mixNames = mapOf("navigation-game-g-move" to "Azure Spark", "navigation-pod-invitation-p-invited" to "Friday sealed",
         "navigation-pod-p-build" to "Sealed league", "navigation-game-g-wait" to "Crackling Mist", "navigation-game-g-held" to "Sealed league #2")
 
@@ -148,10 +167,14 @@ class SideMenuListScreenTest {
         dotIn("navigation-game-g-wait", null)
         dotIn("navigation-game-g-held", null)
         dotSlotsAligned(mixNames)
+        // LOB-018 (owner 2026-11-26): a game's crossed swords or a pod's table on each row's first avatar
+        badges(mixKinds)
         shot("drawer-mix", "The side menu opened over the Menu screen in portrait, one list above the buttons Menu, Games, Pods, " +
             "Manage decks, Contacts, Stats and Settings, each row's dot in its own slot between the avatars and the name: Azure Spark " +
             "(Alex's move) red, Morgan's invitation to the pod Friday sealed blue, Sealed league (his deck to build) green, Crackling " +
-            "Mist (Morgan's move) with an empty slot, and last Morgan's challenge he can't accept before submitting his deck.")
+            "Mist (Morgan's move) with an empty slot, and last Morgan's challenge he can't accept before submitting his deck; each " +
+            "game's first avatar carries a small crossed-swords badge and each pod's a table badge (choice: a white 16 dp disc on the " +
+            "avatar's bottom-left corner).")
     }
 
     // LOB-018: always five rows: with seven, Cube night (blue) comes in, and the oldest game without a dot and the held challenge
@@ -238,8 +261,10 @@ class SideMenuListScreenTest {
         assertEquals("navigation-game-g-move", rowTags().first())
         // LOB-269 (owner 2026-11-25)
         dotSlotsAligned(mixNames)
+        badges(mixKinds)
         shot("landscape", "The Menu screen in landscape with the side area always open at its left: the same list (Azure Spark " +
-            "red, Friday sealed blue, Sealed league green, Crackling Mist, the held challenge) above the buttons.")
+            "red, Friday sealed blue, Sealed league green, Crackling Mist, the held challenge), each row's game or pod badge on its " +
+            "first avatar, above the buttons.")
     }
 
     // LOB-018, WEB-037: the desktop's permanent side menu holds the same list
@@ -262,7 +287,9 @@ class SideMenuListScreenTest {
         assertEquals(5, rowTags().size)
         // LOB-269 (owner 2026-11-25)
         dotSlotsAligned(mixNames)
+        badges(mixKinds)
         shot("desktop", "The desktop layout's Menu screen with its side menu always open at the left: the same list (Azure Spark " +
-            "red, Friday sealed blue, Sealed league green, Crackling Mist, the held challenge) above the buttons.")
+            "red, Friday sealed blue, Sealed league green, Crackling Mist, the held challenge), each row's game or pod badge on its " +
+            "first avatar, above the buttons.")
     }
 }

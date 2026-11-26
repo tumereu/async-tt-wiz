@@ -10,11 +10,13 @@ import org.asyncttwiz.protocol.*
  * Inspect in a game (TBL-104): what holding a card (or an ability's entry on the Stack) shows while the finger stays: an
  * ability's tile alone (STK-050), else every face the viewer may see of the card (TBL-106) with what changed on it, then
  * the other members of its battlefield group held with it (TBL-111), each with its own changes. A face-down card stays
- * hidden from the opponent (TBL-109). [swipe]: its pinned mode, when the hold can pin it.
+ * hidden from the opponent (TBL-109). [swipe]: its pinned mode, when the hold can pin it. [combat]: the combat the table shows,
+ * whose costs of a declaration Inspect lists (CMB-044).
  */
 @Composable
 fun GameplayCardInspection(state: TableBoard, viewer: String, inspection: ManualInspection, close: () -> Unit,
-    names: Map<String, String> = emptyMap(), scroll: ScrollState? = null, swipe: InspectSwipe? = null) {
+    names: Map<String, String> = emptyMap(), scroll: ScrollState? = null, swipe: InspectSwipe? = null,
+    combat: org.asyncttwiz.automatum.CombatShown? = null) {
     if (inspection.gameId != state.gameId || inspection.playId != state.playId) return
     BackHandler(onBack = { if (swipe?.pinned == true) swipe.close() else close() })
     val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: run {
@@ -22,7 +24,7 @@ fun GameplayCardInspection(state: TableBoard, viewer: String, inspection: Manual
         if (swipe?.pinned == true) LaunchedEffect(swipe) { swipe.close() }
         return
     }
-    val groups = remember(state, viewer, inspection, names) { gameInspectGroups(state, viewer, inspection, card, names) }
+    val groups = remember(state, viewer, inspection, names, combat) { gameInspectGroups(state, viewer, inspection, card, names, combat) }
     InspectPopup(groups, scroll ?: rememberScrollState(), swipe)
 }
 
@@ -30,9 +32,10 @@ fun GameplayCardInspection(state: TableBoard, viewer: String, inspection: Manual
 fun gameInspectTiles(state: TableBoard, viewer: String, inspection: ManualInspection, card: PlayCard,
     names: Map<String, String>): List<InspectTile> = gameInspectGroups(state, viewer, inspection, card, names).flatMap { it.tiles }
 
-/** What [GameplayCardInspection] shows of [card], held as [inspection] says: one group per card, with its changes. */
+/** What [GameplayCardInspection] shows of [card], held as [inspection] says: one group per card, with its changes (and the
+ * costs [combat]'s declaration asks of it, CMB-044). */
 fun gameInspectGroups(state: TableBoard, viewer: String, inspection: ManualInspection, card: PlayCard,
-    names: Map<String, String>): List<InspectGroup> {
+    names: Map<String, String>, combat: org.asyncttwiz.automatum.CombatShown? = null): List<InspectGroup> {
     val entry = inspection.stackEntryId ?: inspection.cardId
     // STK-050 (owner playtest 2026-11-06): an ability on the Stack is its panel alone (the source's art crop, the
     // ability's text and what was chosen), not its source card's picture
@@ -47,7 +50,15 @@ fun gameInspectGroups(state: TableBoard, viewer: String, inspection: ManualInspe
     // restrictions are listed for every player, its covered tile notwithstanding
     val changes = InspectChanges.of(state, viewer, (listOf(card to held) + others)
         .filter { (shown, tiles) -> tiles.none { it is InspectTile.Covered } || publicFaceDown(state.board, shown) }
-        .map { it.first }, names)
+        .map { it.first }, names).let { listed ->
+            // CMB-037, CMB-044, TBL-240 (owner, 2026-11-26): the costs a staged creature pays to attack or block, one line each with
+            // its source, after its other lines: its amber chips take no touch, holding one inspects the card
+            val costs = combat?.let { CombatCosts.inspectLines(state.board, it) { id -> combatName(state, id) } }.orEmpty()
+                .filterKeys { id -> id == card.id || below.any { it.id == id } }
+            if (costs.isNotEmpty()) AppLog.info("inspect", "Inspect lists the costs of the declaration: " +
+                costs.entries.joinToString { (id, lines) -> "$id ${lines.map { "${it.text} (${it.source ?: "no source"})" }}" })
+            (listed.keys + costs.keys).associateWith { listed[it].orEmpty() + costs[it].orEmpty() }
+        }
     // STK-050 (owner 2026-11-06): a spell on the Stack shows what was chosen for it (modes, X, targets), as abilities do
     val chosen = if (state.board.stackEffects.any { it.id == entry } && held.none { it is InspectTile.Covered })
         StackAbilities.details(state, entry, viewer, names).map { InspectChange(it) } else emptyList()

@@ -66,4 +66,16 @@ class AskedPartTest {
         val bullets = "Choose one —\n• Reveal the top card of your library.\n• Draw a card."
         assertEquals("Reveal the top card of your library.", AskedPart.sentence(bullets, AskedPart.REVEAL, "reveal")?.of(bullets), "a mode's bullet left out")
     }
+
+    // STK-229, STK-230 (owner 2026-11-26): a pile choice's part is the one sentence choosing a pile, never the one separating them
+    @Test fun aPileChoicesSentence() {
+        val destiny = "Look at the top three cards of your library and separate them into a face-down pile and a face-up pile. " +
+            "An opponent chooses one of the piles. Put that pile into your hand and the other into your graveyard."
+        assertEquals("An opponent chooses one of the piles.", AskedPart.sentence(destiny, AskedPart.PILE_CHOICE, "pile")?.of(destiny))
+        val fact = "Reveal the top five cards of your library. An opponent separates those cards into two piles. Put one pile into your " +
+            "hand and the other into your graveyard."
+        assertEquals("Put one pile into your hand and the other into your graveyard.", AskedPart.sentence(fact, AskedPart.PILE_CHOICE, "pile")?.of(fact))
+        assertNull(AskedPart.sentence("Separate those cards into two piles. An opponent chooses one of them.", AskedPart.PILE_CHOICE, "pile"),
+            "no sentence names choosing a pile")
+    }
 }

@@ -1,0 +1,1 @@
+2: In landscape, choices and other Automatum panels now stand on top of the bottom bar, so your life, piles and hand stay in view.

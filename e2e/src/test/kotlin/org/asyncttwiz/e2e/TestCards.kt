@@ -257,6 +257,8 @@ object TestCards {
     val beckoning = card("Ember Beckoning", "Sorcery", "{0}", "The Ring tempts you.")
     /** A free creature whose enters trigger asks to pay {1} or not (STK-049: Pay or Don't pay). */
     val tollkeeper = card("Ember Tollkeeper", "Creature — Elemental", "{0}", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1")
+    /** SYS-209 (owner 2026-11-26): a free creature whose "you may pay" costs mana and life, so its yes and its payment are two steps. */
+    val levy = card("Ember Levy", "Creature — Elemental", "{0}", "When this creature enters, you may pay {1} and 2 life. If you do, draw a card.", "1", "1")
     /** A free legendary creature: a second one makes its controller keep one (CR 704.5j). */
     val sovereign = card("Ember Sovereign", "Legendary Creature — Elemental Noble", "{0}", power = "1", toughness = "1")
     /** A free creature that names a nonland card as it enters (STK-041, CR 201.4). */

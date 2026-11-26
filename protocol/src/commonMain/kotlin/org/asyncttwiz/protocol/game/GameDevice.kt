@@ -1503,9 +1503,10 @@ class GameDevice(
 
     /** Under Auto-skip, the only answer to [d] (§2). Never the order of triggers (STK-030, owner 2026-11-06): the engine
      * lists one order of the many there are, and asks only when the triggers differ, so their player always orders them. Nor
-     * a selection up to a total (CR 701.59a): the engine lists a working sample of them, and which cards go is theirs to confirm. */
+     * a selection up to a total (CR 701.59a): the engine lists a working sample of them, and which cards go is theirs to confirm.
+     * SYS-209: a mana payment of several ways only with Autotap on (its suggestion). */
     private fun oneAnswer(s: GameState, d: Decision, m: GameModel = model): Input? =
-        if (settings.mode != ResponseMode.AutoSkip) null else quickJudged(m, d, "the player's own")
+        if (settings.mode != ResponseMode.AutoSkip) null else quickJudged(m, d, "the player's own", autotap = settings.autotap)
 
     /**
      * SYS-063, item a819b9ffdd (owner 2026-11-19): the only answer to the other player's [d] on [m] while their response mode is
@@ -1523,8 +1524,8 @@ class GameDevice(
      * [WhoActs.quickJudged] of [whose] decision [d] on [m], said once per judgement in the device's record and to [quickAnswers]
      * (problem report DH9MW5: whether Quick answers a choice by itself, and why).
      */
-    private fun quickJudged(m: GameModel, d: Decision, whose: String): Input.Answer? {
-        val judged = WhoActs.quickJudged(m, d)
+    private fun quickJudged(m: GameModel, d: Decision, whose: String, autotap: Boolean = false): Input.Answer? {
+        val judged = WhoActs.quickJudged(m, d, autotap)
         val line = "Quick ${if (judged.answer != null) "answers" else "leaves"} $whose ${d.kind} ${d.id.value}: ${judged.why}" +
             (judged.answer?.let { " (${it.answer})" } ?: "")
         if (line != quickSaid) {

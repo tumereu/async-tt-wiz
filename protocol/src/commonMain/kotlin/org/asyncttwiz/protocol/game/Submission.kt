@@ -264,9 +264,10 @@ object WhoActs {
      * [quickAnswer] with its reason. The engine's list of answers ([Engine.options]) has every answer of most decisions but only
      * a sample of a choice of several (the first ones that work together), so the one answer listed is the only one only when
      * no other is found ([another]). Problem report DH9MW5: after "no" to Thirst for Knowledge's "unless you discard an artifact
-     * card" (CR 118.12a), the first two cards of a hand of nine were taken for the only two to discard.
+     * card" (CR 118.12a), the first two cards of a hand of nine were taken for the only two to discard. With [autotap] (the player's
+     * own device, Autotap on: SYS-209) a mana payment is answered with Autotap's suggestion however many ways it has.
      */
-    fun quickJudged(model: GameModel, decision: Decision): QuickJudgement {
+    fun quickJudged(model: GameModel, decision: Decision, autotap: Boolean = false): QuickJudgement {
         when {
             decision is Decision.Random || decision is Decision.NamedCard -> return QuickJudgement(null, "the host's to answer")
             decision is Decision.OrderTriggers -> return QuickJudgement(null, "the order of triggers is always theirs (STK-030)")
@@ -278,6 +279,7 @@ object WhoActs {
         val listed = Engine.options(s, decision.player, model.keptView(), EnginePreferences.of(s)).filterIsInstance<Input.Answer>()
             .filter { it.decision == decision.id }
         val only = listed.singleOrNull() ?: return QuickJudgement(null, "${listed.size} answers listed")
+        if (autotap && decision is Decision.ManaPayment) return QuickJudgement(only, "Autotap pays it (SYS-209)")
         another(model, decision, only)?.let { return QuickJudgement(null, it) }
         return QuickJudgement(only, "its one answer")
     }
@@ -306,6 +308,7 @@ object WhoActs {
         is Decision.Announce -> if (decision.max == decision.min) null else "a value from ${decision.min} to ${decision.max ?: "any"}"
         is Decision.ChooseSubtype -> if (decision.among != null) null else "any creature type"
         is Decision.ChooseCardName -> "any card name"
+        is Decision.ManaPayment -> anotherPayment(model, decision, listed)
         else -> null
     }
 
@@ -346,6 +349,45 @@ object WhoActs {
     }
 
     /** What tells the object [id] apart from others in a choice on [state] ([another]): the same card in the same state is alike. */
+    /**
+     * SYS-209 (owner 2026-11-26): why the mana payment [decision] may be paid another way than [listed] (Autotap's suggestion), or
+     * null when it is the one way: another set of sources (sources alike count as one, [alikeUse]) that [Engine.perform] takes,
+     * none of them left over (a set holding a way already found is that way and more), tried smallest first up to
+     * [SELECTIONS_TRIED]; an X to choose, or a mana ability whose cost asks a choice, is always another way.
+     */
+    private fun anotherPayment(model: GameModel, decision: Decision.ManaPayment, listed: Input.Answer): String? {
+        val uses = (listed.answer as? Answer.ManaPayment)?.uses ?: return "an answer of another kind listed"
+        if (decision.xCost || decision.cost.symbols.any { it is arcanum.api.ManaSymbol.Variable }) return "an X to choose"
+        if (decision.costChoices.any { it.options.size > 1 }) return "a mana ability's cost to choose for"
+        val kind = { use: arcanum.engine.decision.ManaUse -> alikeUse(model.engine, decision.player, use) }
+        val groups = decision.options.groupBy(kind).values.toList()
+        val ways = mutableListOf(uses.groupingBy(kind).eachCount())
+        fun holdsAWay(counts: Map<Any, Int>) = ways.any { way -> way.all { (k, n) -> (counts[k] ?: 0) >= n } }
+        var tried = 0
+        for (size in 1..decision.options.size) for (pick in picks(groups, size)) {
+            val counts = pick.groupingBy(kind).eachCount()
+            if (holdsAWay(counts)) continue
+            if (tried++ == SELECTIONS_TRIED) return "over $SELECTIONS_TRIED other payments, not all tried"
+            val taken = try {
+                Engine.perform(model.engine, Input.Answer(decision.id, Answer.ManaPayment(pick)), model.keptView(), EnginePreferences.of(model.engine))
+                true
+            } catch (_: IllegalArgumentException) {
+                false
+            }
+            if (taken) return "another way to pay works too (${pick.size} of ${decision.options.size} sources)"
+        }
+        return null
+    }
+
+    /** What tells the way to pay [use] apart from others for [player] on [state] ([anotherPayment]): alike sources making the same
+     * mana with the same ability are alike. */
+    private fun alikeUse(state: GameState, player: PlayerId, use: arcanum.engine.decision.ManaUse): Any = when (use) {
+        is arcanum.engine.decision.ManaUse.Ability -> listOf(alike(state, use.source), use.ability, use.color, use.answers, use.triggered)
+        is arcanum.engine.decision.ManaUse.Pool -> state.player(player).manaPool.getOrNull(use.index) ?: use
+        is arcanum.engine.decision.ManaUse.Special -> listOf(use.way, use.objects.map { alike(state, it) })
+        is arcanum.engine.decision.ManaUse.Life -> use
+    }
+
     private fun alike(state: GameState, id: arcanum.engine.state.ObjectId): Any = state.obj(id)?.let { o ->
         listOf(o.definition, o.face, o.zone, o.owner, o.controller, o.token, o.tapped, o.faceDown, o.phasedOut, o.marks, o.counters,
             o.damage, o.attachedTo, o.linked, o.cast, o.statuses)

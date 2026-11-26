@@ -643,8 +643,9 @@ fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEve
     val cursor = routes.review ?: return
     val at = events.indexOfFirst { it.id == cursor }.takeIf { it >= 0 } ?: return
     val engine = routes.engine
-    // HIS-005 (owner 2026-11-07): coming near the oldest event held asks for older history, back to the game's first event
-    LaunchedEffect(at, events.size) { if (at < OLDER_HISTORY_MARGIN) engine?.loadOlder() }
+    // HIS-005 (owner 2026-11-07): coming near the oldest event held asks for older history, back to the game's first event;
+    // also after each board published, as a page may bring only events the strip doesn't show (the next one is asked then)
+    LaunchedEffect(at, events.size, engine?.shownVersion) { if (at < OLDER_HISTORY_MARGIN) engine?.loadOlder() }
     LaunchedEffect(routes.reviewPlaying, cursor) {
         if (!routes.reviewPlaying) return@LaunchedEffect
         delay(pauseMillis.coerceIn(100L, 10_000L))

@@ -29461,7 +29461,10 @@ internal class Sentences(
                         affects = affects ?: arcanum.api.Affected.Objects(Objects.AttachedTo(Objects.Self)))
                 } else if (quote != null) {
                     val text = quote.groupValues[1].trimEnd(',', '.') + "."
+                    // Each granted ability with the quoted words as its text, as a printed line's (prod faults LJ3XC5, L8PZRH: "Whenever …
+                    // and whenever …", two abilities from one quote, shown without words)
                     val granted = Sentences(setOf("this creature", "This creature")).let { it.multi(text) ?: it.line(text)?.let(::listOf) ?: it.finMulti(text) ?: return null }
+                        .map { with(OracleParser) { it.withText(text) } }
                     Ability.Static(listOf(Mechanic.GainAbilities(granted)), affects = affects ?: arcanum.api.Affected.Objects(Objects.AttachedTo(Objects.Self)))
                 } else static("$subject $clause.") as? Ability.Static ?: return null
                 if (affects != null && ability.affects != affects) return null

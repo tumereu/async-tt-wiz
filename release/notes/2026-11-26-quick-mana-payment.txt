@@ -1,0 +1,1 @@
+2: With Autotap off, Quick no longer pays a cost by itself when you could pay it in more than one way: you choose what to tap

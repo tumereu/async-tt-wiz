@@ -148,7 +148,7 @@ number	item	screenshot	catalog	decisions	sequence
 147	Draft: Winchester tables chip row	pod-winchester-tables.png	DRF-158 DRF-159
 148	Draft: Winston tables chip row	pod-winston-tables.png	DRF-156 DRF-157
 149	Draft: Rotisserie pick queue	pod-rotisserie-queue.png	DRF-164 DRF-153
-150	Draft: Booster draft history with the seat ring, the packs chip on All packs	pod-draft-history.png	DRF-165 DRF-160 DRF-043 DRF-209		Packs chip
+150	Draft: Booster draft history with the seat ring, the packs chip on All packs	pod-draft-history.png	DRF-165 DRF-160 DRF-043 DRF-209		
 151	Draft: Stats mana curve by colour	pod-stats-color.png	DRF-111
 152	Draft: Basics dialog with its basics and lands count	pod-build-basics-dialog.png	DRF-103
 153	Card states on the chip	states/card-state-chips.png	TBL-133 TBL-113
@@ -193,7 +193,7 @@ number	item	screenshot	catalog	decisions	sequence
 192	The other player's card leaving their graveyard for their hand shows as a reveal	engine/reveal-panel-pile.png	HIS-114 HIS-110 STK-044
 193	A pod game's chat on its Game tab, the Pod tab marked for an unread pod message	chat/pod-game-chat-game-tab.png	LOB-145 LOB-066	
 194	Pod chat panel on a pod screen	draft/pod-chat.png	DRF-170	
-195	Draft history: one tap on the packs chip, Returning: only the packs that came back to you	pod-draft-history-returning.png	DRF-165 DRF-209		Packs chip
+195	Draft history: one tap on the packs chip, Returning: only the packs that came back to you	pod-draft-history-returning.png	DRF-165 DRF-209		
 196	Main button: an assumption in violet beside your own actions	main-button/assume-or-own.png	TRN-063 TRN-070 TRN-004	
 207	Multiset drafting: the Sets tab with set symbols	draft/source-sets-symbols.png	DRF-088 DRF-176		Multiset drafting
 208	Multiset drafting: one set for every pack: the set button and the Mix sets toggle	draft/multiset-one-set.png	DRF-177		Multiset drafting
@@ -485,7 +485,7 @@ number	item	screenshot	catalog	decisions	sequence
 708	Landscape with 2.5x hand cards: the hand cards standing over the battlefield are drawn in front of the choice panel (dimmed as the hand is while a choice is open); they cover the panel's No / Yes, which still take the taps	landscape-panels/large-hand-cards.png	STK-044 TBL-238	May	Landscape panels
 709	Choice: the side menu row's badge is a white 16 dp disc with a thin outline on the first avatar's bottom-left corner (the corner a pod's second avatar leaves free), crossed swords for a game or game invitation, the Pods table for a pod or pod invitation (as in 573)	side-menu/drawer-mix.png	LOB-018		
 710	Settings → Notifications: a switch per kind with what it covers (choice: these lines), Sound and vibration under them (Android)	settings/notifications.png	LOB-276 LOB-278 LOB-072		Notification settings
-731	Draft history: a second tap on the packs chip, New: each pack only the first time it reached you; a third tap comes back to All packs	pod-draft-history-new.png	DRF-209		Packs chip
+731	Draft history: a second tap on the packs chip, New: each pack only the first time it reached you; a third tap comes back to All packs	pod-draft-history-new.png	DRF-209		
 732	Stats: the Drafts tab, your kept drafts with card ratings newest first, the pod's name over its set and date	stats/drafts.png	LOB-280 LOB-130 LOB-279		Stats drafts
 733	Stats: the Drafts tab with an opponent chosen (choice: the opponent chips filter the drafts too, by who was seated)	stats/drafts-opponent.png	LOB-280		Stats drafts
 734	Stats: a kept draft opened, its draft history as the pod showed it, with its seating, card ratings, By rating and the packs chip	stats/draft-history.png	LOB-281 DRF-315 DRF-209		Stats drafts

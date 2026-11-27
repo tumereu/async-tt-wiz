@@ -50,8 +50,26 @@ import kotlinx.serialization.Serializable
  * The same Game settings card (and so this value) also holds [undoPastPasses] (owner 2026-11-19, N15): "Undo past the other
  * player's passes needs a request". Off (the default), the other player's passes never count for a free undo (HIS-202); on,
  * going back past one needs their approval like their real input (HIS-099).
+ *
+ * It also holds the lobby-only switches "Reshuffle libraries on undo" ([reshuffleOnUndo]) and "Reshuffle libraries on branch"
+ * ([reshuffleOnBranch]) (owner 2026-11-26, playtest F; both on by default): off, that kind of new line of play keeps the
+ * libraries' unknown order instead of reshuffling it (HIS-042; the game's start always shuffles). While branches don't
+ * reshuffle, [library] lets nothing through ([libraryAllowed], LOB-152: a card of the other player's library seen on a
+ * discarded line would still lie where it was seen).
  */
-@Serializable data class AssumeReveals(val library: Boolean = true, val hands: Boolean = false, val undoPastPasses: Boolean = false) {
+@Serializable data class AssumeReveals(val library: Boolean = true, val hands: Boolean = false, val undoPastPasses: Boolean = false,
+    val reshuffleOnUndo: Boolean = true, val reshuffleOnBranch: Boolean = true) {
+    /** HIS-042: whether a new line of play reshuffles the libraries' unknown parts: a branch's ([branch]) or an undo's. */
+    fun reshuffles(branch: Boolean): Boolean = if (branch) reshuffleOnBranch else reshuffleOnUndo
+
+    /** LOB-152: whether cards of the other player's library may be shown on a tentative line: [library], while branches
+     * reshuffle the libraries (the line that shows them may be discarded, the cards staying where they were seen). */
+    val libraryAllowed: Boolean get() = library && reshuffleOnBranch
+
+    /** Whether [other] has the same reshuffle switches (they change only in the lobby, owner 2026-11-26). */
+    fun sameReshuffles(other: AssumeReveals): Boolean =
+        reshuffleOnUndo == other.reshuffleOnUndo && reshuffleOnBranch == other.reshuffleOnBranch
+
     companion object {
         /** Nothing relaxed: the information rule as such (its checks' default, and a device not yet told). */
         val NONE = AssumeReveals(library = false, hands = false)

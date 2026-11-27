@@ -492,3 +492,5 @@ number	item	screenshot	catalog	decisions	sequence
 732	Stats: the Drafts tab, your kept drafts with card ratings newest first, the pod's name over its set and date	stats/drafts.png	LOB-280 LOB-130 LOB-279		Stats drafts
 733	Stats: the Drafts tab with an opponent chosen (choice: the opponent chips filter the drafts too, by who was seated)	stats/drafts-opponent.png	LOB-280		Stats drafts
 734	Stats: a kept draft opened, its draft history as the pod showed it, with its seating, card ratings, By rating and the packs chip	stats/draft-history.png	LOB-281 DRF-315 DRF-209		Stats drafts
+753	Game settings in the lobby: the creator turned "Reshuffle libraries on undo" off; "Reshuffle libraries on branch" stays on (choice: the switches' lines)	settings/game-settings-reshuffle.png	LOB-282 HIS-042		
+754	Pod setup's Game settings card: the lobby's switches that apply to pod games, which every game of the pod begins with (choice: a card at the screen's end, after the members in setup, with its note)	non-gameplay/pod-game-settings.png	DRF-319 LOB-135 LOB-282		

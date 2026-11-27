@@ -41,14 +41,15 @@ class PodChallengeTest {
             cube = json.decodeFromString(CubeService(runtime).create(a, CreateCube(id(), "Cube",
                 cards.map { TestPrintings.entry(it, if (uniqueCards) 1 else 90) })).body)
         }
-        fun pod(three: Boolean = false, sideboardLimit: Int? = 1): String {
+        fun pod(three: Boolean = false, sideboardLimit: Int? = 1, gameSettings: AssumeReveals = AssumeReveals()): String {
             val pod = json.decodeFromString<PodDetail>(pods.create(a, CreatePod(id(), "Surviving pod name", cube.cube.id)).body).id
             for (member in if (three) listOf(b, c) else listOf(b)) {
                 assertEquals(200, pods.invite(a, pod, InviteToPod(id(), member.account.accountId)).status)
                 assertEquals(200, pods.invitation(member, pod, PodRequest(id()), true).status)
             }
             // Each member receives three automatic one-card packs.
-            assertEquals(200, pods.update(a, pod, UpdatePod(id(), settings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 1, sideboardLimit = sideboardLimit))).status)
+            assertEquals(200, pods.update(a, pod, UpdatePod(id(), settings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 1, sideboardLimit = sideboardLimit,
+                gameSettings = gameSettings))).status)
             assertEquals(200, pods.start(a, pod, PodRequest(id())).status)
             return pod
         }
@@ -76,6 +77,7 @@ class PodChallengeTest {
         fun execute(action: GameAction): GameResult {
             val summary = games.head(who, game.id).summary
             val scope = if (action is GameAction.Submit) GameScope(game.id, playId = summary.playId)
+                else if (action is GameAction.SetAssumeReveals) GameScope(game.id)
                 else GameScope(game.id, summary.preparationRound,
                     if (action in listOf(GameAction.AcceptInvitation, GameAction.DeclineInvitation, GameAction.Reinvite)) summary.invitationId else null)
             val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
@@ -99,6 +101,24 @@ class PodChallengeTest {
             while (!runtime.ready()) { assertTrue(System.nanoTime() < end); Thread.sleep(20) }
             test(Fixture(runtime, uniqueCards))
         }
+    }
+
+    // LOB-135, HIS-042 (owner 2026-11-26, playtest F): the pod's Game settings, set by its creator in setup, are what every game
+    // started from the pod begins with, whoever challenges; each game's lobby can still change them as usual (its creator, the
+    // challenger), the pod's staying as they are
+    @Test fun `games started from a pod begin with its game settings`() = fixture { f ->
+        val settings = AssumeReveals(library = false, hands = true, undoPastPasses = true, reshuffleOnUndo = false, reshuffleOnBranch = false)
+        val pod = f.pod(gameSettings = settings)
+        assertEquals(settings, f.detail(f.b, pod).settings.gameSettings, "members see them")
+        f.submit(f.a, pod); f.submit(f.b, pod)
+        val game = f.challenge(pod)
+        assertEquals(settings, game.assumeReveals)
+        val other = f.challenge(pod, who = f.b, opponent = f.a)
+        assertEquals(settings, f.games.head(f.a, other.id).summary.assumeReveals)
+        assertEquals("accepted", f.stream(f.a, game).execute(GameAction.SetAssumeReveals(AssumeReveals())).outcome)
+        assertEquals(AssumeReveals(), f.games.head(f.b, game.id).summary.assumeReveals)
+        assertEquals(settings, f.detail(f.a, pod).settings.gameSettings)
+        assertEquals(settings, f.challenge(pod).assumeReveals)
     }
 
     // The wipe of the engine generalisation (V74): no pod row names a game or a play, so a pod whose games went still opens

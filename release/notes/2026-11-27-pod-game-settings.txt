@@ -1,0 +1,1 @@
+2: A pod's creator can now choose Game settings in pod setup, and every game started from the pod begins with them.

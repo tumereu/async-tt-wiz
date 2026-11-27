@@ -81,7 +81,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         val snapshot = EngineSnapshot(codec.encodeDefinitions(), "root", server.head, codec.encodeModel(server.state()),
             server.heads.mapKeys { it.key.value }, settings[p], server.request, server.lines,
             baseId.takeIf { after.isNotEmpty() }, if (after.isEmpty()) null else codec.encodeModel(server.stateAt(baseId)),
-            after.map(codec::encodeEvent), modes = modes(), assumes = assumes())
+            after.map(codec::encodeEvent), modes = modes(), assumes = assumes(), lineBranch = server.lineBranch)
         val (device, _) = GameDevice.load(snapshot, p) { "${p.value}-${++ids}" }
         device.assumeReveals(reveals)
         watch(device)
@@ -192,7 +192,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
 
     private fun broadcast(events: List<GameEvent>, target: String? = null, confirmed: String? = null, rewoundBy: String? = null) {
         val update = EngineUpdate(emptyList(), target, server.heads.mapKeys { it.key.value }, server.lines, server.request, confirmed,
-            rewoundBy = rewoundBy, modes = modes(), assumes = assumes())
+            rewoundBy = rewoundBy, modes = modes(), assumes = assumes(), lineBranch = server.lineBranch)
         for (q in listOf(alice, bob)) inbox.getValue(q) += Delivery.Revision(events, update)
     }
 

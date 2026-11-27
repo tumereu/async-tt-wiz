@@ -199,10 +199,12 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val facts: MatchFacts? = null,
         /** A submission dropped as the duplicate of a main-line event: its id and the event's ([Acceptance.Confirmed.alias]). */
         val alias: Pair<String, String>? = null,
+        /** HIS-042: the line counter's line is a branch's ([EngineSnapshot.lineBranch]). */
+        val lineBranch: Boolean = false,
     ) {
         /** Whose move the game is for the stored summary: a player the game waits for (each viewer sees their own first). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
-        val update: EngineUpdate get() = EngineUpdate(events.drop(1), target, heads, lines, request, confirmed, moves, activity, rewoundBy, modes, assumes)
+        val update: EngineUpdate get() = EngineUpdate(events.drop(1), target, heads, lines, request, confirmed, moves, activity, rewoundBy, modes, assumes, lineBranch)
     }
 
     private fun take(play: UUID): LiveState? = synchronized(warm) { warm.remove(play) }
@@ -281,7 +283,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             Acceptance.accept(history, head, warm, submission, me, seats.associate { PlayerId(it.account.toString()) to it.head },
                 row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play), reveals = reveals, ids = { UUID.randomUUID().toString() },
                 // SYS-063 (owner 2026-11-19): any device may answer the one-answer questions of a player on Quick now
-                quick = seats.filter { it.settings.mode == org.asyncttwiz.protocol.game.ResponseMode.AutoSkip }.map { PlayerId(it.account.toString()) }.toSet())
+                quick = seats.filter { it.settings.mode == org.asyncttwiz.protocol.game.ResponseMode.AutoSkip }.map { PlayerId(it.account.toString()) }.toSet(),
+                lineBranch = row.lineBranch)
         } catch (refusal: Refusal) {
             keepWarm(play, history, refusal.state, head)
             throw refusal
@@ -302,7 +305,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
                     val gone = MainLine.after(history, head, event.parentId).orEmpty().map { it.id }.toSet()
                     for (seat in seats) if (seat.head in gone) takeBack(sql, play, seat.account, event.parentId, seat.head)
                 }
-                event.startsLine?.let { sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, it).where(ENGINE_PLAY.PLAY_ID.eq(play)).execute() }
+                event.startsLine?.let { sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, it).set(ENGINE_PLAY.LINE_BRANCH, result.discarded != null)
+                    .where(ENGINE_PLAY.PLAY_ID.eq(play)).execute() }
                 store.append(history, event, author, result.live.model)
                 if (result.authorHead) setHead(sql, play, author, event.id)
                 // A concession ends an open undo request (I-D56 §10)
@@ -347,7 +351,9 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             else takeBack(sql, play, seat.account, newHead, seat.head)
             log.info("Re-apply in play {}: {}'s local head {} → {}{}", play, seat.account, seat.head, to ?: newHead, if (to == null) " (taken back)" else "")
         }
-        if (again.stoppedAt != null) sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, result.nextLine).where(ENGINE_PLAY.PLAY_ID.eq(play)).execute()
+        // HIS-194: the line due is a branch's (its reshuffle follows "Reshuffle libraries on branch", HIS-042)
+        if (again.stoppedAt != null) sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, result.nextLine).set(ENGINE_PLAY.LINE_BRANCH, true)
+            .where(ENGINE_PLAY.PLAY_ID.eq(play)).execute()
         if (row.request != null) clearRequest(sql, play)
         return refresh(sql, play, history, LiveState(newHead, result.live.model), made, live, branched = again.stoppedAt != null)
     }
@@ -388,7 +394,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
      * they apply, the first starting the line; local heads past the target move to the new head.
      */
     fun rewind(sql: DSLContext, play: UUID, account: UUID, target: String, live: (UUID) -> Boolean, approved: Boolean = false,
-        passes: Boolean = false): Outcome? {
+        passes: Boolean = false, reshuffle: Boolean = true): Outcome? {
         val store = open(sql, play) ?: return null
         val history = GameHistory(store, store.codec)
         val head = head(sql, play, store.rootId)
@@ -408,13 +414,16 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         store.delete(after.map { it.id })
         // A new line (§9), kept as the line counter: no event of the rewind's own (owner's rule 2026-11-04)
         val line = row.lines + 1
-        sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, line).where(ENGINE_PLAY.PLAY_ID.eq(play)).execute()
+        sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, line).set(ENGINE_PLAY.LINE_BRANCH, false).where(ENGINE_PLAY.PLAY_ID.eq(play)).execute()
+        // HIS-042 (owner 2026-11-26): the new line reshuffles the libraries unless the game's "Reshuffle libraries on undo" is off
+        org.slf4j.LoggerFactory.getLogger(EngineGames::class.java).info("Rewind of play {} to {} by {}: {} event(s) taken back, line {} due ({})",
+            play, target, account, after.size, line, if (reshuffle) "reshuffling the libraries" else "the libraries kept: the game's switch is off")
         // HIS-115: a rewind inside the rewinder's opening to before the other player's assumed keep about them makes that
         // player's line again on the point it lands on, as any opening move of theirs does
         (if (model.engine.turn.number == 0) Rewind.reapplies(model.copy(), after, me) else null)?.let { at ->
-            return rewoundReapplying(sql, play, history, store, account, target, after, at, model, line, seats, approved || row.request != null, live)
+            return rewoundReapplying(sql, play, history, store, account, target, after, at, model, line, seats, approved || row.request != null, live, reshuffle)
         }
-        val events = Rewind.again(model, target, after, me, line, { UUID.randomUUID().toString() }, dropped = { event, why ->
+        val events = Rewind.again(model, target, after, me, line, { UUID.randomUUID().toString() }, reshuffle = reshuffle, dropped = { event, why ->
             org.slf4j.LoggerFactory.getLogger(EngineGames::class.java).info("Rewind of play {} to {} by {}: {}'s table-only event {} doesn't stand: {}",
                 play, target, account, event.author, event.id, why)
         }) { event ->
@@ -444,10 +453,11 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
      * theirs, or, when theirs was taken back, back to the new head, remembering where it stood (HIS-106). Logged in full.
      */
     private fun rewoundReapplying(sql: DSLContext, play: UUID, history: GameHistory, store: EngineHistoryStore, account: UUID, target: String,
-        after: List<GameEvent>, at: Int, model: GameModel, line: Int, seats: List<SeatRow>, closesRequest: Boolean, live: (UUID) -> Boolean): Outcome {
+        after: List<GameEvent>, at: Int, model: GameModel, line: Int, seats: List<SeatRow>, closesRequest: Boolean, live: (UUID) -> Boolean,
+        reshuffle: Boolean): Outcome {
         val log = org.slf4j.LoggerFactory.getLogger(EngineGames::class.java)
         val me = PlayerId(account.toString())
-        val r = Rewind.reapply(model, target, after, at, me, line, { UUID.randomUUID().toString() }, dropped = { event, why ->
+        val r = Rewind.reapply(model, target, after, at, me, line, { UUID.randomUUID().toString() }, reshuffle = reshuffle, dropped = { event, why ->
             log.info("Rewind of play {} to {} by {}: {}'s table-only event {} doesn't stand: {}", play, target, account, event.author, event.id, why)
         }) { event -> store.append(history, event, UUID.fromString(event.author), model) }
         val again = r.reapply
@@ -492,12 +502,13 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         return refresh(sql, play, history, warmAt(play, history, head), emptyList(), live)
     }
 
-    /** The other player's answer to [play]'s open undo request: accepted, it rewinds; declined, it closes. */
-    fun answerRewind(sql: DSLContext, play: UUID, account: UUID, accept: Boolean, live: (UUID) -> Boolean): Outcome? {
+    /** The other player's answer to [play]'s open undo request: accepted, it rewinds (its new line reshuffling the libraries
+     * with [reshuffle], the game's "Reshuffle libraries on undo", HIS-042); declined, it closes. */
+    fun answerRewind(sql: DSLContext, play: UUID, account: UUID, accept: Boolean, live: (UUID) -> Boolean, reshuffle: Boolean = true): Outcome? {
         val store = open(sql, play) ?: return null
         val request = playRow(sql, play).request ?: throw Refusal("inapplicable")
         if (request.by == account.toString()) throw Refusal("otherPlayerRequired")
-        if (accept) return rewind(sql, play, UUID.fromString(request.by), request.target, live, approved = true)
+        if (accept) return rewind(sql, play, UUID.fromString(request.by), request.target, live, approved = true, reshuffle = reshuffle)
         clearRequest(sql, play)
         val history = GameHistory(store, store.codec)
         return refresh(sql, play, history, warmAt(play, history, head(sql, play, store.rootId)), emptyList(), live)
@@ -551,7 +562,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             start.takeIf { after.isNotEmpty() }, base, after.map(store.codec::encodeEvent), takenBack.ifEmpty { undone },
             seats.associate { it.account.toString() to it.settings.mode },
             undoneBy = seat?.undoneBy?.takeIf { takenBack.isEmpty() && undone.isNotEmpty() },
-            assumes = seats.associate { it.account.toString() to it.settings.assume }) to
+            assumes = seats.associate { it.account.toString() to it.settings.assume }, lineBranch = row.lineBranch) to
             attention(seats, viewer)
     }
 
@@ -715,7 +726,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             seats.filter { it.waited && waits[it] != true }.map { it.account.toString() }.toSet(), rewoundBy,
             seats.associate { it.account.toString() to it.settings.mode },
             seats.associate { it.account.toString() to it.settings.assume },
-            if (ended) MatchFacts.of(engine, result, conceded, agreement, mulligans) else null, alias)
+            if (ended) MatchFacts.of(engine, result, conceded, agreement, mulligans) else null, alias, row.lineBranch)
     }
 
     /** Each player's mulligans taken in the opening (CR 103.5), from the engine's log of this and last turn. */
@@ -847,7 +858,9 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         sql.select(ENGINE_ASYNC_ROUND.ACCOUNT_ID, ENGINE_ASYNC_ROUND.KIND).from(ENGINE_ASYNC_ROUND).where(ENGINE_ASYNC_ROUND.PLAY_ID.eq(play))
             .orderBy(ENGINE_ASYNC_ROUND.ORDINAL).fetch { it.value1().toString() to it.value2()!! }
 
-    internal data class PlayRow(val lines: Int, val request: EngineRewindRequest?)
+    internal data class PlayRow(val lines: Int, val request: EngineRewindRequest?,
+        /** HIS-042: the line counter's line is a branch's (HIS-194), not an undo's ([EngineSnapshot.lineBranch]). */
+        val lineBranch: Boolean = false)
 
     /** What reading [play]'s head needs: its history store, the main line's head, its row and its seats. */
     internal data class Opened(val store: EngineHistoryStore, val head: String, val row: PlayRow, val seats: List<SeatRow>)
@@ -863,7 +876,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val newest = DSL.field(DSL.select(ENGINE_EVENT.ID).from(ENGINE_EVENT).where(ENGINE_EVENT.PLAY_ID.eq(ENGINE_PLAY.PLAY_ID))
             .orderBy(ENGINE_EVENT.ORDINAL.desc()).limit(1)).`as`("head")
         val rows = sql.select(ENGINE_PLAY.ROOT_ID, definitions, ENGINE_PLAY.LINES, ENGINE_PLAY.REWIND_BY, ENGINE_PLAY.REWIND_TARGET,
-            ENGINE_PLAY.REWIND_MESSAGE, newest, ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP,
+            ENGINE_PLAY.REWIND_MESSAGE, ENGINE_PLAY.LINE_BRANCH, newest, ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP,
             ENGINE_SEAT.NEXT_STOP_AT, ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT, ENGINE_SEAT.TAKEN_BACK_FROM, ENGINE_SEAT.MULLIGANS,
             ENGINE_SEAT.UNDONE_EVENTS, ENGINE_SEAT.UNDONE_BY)
             .from(ENGINE_PLAY).leftJoin(ENGINE_SEAT).on(ENGINE_SEAT.PLAY_ID.eq(ENGINE_PLAY.PLAY_ID))
@@ -872,7 +885,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val store = EngineHistoryStore.of(sql, play, first[ENGINE_PLAY.ROOT_ID]!!.toString(), first[definitions], shared)
         synchronized(plays) { plays[play] = store.cache }
         val row = PlayRow(first[ENGINE_PLAY.LINES]!!, first[ENGINE_PLAY.REWIND_BY]?.let {
-            EngineRewindRequest(it.toString(), first[ENGINE_PLAY.REWIND_TARGET]!!.toString(), first[ENGINE_PLAY.REWIND_MESSAGE].orEmpty()) })
+            EngineRewindRequest(it.toString(), first[ENGINE_PLAY.REWIND_TARGET]!!.toString(), first[ENGINE_PLAY.REWIND_MESSAGE].orEmpty()) }, first[ENGINE_PLAY.LINE_BRANCH]!!)
         val seats = rows.filter { it[ENGINE_SEAT.ACCOUNT_ID] != null }.map { r ->
             SeatRow(r[ENGINE_SEAT.ACCOUNT_ID]!!, r[ENGINE_SEAT.LOCAL_HEAD]!!.toString(),
                 GameWire.json.decodeFromString(PlaySettings.serializer(), r[ENGINE_SEAT.SETTINGS]!!), r[ENGINE_SEAT.NEXT_STOP]?.toString(),
@@ -883,9 +896,9 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
     }
 
     internal fun playRow(sql: DSLContext, play: UUID): PlayRow {
-        val row = sql.select(ENGINE_PLAY.LINES, ENGINE_PLAY.REWIND_BY, ENGINE_PLAY.REWIND_TARGET, ENGINE_PLAY.REWIND_MESSAGE).from(ENGINE_PLAY)
+        val row = sql.select(ENGINE_PLAY.LINES, ENGINE_PLAY.REWIND_BY, ENGINE_PLAY.REWIND_TARGET, ENGINE_PLAY.REWIND_MESSAGE, ENGINE_PLAY.LINE_BRANCH).from(ENGINE_PLAY)
             .where(ENGINE_PLAY.PLAY_ID.eq(play)).fetchSingle()
-        return PlayRow(row.value1()!!, row.value2()?.let { EngineRewindRequest(it.toString(), row.value3()!!.toString(), row.value4().orEmpty()) })
+        return PlayRow(row.value1()!!, row.value2()?.let { EngineRewindRequest(it.toString(), row.value3()!!.toString(), row.value4().orEmpty()) }, row.value5()!!)
     }
 
     private fun clearRequest(sql: DSLContext, play: UUID) {

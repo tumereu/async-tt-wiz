@@ -97,10 +97,11 @@ class LobbyService(private val runtime: ServiceRuntime) {
 
     fun summary(sql: DSLContext, id: UUID): GameSummary = summary(sql, sql.selectFrom(GAME).where(GAME.ID.eq(id)).fetchSingle())
 
-    /** LOB-135: [game]'s assume reveal settings, as its host last set them. */
-    private fun assumeReveals(game: org.asyncttwiz.server.generated.tables.records.GameRecord) =
+    /** LOB-135: [game]'s assume reveal settings, as its host last set them, with its reshuffle switches (HIS-042). */
+    internal fun assumeReveals(game: org.asyncttwiz.server.generated.tables.records.GameRecord) =
         AssumeReveals(library = game.assumeLibraryReveals != false, hands = game.assumeHandReveals == true,
-            undoPastPasses = game.undoPastPasses == true)
+            undoPastPasses = game.undoPastPasses == true, reshuffleOnUndo = game.reshuffleOnUndo != false,
+            reshuffleOnBranch = game.reshuffleOnBranch != false)
 
     /** TRN-065: [game]'s last match result while a player still has to tap OK on it. */
     private fun resultNotice(game: org.asyncttwiz.server.generated.tables.records.GameRecord) =

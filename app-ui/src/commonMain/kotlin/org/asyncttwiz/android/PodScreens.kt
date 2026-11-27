@@ -331,6 +331,8 @@ private fun NewPodScreen(controller: PodController) {
             // I-D52 (DRF-161): a source Automatum can't play fully can't start a pod.
             if (support?.supported == false) Text(AUTOMATUM_SOURCE_BLOCKED, Modifier.testTag("automatum-blocked"),
                 color = MaterialTheme.colorScheme.error)
+            // DRF-319 (owner 2026-11-26): the Game settings every game started from the pod begins with, at the form's end
+            PodGameSettingsCard(draft.settings.gameSettings, true) { value -> controller.newSettings { it.copy(gameSettings = value) } }
         }
         Button(controller::create, Modifier.fillMaxWidth().padding(horizontal = 8.dp), enabled = (draft.cubeId != null || draft.set != null) && draft.name.isNotBlank() &&
             draft.settings.let { it.validate(it.seats(2)) }.isEmpty() && state.pending == 0 && !state.uncertain && state.sourcePreview == null &&
@@ -454,6 +456,8 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
             Text("Starts automatically when everyone accepts", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        // DRF-319 (owner 2026-11-26): the Game settings every game started from the pod begins with, at the screen's end
+        PodGameSettingsCard(settings.gameSettings, enabled) { value -> controller.editSettings { it.copy(gameSettings = value) } }
     }
 }
 

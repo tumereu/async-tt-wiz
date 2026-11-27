@@ -78,6 +78,15 @@ class AssumeRevealsTest {
         assertTrue(waitsForHiddenCards(bobCasts(augury, AssumeReveals(library = false))))
     }
 
+    // LOB-152, HIS-042 (owner 2026-11-26): with "Reshuffle libraries on branch" off a branch keeps the libraries' order, so a card
+    // of hers seen on a line that may be discarded would stay where it was seen: the library setting then lets nothing through
+    // and the assumption waits (an undo needs her approval past a reveal anyway, HIS-087: "on undo" changes nothing here)
+    @Test
+    fun anOpponentsLibraryRevealWaitsWhileBranchesKeepTheLibraries() {
+        assertTrue(waitsForHiddenCards(bobCasts(augury, AssumeReveals(reshuffleOnBranch = false))))
+        assertTrue(assumedThrough(bobCasts(augury, AssumeReveals(reshuffleOnUndo = false))))
+    }
+
     // LOB-135, LOB-153, LOB-154, TRN-067, TRN-071: a reveal of her hand waits by default (hands off) and is assumed with the hands setting on,
     // also when the host turns it on during that wait (the change counts at once, outside undo)
     @Test

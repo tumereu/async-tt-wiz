@@ -103,13 +103,14 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
     /**
      * Opens the draft of a new event [id] on [tip]; its inputs and table changes apply to [model] as they are made.
      * [newLine]: the draft starts that line as its first step (a branch at the local head while events are buffered,
-     * I-D56 §8). Behind the head only a draft at the local head is made, and only one that starts a line is sent.
+     * I-D56 §8). Behind the head only a draft at the local head is made, and only one that starts a line is sent. [reshuffle]: the
+     * line reshuffles the libraries (the game's switch for its kind, HIS-042).
      */
-    fun begin(id: String, newLine: Int? = null, reapplies: Boolean = false): EventBuilder {
+    fun begin(id: String, newLine: Int? = null, reapplies: Boolean = false, reshuffle: Boolean = true): EventBuilder {
         check(draft == null) { "A draft is open" }
         if (behind) check(waiting.isEmpty()) { "Behind the head, only a branch at the local head is made" }
         return EventBuilder(model, id, tip, me.value).also { b ->
-            newLine?.let(b::startLine)
+            newLine?.let { b.startLine(it, reshuffle) }
             draft = b; draftAt = tip; draftReapplies = reapplies
         }
     }
@@ -142,8 +143,9 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
     /** One acting point at once: [input] (the other player's, assumed, when [assumed]: I-D56 §3), the random answers
      * from the line's stream that follow it, and [table] changes (I-D35); starting [newLine] first when given (a
      * branch, or the line a rewind left due, [Rewind.lineDue]). */
-    fun act(id: String, input: Input?, table: List<TableChange> = emptyList(), assumed: Boolean = false, newLine: Int? = null): Submission {
-        val builder = begin(id, newLine)
+    fun act(id: String, input: Input?, table: List<TableChange> = emptyList(), assumed: Boolean = false, newLine: Int? = null,
+        reshuffle: Boolean = true): Submission {
+        val builder = begin(id, newLine, reshuffle = reshuffle)
         try {
             if (input != null) {
                 builder.perform(input, assumedBy = if (assumed) me else null)

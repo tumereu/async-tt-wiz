@@ -76,10 +76,11 @@ object Reapply {
      * opening as it now is ([assumedKeep]), then each later event input by input while it comes out the same. [ids] names
      * the new events. [line]: the line the first event made starts (a rewind of the other player's to before the base,
      * [Rewind.reapply]: every rewind starts a new line, HIS-042); null for a re-apply at the other player's opening move,
-     * which starts none.
+     * which starts none; [reshuffle]: that line reshuffles the libraries (the game's "Reshuffle libraries on undo"). An
+     * old event that started a line of its own starts it again as it did, with its reshuffle or without one (HIS-042).
      */
     fun run(oldBase: GameModel, model: GameModel, baseId: String, old: List<GameEvent>, assumer: PlayerId, ids: () -> String,
-        line: Int? = null): Result {
+        line: Int? = null, reshuffle: Boolean = true): Result {
         var lineDue = line
         val record = mutableListOf<String>()
         val events = mutableListOf<GameEvent>()
@@ -112,7 +113,7 @@ object Reapply {
             builder.mode = keepMode
             builder.carriedFrom = replaced[n]?.id
             try {
-                lineDue?.let(builder::startLine)
+                lineDue?.let { builder.startLine(it, reshuffle) }
                 builder.perform(input, assumedBy = assumer)
                 foldAssumed(builder, model, assumer)
             } catch (e: RuntimeException) {
@@ -140,7 +141,12 @@ object Reapply {
                 var failed: String? = null
                 // After a rewind the first event made starts its new line; an old event's own line start can't follow it
                 if (line != null && event.startsLine != null) failed = "it starts a line of its own, which the rewind's new line replaces"
-                else lineDue?.let(builder::startLine)
+                else lineDue?.let { builder.startLine(it, reshuffle) }
+                // HIS-042: an old line start with no reshuffle step (the game's switch off for it, or nothing to reorder):
+                // the same line again, unshuffled (with a reshuffle step, the step below starts it)
+                val ownStart = event.startsLine
+                val reshuffled = event.engine?.steps?.firstOrNull()?.let { it.input == null } == true
+                if (failed == null && ownStart != null && !reshuffled) builder.startLine(ownStart, reshuffle = false)
                 if (failed == null) for ((j, step) in event.engine?.steps.orEmpty().withIndex()) {
                     val input = step.input
                     if (input == null) {

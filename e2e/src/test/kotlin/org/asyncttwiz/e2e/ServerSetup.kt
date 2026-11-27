@@ -377,7 +377,9 @@ object ServerSetup {
      * [Prepared.ready] starts it with a deal [deal] accepts (the opening hands and libraries the test needs).
      */
     fun prepare(a: TestAccount, b: TestAccount, aDeck: TestDeck, bDeck: TestDeck, starter: TestAccount = a,
-        name: String = "E2E game", deal: (Deal) -> Boolean = { true }): Prepared {
+        name: String = "E2E game", deal: (Deal) -> Boolean = { true },
+        /** The game settings [a], its creator, sets in the lobby (LOB-135, LOB-282); null: the defaults. */
+        gameSettings: org.asyncttwiz.protocol.AssumeReveals? = null): Prepared {
         val invitation = lobbyCall { api ->
             api.add(a.token, AddContact(UUID.randomUUID().toString(), b.id))
             api.create(a.token, CreateInvitation(UUID.randomUUID().toString(), b.id, name))
@@ -392,6 +394,7 @@ object ServerSetup {
                 socket.execute(invitation, stream, GameAction.SelectDeck(deck.id, deck.revision))
             }
             owner.execute(invitation, ownerStream, GameAction.SetStarter(StarterChoice(starter.id)))
+            gameSettings?.let { owner.execute(invitation, ownerStream, GameAction.SetAssumeReveals(it)) }
         } }
         return Prepared(a, b, invitation, mapOf(a to aDeck, b to bDeck), starter, deal)
     }
@@ -443,8 +446,15 @@ object ServerSetup {
     fun draftedPod(a: TestAccount, b: TestAccount, name: String, mainPlains: Int = 40,
         cards: List<TestCard> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark),
         settings: DraftSettings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 2)): String = runBlocking {
-        fun id() = UUID.randomUUID().toString()
         val pod = draftingPod(a, b, name, cards, settings)
+        finishDraft(a, b, pod, settings, mainPlains)
+        pod
+    }
+
+    /** [a] and [b] draft [pod] (drafting with [settings]) to its end, each taking the first card of every pack, and each has
+     * [mainPlains] Plains in Main; neither deck submitted yet ([submitPodDeck]). */
+    fun finishDraft(a: TestAccount, b: TestAccount, pod: String, settings: DraftSettings, mainPlains: Int = 40) = runBlocking {
+        fun id() = UUID.randomUUID().toString()
         org.asyncttwiz.android.PodApi(origin).use { api ->
             var picks = 0
             while (api.detail(a.token, pod).phase != PodPhase.DRAFTED) {
@@ -589,7 +599,8 @@ object ServerSetup {
 
         /** [action] in [game]'s lobby, whatever its outcome. */
         fun attempt(game: GameSummary, stream: GameStreamReady, action: GameAction): GameResult {
-            val scope = GameScope(game.id, game.preparationRound, if (action == GameAction.AcceptInvitation) game.invitationId else null)
+            val scope = if (action is GameAction.SetAssumeReveals) GameScope(game.id)
+                else GameScope(game.id, game.preparationRound, if (action == GameAction.AcceptInvitation) game.invitationId else null)
             val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
             send(command)
             return next { it is GameResult && it.requestId == command.requestId } as GameResult

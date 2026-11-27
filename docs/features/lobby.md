@@ -89,6 +89,7 @@ and pods.
 
 ## Lending decks
 
+- **LOB-282** The lobby's Game settings card has "Reshuffle libraries on undo" and "Reshuffle libraries on branch" (both on by default) after the switches of LOB-135, each with a line saying what it does: off, that kind of new line keeps the libraries' order (HIS-042). Both players see them; only the game's creator changes them, in the lobby (greyed while a match is on; not in Table actions → Game settings). (owner, 2026-11-26)
 - **LOB-247** The lobby's Game settings card ends with a Decks group: Lend my decks, Only lent decks, Same deck allowed, Deck choice and New random decks on rematch. Both players see them; only the game's creator changes them, in the lobby, and changing one clears both players' Ready. (r78)
 - **LOB-248** Lend my decks: Off (the default), All, or chosen categories (one or several, in a dialog listing the creator's categories as a tree); draft decks are never lent. While it is Off the other Decks settings are greyed and do nothing. The other player sees "<creator> lends decks" with the value. (r78)
 - **LOB-249** Only lent decks (off by default): both players may use only lent decks, nothing from outside them, the creator's own other decks included. Such a game is a battle box. (r78)

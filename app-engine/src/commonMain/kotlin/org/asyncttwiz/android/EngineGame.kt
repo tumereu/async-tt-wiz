@@ -844,7 +844,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val first = undone.firstOrNull { !EngineEventText.hidden(it) || EngineEventText.pass(it) }
         // HIS-042 (owner 2026-11-19, playtest N4): whose library cards the events taken back touched; a free undo's note says
         // the libraries were reshuffled
-        val libraries = if (r.branch) emptySet() else org.asyncttwiz.protocol.game.Rewind.librariesTouched(undone).mapTo(LinkedHashSet()) { it.value }
+        val libraries = if (r.branch) emptySet() else reshuffledBy(undone)
         AppLog.info("undo", "Undo by ${r.by.take(8)} to ${r.target.take(8)} shown: ${undone.size} events taken back " +
             "(${undone.joinToString(",") { it.id.take(8) }}), ${if (r.requested) "an approved request" else "free"}, " +
             "libraries touched: ${libraries.joinToString { it.take(8) }.ifEmpty { "none" }}")
@@ -1086,7 +1086,7 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
             // HIS-042 (owner 2026-11-19): whose library cards the events the request takes back touched (all of them, also
             // those the viewer hasn't seen yet): the dialog says the libraries reshuffle
             val libraries = device.request?.target?.let { t -> device.lineAfter(t) }?.let { after ->
-                org.asyncttwiz.protocol.game.Rewind.librariesTouched(after).mapTo(LinkedHashSet()) { it.value } }.orEmpty()
+                reshuffledBy(after) }.orEmpty()
             RequestView(p.message, p.unseen, p.board.engine.turn, board, libraries)
         }
     }
@@ -1960,8 +1960,21 @@ class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: 
         val needs = if (after.isEmpty()) null
             else org.asyncttwiz.protocol.game.Rewind.requestNeeded(at.copy(), target, after, PlayerId(me), others, device.assumeReveals.undoPastPasses) != null
         val board = runCatching { table(EngineProjection.project(base, at, me, target, null, null, tokenArt), at, target) }.getOrNull()
-        val libraries = org.asyncttwiz.protocol.game.Rewind.librariesTouched(after).mapTo(LinkedHashSet()) { it.value }
+        val libraries = reshuffledBy(after)
         return UndoPreview(board, needs, libraries = libraries)
+    }
+
+    /**
+     * HIS-042, HIS-235, HIS-236: the players (account ids) whose libraries an undo taking back [events] reshuffles: those whose
+     * library cards they touched, while the game's "Reshuffle libraries on undo" is on (owner 2026-11-26); none while it is
+     * off, so no dialog or log says a library reshuffles (engine thread).
+     */
+    private fun reshuffledBy(events: List<GameEvent>): Set<String> {
+        val touched = org.asyncttwiz.protocol.game.Rewind.librariesTouched(events).mapTo(LinkedHashSet()) { it.value }
+        if (device.assumeReveals.reshuffleOnUndo || touched.isEmpty()) return touched
+        AppLog.info("undo", "Libraries touched by the ${events.size} events an undo takes back (${touched.joinToString { it.take(8) }}) keep " +
+            "their order: the game's Reshuffle libraries on undo is off")
+        return emptySet()
     }
     fun requestUndo(target: String, message: String) {
         AppLog.info("undo", "Undo request to $target from tip ${shown?.tip}, with a message of ${message.length} characters")

@@ -350,9 +350,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val cube = state.cubes.singleOrNull { it.name == source.cubeName }
         return PodPresetForm(settings, cubeId = cube?.id, sourceName = cube?.name)
     }
-    /** Fills the form from [preset]. A set is loaded from the catalog; a deleted cube leaves the source to choose. */
+    /** Fills the form from [preset]. A set is loaded from the catalog; a deleted cube leaves the source to choose. The
+     * pod's Game settings stay as they are: a preset holds draft settings (DRF-032). */
     fun applyPreset(preset: PodPreset) {
-        val settings = preset.settings
+        val current = state.creating?.settings ?: state.setup?.settings ?: state.detail?.settings
+        val settings = preset.settings.copy(gameSettings = current?.gameSettings ?: preset.settings.gameSettings)
         val cube = preset.cubeId?.takeUnless { preset.cubeMissing }
         val draft = state.creating
         if (draft != null) {

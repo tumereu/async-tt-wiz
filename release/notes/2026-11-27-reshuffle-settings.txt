@@ -1,0 +1,1 @@
+2: New game settings "Reshuffle libraries on undo" and "Reshuffle libraries on branch", both on as before. With one switched off in the lobby, an undo (or an answer other than the one assumed) no longer changes the next cards drawn.

@@ -50,7 +50,9 @@ data class GameRepro(
                     // A one-answer question answered for a player on Quick (SYS-063): the modes then aren't recorded, so every
                     // player counts as on Quick here
                     Authority.make(model.copy(), Submission.of(event), PlayerId(event.author), Authority.Rules(nextLine = event.startsLine,
-                        quick = model.engine.players.map { it.id }.toSet()))
+                        quick = model.engine.players.map { it.id }.toSet(),
+                        // HIS-042: the line's reshuffle as the event made it (none: the game's switch off, or nothing moved)
+                        reshuffle = event.engine?.steps?.firstOrNull()?.let { it.input == null } == true))
                 } catch (e: Refusal) { out += Mismatch(event.id, e.reason); null }
                 if (made != null && made != event) out += Mismatch(event.id, "made differently")
             }

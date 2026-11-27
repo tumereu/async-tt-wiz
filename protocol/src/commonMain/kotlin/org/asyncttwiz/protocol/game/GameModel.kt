@@ -310,8 +310,12 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
      * Starts line [number] (I-D56 §9): as the event's first step, each player's library's unknown parts
      * ([Host.unknownOrder]) are put in a new order from the new line's stream of that library's owner, one random answer
      * per part; cards whose place a player knows stay where they are. Shown nowhere.
+     *
+     * Without [reshuffle] (the game's "Reshuffle libraries on undo" or "on branch" off for this line, owner 2026-11-26,
+     * HIS-042) the libraries keep their order: the line's random answers are counted as with it (so the line's later random
+     * answers are the same either way), only nothing is reordered.
      */
-    fun startLine(number: Int) {
+    fun startLine(number: Int, reshuffle: Boolean = true) {
         check(!done && steps.isEmpty()) { "A line starts with an event's first step" }
         line = Line(number)
         val changes = mutableListOf<Change>()
@@ -319,6 +323,7 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
             val parts = Host.unknownOrder(model.engine, player.id).map { part ->
                 LineRandom.order(model.table.secret, line.number, player.id, line.drawn(player.id), part).also { line = line.next(player.id) }
             }
+            if (!reshuffle) continue
             Host.reorderUnknown(model.engine, player.id, parts)?.let { reorder ->
                 pristine = false
                 model.changing()

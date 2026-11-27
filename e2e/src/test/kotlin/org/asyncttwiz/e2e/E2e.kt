@@ -153,13 +153,16 @@ abstract class E2e {
         alicePhone: Boolean = true,
         /** WEB-013: Alice's app in the desktop layout (the web client's desktop table, mouse and keys) at the test's window size. */
         aliceDesktop: Boolean = false,
+        /** The game settings Alice, its creator, sets in the lobby before it starts (LOB-135, LOB-282); null: the defaults. */
+        gameSettings: org.asyncttwiz.protocol.AssumeReveals? = null,
         deal: Deal.(TestAccount, TestAccount) -> Boolean = { _, _ -> true }) {
         val (a, b) = ServerSetup.accounts()
         showPlays(a, b)
         if (!aliceChoseNothing) ServerSetup.playDefaults(a, aliceSettings ?: PlaySettings())
         ServerSetup.playDefaults(b, bobSettings ?: PlaySettings())
         prepared = ServerSetup.prepare(a, b, aliceDeck, bobDeck, starter = if (bobStarts) b else a,
-            name = "${javaClass.simpleName} ${java.util.UUID.randomUUID().toString().take(6)}", deal = { it.deal(a, b) })
+            name = "${javaClass.simpleName} ${java.util.UUID.randomUUID().toString().take(6)}", deal = { it.deal(a, b) },
+            gameSettings = gameSettings)
         game = prepared.invitation
         aliceAccount = a
         if (alicePhone) alice = E2ePlayer(a, compose, aliceWorker, withCatalog = aliceCatalog, holdCatalog = holdAliceCatalog,

@@ -30,6 +30,14 @@ object GameSettingsText {
     // N15 (owner 2026-11-19)
     const val UNDO_PASSES = "Undo past the other player's passes needs a request"
     const val UNDO_PASSES_MEANING = "Going back past a pass of theirs (letting something resolve) asks them first, as their other moves do"
+    // HIS-042 (owner 2026-11-26): the lobby-only reshuffle switches
+    const val RESHUFFLE_UNDO = "Reshuffle libraries on undo"
+    const val RESHUFFLE_UNDO_MEANING = "After an undo the next cards drawn may change; off, they stay the same"
+    const val RESHUFFLE_BRANCH = "Reshuffle libraries on branch"
+    const val RESHUFFLE_BRANCH_MEANING = "When an answer differs from what was assumed, the next cards drawn may change; off, they stay the same"
+    // Owner 2026-11-26: a pod's Game settings in its setup
+    const val TITLE = "Game settings"
+    const val POD_NOTE = "Every game started from this pod begins with these; its lobby can still change them."
     fun hostOnly(host: String) = "Only $host can change these."
     // LOB-247..LOB-251, LOB-254: the Decks group
     const val DECKS = "Decks"
@@ -67,19 +75,54 @@ class DeckSettingsAccess(val categories: List<DeckCategory>?, val load: () -> Un
  */
 @Composable
 fun AssumeRevealSwitches(game: GameSummary, accountId: String, change: (AssumeReveals) -> Unit, note: Boolean = true) {
-    val reveals = game.assumeReveals
     val host = game.inviter.accountId == accountId
     Column {
-        RevealSwitch(GameSettingsText.LIBRARY, GameSettingsText.LIBRARY_MEANING, reveals.library, host, "assume-library") {
-            change(reveals.copy(library = it))
-        }
-        RevealSwitch(GameSettingsText.HANDS, GameSettingsText.HANDS_MEANING, reveals.hands, host, "assume-hands") {
-            change(reveals.copy(hands = it))
-        }
-        RevealSwitch(GameSettingsText.UNDO_PASSES, GameSettingsText.UNDO_PASSES_MEANING, reveals.undoPastPasses, host, "undo-past-passes") {
-            change(reveals.copy(undoPastPasses = it))
-        }
+        GameRevealSwitches(game.assumeReveals, host, change)
         if (!host && note) HostOnlyNote(game)
+    }
+}
+
+/** LOB-135's three switches for [reveals], changed with [enabled] ([change] sends the whole new value). */
+@Composable
+fun GameRevealSwitches(reveals: AssumeReveals, enabled: Boolean, change: (AssumeReveals) -> Unit) {
+    RevealSwitch(GameSettingsText.LIBRARY, GameSettingsText.LIBRARY_MEANING, reveals.library, enabled, "assume-library") {
+        change(reveals.copy(library = it))
+    }
+    RevealSwitch(GameSettingsText.HANDS, GameSettingsText.HANDS_MEANING, reveals.hands, enabled, "assume-hands") {
+        change(reveals.copy(hands = it))
+    }
+    RevealSwitch(GameSettingsText.UNDO_PASSES, GameSettingsText.UNDO_PASSES_MEANING, reveals.undoPastPasses, enabled, "undo-past-passes") {
+        change(reveals.copy(undoPastPasses = it))
+    }
+}
+
+/** HIS-042 (owner 2026-11-26): "Reshuffle libraries on undo" and "on branch" for [reveals], both on by default, changed with
+ * [enabled] (in the lobby only). */
+@Composable
+fun ReshuffleSwitches(reveals: AssumeReveals, enabled: Boolean, change: (AssumeReveals) -> Unit) {
+    RevealSwitch(GameSettingsText.RESHUFFLE_UNDO, GameSettingsText.RESHUFFLE_UNDO_MEANING, reveals.reshuffleOnUndo, enabled, "reshuffle-undo") {
+        change(reveals.copy(reshuffleOnUndo = it))
+    }
+    RevealSwitch(GameSettingsText.RESHUFFLE_BRANCH, GameSettingsText.RESHUFFLE_BRANCH_MEANING, reveals.reshuffleOnBranch, enabled, "reshuffle-branch") {
+        change(reveals.copy(reshuffleOnBranch = it))
+    }
+}
+
+/**
+ * Owner 2026-11-26 (playtest F): the pod's Game settings at the end of New pod and pod setup: the lobby's Game settings switches that
+ * apply to pod games ([GameRevealSwitches], [ReshuffleSwitches]; a pod game's decks are its draft's, so no Decks group),
+ * changed by the pod's creator ([editable]); every game started from the pod begins with them.
+ */
+@Composable
+fun PodGameSettingsCard(settings: AssumeReveals, editable: Boolean, change: (AssumeReveals) -> Unit) {
+    OutlinedCard(Modifier.fillMaxWidth().testTag("pod-game-settings")) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(GameSettingsText.TITLE, style = MaterialTheme.typography.titleSmall)
+            GameRevealSwitches(settings, editable, change)
+            ReshuffleSwitches(settings, editable, change)
+            Text(GameSettingsText.POD_NOTE, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp))
+        }
     }
 }
 
@@ -172,15 +215,16 @@ private fun RevealSwitch(label: String, meaning: String, on: Boolean, enabled: B
     }
 }
 
-/** LOB-135: the lobby's Game settings card, below Starting player; LOB-247: its Decks group ([decks], in a game that isn't
- * a pod's). */
+/** LOB-135: the lobby's Game settings card, below Starting player, with the reshuffle switches (HIS-042, changed in the
+ * lobby only: [lobby]); LOB-247: its Decks group ([decks], in a game that isn't a pod's). */
 @Composable
 fun GameSettingsCard(game: GameSummary, accountId: String, decks: DeckSettingsAccess? = null, decksEnabled: Boolean = true,
-    change: (AssumeReveals) -> Unit) {
+    lobby: Boolean = true, change: (AssumeReveals) -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Game settings", style = MaterialTheme.typography.titleSmall)
+            Text(GameSettingsText.TITLE, style = MaterialTheme.typography.titleSmall)
             AssumeRevealSwitches(game, accountId, change, note = false)
+            ReshuffleSwitches(game.assumeReveals, game.inviter.accountId == accountId && lobby, change)
             if (decks != null && game.podId == null) DeckSettingsGroup(game, accountId, decks, decksEnabled)
             if (game.inviter.accountId != accountId) HostOnlyNote(game)
         }

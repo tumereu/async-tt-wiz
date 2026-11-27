@@ -470,13 +470,15 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         val outcome = try {
             when (val action = command.action) {
                 is GameAction.Submit -> engineGames.submit(sql, play, account, action.submission, live,
-                    // LOB-135: the information rule's check honours the game's assume reveal settings
-                    AssumeReveals(library = game.assumeLibraryReveals != false, hands = game.assumeHandReveals == true))
+                    // LOB-135: the information rule's check honours the game's assume reveal settings; HIS-042: a new line its reshuffle switches
+                    lobby.assumeReveals(game))
                 is GameAction.EngineSeen -> engineGames.seen(sql, play, account, action.eventId, live)
                 // N15, LOB-135: the game's setting decides whether the other player's passes count for a free undo
-                is GameAction.EngineRewind -> engineGames.rewind(sql, play, account, action.target, live, passes = game.undoPastPasses == true)
+                is GameAction.EngineRewind -> engineGames.rewind(sql, play, account, action.target, live, passes = game.undoPastPasses == true,
+                    // HIS-042 (owner 2026-11-26): the undo's new line reshuffles the libraries unless the game's switch is off
+                    reshuffle = game.reshuffleOnUndo != false)
                 is GameAction.EngineRequestRewind -> engineGames.requestRewind(sql, play, account, action.target, action.message, live)
-                is GameAction.EngineAnswerRewind -> engineGames.answerRewind(sql, play, account, action.accept, live)
+                is GameAction.EngineAnswerRewind -> engineGames.answerRewind(sql, play, account, action.accept, live, reshuffle = game.reshuffleOnUndo != false)
                 GameAction.EngineCancelRewind -> engineGames.cancelRewind(sql, play, account, live)
                 is GameAction.EngineSettings -> engineGames.settings(sql, play, account, action.settings, live)
                 else -> error("Not an engine action")
@@ -528,16 +530,26 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private fun activity(action: GameAction): Boolean = action !is GameAction.EngineSeen && action !is GameAction.EngineSettings
 
     /** LOB-135: the game's assume reveal settings, changed by its host (the inviter) only, in the lobby or in play; game
-     * state outside undo and history, which the information rule's check reads ([applyEngine]). */
+     * state outside undo and history, which the information rule's check reads ([applyEngine]). HIS-042 (owner 2026-11-26):
+     * its reshuffle switches change only in the lobby ("lifecycleEnded" while a match is on). */
     private fun applyAssumeReveals(sql: DSLContext, game: GameRecord, account: UUID, action: GameAction.SetAssumeReveals): String? {
         if (account != game.inviterId) return "notHost"
-        sql.update(GAME).set(GAME.ASSUME_LIBRARY_REVEALS, action.reveals.library).set(GAME.ASSUME_HAND_REVEALS, action.reveals.hands)
-            .set(GAME.UNDO_PAST_PASSES, action.reveals.undoPastPasses)
+        val reveals = action.reveals
+        val log = org.slf4j.LoggerFactory.getLogger(GameService::class.java)
+        if (game.lifecycle != "LOBBY" && !reveals.sameReshuffles(lobby.assumeReveals(game))) {
+            log.info("Game {} settings by {} refused: the reshuffle switches change only in the lobby (now {}; asked on undo {}, on branch {})",
+                game.id, account, game.lifecycle, reveals.reshuffleOnUndo, reveals.reshuffleOnBranch)
+            return "lifecycleEnded"
+        }
+        sql.update(GAME).set(GAME.ASSUME_LIBRARY_REVEALS, reveals.library).set(GAME.ASSUME_HAND_REVEALS, reveals.hands)
+            .set(GAME.UNDO_PAST_PASSES, reveals.undoPastPasses)
+            .set(GAME.RESHUFFLE_ON_UNDO, reveals.reshuffleOnUndo).set(GAME.RESHUFFLE_ON_BRANCH, reveals.reshuffleOnBranch)
             .where(GAME.ID.eq(game.id)).execute()
-        game.assumeLibraryReveals = action.reveals.library; game.assumeHandReveals = action.reveals.hands
-        game.undoPastPasses = action.reveals.undoPastPasses
-        org.slf4j.LoggerFactory.getLogger(GameService::class.java).info("Game {} settings by {}: library {}, hands {}, undo past passes needs a request {}",
-            game.id, account, action.reveals.library, action.reveals.hands, action.reveals.undoPastPasses)
+        game.assumeLibraryReveals = reveals.library; game.assumeHandReveals = reveals.hands
+        game.undoPastPasses = reveals.undoPastPasses
+        game.reshuffleOnUndo = reveals.reshuffleOnUndo; game.reshuffleOnBranch = reveals.reshuffleOnBranch
+        log.info("Game {} settings by {}: library {}, hands {}, undo past passes needs a request {}, reshuffle on undo {}, on branch {}",
+            game.id, account, reveals.library, reveals.hands, reveals.undoPastPasses, reveals.reshuffleOnUndo, reveals.reshuffleOnBranch)
         return null
     }
 

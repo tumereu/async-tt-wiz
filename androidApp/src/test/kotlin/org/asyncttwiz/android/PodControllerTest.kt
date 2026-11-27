@@ -1129,6 +1129,18 @@ class PodControllerTest {
         assertEquals(PodDeckCategory.MAIN, build.copies.first { it.copyId == "new-award" }.category)
     }
 
+    // DRF-319, DRF-032: the creator's Game settings in setup go to the server with the pod's settings; a preset (draft settings
+    // and source) applied afterwards keeps them
+    @Test fun setupSendsThePodsGameSettingsAndAPresetKeepsThem() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        val games = AssumeReveals(reshuffleOnUndo = false, hands = true)
+        f.controller.editSettings { it.copy(gameSettings = games) }
+        f.controller.applyPreset(preset("Glimpse", DraftSettings.glimpse()))
+        assertEquals(DraftSettings.glimpse().copy(gameSettings = games), f.controller.state.setup!!.settings)
+        f.controller.flushSetup(); f.deliver()
+        assertEquals(DraftSettings.glimpse().copy(gameSettings = games), (f.api.calls.single { it.second is UpdatePod }.second as UpdatePod).settings)
+    }
+
     @Test fun setupSendsLatestFullSettingsAndRetainsNewerUnsentEdits() = Fixture(PodPhase.SETUP).use { f ->
         f.open()
         f.controller.editSetup(name = "Changed", settings = DraftSettings.glimpse())

@@ -616,10 +616,12 @@ class EngineTableScreenshotTest {
 
     /** Alice and Bob a few turns into the creatures game (a Mountain and an Ember Cub each turn), Alice declaring
      * attackers: her table, with [open] done on it. */
-    private fun aliceFewTurnsIn(landscape: Boolean = false, open: (EngineTableRoutes) -> Unit): EngineGame {
+    private fun aliceFewTurnsIn(landscape: Boolean = false, reveals: org.asyncttwiz.protocol.AssumeReveals? = null,
+        open: (EngineTableRoutes) -> Unit): EngineGame {
         val scenario = EngineCombatScenario()
         scenario.until(scenario::bothHaveCubs)
         val alice = scenario.alice
+        reveals?.let(alice::assumeReveals)
         alice.notes.clear() // the scripted setup's own races (SYS-012 notes) aren't part of these pictures
         val routes = render(alice, f.a, summary = f.game, landscape = landscape)
         compose.runOnIdle { open(routes) }
@@ -672,6 +674,19 @@ class EngineTableScreenshotTest {
 
     // HIS-083, HIS-099, HIS-207, HIS-235
     @Test fun undoDialogShowsTheBoardAboveTheTimelineStrip() = undoDialog(false, "rewind-dialog")
+
+    // HIS-235, HIS-042 (owner 2026-11-26): with the game's "Reshuffle libraries on undo" off the same undo (taking back Alice's draw)
+    // keeps the libraries' order: the dialog asking Bob says nothing of a reshuffle
+    @Test fun undoDialogSaysNoReshuffleWhileTheUndoSwitchIsOff() {
+        val game = aliceFewTurnsIn(reveals = org.asyncttwiz.protocol.AssumeReveals(reshuffleOnUndo = false)) { it.holdUndo() }
+        val (points, _) = undoDialogPoints(game)
+        val chosen = points.last { it.shown.author == f.b && !EngineEventText.pass(it.event) }
+        compose.onAllNodes(hasContentDescription(chosen.shown.description) and hasClickAction(), useUnmergedTree = true).onLast().performClick()
+        compose.mainClock.advanceTimeBy(UNDO_PREVIEW_DELAY_MS + 100)
+        compose.waitUntil { compose.onAllNodesWithText("Ask Bob").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("rewind-message").assertExists()
+        compose.onNodeWithTag("undo-reshuffle").assertDoesNotExist()
+    }
 
     // HIS-083, HIS-099, HIS-207, HIS-235
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun undoDialogInLandscape() = undoDialog(true, "rewind-dialog-landscape")

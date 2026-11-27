@@ -21,6 +21,9 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
         private set
     var lines = 0
         private set
+    /** HIS-042: the line counter's line is a branch's (HIS-194), as the server keeps it ([EngineSnapshot.lineBranch]). */
+    var lineBranch = false
+        private set
     val heads = mutableMapOf<PlayerId, String>()
     /** The open undo request (I-D56 §10): only a concession is taken while it is. */
     var request: org.asyncttwiz.protocol.EngineRewindRequest? = null
@@ -59,7 +62,7 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     fun submit(submission: Submission, author: PlayerId): Result<Acceptance.Result> = try {
         val oldHead = head
         val result = Acceptance.accept(history, head, warm, submission, author, heads, lines + 1, rewindOpen = request != null,
-            aliases = aliases, reveals = reveals, ids = { "r${++ids}" }, quick = quick)
+            aliases = aliases, reveals = reveals, ids = { "r${++ids}" }, quick = quick, lineBranch = lineBranch)
         when (result) {
             is Acceptance.Reapplied -> {
                 // As the server: the event and the re-made line after it; local heads on the old line go to the events made
@@ -77,7 +80,7 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
                 heads[author] = event.id
                 val carried = result.reapply.events.associateBy { it.carriedFrom }
                 heads.replaceEach { _, h -> if (h in gone) carried[h]?.id ?: head else h }
-                if (result.reapply.stoppedAt != null) lines = result.nextLine
+                if (result.reapply.stoppedAt != null) { lines = result.nextLine; lineBranch = true }
                 request = null
             }
             is Acceptance.Accepted -> {
@@ -86,7 +89,7 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
                     val gone = MainLine.after(history, oldHead, event.parentId)!!.map { it.id }.toSet()
                     heads.replaceEach { _, h -> if (h in gone) event.parentId else h }
                 }
-                event.startsLine?.let { lines = it }
+                event.startsLine?.let { lines = it; lineBranch = result.discarded != null }
                 store.add(event, history.checkpointFor(store.depthOfParent(event) + 1, result.live.model))
                 head = event.id
                 warm = result.live
@@ -139,14 +142,14 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
         val at = Rewind.reapplies(history.stateAt(target), after, player)
         store.remove(gone)
         val model = history.stateAt(target)
-        lines++
+        lines++; lineBranch = false
         head = target
         warm = LiveState(target, model)
         var n = 0
         rewound = null
         if (at != null) {
             // HIS-115: inside the player's opening, before the other player's assumed keep about them: that line is made again
-            val r = Rewind.reapply(model, target, after, at, player, lines, { "line${lines}s${n++}" }) { add(it, model) }
+            val r = Rewind.reapply(model, target, after, at, player, lines, { "line${lines}s${n++}" }, reshuffle = reveals.reshuffleOnUndo) { add(it, model) }
             val states = r.atBase
             for (e in r.reapply.events) {
                 states.apply(e)
@@ -164,7 +167,7 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
             rewound = r
             return r.standing + r.reapply.events
         }
-        val events = Rewind.again(model, target, after, player, lines, { "line${lines}s${n++}" }) { add(it, model) }
+        val events = Rewind.again(model, target, after, player, lines, { "line${lines}s${n++}" }, reshuffle = reveals.reshuffleOnUndo) { add(it, model) }
         heads.replaceEach { _, h -> if (h in gone || h == target) head else h }
         request = null
         return events
@@ -182,9 +185,9 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
      * answers; [newLine] starts a line first (a branch).
      */
     fun make(model: GameModel, parent: String, author: PlayerId, input: Input, assumed: Boolean = false, newLine: Int? = null,
-        follow: (GameModel) -> Input? = { null }): Pair<Submission, GameEvent> {
+        follow: (GameModel) -> Input? = { null }, reshuffle: Boolean = reveals.reshuffleOnBranch): Pair<Submission, GameEvent> {
         val builder = EventBuilder(model, "e${++ids}", parent, author.value)
-        newLine?.let(builder::startLine)
+        newLine?.let { builder.startLine(it, reshuffle) }
         builder.perform(input, assumedBy = if (assumed) author else null)
         builder.answerRandoms()
         while (true) {
@@ -200,7 +203,8 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     fun act(author: PlayerId, input: Input, assumed: Boolean = false, follow: (GameModel) -> Input? = { null }): Result<Acceptance.Result> {
         // A device's engine refuses what the server's would: nothing is sent
         val model = state()
-        val (submission, made) = try { make(model, head, author, input, assumed, newLine = Rewind.lineDue(model, lines), follow = follow) }
+        val (submission, made) = try { make(model, head, author, input, assumed, newLine = Rewind.lineDue(model, lines), follow = follow,
+            reshuffle = reveals.reshuffles(lineBranch)) }
             catch (e: IllegalArgumentException) { return Result.failure(e) } catch (e: IllegalStateException) { return Result.failure(e) }
         return submit(submission, author).also { r ->
             val accepted = r.getOrNull() as? Acceptance.Accepted

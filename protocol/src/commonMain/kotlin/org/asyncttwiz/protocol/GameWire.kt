@@ -153,7 +153,10 @@ const val GAME_PROTOCOL_MINOR = 14
     /** Each player's current "Assume resolves" setting by account (owner 2026-11-10: the other player's device knows where
      * the player's device assumes its passes at points the player began, so it shows the move only where the game really
      * waits, never at a pass of its own that is being assumed; never shown). */
-    val assumes: Map<String, org.asyncttwiz.protocol.game.AssumeResolves> = emptyMap())
+    val assumes: Map<String, org.asyncttwiz.protocol.game.AssumeResolves> = emptyMap(),
+    /** HIS-042 (owner 2026-11-26): the line counter's line ([lines]) is a branch's (HIS-194), not an undo's: due at the head,
+     * its reshuffle follows the game's "Reshuffle libraries on branch" switch, else "on undo". */
+    val lineBranch: Boolean = false)
 /**
  * HIS-111, HIS-099 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event): a page of a play's
  * main line ending at the event [through], read on demand (`GET /v1/games/{id}/timeline?through=`): the checkpoint above
@@ -184,7 +187,9 @@ const val GAME_PROTOCOL_MINOR = 14
      * of it reaches the other player's device at once. */
     val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap(),
     /** Each player's current "Assume resolves" setting by account, as after this change ([EngineSnapshot.assumes]). */
-    val assumes: Map<String, org.asyncttwiz.protocol.game.AssumeResolves> = emptyMap())
+    val assumes: Map<String, org.asyncttwiz.protocol.game.AssumeResolves> = emptyMap(),
+    /** As [EngineSnapshot.lineBranch]. */
+    val lineBranch: Boolean = false)
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,

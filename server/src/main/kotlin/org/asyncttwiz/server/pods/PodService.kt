@@ -945,10 +945,15 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             // challenges never share a number; declined and withdrawn ones keep theirs)
             val number = sql.fetchCount(GAME, GAME.POD_ID.eq(row.id)) + 1
             val gameName = input.gameName ?: PodGameNames.name(row.name, number)
+            // Owner 2026-11-26 (playtest F): the game begins with the pod's Game settings; its lobby can change them
+            val games = settings(row).gameSettings
             sql.insertInto(GAME).set(GAME.ID, game).set(GAME.GAME_NAME, gameName).set(GAME.INVITER_ID, owner)
                 .set(GAME.RECIPIENT_ID, UUID.fromString(input.opponentId)).set(GAME.PREPARATION_ROUND, UUID.randomUUID())
                 .set(GAME.CURRENT_INVITATION, invitation).set(GAME.POD_ID, row.id).set(GAME.POD_NAME, row.name)
-                .set(GAME.POD_SIDEBOARD_LIMIT, settings(row).sideboardLimit).set(GAME.POD_INVITATION_HELD, held).execute()
+                .set(GAME.POD_SIDEBOARD_LIMIT, settings(row).sideboardLimit).set(GAME.POD_INVITATION_HELD, held)
+                .set(GAME.ASSUME_LIBRARY_REVEALS, games.library).set(GAME.ASSUME_HAND_REVEALS, games.hands)
+                .set(GAME.UNDO_PAST_PASSES, games.undoPastPasses).set(GAME.RESHUFFLE_ON_UNDO, games.reshuffleOnUndo)
+                .set(GAME.RESHUFFLE_ON_BRANCH, games.reshuffleOnBranch).execute()
             sql.insertInto(INVITATION).set(INVITATION.ID, invitation).set(INVITATION.GAME_ID, game).execute()
             val lobby = LobbyService(runtime)
             val summary = lobby.summary(sql, game)
@@ -958,8 +963,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             // DRF-137: the recipient hears of it at once, also while still building (they accept once they submit)
             ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
             log("pod ${row.id} challenge $game \"$gameName\" by $owner to ${input.opponentId} (pod ${row.phase?.lowercase()}; " +
-                if (!held) "they have submitted)" else if (draft(row).wait(input.opponentId) != null) "they still draft: held until they submit)"
-                else "they still build: held until they submit)")
+                (if (!held) "they have submitted)" else if (draft(row).wait(input.opponentId) != null) "they still draft: held until they submit)"
+                else "they still build: held until they submit)") + "; the pod's game settings $games")
             Result(201, json.encodeToString(summary))
         }
     }

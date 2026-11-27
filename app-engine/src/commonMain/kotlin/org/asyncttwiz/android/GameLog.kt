@@ -95,6 +95,10 @@ class GameLog(gameId: String, private val me: PlayerId) {
     /** TRN-057, STK-053: the device itself passed this player's own main phase on [state], for [why] ([org.asyncttwiz.protocol.game.GameDevice.ownMainPass]). */
     fun ownMainPass(state: GameState, why: String) = "$game ${at(state)}: the device passed the player's own main phase: $why"
 
+    /** TRN-057 (problem report UJP7DE): the player's End turn on [state] began, ended, was taken back or goes on, as [line]
+     * says ([org.asyncttwiz.protocol.game.GameDevice.endTurnSaid]). */
+    fun endTurn(state: GameState, line: String) = "$game ${at(state)}: End turn $line"
+
     /** SYS-063 (problem report DH9MW5): whether Quick answers a decision on [state] by itself, and why
      * ([org.asyncttwiz.protocol.game.GameDevice.quickAnswers]). */
     fun quickAnswer(state: GameState, line: String) = "$game ${at(state)}: $line"

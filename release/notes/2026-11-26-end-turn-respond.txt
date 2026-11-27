@@ -1,0 +1,1 @@
+2: When you end your turn and the other player then casts a spell or uses an ability in it, the game now waits for your answer instead of passing for you.

@@ -76,7 +76,7 @@ data class BattlefieldGroup(val key: String, val field: String, val row: Battlef
     val tapped: Set<String> = emptySet()) {
     sealed interface Kind {
         data object Single : Kind
-        /** Identical permanents: lands fan out, others lie tight with a ×N badge. */
+        /** Identical permanents fanning out, with a ×N badge (TBL-054). */
         data object Stack : Kind
         /** A permanent with what is attached to it peeking out above it. */
         data object Attached : Kind
@@ -108,19 +108,24 @@ data class BattlefieldSpot(val x: Float, val row: Int, val lift: Int = 0, val or
 object BattlefieldLayout {
     /** The room one group takes in a row (a tapped card's width and a gap; TBL-002). */
     const val SLOT = 42f
-    /** How far each land of a stack fans out to the right of the one before. */
+    /** TBL-054: how far each card of a stack fans out to the right of the one before. */
     const val FAN = 8f
-    /** How far each of a tight stack's first members shows to the right of the one before (at most [TIGHT_SHOWN]). */
-    const val TIGHT = 3f
-    const val TIGHT_SHOWN = 2
+    /** TBL-054 (owner, 2026-11-27): how many cards of a stack that isn't lands fan out; the cards past them lie wholly behind the
+     * last of them (its top card on top). A land stack's fan has no end. */
+    const val FAN_SHOWN = 5
     /** TBL-003: the least room a row keeps above its cards for attached cards peeking out, with none attached (face units, × the
      * cards' scale). */
     const val PEEK_ROOM = 8f
 
-    /** TBL-179, SYS-155 (owner, 2026-11-26): how far each attached card (or a merged creature's other card) peeks out above the one
-     * in front of it (face units, × the cards' scale): its whole title bar, as tall as the title text's size [titleScale] makes it
-     * ([cardTitleBand]), and a little more, 16 at the default sizes. */
-    fun peek(titleScale: Float): Float = cardTitleBand(titleScale) + 5f
+    /** TBL-179, SYS-155 (owner, 2026-11-27): how far each attached card (or a merged creature's other card) peeks out above the one
+     * in front of it (face units, × the cards' scale): exactly its title bar as drawn, as tall as the title text's size
+     * [titleScale] makes it ([cardTitleBand], where the card's art begins), so its name shows and none of its art. */
+    fun peek(titleScale: Float): Float = cardTitleBand(titleScale)
+
+    /** TBL-054 (owner, 2026-11-27): how many [FAN] steps right of a stack's first card its [index]th card (or [group]'s staged
+     * pile's) lies: one per card before it, a land stack's without end, any other's up to its [FAN_SHOWN]th card. */
+    fun fanSteps(group: BattlefieldGroup, index: Int): Int =
+        if (group.row == BattlefieldRow.Lands) index else minOf(index, FAN_SHOWN - 1)
 
     /**
      * The groups of [cards] (every battlefield's cards, each battlefield's in arrival order): an attached card joins the
@@ -193,14 +198,14 @@ object BattlefieldLayout {
         val n = group.members.size
         return when {
             expanded && n > 1 -> n * SLOT
-            group.kind == BattlefieldGroup.Kind.Stack && group.row == BattlefieldRow.Lands -> SLOT + (n - 1) * FAN + stagedWidth(group)
-            group.kind == BattlefieldGroup.Kind.Stack -> SLOT + minOf(n - 1, TIGHT_SHOWN) * TIGHT + stagedWidth(group)
+            group.kind == BattlefieldGroup.Kind.Stack -> SLOT + fanSteps(group, n - 1) * FAN + stagedWidth(group)
             else -> SLOT
         }
     }
 
-    /** CMB-070, TBL-230 (owner playtest 2026-11-20): a stack's staged members lie in one tight pile of their own at its right end. */
-    private fun stagedWidth(group: BattlefieldGroup) = if (group.staged.isEmpty()) 0f else SLOT + minOf(group.staged.size - 1, TIGHT_SHOWN) * TIGHT
+    /** CMB-070, TBL-230 (owner playtest 2026-11-20): a stack's staged members lie in one pile of their own at its right end,
+     * fanning out like a stack (TBL-054). */
+    private fun stagedWidth(group: BattlefieldGroup) = if (group.staged.isEmpty()) 0f else SLOT + fanSteps(group, group.staged.size - 1) * FAN
 
     /** TBL-004: the small margin always kept between the upper band's creatures and its other permanents. */
     const val MARGIN = SLOT / 2
@@ -238,9 +243,9 @@ object BattlefieldLayout {
                 val i = group.members.indexOf(id)
                 val x = when {
                     open -> i * SLOT
-                    id in staged -> stackWidth + minOf(staged.indexOf(id), TIGHT_SHOWN) * TIGHT
-                    group.kind == BattlefieldGroup.Kind.Stack && group.row == BattlefieldRow.Lands -> i * FAN
-                    group.kind == BattlefieldGroup.Kind.Stack -> minOf(i, TIGHT_SHOWN) * TIGHT
+                    id in staged -> stackWidth + fanSteps(group, staged.indexOf(id)) * FAN
+                    // TBL-054 (owner, 2026-11-27): every stack fans out like lands, up to its fifth card unless it is lands
+                    group.kind == BattlefieldGroup.Kind.Stack -> fanSteps(group, i) * FAN
                     else -> 0f
                 }
                 val lift = if (open || group.kind != BattlefieldGroup.Kind.Attached) 0 else i

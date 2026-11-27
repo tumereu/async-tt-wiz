@@ -1,1 +1,1 @@
-Alice's battlefield zoomed in (2×): her Cinder Hound wears an Ember Blade, which peeks out above the card in front of it so its whole title bar shows; the group glows white (a tap opens it).
+Alice's battlefield zoomed in (2×): her Cinder Hound wears an Ember Blade, which peeks out above the card in front of it by exactly its title bar, its name showing and none of its art; the group glows white (a tap opens it).

@@ -265,43 +265,65 @@ class TablePresentationTest {
             }
     }
 
-    // TBL-054, TBL-053: a tight stack's second and third cards show 3 dp each (later ones lie on the third), the top one
-    // carrying ×N; a land stack fans 8 dp per land, its top one carrying ×N too; every member is drawn and the lower ones' strips are hit as
-    // themselves; a drop on the battlefield lights up that battlefield, no slot (TBL-004, TBL-052)
-    @Test fun stacksLieTightOrFanOutAndShowTheirCount() {
+    // TBL-179, SYS-155 (owner, 2026-11-27): an attached card peeks out above the card in front of it by exactly its title bar as drawn,
+    // whatever the card size, title text size and zoom: its name shows and its art, which begins under the title bar, lies wholly
+    // behind the card in front; several stack upward one title bar apart
+    @Test fun attachedCardsPeekOutByExactlyTheirTitleBar() {
+        val p = TableFixture.apart(TableFixture.play(board = 3))
+        val host = "a/BATTLEFIELD/0"
+        val state = p.copy(board = p.board.copy(cards = p.board.cards.map { c ->
+            if (c.id == "a/BATTLEFIELD/1" || c.id == "a/BATTLEFIELD/2") c.copy(attachedTo = MtgRef.Card(host, 0)) else c }))
+        for (cardScale in listOf(.65f, 1f, 2f)) for (titleScale in listOf(.5f, 1f, 2f)) for (zoom in listOf(.65f, 2f)) {
+            val appearance = CardAppearance(cardSize = cardScale, customizeText = true, text = mapOf(CardTextScalePart.TITLE to titleScale))
+            val scene = TablePresentation.scene(TableFixture.game, tableBoard(state), "a", 412f, 820f, false,
+                TableLayoutState(TableCamera(zoom = zoom)), appearance = appearance)
+            val cards = (0..2).map { n -> scene.items.single { it.cardId == "a/BATTLEFIELD/$n" } }
+            assertEquals(listOf(host, "a/BATTLEFIELD/1", "a/BATTLEFIELD/2"), scene.groupOf(host)?.members)
+            val z = cards[0].bounds.width / 28f
+            for (i in 1..2) assertEquals(cardTitleBand(titleScale) * z, cards[i - 1].bounds.y - cards[i].bounds.y, .01f,
+                "card $cardScale, title $titleScale, zoom $zoom: ${cards.map { it.bounds }}")
+        }
+    }
+
+    // TBL-054, TBL-053 (owner, 2026-11-27): every stack fans out like lands, each card 8 dp right of the one before, up to its fifth
+    // (later ones lie wholly behind the fifth), the top one carrying ×N; a land stack fans 8 dp per land without end, its top one
+    // carrying ×N too; every member is drawn and the lower ones' strips are hit as themselves; a drop on the battlefield lights up
+    // that battlefield, no slot (TBL-004, TBL-052)
+    @Test fun stacksFanOutAndShowTheirCount() {
         for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 2f)) for (tapped in listOf(false, true)) {
-            val p = TableFixture.play(board = 4)
+            val p = TableFixture.play(board = 6)
             val state = p.copy(board = p.board.copy(cards = p.board.cards.map { it.copy(tapped = tapped) }))
-            val ids = (0..3).map { "a/BATTLEFIELD/$it" }
+            val ids = (0..5).map { "a/BATTLEFIELD/$it" }
             val home = TableFixture.scene(state, landscape)
             val world = home.world!!
             val rowCenter = home.items.single { it.cardId == ids.first() }.footprint.center
             val camera = TableCamera(x = rowCenter.x - world.viewport.center.x, y = rowCenter.y - world.viewport.center.y, zoom = zoom)
             val scene = TableFixture.scene(state, landscape, TableLayoutState(camera))
             val cards = ids.map { id -> scene.items.single { it.cardId == id } }
-            listOf(0f, 3 * zoom, 6 * zoom, 6 * zoom).zip(cards).forEach { (x, card) -> assertEquals(x, card.bounds.x - cards[0].bounds.x, .001f) }
-            assertEquals(listOf(1, 1, 1, 4), cards.map { it.copies })
+            listOf(0f, 8f, 16f, 24f, 32f, 32f).zip(cards).forEach { (x, card) -> assertEquals(x * zoom, card.bounds.x - cards[0].bounds.x, .001f) }
+            assertEquals(listOf(1, 1, 1, 1, 1, 6), cards.map { it.copies })
             assertTrue(cards.all { it.group == "stack:${ids.first()}" })
             assertEquals(cards[0].id, scene.hit(TablePoint(cards[0].bounds.x + zoom, cards[0].bounds.center.y))?.id)
-            assertTrue(cards[2].visible.isEmpty(), "the fourth lies on the third")
+            assertTrue(cards[4].visible.isEmpty(), "the sixth lies on the fifth")
+            assertTrue(cards[3].visible.isNotEmpty(), "the fourth's strip shows")
             val scope = TableScope(ids.first(), ids)
             val field = listOf(scene.fields.last().bounds)
             assertEquals(field, tableDragLanding(scene, TableGesturePreview(scope = scope, destination = TableDestination.CardPile(ids.first()))).outlines)
             assertEquals(field, tableDragLanding(scene, TableGesturePreview(scope = scope, destination = TableDestination.Grid("a/BATTLEFIELD", 1, 0))).outlines)
         }
-        val lands = TableFixture.play(board = 3).let { p -> p.copy(definitions = p.definitions.map { d ->
+        val lands = TableFixture.play(board = 7).let { p -> p.copy(definitions = p.definitions.map { d ->
             d.copy(definition = d.definition.copy(faces = d.definition.faces.map { it.copy(typeLine = "Basic Land — Forest") })) }) }
         val scene = TableFixture.scene(lands)
-        val fanned = (0..2).map { n -> scene.items.single { it.cardId == "a/BATTLEFIELD/$n" } }
-        assertEquals(listOf(0f, 8f, 16f), fanned.map { it.bounds.x - fanned[0].bounds.x })
+        val fanned = (0..6).map { n -> scene.items.single { it.cardId == "a/BATTLEFIELD/$n" } }
+        assertEquals(List(7) { it * 8f }, fanned.map { it.bounds.x - fanned[0].bounds.x }, "a land stack's fan has no end")
         // TBL-054 (owner, 2026-11-12): a land stack fans and carries ×N on its top card too
-        assertEquals(listOf(1, 1, 3), fanned.map { it.copies }, "a land stack's ×N on its top card")
+        assertEquals(List(6) { 1 } + 7, fanned.map { it.copies }, "a land stack's ×N on its top card")
         assertTrue(fanned.all { it.countCorner == null && it.stackTapped == 0 }, "none tapped: ×N on the top card")
     }
 
     // TBL-054, TBL-177 (owner playtest 2026-11-19): with some members tapped a stack's count reads untapped/total, upright at its
     // bottom card's bottom-left corner (the stack's), and its tapped and upright cards line up by their bottom-left corners
-    // (a tapped one's as it lies turned), in a fanned land stack and a tight one, on both players' sides
+    // (a tapped one's as it lies turned), in a land stack and another stack (both fanning, owner 2026-11-27), on both players' sides
     @Test fun aPartlyTappedStackCountsItsUntappedAndLinesUpItsCorners() {
         for (land in listOf(true, false)) for (landscape in listOf(false, true)) {
             val p = TableFixture.play(board = 3).let { p -> if (!land) p else p.copy(definitions = p.definitions.map { d ->
@@ -310,7 +332,7 @@ class TablePresentationTest {
             val scene = TableFixture.scene(state, landscape)
             for (owner in listOf("a", "b")) {
                 val cards = (0..2).map { n -> scene.items.single { it.cardId == "$owner/BATTLEFIELD/$n" } }
-                val step = if (land) BattlefieldLayout.FAN else BattlefieldLayout.TIGHT
+                val step = BattlefieldLayout.FAN
                 val zoom = cards[0].bounds.width / 28f
                 listOf(0f, step, 2 * step).zip(cards).forEach { (dx, card) ->
                     assertEquals(cards[0].bounds.x + dx * zoom, card.bounds.x, .01f, "$owner land=$land: ${cards.map { it.bounds }}")
@@ -440,16 +462,16 @@ class TablePresentationTest {
     }
 
     @Test fun clippingAndVisiblePeeksDriveHitRectangleAndSemanticsTogether() {
-        // A tight stack of four: the first card's strip shows, the third lies wholly under the fourth (TBL-054)
-        val p = TableFixture.play(board = 4)
+        // A stack of six: the first card's strip shows, the fifth lies wholly under the sixth (TBL-054)
+        val p = TableFixture.play(board = 6)
         val scene = TableFixture.scene(p)
         val under = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }
-        val top = scene.items.single { it.cardId == "a/BATTLEFIELD/3" }
+        val top = scene.items.single { it.cardId == "a/BATTLEFIELD/5" }
         assertTrue(under.visible.isNotEmpty())
         under.visible.forEach { b -> assertEquals(under.id, scene.hit(b.center)?.id); assertTrue(under.cardId in scene.rectangle(b)) }
         val insideTop = TableBounds(top.bounds.right - 4, top.bounds.bottom - 4, 2f, 2f)
         assertEquals(setOf(top.cardId), scene.rectangle(insideTop))
-        val hidden = scene.items.single { it.cardId == "a/BATTLEFIELD/2" }
+        val hidden = scene.items.single { it.cardId == "a/BATTLEFIELD/4" }
         assertTrue(hidden.visible.isEmpty())
         assertFalse(hidden.cardId in scene.rectangle(hidden.bounds))
     }

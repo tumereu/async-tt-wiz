@@ -1,1 +1,1 @@
-2: Auras, Equipment and the other cards of a merged creature now peek out far enough to read each one's whole name.
+2: Auras, Equipment and the other cards of a merged creature now peek out just far enough to read each one's name, without their art showing.

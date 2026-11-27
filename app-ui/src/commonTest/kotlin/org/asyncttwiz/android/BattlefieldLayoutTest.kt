@@ -123,7 +123,7 @@ class BattlefieldLayoutTest {
     // TBL-004, TBL-140, TBL-141, TBL-002 (owner playtest 2026-11-07): lands from the left in the land row; in the upper band creatures from
     // the left and the other permanents from the right end, each side filling two-slot columns (the row nearest the middle
     // first, then the one behind it, then the next column inward), a column as wide as its wider group; each group takes
-    // its slot, a land stack fans, every stack carries ×N
+    // its slot, every stack fans (TBL-054, owner 2026-11-27: like lands), every stack carries ×N
     @Test fun theUpperBandFillsTwoSlotColumnsFromBothEnds() {
         val groups = BattlefieldLayout.groups(listOf(
             card("cub"), card("f1", BattlefieldRow.Lands, same), card("rock", BattlefieldRow.Others),
@@ -135,11 +135,11 @@ class BattlefieldLayoutTest {
         val front = BattlefieldRow.BAND_FRONT; val back = BattlefieldRow.BAND_BACK
         assertEquals(0f to front, spots.getValue("cub").let { it.x to it.row }, "the first creature nearest the middle, left")
         assertEquals(0f to back, spots.getValue("t1").let { it.x to it.row }, "the next one behind it")
-        assertEquals(0f + BattlefieldLayout.TIGHT, spots.getValue("t2").x)
-        assertEquals(2 * BattlefieldLayout.TIGHT, spots.getValue("t3").x)
+        assertEquals(0f + BattlefieldLayout.FAN, spots.getValue("t2").x, "the tokens fan out like lands")
+        assertEquals(2 * BattlefieldLayout.FAN, spots.getValue("t3").x)
         assertEquals(3, spots.getValue("t3").copies, "the ×N badge on the top card")
         assertEquals(0, spots.getValue("t1").copies)
-        val tokens = slot + 2 * BattlefieldLayout.TIGHT
+        val tokens = slot + 2 * BattlefieldLayout.FAN
         assertEquals(tokens to front, spots.getValue("bear").let { it.x to it.row }, "the next column, as wide as the tokens' stack")
         assertEquals(0f to BattlefieldRow.LAND_ROW, spots.getValue("f1").let { it.x to it.row })
         assertEquals(BattlefieldLayout.FAN, spots.getValue("f2").x, "lands fan out")
@@ -279,6 +279,27 @@ class BattlefieldLayoutTest {
         assertEquals(setOf("h3"), noTaps.picked)
     }
 
+    // TBL-054, TBL-002 (owner, 2026-11-27): every stack of identical permanents fans out like lands, each card 8 dp right of the one
+    // before, up to its fifth card; the cards past it lie wholly behind the fifth, the top card on top; a land stack's fan has no
+    // end; each stack's slot grows by its fan
+    @Test fun everyStackFansOutUpToFiveCardsAndLandsWithoutEnd() {
+        val tokens = (1..12).map { card("t$it", identity = same.copy(definition = "token")) }
+        val few = (1..3).map { card("s$it", identity = same.copy(definition = "spirit")) }
+        val lands = (1..7).map { card("l$it", BattlefieldRow.Lands, same) }
+        val groups = BattlefieldLayout.groups(tokens + few + lands)
+        val spots = BattlefieldLayout.place(groups, rowWidth = 400f)
+        val fan = BattlefieldLayout.FAN
+        val slot = BattlefieldLayout.SLOT
+        assertEquals(listOf(0f, fan, 2 * fan, 3 * fan) + List(8) { 4 * fan }, tokens.map { spots.getValue(it.id).x - spots.getValue("t1").x })
+        assertEquals(12, spots.getValue("t12").copies, "the ×N counts every card")
+        assertTrue(tokens.zipWithNext().all { (a, b) -> spots.getValue(a.id).order < spots.getValue(b.id).order }, "the top card on top")
+        assertEquals(listOf(0f, fan, 2 * fan), few.map { spots.getValue(it.id).x - spots.getValue("s1").x })
+        assertEquals(List(7) { it * fan }, lands.map { spots.getValue(it.id).x }, "lands fan without end")
+        assertEquals(slot + 4 * fan, BattlefieldLayout.width(groups.single { "t1" in it.members }, false))
+        assertEquals(slot + 2 * fan, BattlefieldLayout.width(groups.single { "s1" in it.members }, false))
+        assertEquals(slot + 6 * fan, BattlefieldLayout.width(groups.single { "l1" in it.members }, false))
+    }
+
     // CMB-047, CMB-070, TBL-053, TBL-178, TBL-230 (owner playtests 2026-11-07, 2026-11-20): while attackers or blockers are declared a
     // stack's staged members lie at its right end together in one pile, each taken one on top of those before (the topmost
     // first), the others where they were, each ×N counting its own; the stack's column widens, so the next column moves along
@@ -290,15 +311,16 @@ class BattlefieldLayoutTest {
         val bear = BattlefieldGroup("card:bear", "a", BattlefieldRow.Creatures, listOf("bear"), BattlefieldGroup.Kind.Single)
         val spots = BattlefieldLayout.place(listOf(cubs, imp, bear), 400f)
         val slot = BattlefieldLayout.SLOT
-        val stack = slot + 2 * BattlefieldLayout.TIGHT
-        val tight = BattlefieldLayout.TIGHT
-        assertEquals(listOf(0f, tight, stack, stack + tight), listOf("c1", "c2", "c4", "c3").map { spots.getValue(it).x })
+        // TBL-054 (owner, 2026-11-27): the stack keeps the width of its fan of four, the staged pile fanning out too
+        val fan = BattlefieldLayout.FAN
+        val stack = slot + 3 * fan
+        assertEquals(listOf(0f, fan, stack, stack + fan), listOf("c1", "c2", "c4", "c3").map { spots.getValue(it).x })
         assertEquals(listOf(null, null, attacker, attacker), listOf("c1", "c2", "c4", "c3").map { spots.getValue(it).staged })
         assertTrue(spots.getValue("c3").order > spots.getValue("c4").order, "the one taken later lies on top of the pile")
         assertEquals(2, spots.getValue("c2").copies, "×2 on the top one left")
         assertEquals(0, spots.getValue("c4").copies)
         assertEquals(2, spots.getValue("c3").copies, "×2 on the staged pile's top")
-        val pile = slot + tight
+        val pile = slot + fan
         assertEquals(stack + pile, spots.getValue("bear").x, "the next column after the staged Cubs")
         assertEquals(stack + pile, BattlefieldLayout.width(cubs, false))
     }
@@ -347,7 +369,7 @@ class BattlefieldLayoutTest {
         assertEquals(BattlefieldGroup.Kind.Stack, groups[1].kind)
         assertEquals(groups[0].key, groups[1].besideOf)
         val spots = BattlefieldLayout.place(groups, 400f)
-        val stack = BattlefieldLayout.SLOT + BattlefieldLayout.TIGHT
+        val stack = BattlefieldLayout.SLOT + BattlefieldLayout.FAN
         assertEquals(stack, spots.getValue("c4").x, "the pile right after the stack")
         assertEquals(spots.getValue("c1").row, spots.getValue("c4").row, "in the stack's row")
         assertEquals(2, spots.getValue("c3").copies, "×2 on the pile's top")

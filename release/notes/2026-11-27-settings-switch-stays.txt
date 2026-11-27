@@ -1,0 +1,1 @@
+3: A setting you change the moment Settings opens no longer jumps back to what it was.

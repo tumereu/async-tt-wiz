@@ -73,14 +73,23 @@ val DeckVisibility.explanation get() = when (this) {
 class AccountSettingsState(private val source: AccountSettingsSource, private val scope: kotlinx.coroutines.CoroutineScope) {
     var settings by mutableStateOf<AccountSettings?>(null); private set
     var error by mutableStateOf<String?>(null); private set
+    /** The changes made here so far: a read that a change overtook shows nothing older than the change. */
+    private var changes = 0
+    private fun change(next: AccountSettings) { changes++; settings = next }
     fun load() = scope.launch {
-        settings = source.cached()
+        val before = changes
+        val cached = source.cached()
+        if (changes == before) settings = cached
         // Background read: a failure stays silent, the cached value remains shown.
-        runCatching { source.refresh() }.onSuccess { settings = it }
+        runCatching { source.refresh() }.onSuccess {
+            // A change made while the read was on its way is newer than what it read (the change is sent after it)
+            if (changes == before) settings = it
+            else AppLog.info("settings", "The server's settings read before a change made meanwhile: the change kept")
+        }
     }
     fun setDeckVisibility(visibility: DeckVisibility) {
         val next = (settings ?: AccountSettings()).copy(deckVisibility = visibility)
-        settings = next
+        change(next)
         scope.launch {
             runCatching { source.set(next) }.onFailure {
                 error = "Couldn't save deck visibility to the server. It is kept on this device and sent later."
@@ -92,7 +101,7 @@ class AccountSettingsState(private val source: AccountSettingsSource, private va
     fun setPlayDefaults(defaults: org.asyncttwiz.protocol.game.PlaySettings) {
         val next = (settings ?: AccountSettings()).copy(playDefaults = defaults)
         if (next == settings) return
-        settings = next
+        change(next)
         scope.launch {
             runCatching { source.set(next) }.onFailure {
                 error = "Couldn't save your settings for new games to the server. They are kept on this device and sent later."
@@ -103,7 +112,7 @@ class AccountSettingsState(private val source: AccountSettingsSource, private va
     fun setMoveSound(sound: MoveSound) {
         val next = (settings ?: AccountSettings()).copy(moveSound = sound)
         if (next == settings) return
-        settings = next
+        change(next)
         AppLog.info("settings", "Your move sound set to ${sound.id}")
         scope.launch {
             runCatching { source.set(next) }.onFailure {
@@ -116,7 +125,7 @@ class AccountSettingsState(private val source: AccountSettingsSource, private va
         val current = settings ?: AccountSettings()
         val next = current.copy(notifications = current.notifications.with(kind, on))
         if (next == settings) return
-        settings = next
+        change(next)
         AppLog.info("settings", "Notifications: ${kind.id} ${if (on) "on" else "off"}")
         scope.launch {
             runCatching { source.set(next) }.onFailure {
@@ -129,7 +138,7 @@ class AccountSettingsState(private val source: AccountSettingsSource, private va
         applied?.set(bindings)
         val next = (settings ?: AccountSettings()).copy(keyBindings = bindings.overrides)
         if (next == settings) return
-        settings = next
+        change(next)
         scope.launch {
             runCatching { source.set(next) }.onFailure {
                 error = "Couldn't save your keyboard shortcuts to the server. They are kept on this device and sent later."

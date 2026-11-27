@@ -1,0 +1,1 @@
+2: Stats has a Drafts tab: your last 20 drafts with card ratings, each opening its draft history with the ratings, even after its pod is deleted.

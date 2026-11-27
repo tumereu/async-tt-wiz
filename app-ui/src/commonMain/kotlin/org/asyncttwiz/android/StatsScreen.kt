@@ -33,11 +33,11 @@ val SeriesThem = Color(0xffeb6834)
 
 /**
  * The Stats screen (game history spec §3.3): opponent chips (All, then each opponent by number of matches) filtering
- * everything below, and two tabs: History (every record, newest first; a tap opens its details) and Graphs (summary tiles
- * and graphs drawn in the app).
+ * everything below, and three tabs: History (every record, newest first; a tap opens its details), Graphs (summary tiles
+ * and graphs drawn in the app) and Drafts (the kept drafts, LOB-280; their card ratings read through [filters]).
  */
 @Composable
-fun StatsContent(history: HistoryController, me: String, openDeck: ((String) -> Unit)?) {
+fun StatsContent(history: HistoryController, me: String, filters: PodCardFilters? = null, openDeck: ((String) -> Unit)?) {
     LaunchedEffect(Unit) { history.loadStats() }
     val list = history.stats
     val choice = history.choice
@@ -61,19 +61,24 @@ fun StatsContent(history: HistoryController, me: String, openDeck: ((String) -> 
                 label = { Text(opponent.account.username) }, leadingIcon = { Avatar(opponent.account, size = 20.dp) },
                 modifier = Modifier.testTag("stats-chip-${opponent.account.accountId}"))
         }
-        TabRow(if (choice.graphs) 1 else 0) {
-            Tab(!choice.graphs, { history.graphs(false) }, text = { Text("History") })
-            Tab(choice.graphs, { history.graphs(true) }, text = { Text("Graphs") }, modifier = Modifier.testTag("stats-graphs-tab"))
+        TabRow(StatsTab.all.indexOf(choice.tab)) {
+            for (tab in StatsTab.all) Tab(choice.tab == tab, { history.tab(tab) }, text = { Text(tab.title) },
+                modifier = Modifier.testTag("stats-${tab.title.lowercase()}-tab"))
         }
         val records = remember(all, choice.opponent) { MatchStats.with(all, me, choice.opponent) }
         val opponent = opponents.firstOrNull { it.account.accountId == choice.opponent }?.account
-        if (!choice.graphs) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (records.isEmpty()) Text("No matches yet. Finished matches show here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            // WEB-042: on the desktop layout the records fill the width in columns
-            if (desktopLayout()) StatsColumns(records.map { record -> { MatchRow(record, me) { details = record } } }, 8.dp)
-            else records.forEach { record -> MatchRow(record, me) { details = record } }
-        } else StatsGraphs(records, me, opponent, Modifier.weight(1f))
+        when (choice.tab) {
+            StatsTab.History -> Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (records.isEmpty()) Text("No matches yet. Finished matches show here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // WEB-042: on the desktop layout the records fill the width in columns
+                if (desktopLayout()) StatsColumns(records.map { record -> { MatchRow(record, me) { details = record } } }, 8.dp)
+                else records.forEach { record -> MatchRow(record, me) { details = record } }
+            }
+            StatsTab.Graphs -> StatsGraphs(records, me, opponent, Modifier.weight(1f))
+            // LOB-280: the kept drafts, the chosen opponent's only
+            StatsTab.Drafts -> StatsDraftsTab(history, me, choice.opponent, filters, Modifier.weight(1f).fillMaxWidth())
+        }
     }
     details?.let { MatchDetailsDialog(it, me, openDeck) { details = null } }
 }

@@ -32,6 +32,10 @@ actual fun matchDate(record: MatchRecord): String = runCatching {
     DateTimeFormatter.ofPattern("d MMM uuuu").withZone(AppClock.clock().zone).format(Instant.parse(record.endedAt))
 }.getOrDefault("")
 
+actual fun draftDate(draft: org.asyncttwiz.protocol.DraftRecordSummary): String = runCatching {
+    DateTimeFormatter.ofPattern("d MMM uuuu").withZone(AppClock.clock().zone).format(Instant.parse(draft.finishedAt))
+}.getOrDefault("")
+
 actual fun matchDuration(record: MatchRecord): String = runCatching {
     val minutes = Duration.between(Instant.parse(record.startedAt), Instant.parse(record.endedAt)).toMinutes().coerceAtLeast(0)
     when {

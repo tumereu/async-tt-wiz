@@ -12,8 +12,18 @@ import kotlin.concurrent.Volatile
  * when the last read failed (the earlier list stays shown). */
 data class HistoryList<T>(val value: T? = null, val loading: Boolean = false, val failed: Boolean = false)
 
+/** The Stats screen's tabs (LOB-130). */
+sealed class StatsTab(val title: String) {
+    data object History : StatsTab("History")
+    data object Graphs : StatsTab("Graphs")
+    /** LOB-280: the kept drafts. */
+    data object Drafts : StatsTab("Drafts")
+    // A getter: the objects are made after their sealed class, so a stored list would hold nulls
+    companion object { val all: List<StatsTab> get() = listOf(History, Graphs, Drafts) }
+}
+
 /** The Stats screen's personal choices: the opponent chip (null: All) and the tab. */
-data class StatsChoice(val opponent: String? = null, val graphs: Boolean = false)
+data class StatsChoice(val opponent: String? = null, val tab: StatsTab = StatsTab.History)
 
 /**
  * Game history (spec game-history §3): the server's records as the app reads them: the account's (the Stats screen), a
@@ -30,11 +40,48 @@ class HistoryController(private val api: Lobbies, private val credential: () -> 
         public set // tests seed it
     var pods by mutableStateOf(mapOf<String, HistoryList<PodMatches>>())
         public set // tests seed it
+    /** LOB-280: the account's kept drafts (Stats' Drafts tab). */
+    var drafts by mutableStateOf(HistoryList<List<DraftRecordSummary>>())
+        public set // tests seed it
+    /** LOB-281: the kept drafts opened, by id, each with its draft history. */
+    var draftRecords by mutableStateOf(mapOf<String, HistoryList<DraftRecord>>())
+        public set // tests seed it
     @Volatile private var epoch = 0L
 
-    fun clear() { epoch++; stats = HistoryList(); games = emptyMap(); pods = emptyMap(); choice = StatsChoice() }
+    fun clear() {
+        epoch++; stats = HistoryList(); games = emptyMap(); pods = emptyMap(); drafts = HistoryList(); draftRecords = emptyMap()
+        choice = StatsChoice()
+    }
     fun opponent(accountId: String?) { choice = choice.copy(opponent = accountId) }
-    fun graphs(on: Boolean) { choice = choice.copy(graphs = on) }
+    fun tab(tab: StatsTab) {
+        if (tab != choice.tab) AppLog.info("history", "Stats: ${tab.title} tab")
+        choice = choice.copy(tab = tab)
+    }
+
+    /** LOB-280: reads the account's kept drafts (on opening the Drafts tab). */
+    fun loadDrafts() {
+        AppLog.info("history", "Kept drafts read")
+        drafts = drafts.copy(loading = true)
+        read({ api.drafts(it).drafts }) { result ->
+            if (result == null) AppLog.info("history", "Kept drafts read failed; the earlier list stays")
+            else AppLog.info("history", "Kept drafts read: ${result.size} (${result.joinToString { "${it.id.take(8)} '${it.podName}' " +
+                "${it.settings.mode.name.lowercase()} ${it.source.setCode} ${it.finishedAt}" }})")
+            drafts = result?.let { HistoryList(it) } ?: drafts.copy(loading = false, failed = true)
+        }
+    }
+
+    /** LOB-281: reads kept draft [id] with its draft history (on opening it from the Drafts tab, and on Retry). */
+    fun loadDraft(id: String) {
+        AppLog.info("history", "Kept draft ${id.take(8)} read")
+        draftRecords = draftRecords + (id to (draftRecords[id] ?: HistoryList()).copy(loading = true, failed = false))
+        read({ api.draft(it, id) }) { result ->
+            if (result == null) AppLog.info("history", "Kept draft ${id.take(8)} read failed")
+            else AppLog.info("history", "Kept draft ${id.take(8)} read: pod ${result.summary.podId.take(8)} '${result.summary.podName}', " +
+                "${result.history.picks.size} picks, ${result.history.definitions.size} definitions, seating ${result.history.seating}")
+            draftRecords = draftRecords + (id to (result?.let { HistoryList(it) }
+                ?: (draftRecords[id] ?: HistoryList()).copy(loading = false, failed = true)))
+        }
+    }
 
     /** Reads the account's records (Stats). */
     fun loadStats() {

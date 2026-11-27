@@ -37,21 +37,33 @@ class PodHistoryRoundsTest {
             DraftHistoryPick(2, 1, listOf(copy(6)), emptyList(), round = 2))
         // Round 1: its header, pick 1's header and 2 cards, pick 2's header, 1 card, the Taken since line and 2 cards; round 2:
         // its header, the pick's header and 1 card
-        assertEquals(List(9) { 1 } + List(3) { 2 }, podHistoryItemRounds(podHistoryRounds(picks, returningOnly = false)))
+        assertEquals(List(9) { 1 } + List(3) { 2 }, podHistoryItemRounds(podHistoryRounds(picks, PodHistoryPacks.All)))
     }
 
-    // DRF-165, DRF-205, DRF-209: picks grouped by round in order, keeping their places; Returning packs only leaves only packs that came back,
-    // and a round without one isn't shown
+    // DRF-165, DRF-205, DRF-209: picks grouped by round in order, keeping their places; Returning leaves only packs that came back,
+    // New only each pack the first time it reached you, and a round without one isn't shown
     @Test fun picksGroupByRoundAndTheFilterKeepsReturningPacks() {
         val picks = listOf(pick(1, 1), pick(1, 2), pick(1, 3, returning = true), pick(2, 1), pick(2, 2), pick(3, 1), pick(3, 3, returning = true))
-        val all = podHistoryRounds(picks, returningOnly = false)
+        val all = podHistoryRounds(picks, PodHistoryPacks.All)
         assertEquals(listOf(1 to listOf(0, 1, 2), 2 to listOf(3, 4), 3 to listOf(5, 6)), all.map { (round, shown) -> round to shown.map { it.index } })
-        val returning = podHistoryRounds(picks, returningOnly = true)
+        val returning = podHistoryRounds(picks, PodHistoryPacks.Returning)
         assertEquals(listOf(1 to listOf(2), 3 to listOf(6)), returning.map { (round, shown) -> round to shown.map { it.index } })
-        assertEquals(emptyList(), podHistoryRounds(picks.filter { !it.returning }, returningOnly = true))
+        assertEquals(emptyList(), podHistoryRounds(picks.filter { !it.returning }, PodHistoryPacks.Returning))
+        val new = podHistoryRounds(picks, PodHistoryPacks.New)
+        assertEquals(listOf(1 to listOf(0, 1), 2 to listOf(3, 4), 3 to listOf(5)), new.map { (round, shown) -> round to shown.map { it.index } })
+        assertEquals(emptyList(), podHistoryRounds(picks.filter { it.returning }, PodHistoryPacks.New))
         // A round's last card given automatically after the next round opened still shows under its own round
         val late = listOf(pick(1, 1), pick(1, 2), pick(2, 1), pick(1, 3, returning = true), pick(2, 2))
         assertEquals(listOf(1 to listOf(0, 1, 3), 2 to listOf(2, 4)),
-            podHistoryRounds(late, returningOnly = false).map { (round, shown) -> round to shown.map { it.index } })
+            podHistoryRounds(late, PodHistoryPacks.All).map { (round, shown) -> round to shown.map { it.index } })
+    }
+
+    // DRF-209 (owner, 2026-11-26): the packs chip goes round All packs → Returning → New → All packs, its choice kept by its key
+    @Test fun thePacksChipGoesRoundItsThreeChoices() {
+        val round = generateSequence<PodHistoryPacks>(PodHistoryPacks.All) { it.next }.take(4).toList()
+        assertEquals(listOf("All packs", "Returning", "New", "All packs"), round.map { it.label })
+        for (choice in listOf(PodHistoryPacks.All, PodHistoryPacks.Returning, PodHistoryPacks.New))
+            assertEquals(choice, PodHistoryPacks.of(choice.key))
+        assertEquals(PodHistoryPacks.All, PodHistoryPacks.of(null))
     }
 }

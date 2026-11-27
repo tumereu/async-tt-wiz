@@ -125,20 +125,42 @@ class WebEndTurnRespondTest : E2e() {
                         false
                     }
                 }
-                /** Alice's stop at [step] holds: nothing passes for her for a few seconds. */
+                /** Whether the game stands at Alice's priority at [step], Bob's phone waiting for her. */
+                fun gameAt(step: TurnStep) = bob.state.let { s -> s.turn.step == step && s.priority.holder == alice } &&
+                    bob.status is GameDevice.Status.Waiting
+                /** Alice's stop at [step] holds: her browser offers her own move there again (TRN-119: while her device passes by
+                 * itself the main button holds nothing; never an Assume of hers here), and nothing passes for her for a few seconds. */
                 fun holds(step: TurnStep) {
+                    waitUntil("Alice's browser offering her own move at $step") {
+                        gameAt(step) && web.mainWords().let { words -> !words.isNullOrBlank() && !words.startsWith("Assume") }
+                    }
+                    val offered = web.mainWords()
                     repeat(3) { run(skip = Duration.ofSeconds(1)) }
                     web.page.waitForTimeout(1_000.0)
-                    assertTrue(aliceAt(step), "still Alice's priority at $step: ${bob.state.turn} ${bob.state.priority} ${bob.status}")
+                    val s = bob.state
+                    assertTrue(gameAt(step), "still Alice's priority at $step: ${s.turn} ${s.priority} ${bob.status}")
+                    assertTrue(!web.mainWords().isNullOrBlank(), "her main button still offers her move (it said \"$offered\"): ${web.mainWords()}")
+                }
+                /** Alice ends the turn at her stop at [step] (WEB-031: Shift+Space is End turn), pressed again only while the game
+                 * still stands at her own stop, until [done]. Why again: the page's semantics mirror (what [E2eBrowser.mainWords]
+                 * reads) lags the screen by up to a second, so a first press may come before the app shows the main button there;
+                 * the app then ignores it and logs so ("Hotkey Shift+Space on the table: main button's hold (nothing to do)", gate
+                 * run 2026-11-27), as it does for any key pressed while the main button offers nothing. */
+                fun endTurnAt(step: TurnStep, what: String, done: () -> Boolean) {
+                    var held = 0L
+                    waitUntil(what, timeoutSeconds = 90) {
+                        if (done()) true else {
+                            if (aliceAt(step) && System.nanoTime() - held > 3_000_000_000L) { web.page.keyboard().press("Shift+Space"); held = System.nanoTime() }
+                            false
+                        }
+                    }
                 }
                 passUntil("Bob's Main 1") { bob.inOwnMain() }
                 bob.playFromHand("Ember Dasher", this)
                 passUntil("Bob's Dasher resolved, his Main 1 again") { bob.field("Ember Dasher").isNotEmpty() && bob.inOwnMain() }
                 bob.tap("To combat")
                 waitUntil("Alice's priority in Bob's Main 1") { aliceAt(TurnStep.PrecombatMain) }
-                // WEB-031: Shift+Space is End turn
-                web.page.keyboard().press("Shift+Space")
-                waitUntil("Bob declaring attackers") { bob.state.turn.step == TurnStep.DeclareAttackers && bob.settled(this) }
+                endTurnAt(TurnStep.PrecombatMain, "Bob declaring attackers") { bob.state.turn.step == TurnStep.DeclareAttackers && bob.settled(this) }
                 bob.stageAttacker("Ember Dasher", this)
                 waitUntil("the Dasher staged") { bob.stepArrow() == "Attack (1)" }
                 bob.tap("Attack (1)")
@@ -153,12 +175,15 @@ class WebEndTurnRespondTest : E2e() {
                 passUntil("Alice's priority after the blocks") { aliceAt(TurnStep.DeclareBlockers) }
                 holds(TurnStep.DeclareBlockers)
                 passUntil("Alice's priority at the end of combat") { aliceAt(TurnStep.EndOfCombat) }
-                web.page.keyboard().press("Shift+Space")
-                waitUntil("Bob's Main 2") { bob.inOwnMain(TurnStep.PostcombatMain) && bob.settled(this) }
+                endTurnAt(TurnStep.EndOfCombat, "Bob's Main 2") { bob.inOwnMain(TurnStep.PostcombatMain) && bob.settled(this) }
                 bob.playFromHand("Mountain", this)
                 waitUntil("Bob's Mountain, his Main 2 again") { bob.field("Mountain").isNotEmpty() && bob.inOwnMain(TurnStep.PostcombatMain) }
-                assertTrue(web.console.any { "End turn ends: the other player played the land" in it },
-                    "Alice's log tells her End turn ended: ${web.console.filter { "End turn" in it }}")
+                // Her log says so once Bob's land reaches her browser
+                waitUntil("Alice's log telling her End turn ended with Bob's land") {
+                    // Playwright hands over the page's console messages only during a call to it
+                    web.page.waitForTimeout(100.0)
+                    web.console.any { "End turn ends: the other player played the land" in it }
+                }
                 bob.tap("End turn")
                 waitUntil("Alice's priority in Bob's Main 2", timeoutSeconds = 90) { aliceAt(TurnStep.PostcombatMain) }
                 holds(TurnStep.PostcombatMain)

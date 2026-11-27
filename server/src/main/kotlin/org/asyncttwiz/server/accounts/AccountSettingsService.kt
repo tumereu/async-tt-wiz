@@ -47,7 +47,7 @@ class AccountSettingsService(private val runtime: ServiceRuntime) {
     private companion object { val log = org.slf4j.LoggerFactory.getLogger(AccountSettingsService::class.java) }
 }
 
-/** LOB-276: the kinds of notification the account gets, as JSON; null in the database: every kind. */
+/** LOB-276: the kinds of notification the account gets, as JSON; null in the database: the default ones (all but Chat). */
 internal object NotificationSettingsStore {
     fun read(sql: DSLContext, account: UUID): NotificationSettings =
         decode(sql.select(ACCOUNT.NOTIFICATION_SETTINGS).from(ACCOUNT).where(ACCOUNT.ID.eq(account)).fetchOne(ACCOUNT.NOTIFICATION_SETTINGS))
@@ -58,10 +58,10 @@ internal object NotificationSettingsStore {
 
     fun decode(stored: String?): NotificationSettings =
         stored?.let { runCatching { GameWire.json.decodeFromString(NotificationSettings.serializer(), it) }.getOrNull() }
-            ?: NotificationSettings.ALL_ON
+            ?: NotificationSettings.DEFAULT
 
     fun save(sql: DSLContext, account: UUID, settings: NotificationSettings) {
-        sql.update(ACCOUNT).set(ACCOUNT.NOTIFICATION_SETTINGS, if (settings == NotificationSettings.ALL_ON) null
+        sql.update(ACCOUNT).set(ACCOUNT.NOTIFICATION_SETTINGS, if (settings == NotificationSettings.DEFAULT) null
             else GameWire.json.encodeToString(NotificationSettings.serializer(), settings)).where(ACCOUNT.ID.eq(account)).execute()
     }
 }

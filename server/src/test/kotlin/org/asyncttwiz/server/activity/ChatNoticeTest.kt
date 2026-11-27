@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 /** LOB-277 (owner, 2026-11-26): a game's chat message notifies the other player in a notice of its own, one per chat; the
- * Chat switch (LOB-276) decides whether any device is told or pushed it. */
+ * Chat switch (LOB-276, off until the player switches it on, owner 2026-11-27) decides whether any device is told or pushed it. */
 class ChatNoticeTest {
     private fun id() = ActivityFixture.id()
     private val browserKey = "B" + "A".repeat(86)
@@ -33,13 +33,18 @@ class ChatNoticeTest {
     private fun ActivityService.told(who: AccountService.Principal, cursor: String): Pair<List<ActivityHint>, String> =
         page(who, cursor).let { it.readyNotices!! to it.nextCursor }
 
-    // LOB-277, LOB-184: Alice's message reaches Bob's devices as the chat's notice: "<game> · vs <author>" over the message (a
+    /** LOB-276: [who] switches Chat on (off by default). */
+    private fun ActivityFixture.chatOn(who: AccountService.Principal) =
+        AccountSettingsService(runtime).set(who.account.accountId, AccountSettings(notifications = NotificationSettings(chat = true)))
+
+    // LOB-277, LOB-184: with Chat on, Alice's message reaches Bob's devices as the chat's notice: "<game> · vs <author>" over the message (a
     // browser ready-made, quiet when it replaces one still showing); the game's own notice isn't sent again for it, though
     // " · new message" follows; a second message updates the one notice ("2 new messages · …"); reading the chat through
     // clears it on every device
     @Test fun `a chat message notifies the other player in the chat's one notice until read`() {
         ActivityFixture().use { f ->
             val clock = ActivityClock(); val service = ActivityService(f.runtime, clock)
+            f.chatOn(f.b)
             service.register(f.b, RegisterInstallation(id(), id(), webPush = subscription()))
             val game = f.accept(f.create())
             var cursor = service.page(f.b, null).nextCursor
@@ -79,11 +84,12 @@ class ChatNoticeTest {
         }
     }
 
-    // LOB-277: no chat notice while the game is open on any of the player's devices: one arriving then is never told nor
+    // LOB-277: with Chat on, no chat notice while the game is open on any of the player's devices: one arriving then is never told nor
     // pushed, also after they leave (they saw the game with it)
     @Test fun `no chat notice comes while the game is open`() {
         ActivityFixture().use { f ->
             val clock = ActivityClock(); val service = ActivityService(f.runtime, clock)
+            f.chatOn(f.b)
             service.register(f.b, RegisterInstallation(id(), id(), webPush = subscription()))
             val game = f.accept(f.create())
             var cursor = service.page(f.b, null).nextCursor
@@ -109,12 +115,14 @@ class ChatNoticeTest {
         }
     }
 
-    // LOB-276, LOB-277: with Chat off, a message is told to none of the account's devices and pushed to none (browser or
-    // Android installation); the in-app unread marks still tell it
+    // LOB-276, LOB-277 (owner, 2026-11-27): with Chat off, as it is until the player switches it on, a message is told to none of
+    // the account's devices and pushed to none (browser or Android installation); the in-app unread marks still tell it; switched
+    // off again after being on, the same
     @Test fun `with Chat off a message notifies no device`() {
-        ActivityFixture().use { f ->
+        for (switched in listOf(false, true)) ActivityFixture().use { f ->
             val clock = ActivityClock(); val service = ActivityService(f.runtime, clock)
-            AccountSettingsService(f.runtime).set(f.b.account.accountId, AccountSettings(notifications = NotificationSettings(chat = false)))
+            if (switched) AccountSettingsService(f.runtime).set(f.b.account.accountId,
+                AccountSettings(notifications = NotificationSettings(chat = false, draft = false)))
             service.register(f.b, RegisterInstallation(id(), id(), webPush = subscription()))
             service.register(f.b, RegisterInstallation(id(), id(), "synthetic-android-token"))
             val game = f.accept(f.create())

@@ -50,10 +50,11 @@ sealed class NotificationKind(val id: String, val label: String, val explanation
 
 /**
  * LOB-276 (owner, 2026-11-26): which kinds of notification ([NotificationKind]) the account gets, on every phone and browser;
- * each on unless switched off. The server sends no push of a kind that is off and tells no device to show one.
+ * each on unless switched off, but Chat off unless switched on (owner, 2026-11-27). The server sends no push of a kind that is
+ * off and tells no device to show one.
  */
 @Serializable
-data class NotificationSettings(val yourMove: Boolean = true, val reminders: Boolean = true, val chat: Boolean = true,
+data class NotificationSettings(val yourMove: Boolean = true, val reminders: Boolean = true, val chat: Boolean = false,
     val invitations: Boolean = true, val draft: Boolean = true, val gameOver: Boolean = true) {
     fun allows(kind: NotificationKind): Boolean = when (kind) {
         NotificationKind.YourMove -> yourMove
@@ -80,6 +81,7 @@ data class NotificationSettings(val yourMove: Boolean = true, val reminders: Boo
     val off: List<NotificationKind> get() = NotificationKind.all.filterNot(::allows)
 
     companion object {
-        val ALL_ON = NotificationSettings()
+        /** An account's kinds until it switches one: all on but Chat (LOB-276, owner 2026-11-27). */
+        val DEFAULT = NotificationSettings()
     }
 }

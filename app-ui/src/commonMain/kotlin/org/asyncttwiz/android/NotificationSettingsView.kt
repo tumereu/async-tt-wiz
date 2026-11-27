@@ -23,7 +23,7 @@ import org.asyncttwiz.protocol.NotificationSettings
  */
 @Composable
 fun NotificationSettingsRows(state: AccountSettingsState) {
-    val settings = state.settings?.notifications ?: NotificationSettings.ALL_ON
+    val settings = state.settings?.notifications ?: NotificationSettings.DEFAULT
     for (kind in NotificationKind.all) {
         val on = settings.allows(kind)
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("notification-kind-${kind.id}")

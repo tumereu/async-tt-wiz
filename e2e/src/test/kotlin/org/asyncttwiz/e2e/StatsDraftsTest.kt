@@ -1,5 +1,6 @@
 package org.asyncttwiz.e2e
 
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -55,13 +56,13 @@ class StatsDraftsTest : E2e() {
         // A rated card's chip, as in the pod's own dialog
         waitUntil("a rated card's win rate") { alice.shows(hasContentDescription("rated ", substring = true)) }
         // The packs chip goes round: All packs, then Returning
-        assertTrue(alice.shows(hasTestTag("pod-history-returning") and hasText("All packs")), alice.screen())
+        assertTrue(alice.shows(hasTestTag("pod-history-returning") and hasAnyDescendant(hasText("All packs"))), alice.screen())
         alice.tagged("pod-history-returning").performClick()
-        waitUntil("Returning") { alice.shows(hasTestTag("pod-history-returning") and hasText("Returning") and isSelected()) }
+        waitUntil("Returning") { alice.shows(hasTestTag("pod-history-returning") and hasAnyDescendant(hasText("Returning")) and isSelected()) }
         alice.tagged("pod-history-returning").performClick()
-        waitUntil("New") { alice.shows(hasTestTag("pod-history-returning") and hasText("New") and isSelected()) }
+        waitUntil("New") { alice.shows(hasTestTag("pod-history-returning") and hasAnyDescendant(hasText("New")) and isSelected()) }
         alice.tagged("pod-history-returning").performClick()
-        waitUntil("All packs again") { alice.shows(hasTestTag("pod-history-returning") and hasText("All packs")) }
+        waitUntil("All packs again") { alice.shows(hasTestTag("pod-history-returning") and hasAnyDescendant(hasText("All packs"))) }
         alice.node(hasContentDescription("Close draft history")).performClick()
         waitUntil("back at the Drafts tab") { !alice.shows(hasTestTag("pod-history-dialog")) && alice.showsText(name) }
     }

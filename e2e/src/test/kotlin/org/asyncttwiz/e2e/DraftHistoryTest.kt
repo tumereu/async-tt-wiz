@@ -1,5 +1,6 @@
 package org.asyncttwiz.e2e
 
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -221,12 +222,12 @@ class DraftHistoryTest : E2e() {
         waitUntil("the returning pack only, again") { alice.pods.history != null && onlyReturning() }
         alice.tagged("pod-history-returning").performClick()
         waitUntil("New: each pack the first time only") {
-            alice.shows(hasTestTag("pod-history-returning") and hasText("New")) && alice.showsText("Pack 1 · Pick 1") &&
+            alice.shows(hasTestTag("pod-history-returning") and hasAnyDescendant(hasText("New"))) && alice.showsText("Pack 1 · Pick 1") &&
                 !alice.shows(hasTestTag("pod-history-header-${returning.single().index}"))
         }
         alice.tagged("pod-history-returning").performClick()
         waitUntil("every pick again") {
-            alice.shows(hasTestTag("pod-history-returning") and hasText("All packs")) && alice.showsText("Pack 1 · Pick 1") &&
+            alice.shows(hasTestTag("pod-history-returning") and hasAnyDescendant(hasText("All packs"))) && alice.showsText("Pack 1 · Pick 1") &&
                 alice.shows(hasTestTag("pod-history-header-${returning.single().index}"))
         }
     }

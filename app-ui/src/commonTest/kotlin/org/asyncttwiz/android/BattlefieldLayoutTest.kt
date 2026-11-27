@@ -380,6 +380,44 @@ class BattlefieldLayoutTest {
         assertEquals(listOf(listOf("c1", "c2", "c4", "c3"), listOf("imp")), BattlefieldLayout.groups(all).map { it.members })
     }
 
+    // TBL-053, TBL-178, TBL-129 (owner playtest 2026-11-27: you can't see what is targeted): while an entry on the Stack targets a
+    // battlefield card (a spell or an ability, the top one or a lower one, whoever controls it) it lies on its own right after
+    // its identical cards' stack, in its row; two of them each on their own; once nothing targets it, it rejoins its stack
+    @Test fun aCardAStackEntryTargetsLiesApartFromItsStack() {
+        val cub = CardDefinition("Cub", listOf(DefinitionFace("cub", "Cub", typeLine = "Creature — Cat")))
+        val imp = CardDefinition("Imp", listOf(DefinitionFace("imp", "Imp", typeLine = "Creature — Imp")))
+        val ids = listOf("c1", "c2", "c3", "imp", "c4")
+        val field = PlayContainer("a/BATTLEFIELD", PlayZone.BATTLEFIELD, "a", ids)
+        val cards = ids.map { PlayCard(it, if (it == "imp") "imp" else "cub", "a", field.id, if (it == "imp") "imp" else "cub", covered = false) }
+        fun entry(id: String, controller: String, kind: MtgStackKind, vararg targets: String) = StackEffect(id, id, controller = controller,
+            item = MtgStackItem(MtgRef.StackItem(id), kind, controller, targets = mapOf("0" to targets.map { MtgRef.Card(it, 0) }), timestamp = 1))
+        val board = BoardState(players = emptyList(), cards = cards, containers = listOf(field), turn = TurnState("b", "4"),
+            priority = MtgPriority("a"))
+        val definitions = mapOf("cub" to cub, "imp" to imp)
+        fun groups(vararg entries: StackEffect) = BattlefieldLayout.groups(BattlefieldLayout.cards(board.copy(stackEffects = entries.toList()),
+            definitions, org.asyncttwiz.automatum.ComputedBoard.NONE))
+        assertEquals(listOf(listOf("c1", "c2", "c3", "c4"), listOf("imp")), groups().map { it.members }, "nothing targeted: one stack")
+        // The other player's spell targets the first Cub: it lies right after the other three
+        val spark = entry("spark", "b", MtgStackKind.Spell, "c1")
+        val apart = groups(spark)
+        assertEquals(listOf(listOf("c2", "c3", "c4"), listOf("c1"), listOf("imp")), apart.map { it.members })
+        assertEquals(apart[0].key, apart[1].besideOf)
+        val spots = BattlefieldLayout.place(apart, 400f)
+        assertEquals(spots.getValue("c2").row, spots.getValue("c1").row, "in its stack's row")
+        assertEquals(BattlefieldLayout.SLOT + 2 * BattlefieldLayout.FAN, spots.getValue("c1").x, "right after the stack of three")
+        // A lower entry's target (the viewer's own ability under it) too, each on its own
+        val ability = entry("ability", "a", MtgStackKind.Activated, "c3")
+        assertEquals(listOf(listOf("c2", "c4"), listOf("c1"), listOf("c3"), listOf("imp")), groups(spark, ability).map { it.members })
+        assertEquals(setOf("c1", "c3"), BattlefieldLayout.apart(BattlefieldLayout.cards(board.copy(stackEffects = listOf(spark, ability)),
+            definitions, org.asyncttwiz.automatum.ComputedBoard.NONE)))
+        // A card without identical ones lies as before
+        assertEquals(listOf(listOf("c1", "c2", "c3", "c4"), listOf("imp")), groups(entry("bolt", "b", MtgStackKind.Spell, "imp")).map { it.members })
+        assertEquals(emptySet(), BattlefieldLayout.apart(BattlefieldLayout.cards(board.copy(stackEffects = listOf(entry("bolt", "b",
+            MtgStackKind.Spell, "imp"))), definitions, org.asyncttwiz.automatum.ComputedBoard.NONE)))
+        // The spell gone: the Cub rejoins its stack
+        assertEquals(listOf(listOf("c1", "c2", "c3", "c4"), listOf("imp")), groups().map { it.members })
+    }
+
     // TBL-004, TBL-140, TBL-053, TBL-179: read from a board: the type line it has now, a face-down card alone in the creature row, an aura
     // with its host, and the same state stacking
     @Test fun cardsAreReadFromTheBoard() {

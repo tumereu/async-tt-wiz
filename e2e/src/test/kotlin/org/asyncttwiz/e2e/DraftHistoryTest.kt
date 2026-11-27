@@ -176,8 +176,9 @@ class DraftHistoryTest : E2e() {
     }
 
     // DRF-165, DRF-206, DRF-209, DRF-210, DRF-043 (owner, 2026-11-10 and 2026-11-11): the history shows a header per round naming where its packs
-    // went and a seat ring of the pod's real seating; Returning packs only leaves just the packs that came back to you in a
-    // round (here the first pack's last card, given automatically), and stays on for this pod when the history opens again
+    // went and a seat ring of the pod's real seating; the packs chip's Returning leaves just the packs that came back to you in
+    // a round (here the first pack's last card, given automatically) and stays for this pod when the history opens again; its
+    // next tap, New, leaves every pack but that one, and the next shows All packs again (owner, 2026-11-26)
     @Test fun historyHasRoundHeadersAndReturningPacksOnly() {
         launchPlayers()
         val name = "E2E History rounds ${UUID.randomUUID().toString().take(6)}"
@@ -219,6 +220,14 @@ class DraftHistoryTest : E2e() {
         alice.tagged("pod-history").performClick()
         waitUntil("the returning pack only, again") { alice.pods.history != null && onlyReturning() }
         alice.tagged("pod-history-returning").performClick()
-        waitUntil("every pick again") { alice.showsText("Pack 1 · Pick 1") }
+        waitUntil("New: each pack the first time only") {
+            alice.shows(hasTestTag("pod-history-returning") and hasText("New")) && alice.showsText("Pack 1 · Pick 1") &&
+                !alice.shows(hasTestTag("pod-history-header-${returning.single().index}"))
+        }
+        alice.tagged("pod-history-returning").performClick()
+        waitUntil("every pick again") {
+            alice.shows(hasTestTag("pod-history-returning") and hasText("All packs")) && alice.showsText("Pack 1 · Pick 1") &&
+                alice.shows(hasTestTag("pod-history-header-${returning.single().index}"))
+        }
     }
 }

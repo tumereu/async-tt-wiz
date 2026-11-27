@@ -54,6 +54,8 @@ actual fun gameDate(game: GameSummary): String = runCatching { localDate(game.cr
 
 actual fun matchDate(record: MatchRecord): String = runCatching { localDate(record.endedAt) }.getOrDefault("")
 
+actual fun draftDate(draft: org.asyncttwiz.protocol.DraftRecordSummary): String = runCatching { localDate(draft.finishedAt) }.getOrDefault("")
+
 actual fun matchDuration(record: MatchRecord): String = runCatching {
     val minutes = ((parseInstant(record.endedAt).epochMillis - parseInstant(record.startedAt).epochMillis) / 60_000).coerceAtLeast(0)
     when {

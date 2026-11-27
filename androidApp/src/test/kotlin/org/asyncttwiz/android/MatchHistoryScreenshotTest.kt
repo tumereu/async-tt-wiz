@@ -109,7 +109,7 @@ class MatchHistoryScreenshotTest {
     // LOB-132, LOB-177, LOB-179: Graphs with one opponent chosen: tiles, record over time (both players), and the decks against theirs
     @Test @Config(qualifiers = "w412dp-h2400dp-port-mdpi") fun statsGraphsOneOpponent() {
         history.stats = HistoryList(records)
-        history.choice = StatsChoice(opponent = riley.accountId, graphs = true)
+        history.choice = StatsChoice(opponent = riley.accountId, tab = StatsTab.Graphs)
         compose.setContent { ScreenTheme { StatsContent(history, alex.accountId) {} } }
         compose.onNodeWithText("Your decks vs theirs").assertIsDisplayed()
         captureShot("$SCREENSHOTS/match-history/stats-graphs-opponent.png",
@@ -119,7 +119,7 @@ class MatchHistoryScreenshotTest {
     // LOB-132, LOB-177: Graphs with All: your running wins and losses; no deck grid
     @Test @Config(qualifiers = "w412dp-h2400dp-port-mdpi") fun statsGraphsAll() {
         history.stats = HistoryList(records)
-        history.choice = StatsChoice(graphs = true)
+        history.choice = StatsChoice(tab = StatsTab.Graphs)
         compose.setContent { ScreenTheme { StatsContent(history, alex.accountId) {} } }
         compose.onNodeWithText("Your wins 4", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Your decks vs theirs").assertDoesNotExist()
@@ -143,7 +143,7 @@ class MatchHistoryScreenshotTest {
     // LOB-132: the top tiles fill the whole width: two rows of three in portrait
     @Test @Config(qualifiers = "w412dp-h892dp-port-mdpi") fun statsTilesFillThePortraitWidth() {
         history.stats = HistoryList(records)
-        history.choice = StatsChoice(graphs = true)
+        history.choice = StatsChoice(tab = StatsTab.Graphs)
         compose.setContent { ScreenTheme { StatsContent(history, alex.accountId) {} } }
         assertTilesFillTheWidth(3)
     }
@@ -152,7 +152,7 @@ class MatchHistoryScreenshotTest {
     // ranges and the colours as mana symbols
     @Test @Config(qualifiers = "w892dp-h2400dp-port-mdpi") fun statsGraphsInLandscape() {
         history.stats = HistoryList(records)
-        history.choice = StatsChoice(graphs = true)
+        history.choice = StatsChoice(tab = StatsTab.Graphs)
         compose.setContent { ScreenTheme { Box(Modifier.width(672.dp)) { StatsContent(history, alex.accountId) {} } } }
         assertTilesFillTheWidth(6)
         compose.onNodeWithTag("stats-colors-GW", useUnmergedTree = true).assertTextEquals("{G}{W}").assertIsDisplayed()
@@ -164,7 +164,7 @@ class MatchHistoryScreenshotTest {
     // LOB-132: no finished match: Graphs says so instead of drawing empty graphs
     @Test fun statsGraphsEmpty() {
         history.stats = HistoryList(records.filter { !it.finished })
-        history.choice = StatsChoice(graphs = true)
+        history.choice = StatsChoice(tab = StatsTab.Graphs)
         compose.setContent { ScreenTheme { StatsContent(history, alex.accountId) {} } }
         compose.onNodeWithText("No finished matches yet. Graphs appear once a match is finished.").assertIsDisplayed()
     }

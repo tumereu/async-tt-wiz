@@ -75,21 +75,46 @@ fun podHistoryItemRounds(rounds: List<Pair<Int, List<IndexedValue<DraftHistoryPi
     }
 }
 
+/**
+ * DRF-209 (owner, 2026-11-26): which packs the draft history shows, its packs chip going round All → Returning → New → All:
+ * every pack, only the packs that came back to you a second or later time in their round, or each pack only the first
+ * time it reached you in its round. [key] is how the device keeps the choice.
+ */
+sealed class PodHistoryPacks(val label: String, val key: String) {
+    data object All : PodHistoryPacks("All packs", "all")
+    data object Returning : PodHistoryPacks("Returning", "returning")
+    data object New : PodHistoryPacks("New", "new")
+
+    /** Whether [pick]'s pack shows. */
+    fun shows(pick: DraftHistoryPick): Boolean = when (this) { All -> true; Returning -> pick.returning; New -> !pick.returning }
+
+    /** The choice the chip's next tap makes. */
+    val next: PodHistoryPacks get() = when (this) { All -> Returning; Returning -> New; New -> All }
+
+    companion object {
+        /** The choice kept as [key]; All for none (or one this app doesn't know). */
+        fun of(key: String?): PodHistoryPacks = listOf(All, Returning, New).firstOrNull { it.key == key } ?: All
+    }
+}
+
 /** DRF-165: the picks shown, round by round, in order within each round, each with its place in [picks] (a round's last
- * card given automatically may come after you opened the next round); [returningOnly]: only packs that came back to you a
- * second or later time in their round, a round without any left out. */
-fun podHistoryRounds(picks: List<DraftHistoryPick>, returningOnly: Boolean): List<Pair<Int, List<IndexedValue<DraftHistoryPick>>>> =
-    picks.withIndex().filter { !returningOnly || it.value.returning }.groupBy { it.value.round }.toList().sortedBy { it.first }
+ * card given automatically may come after you opened the next round); only the packs [packs] shows (DRF-209), a round
+ * without any left out. */
+fun podHistoryRounds(picks: List<DraftHistoryPick>, packs: PodHistoryPacks): List<Pair<Int, List<IndexedValue<DraftHistoryPick>>>> =
+    picks.withIndex().filter { packs.shows(it.value) }.groupBy { it.value.round }.toList().sortedBy { it.first }
 
 /** A history pack's cards sorted like Build columns: W U B R G, multicolour, colourless, then name (DRF-165). */
 fun podHistoryOrder(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>): List<DraftCopy> =
     podRotisserieOrder(cards.map { LimitedSlot(it) }, definitions).map { it.copy }
 
 /** The history view's largest pack: the pack size setting, 15 for sets whose booster recipe fixes the size (DRF-165). */
-fun podHistoryPackSize(detail: PodDetail): Int =
-    if (detail.settings.mode == DraftMode.ARENA) detail.settings.cardsPerPack.coerceAtLeast(1)
-    else if (detail.source.kind == PodSourceKind.SET && detail.source.boosterKind == SetBoosterKind.RECIPE_BASED) PodPickColumnRange.last
-    else detail.settings.cardsPerPack.coerceAtLeast(1)
+fun podHistoryPackSize(detail: PodDetail): Int = podHistoryPackSize(detail.settings, detail.source)
+
+/** The history view's largest pack for a pod of [settings] and [source] (also a draft kept in Stats, LOB-281). */
+fun podHistoryPackSize(settings: DraftSettings, source: PodSource): Int =
+    if (settings.mode == DraftMode.ARENA) settings.cardsPerPack.coerceAtLeast(1)
+    else if (source.kind == PodSourceKind.SET && source.boosterKind == SetBoosterKind.RECIPE_BASED) PodPickColumnRange.last
+    else settings.cardsPerPack.coerceAtLeast(1)
 
 /** DRF-070: every card the history shows, pick by pick. */
 fun podHistoryPrefetchCards(history: PodDraftHistory?): List<DraftCopy> =
@@ -114,11 +139,11 @@ fun PodHistoryHeaderButton(controller: PodController, detail: PodDetail, self: S
     }
 }
 
-/** DRF-316: from this width the draft history's title, "By rating" and "Returning packs only" share one row. */
+/** DRF-316: from this width the draft history's title, "By rating" and the packs chip share one row. */
 private val PodHistoryOneRowWidth = 480.dp
 
-/** DRF-165 (owner, 2026-11-11): the "Returning packs only" chip of pod [pod]'s history, remembered on the device (personal UI). */
-private fun podHistoryReturningKey(pod: String) = "history-returning-$pod"
+/** DRF-209 (owner, 2026-11-26): the packs chip of pod [pod]'s history, remembered on the device (personal UI). */
+private fun podHistoryPacksKey(pod: String) = "history-packs-$pod"
 
 /** A drafter's name in the draft history; without one "a player", reported as a stand-in (LOB-090). */
 fun podHistoryPlayerName(names: Map<String, String>, id: String): String =
@@ -129,7 +154,8 @@ fun podHistoryPlayerName(names: Map<String, String>, id: String): String =
  * keeps green and burns red, and for a pack that came round again the cards taken since, greyed. Holding inspects. Each
  * round has its header naming where its packs went ("Round 2 · passed to Bob") and a divider before it; a ring of the
  * [players]' avatars at the top shows the seating, its arrows the direction of the round at the top of the list;
- * "Returning packs only" shows only packs that came back to you, remembered per pod (owner, 2026-11-10 and 2026-11-11).
+ * the packs chip shows every pack, only the packs that came back to you or each only the first time, remembered per pod
+ * (owner, 2026-11-10, 2026-11-11 and 2026-11-26). [pod] is the pod's id, also for a draft kept in Stats (LOB-281).
  */
 @Composable
 fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, definitions: Map<String, CardDefinition>,
@@ -142,12 +168,14 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
     val preview = remember { PodLimitedPreview() }
     val platform = AppPlatform.current
     val preferences = remember(platform) { platform.preferences("pod-pick") }
-    var returningOnly by remember(pod) { mutableStateOf(arena == null && preferences.getBoolean(podHistoryReturningKey(pod), false)) }
+    var packs by remember(pod) {
+        mutableStateOf(if (arena != null) PodHistoryPacks.All else PodHistoryPacks.of(preferences.getString(podHistoryPacksKey(pod), null)))
+    }
     val grid = rememberLazyGridState()
-    val rounds = remember(history, returningOnly) {
+    val rounds = remember(history, packs) {
         // DRF-289: Arena's picks are one list, each pick its own offer
         if (arena != null) listOf(1 to history?.picks.orEmpty().withIndex().toList()).filter { it.second.isNotEmpty() }
-        else podHistoryRounds(history?.picks.orEmpty(), returningOnly)
+        else podHistoryRounds(history?.picks.orEmpty(), packs)
     }
     // DRF-316: best first by rating, remembered on the device; only while ratings show
     val byRatingChoice = rememberPodByRating()
@@ -170,18 +198,22 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
             Surface(Modifier.fillMaxSize().testTag("pod-history-dialog"), color = MaterialTheme.colorScheme.surface) {
                 Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
                     val returningChip: @Composable () -> Unit = {
-                        FilterChip(returningOnly, {
-                            returningOnly = !returningOnly
-                            // Remembered per pod on this device; off is the default, so only an "on" is kept
-                            preferences.edit().apply { if (returningOnly) putBoolean(podHistoryReturningKey(pod), true)
-                                else remove(podHistoryReturningKey(pod)) }.apply()
-                            AppLog.info("pods", "Draft history of pod $pod: returning packs only ${if (returningOnly) "on" else "off"}")
-                        }, { Text("Returning packs only") }, Modifier.testTag("pod-history-returning"),
-                            leadingIcon = if (returningOnly) {{ Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }} else null)
+                        // DRF-209: each tap the next choice, All → Returning → New → All
+                        FilterChip(packs != PodHistoryPacks.All, {
+                            val was = packs
+                            packs = packs.next
+                            // Remembered per pod on this device; All is the default, so only another choice is kept
+                            preferences.edit().apply { if (packs == PodHistoryPacks.All) remove(podHistoryPacksKey(pod))
+                                else putString(podHistoryPacksKey(pod), packs.key) }.apply()
+                            val picks = history?.picks.orEmpty()
+                            AppLog.info("pods", "Draft history of pod $pod: packs ${was.key} -> ${packs.key}, " +
+                                "${picks.count(packs::shows)} of ${picks.size} picks shown")
+                        }, { Text(packs.label) }, Modifier.testTag("pod-history-returning"),
+                            leadingIcon = if (packs != PodHistoryPacks.All) {{ Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }} else null)
                     }
                     val byRatingChip: @Composable () -> Unit = { PodByRatingChip(byRatingChoice, "Draft history of pod $pod") }
                     BoxWithConstraints(Modifier.fillMaxWidth()) {
-                        // DRF-316: "By rating" beside "Returning packs only"; where both don't fit beside the title, the two
+                        // DRF-316: "By rating" beside the packs chip; where both don't fit beside the title, the two
                         // chips take a row of their own under it, at its end
                         val chipsBelow = ratings != null && arena == null && maxWidth < PodHistoryOneRowWidth
                         Column {
@@ -223,7 +255,7 @@ fun PodHistoryDialog(pod: String, history: PodDraftHistory?, failed: Boolean, de
                         history.picks.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("No picks yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        returningOnly && history.picks.none { it.returning } -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        packs == PodHistoryPacks.Returning && history.picks.none { it.returning } -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("No packs have come back to you yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         else -> PodHistoryPicks(rounds, grid, known, columns.coerceAtLeast(1), preview, ratings, byRating,

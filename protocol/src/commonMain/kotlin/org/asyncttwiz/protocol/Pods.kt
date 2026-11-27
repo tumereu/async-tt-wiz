@@ -167,6 +167,20 @@ import kotlinx.serialization.SerialName
  * previous one ([DraftEngine.direction]). */
 @Serializable data class PodDraftHistory(val picks: List<DraftHistoryPick>, val definitions: List<SubmittedDefinition> = emptyList(),
     val seating: List<String> = emptyList())
+/**
+ * One of the drafts the server keeps for a player's Stats (LOB-279): a Booster, Glimpse, Custom booster or Arena draft with
+ * card ratings (DRF-315), kept from when their own draft was done, whatever later becomes of its pod. [podId] is the pod's,
+ * which may be gone; [finishedAt] (ISO-8601) when their own draft was done; [players] the seating's people and bots, as
+ * they are named now.
+ */
+@Serializable data class DraftRecordSummary(val id: String, val podId: String, val podName: String, val source: PodSource,
+    val settings: DraftSettings, val finishedAt: String, val players: List<AccountIdentity> = emptyList())
+/** GET /v1/history/drafts: the caller's kept drafts (LOB-279), newest first, at most [DraftRecords.KEPT]. */
+@Serializable data class DraftRecordList(val drafts: List<DraftRecordSummary>)
+/** GET /v1/history/drafts/{id}: one kept draft with its draft history as the pod's own read gave it (LOB-279). */
+@Serializable data class DraftRecord(val summary: DraftRecordSummary, val history: PodDraftHistory)
+/** LOB-279: the drafts kept per player. */
+object DraftRecords { const val KEPT = 20 }
 /** PUT /v1/pods/{id}/rotisserie/queue: the caller's whole Rotisserie pick queue, in order (DRF-164); empty empties it. */
 @Serializable data class PodPickQueue(val requestId: String, val draftAttemptId: String, val cards: List<String>)
 /** PUT /v1/pods/{id}/rotisserie/seen: the caller has seen the first [picks] picks of the Rotisserie draft (DRF-239); the

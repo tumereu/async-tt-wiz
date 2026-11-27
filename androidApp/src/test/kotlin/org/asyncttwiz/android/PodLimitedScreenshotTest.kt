@@ -382,8 +382,9 @@ class PodLimitedScreenshotTest {
 
     // DRF-165, DRF-206, DRF-207, DRF-208, DRF-209, DRF-210, DRF-211, DRF-043: the draft history lists your picks in order, each pack as it came with keeps green and burns red, a
     // wheel's cards taken since greyed under their own line, a header per round naming where its packs went ("Round 2 ·
-    // passed to Carol · counter-clockwise") with a divider between rounds, and the seat ring at the top; "Returning packs
-    // only" leaves only the packs that came back and is remembered per pod; a failure offers Retry
+    // passed to Carol · counter-clockwise") with a divider between rounds, and the seat ring at the top; the packs chip goes
+    // All packs → Returning (only the packs that came back) → New (each pack only the first time) and is remembered per pod; a
+    // failure offers Retry
     @Test fun draftHistoryShowsPacksWithKeepsBurnsAndCardsTakenSince() {
         fun c(vararg n: Int) = n.map { copies[it] }
         val picks = listOf(
@@ -426,20 +427,36 @@ class PodLimitedScreenshotTest {
             "seat ring's arrows turn counter-clockwise and its line reads Round 2 · passed to Carol · counter-clockwise.")
         compose.runOnIdle { columns = 8 }
         compose.onNodeWithTag("pod-history-picks").performScrollToKey("round-0-1")
+        compose.onNodeWithTag("pod-history-returning").assertTextEquals("All packs").assertIsNotSelected()
         compose.onNodeWithTag("pod-history-returning").performClick()
         compose.waitForIdle()
+        compose.onNodeWithTag("pod-history-returning").assertTextEquals("Returning").assertIsSelected()
         compose.onNodeWithText("Pack 1 · Pick 4").assertExists()
         compose.onNodeWithText("Pack 1 · Pick 1").assertDoesNotExist()
         compose.onNodeWithTag("pod-history-round-2").assertDoesNotExist()
-        captureShot(File(SCREENSHOTS, "pod-draft-history-returning.png").path, "The same draft history after tapping Returning " +
-            "packs only: only the pack that came back to Alice in round 1 is left, with the cards taken since it was passed.")
-        // Remembered per pod on the device: another pod's history starts without it, this pod's comes back with it
-        compose.runOnIdle { pod = "other" }
-        compose.onNodeWithTag("pod-history-returning").assertIsNotSelected()
-        compose.onNodeWithText("Pack 1 · Pick 1").assertExists()
-        compose.runOnIdle { pod = "pod" }
-        compose.onNodeWithTag("pod-history-returning").assertIsSelected()
+        captureShot(File(SCREENSHOTS, "pod-draft-history-returning.png").path, "The same draft history after one tap on its " +
+            "All packs chip, which now reads Returning: only the pack that came back to Alice in round 1 is left, with the cards " +
+            "taken since it was passed.")
+        // DRF-209 (owner, 2026-11-26): the next tap shows each pack only the first time it reached her
         compose.onNodeWithTag("pod-history-returning").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("pod-history-returning").assertTextEquals("New").assertIsSelected()
+        compose.onNodeWithText("Pack 1 · Pick 1").assertExists()
+        compose.onNodeWithText("Pack 1 · Pick 4").assertDoesNotExist()
+        compose.onNodeWithTag("pod-history-round-2").assertExists()
+        captureShot(File(SCREENSHOTS, "pod-draft-history-new.png").path, "The same draft history after a second tap, the chip " +
+            "reading New: each pack only the first time it reached Alice, her first two picks of round 1 and round 2's first, " +
+            "without the pack that came back.")
+        // Remembered per pod on the device: another pod's history starts with All packs, this pod's comes back with New
+        compose.runOnIdle { pod = "other" }
+        compose.onNodeWithTag("pod-history-returning").assertTextEquals("All packs").assertIsNotSelected()
+        compose.onNodeWithText("Pack 1 · Pick 1").assertExists()
+        compose.onNodeWithText("Pack 1 · Pick 4").assertExists()
+        compose.runOnIdle { pod = "pod" }
+        compose.onNodeWithTag("pod-history-returning").assertTextEquals("New").assertIsSelected()
+        // A third tap comes back to All packs
+        compose.onNodeWithTag("pod-history-returning").performClick()
+        compose.onNodeWithTag("pod-history-returning").assertTextEquals("All packs").assertIsNotSelected()
         compose.runOnIdle { loaded = null; failed = true }
         compose.onNodeWithText("Couldn't load the draft history").assertExists()
         compose.onNodeWithTag("pod-history-retry").assertExists()

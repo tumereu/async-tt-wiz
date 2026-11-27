@@ -114,7 +114,8 @@ class StatsDraftsTest : E2e() {
                 alice.shows(hasTestTag("pod-picks-${bots.first()!!.id}"))
         }
         assertTrue(!alice.shows(hasTestTag("pod-history-dialog")), "its Picks, not a draft history")
-        waitUntil("a rated card's win rate") { alice.shows(hasContentDescription("rated ", substring = true)) }
+        // A rated card's chip, as in the pod's own Picks ("58.0%")
+        waitUntil("a rated card's win rate") { alice.shows(hasText("%", substring = true)) }
         alice.node(hasContentDescription("Close picks")).performClick()
         waitUntil("back at the Drafts tab") { !alice.showsText("Bot 1 (5)") && alice.showsText(name) }
     }

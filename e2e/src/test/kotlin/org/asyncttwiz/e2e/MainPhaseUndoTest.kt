@@ -41,8 +41,9 @@ class MainPhaseUndoTest : E2e() {
         return alice.engine { (device.session.events + device.session.pending)[before].id }
     }
 
-    /** Alice stands in her Main 1 as she did, her phone making nothing, and her hand as it was. */
-    private fun aliceBackInHerMain(hand: List<String>, turn: Int) {
+    /** Alice stands in her Main 1 as she did, her phone making nothing, and her hand as it was; [beforeActing] runs there,
+     * before she acts again (her next press replaces what the tables show of her undo). */
+    private fun aliceBackInHerMain(hand: List<String>, turn: Int, beforeActing: () -> Unit = {}) {
         waitUntil("Alice back in her Main 1") { alice.inOwnMain() && alice.state.turn.number == turn }
         assertEquals(hand, handOf(alice), "her draw unchanged")
         val head = alice.engine { device.session.head }
@@ -50,6 +51,7 @@ class MainPhaseUndoTest : E2e() {
         assertTrue(alice.inOwnMain(), "her phone passes nothing there: ${alice.state.turn}")
         assertEquals(head, alice.engine { device.session.head })
         assertEquals("To combat", alice.stepArrow())
+        beforeActing()
         // HIS-084: acting goes on from there
         val still = alice.engine { device.session.tip }
         alice.tap("To combat")
@@ -95,18 +97,20 @@ class MainPhaseUndoTest : E2e() {
         var dialog = false
         everyRun += { if (alice.shows(hasTestTag("undo-scroller"))) dialog = true }
         alice.tap("Undo")
-        aliceBackInHerMain(hand, turn)
-        everyRun.clear()
-        assertFalse(dialog, "free: no dialog")
-        assertEquals(alice.me, bob.state.turn.active, "Alice's turn; Bob has nothing to redo")
-        // HIS-076, HIS-168: Bob's phone reads what she pressed from the record (only logged since 2026-11-22: his table shows
-        // no text for her undo)
-        waitUntil("her undo on Bob's table") { bob.game?.shown?.transition?.undone?.by == alice.id }
-        val undone = bob.shown.transition!!.undone!!
-        assertEquals("${alice.name} undid: went to combat",
-            org.asyncttwiz.android.EngineEventText.undid(undone.event, undone.state, bob.id, undone.by, names()))
-        repeat(3) { run() }
-        assertFalse(bob.toldATakeBack(alice), "no text for her undo: ${bob.shownTexts}")
+        // Bob's table is read before she acts again: her next press is a new transition there, replacing the undo's
+        aliceBackInHerMain(hand, turn) {
+            everyRun.clear()
+            assertFalse(dialog, "free: no dialog")
+            assertEquals(alice.me, bob.state.turn.active, "Alice's turn; Bob has nothing to redo")
+            // HIS-076, HIS-168: Bob's phone reads what she pressed from the record (only logged since 2026-11-22: his table
+            // shows no text for her undo)
+            waitUntil("her undo on Bob's table") { bob.game?.shown?.transition?.undone?.by == alice.id }
+            val undone = bob.shown.transition!!.undone!!
+            assertEquals("${alice.name} undid: went to combat",
+                org.asyncttwiz.android.EngineEventText.undid(undone.event, undone.state, bob.id, undone.by, names()))
+            repeat(3) { run() }
+            assertFalse(bob.toldATakeBack(alice), "no text for her undo: ${bob.shownTexts}")
+        }
     }
 
     // HIS-101, HIS-120 (owner, 2026-11-08): the other player's press shows on your timeline only as what it led to, also now that it

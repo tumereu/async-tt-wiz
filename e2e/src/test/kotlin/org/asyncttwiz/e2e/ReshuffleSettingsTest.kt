@@ -1,9 +1,18 @@
 package org.asyncttwiz.e2e
 
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isEnabled
+import androidx.compose.ui.test.isNotEnabled
+import androidx.compose.ui.test.isOff
+import androidx.compose.ui.test.isOn
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import arcanum.api.TurnStep
 import arcanum.engine.input.Input
+import org.asyncttwiz.android.GameSettingsText
 import org.asyncttwiz.protocol.AssumeReveals
+import org.asyncttwiz.protocol.GameAction
+import org.asyncttwiz.protocol.GameLifecycle
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.GameEvent
 import org.junit.Test
@@ -16,6 +25,46 @@ import kotlin.test.assertTrue
  * by default). Off, that kind of new line of play keeps the libraries' order: the same cards come again.
  */
 class ReshuffleSettingsTest : E2e() {
+    /** Opens the game's lobby from the main menu's Games list. */
+    private fun E2ePlayer.openLobby() {
+        waitUntil("$name's menu") { shows(hasTestTag("menu-GAMES")) }
+        tagged("menu-GAMES").performClick()
+        waitUntil("the game in $name's Games list") { showsText(this@ReshuffleSettingsTest.game.gameName) }
+        text(this@ReshuffleSettingsTest.game.gameName).performScrollTo().performClick()
+        waitUntil("$name's lobby") { lobby.state.detail?.lifecycle == GameLifecycle.LOBBY && lobby.state.preparation != null }
+    }
+
+    private fun E2ePlayer.showsReady(of: E2ePlayer) = lobby.state.preparation?.players?.single { it.accountId == of.id }?.ready == true
+
+    // LOB-152, LOB-282, LOB-247 (owner 2026-11-27): Bob is Ready in the lobby; Alice, the game's creator, turns "Reshuffle libraries
+    // on branch" off there: on both phones "Allow assumes that reveal the opponent's library" shows off and greyed with its line
+    // saying why, and Bob's Ready is cleared, on the server and on both phones. Turned on again, the library switch is back on
+    @Test fun aReshuffleSwitchInTheLobbyGreysTheLibrarySwitchAndClearsReady() {
+        startGame(ready = false)
+        assertEquals(listOf("accepted"), ServerSetup.attempt(bob.account, game, GameAction.Ready).map { it.reason ?: it.outcome })
+        bob.openLobby()
+        alice.openLobby()
+        waitUntil("Bob's Ready on both phones") { alice.showsReady(bob) && bob.showsReady(bob) }
+        val library = hasTestTag("assume-library")
+        waitUntil("the library switch on for Alice") { alice.shows(library and isOn() and isEnabled()) }
+        alice.tagged("reshuffle-branch").performScrollTo().performClick()
+        waitUntil("the server's game: branches keep the libraries, nobody Ready") {
+            ServerSetup.head(alice.account, game.id).let { head ->
+                !head.summary.assumeReveals.reshuffleOnBranch && head.summary.assumeReveals.library &&
+                    head.preparation!!.players.none { it.ready }
+            }
+        }
+        for (player in listOf(alice, bob)) waitUntil("${player.name}'s library switch greyed off, Bob not Ready") {
+            player.shows(library and isOff() and isNotEnabled()) && player.showsText(GameSettingsText.LIBRARY_NO_RESHUFFLE) &&
+                !player.showsReady(bob)
+        }
+        alice.tagged("reshuffle-branch").performScrollTo().performClick()
+        waitUntil("the library switch back on for Alice") {
+            alice.shows(library and isOn() and isEnabled()) && alice.showsText(GameSettingsText.LIBRARY_MEANING)
+        }
+        waitUntil("the server's game: branches reshuffle again") { ServerSetup.head(alice.account, game.id).summary.assumeReveals == AssumeReveals() }
+    }
+
     // HIS-042, ZON-024, HIS-236, LOB-282: with "Reshuffle libraries on undo" off Bob ends his first turn and Alice's phone passes
     // on into her turn, drawing her card; Bob's free Undo takes his End turn back with her draw (his device logs no reshuffle);
     // he ends his turn again and Alice draws the very same card

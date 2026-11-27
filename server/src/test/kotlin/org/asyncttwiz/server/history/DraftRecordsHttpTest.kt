@@ -92,6 +92,54 @@ class DraftRecordsHttpTest {
             var picks = 0
             while (pod(a, pod).phase == PodPhase.DRAFTING) { check(picks++ < 100) { "the draft didn't end" }; check(pick(pod)) }
         }
+        fun join(pod: String, who: SessionCreated) {
+            send(a, "POST", "/v1/pods/$pod/invitations", InviteToPod(UUID.randomUUID().toString(), who.account.accountId))
+            send(who, "POST", "/v1/pods/$pod/accept", PodRequest(UUID.randomUUID().toString()))
+        }
+        /** [who]'s Grid, Rochester, Rotisserie, Winston or Winchester move if they have one (the first line, card or pile
+         * they can take); false when they have none. */
+        fun move(who: SessionCreated, pod: String): Boolean {
+            val detail = pod(who, pod)
+            val me = who.account.accountId
+            val attempt = detail.draftAttemptId ?: return false
+            detail.grid?.let { grid ->
+                val head = grid.mine.headGridId ?: return false
+                val board = grid.publicView.grids.single { it.id == head }
+                val line = GridLineType.entries.flatMap { type -> (0..2).map { GridLine(type, it) } }
+                    .first { line -> line.positions().any { board.positions[it] != null } }
+                send(who, "POST", "/v1/pods/$pod/grid/select", SelectPodGrid(UUID.randomUUID().toString(), attempt, head, line.type, line.index))
+                return true
+            }
+            val view = detail.limited ?: return false
+            val turn = when (view.mode) {
+                DraftMode.ROTISSERIE -> view.takeIf { it.currentPlayer == me }?.let {
+                    PodTurn(UUID.randomUUID().toString(), attempt, LimitedAction.TAKE_CARD, it.turn, card = it.board.first { slot -> slot.pickedBy == null }.copy.id) }
+                DraftMode.ROCHESTER -> view.packs.firstOrNull { it.currentPlayer == me }?.let { pack ->
+                    PodTurn(UUID.randomUUID().toString(), attempt, LimitedAction.TAKE_CARD, pack.picks,
+                        card = pack.slots.first { it.pickedBy == null }.copy.id, packId = pack.id) }
+                DraftMode.WINSTON -> view.tables.withIndex().firstOrNull { it.value.currentPlayer == me }?.let { (index, table) ->
+                    PodTurn(UUID.randomUUID().toString(), attempt, LimitedAction.TAKE_PILE, table.turn, pile = table.pile, table = index) }
+                DraftMode.WINCHESTER -> view.tables.withIndex().firstOrNull { it.value.currentPlayer == me }?.let { (index, table) ->
+                    PodTurn(UUID.randomUUID().toString(), attempt, LimitedAction.TAKE_PILE, table.turn,
+                        pile = table.piles.indexOfFirst { it.isNotEmpty() }, table = index) }
+                else -> null
+            } ?: return false
+            send(who, "POST", "/v1/pods/$pod/turn", turn)
+            return true
+        }
+        /** [people] move in [pod] until its draft ends. */
+        fun moveToTheEnd(pod: String, people: List<SessionCreated> = listOf(a)) {
+            var moves = 0
+            while (pod(a, pod).phase == PodPhase.DRAFTING) {
+                check(moves++ < 500) { "the draft didn't end" }
+                check(people.map { move(it, pod) }.any { it }) { "nobody can move" }
+            }
+        }
+        /** What [who]'s Picks in [pod] show (DRF-160), as a kept draft keeps it. */
+        fun takes(who: SessionCreated, pod: String): List<DraftRecordTake> = pod(who, pod).let { detail ->
+            detail.limited?.picks?.map { DraftRecordTake(it.player, it.cards) }
+                ?: detail.grid!!.publicView.log.filter { it.line != null }.map { DraftRecordTake(it.player, it.kept) }
+        }
         fun <T> sql(block: (org.jooq.DSLContext) -> T): T = db.connection().use { block(DSL.using(it, SQLDialect.POSTGRES)) }
         override fun close() = service.close()
     }
@@ -148,6 +196,54 @@ class DraftRecordsHttpTest {
         val cube = f.soloPod("Cube", null)
         f.draftToTheEnd(cube)
         assertEquals(listOf("Cleaned up", "Kept draft"), f.drafts(f.a).map { it.podName })
+    }
+
+    // LOB-279, LOB-281, DRF-160, DRF-315 (owner, 2026-11-27): a rated Winston, Winchester, Grid, Rochester or Rotisserie draft is
+    // kept too, once Alice's own draft is done, with every take as her Picks showed it and their cards' definitions; the same
+    // last 20 hold all modes
+    @Test fun `a rated draft of every mode with picks is kept with its picks`() = fixture { f ->
+        val modes = listOf(DraftSettings.grid().copy(grids = 2, bots = 2),
+            DraftSettings.rochester().copy(packsPerPlayer = 1, cardsPerPack = 5, bots = 2),
+            DraftSettings.rotisserie().copy(cardsPerPlayer = 5, bots = 2),
+            DraftSettings.winston().copy(packsPerPlayer = 1, cardsPerPack = 5, bots = 1),
+            DraftSettings.winchester().copy(packsPerPlayer = 1, cardsPerPack = 5, bots = 1))
+        for (settings in modes) {
+            val name = "Kept ${settings.mode.name.lowercase()}"
+            val pod = f.soloPod(name, "TST", settings)
+            f.moveToTheEnd(pod)
+            val kept = f.drafts(f.a).first()
+            assertEquals(name, kept.podName)
+            assertEquals(pod, kept.podId)
+            assertEquals(settings.mode, kept.settings.mode)
+            val record = f.get<DraftRecord>(f.a, "/v1/history/drafts/${kept.id}")!!
+            val takes = f.takes(f.a, pod)
+            assertEquals(takes, record.takes, "${settings.mode}: what her Picks showed")
+            assertTrue(takes.any { it.player != f.a.account.accountId }, "${settings.mode}: the bots' takes too")
+            assertTrue(record.history.picks.isEmpty(), "${settings.mode}: no draft history picks")
+            assertEquals(kept.players.map { it.accountId }, record.history.seating)
+            assertEquals(takes.flatMap { it.cards.filterNotNull() }.map { it.definition }.toSet(), record.history.definitions.map { it.digest }.toSet())
+        }
+        assertEquals(modes.size, f.drafts(f.a).size)
+        // A cube's isn't kept
+        val cube = f.soloPod("Cube rotisserie", null, DraftSettings.rotisserie().copy(cardsPerPlayer = 5, bots = 2))
+        f.moveToTheEnd(cube)
+        assertEquals(modes.size, f.drafts(f.a).size)
+    }
+
+    // LOB-279, DRF-160, DRF-302 (owner, 2026-11-27): in a Rotisserie of two people the first seat's own draft is done a pick before
+    // the second's; its kept draft's Picks still end with the second seat's last take, as the pod's do
+    @Test fun `a kept draft's picks go on to the draft's end`() = fixture { f ->
+        val pod = json.decodeFromString<PodDetail>(f.send(f.a, "POST", "/v1/pods", CreatePod(UUID.randomUUID().toString(), "Two people",
+            null, DraftMode.ROTISSERIE, settings = DraftSettings.rotisserie().copy(cardsPerPlayer = 5), setCode = "TST"), 201)).id
+        f.join(pod, f.b)
+        f.send(f.a, "POST", "/v1/pods/$pod/start", PodRequest(UUID.randomUUID().toString()))
+        f.moveToTheEnd(pod, listOf(f.a, f.b))
+        for (who in listOf(f.a, f.b)) {
+            val kept = f.drafts(who).single()
+            val record = f.get<DraftRecord>(who, "/v1/history/drafts/${kept.id}")!!
+            assertEquals(f.takes(who, pod), record.takes)
+            assertEquals(10, record.takes.size, "every take of the draft")
+        }
     }
 
     // LOB-279: a player's 21st kept draft drops their oldest; another player's drafts are their own count

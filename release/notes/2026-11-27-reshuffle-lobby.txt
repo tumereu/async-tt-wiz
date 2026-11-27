@@ -1,0 +1,1 @@
+3: While "Reshuffle libraries on branch" is off, "Allow assumes that reveal the opponent's library" shows off and greyed, and changing either reshuffle setting in the lobby clears both players' Ready.

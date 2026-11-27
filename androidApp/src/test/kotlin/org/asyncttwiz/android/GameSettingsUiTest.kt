@@ -116,4 +116,31 @@ class GameSettingsUiTest {
         compose.onNodeWithTag("reshuffle-branch").assertIsOff().assertIsNotEnabled().performClick()
         assertEquals(emptyList(), sent)
     }
+
+    // LOB-152, LOB-282 (owner 2026-11-27): while "Reshuffle libraries on branch" is off, "Allow assumes that reveal the opponent's
+    // library" shows off and greyed, its line saying why; turning the branch reshuffle on again brings back its stored value (on)
+    @Test fun theLibrarySwitchIsGreyedOffWhileBranchesDontReshuffle() {
+        val sent = mutableListOf<AssumeReveals>()
+        lobbyCards({ it.inviter.accountId }, sent)
+        val library = compose.onNodeWithTag("assume-library")
+        val branch = compose.onNodeWithTag("reshuffle-branch")
+        library.assertIsOn().assertIsEnabled()
+        compose.onNodeWithText(GameSettingsText.LIBRARY_MEANING).assertExists()
+        branch.performClick().assertIsOff()
+        assertEquals(listOf(AssumeReveals(reshuffleOnBranch = false)), sent, "the library setting itself stays as it was")
+        library.assertIsOff().assertIsNotEnabled()
+        compose.onNodeWithText(GameSettingsText.LIBRARY_NO_RESHUFFLE).assertIsDisplayed()
+        compose.onNodeWithText(GameSettingsText.LIBRARY_MEANING).assertDoesNotExist()
+        library.performClick().assertIsOff()
+        assertEquals(1, sent.size, "the greyed switch sends nothing")
+        val file = File("$SCREENSHOTS/settings/game-settings-library-greyed.png")
+        file.parentFile!!.mkdirs()
+        captureShot(file.path, "Portrait game lobby cards for the game's creator, who turned \"Reshuffle libraries on branch\" off: \"Allow " +
+            "assumes that reveal the opponent's library\" shows off and greyed, its line saying it is off while the branch reshuffle is " +
+            "(choice: this line's words).")
+        branch.performClick().assertIsOn()
+        library.assertIsOn().assertIsEnabled()
+        compose.onNodeWithText(GameSettingsText.LIBRARY_MEANING).assertExists()
+        assertEquals(listOf(AssumeReveals(reshuffleOnBranch = false), AssumeReveals()), sent)
+    }
 }

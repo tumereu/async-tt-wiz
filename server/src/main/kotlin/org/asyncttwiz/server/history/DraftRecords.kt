@@ -12,10 +12,12 @@ import org.jooq.DSLContext
 
 /**
  * LOB-279 (owner, 2026-11-26: "deleting a pod should not take away a player's opportunity to learn"): the drafts kept for each
- * player's Stats, their last [org.asyncttwiz.protocol.DraftRecords.KEPT] Booster, Glimpse, Custom booster or Arena drafts with
- * card ratings (DRF-315). Each is written in the transaction where the player's own draft becomes done (DRF-119), with what
- * their draft history shows (only what their own packs showed, DRF-211), and never changes after; it has no tie to its pod,
- * so it outlives the pod's deletion by hand or by the cleanup (LOB-182). A newer one past the limit drops the player's oldest.
+ * player's Stats, their last [org.asyncttwiz.protocol.DraftRecords.KEPT] drafts with card ratings (DRF-315) of every mode
+ * with picks (owner, 2026-11-27: Winston, Winchester, Grid, Rochester and Rotisserie too). Each is written in the transaction
+ * where the player's own draft becomes done (DRF-119), with what their draft history shows (only what their own packs
+ * showed, DRF-211) or their Picks (DRF-160: every take as they saw it); only the takes change after, as the others draft on
+ * ([updateTakes]). It has no tie to its pod, so it outlives the pod's deletion by hand or by the cleanup (LOB-182). A newer
+ * one past the limit drops the player's oldest.
  */
 internal object DraftRecords {
     private val json = GameWire.json
@@ -26,11 +28,12 @@ internal object DraftRecords {
      * ([players] its identities), then drops their oldest past the limit. A draft already kept stays as it is.
      */
     fun write(sql: DSLContext, account: UUID, pod: UUID, attempt: UUID, podName: String, source: PodSource, settings: DraftSettings,
-        seating: List<String>, picks: List<DraftHistoryPick>, players: List<AccountIdentity>, at: OffsetDateTime) {
+        seating: List<String>, picks: List<DraftHistoryPick>, players: List<AccountIdentity>, at: OffsetDateTime,
+        takes: List<DraftRecordTake> = emptyList()) {
         val id = UUID.randomUUID()
         // Stored whole, as a read gives it, but for the cards' definitions (read with it) and the names (as they are then)
         val stored = DraftRecord(DraftRecordSummary(id.toString(), pod.toString(), podName, source, settings, at.toInstant().toString(), players),
-            PodDraftHistory(picks, seating = seating))
+            PodDraftHistory(picks, seating = seating), takes)
         val written = sql.insertInto(DRAFT_RECORD).set(DRAFT_RECORD.ID, id).set(DRAFT_RECORD.ACCOUNT_ID, account)
             .set(DRAFT_RECORD.POD_ID, pod).set(DRAFT_RECORD.DRAFT_ATTEMPT_ID, attempt).set(DRAFT_RECORD.FINISHED_AT, at)
             .set(DRAFT_RECORD.RECORD, json.encodeToString(DraftRecord.serializer(), stored))
@@ -41,7 +44,22 @@ internal object DraftRecords {
             .fetch(DRAFT_RECORD.ID)
         val dropped = sql.deleteFrom(DRAFT_RECORD).where(DRAFT_RECORD.ACCOUNT_ID.eq(account)).and(DRAFT_RECORD.ID.notIn(kept)).execute()
         log("pod $pod ('$podName', ${settings.mode.name.lowercase()}, ${source.setCode}) draft $attempt kept for $account as $id: " +
-            "${picks.size} picks, seating $seating" + if (dropped > 0) "; their $dropped oldest dropped past ${kept.size}" else "")
+            "${picks.size} picks, ${takes.size} takes, seating $seating" + if (dropped > 0) "; their $dropped oldest dropped past ${kept.size}" else "")
+    }
+
+    /**
+     * DRF-160: the others' takes after [account]'s own draft of [attempt] was done (Grid, Rochester, Rotisserie: they may
+     * draft on): the kept draft's [takes] become these, so its Picks show the whole draft as the pod's do. Nothing when
+     * that draft isn't kept (no card ratings) or its takes are these already.
+     */
+    fun updateTakes(sql: DSLContext, account: UUID, attempt: UUID, takes: List<DraftRecordTake>) {
+        val row = sql.select(DRAFT_RECORD.ID, DRAFT_RECORD.RECORD).from(DRAFT_RECORD).where(DRAFT_RECORD.ACCOUNT_ID.eq(account))
+            .and(DRAFT_RECORD.DRAFT_ATTEMPT_ID.eq(attempt)).fetchOne() ?: return
+        val stored = StoredData.orSkip("draft record", row.value1()) { json.decodeFromString(DraftRecord.serializer(), row.value2()!!) } ?: return
+        if (stored.takes == takes) return
+        sql.update(DRAFT_RECORD).set(DRAFT_RECORD.RECORD, json.encodeToString(DraftRecord.serializer(), stored.copy(takes = takes)))
+            .where(DRAFT_RECORD.ID.eq(row.value1())).execute()
+        log("draft ${row.value1()} of $account (attempt $attempt): takes ${stored.takes.size} -> ${takes.size} as the others drafted on")
     }
 
     /** [viewer]'s kept drafts, newest first (GET /v1/history/drafts). */
@@ -54,9 +72,10 @@ internal object DraftRecords {
     /** [viewer]'s kept draft [id] with its draft history and its cards' definitions; null when they have no such draft. */
     fun read(sql: DSLContext, viewer: UUID, id: UUID): DraftRecord? {
         val stored = rows(sql, viewer, id).singleOrNull() ?: return null
-        val digests = stored.history.picks.flatMap { it.cards + it.takenSince }.map { it.definition }.toSet()
+        val digests = (stored.history.picks.flatMap { it.cards + it.takenSince } + stored.takes.flatMap { it.cards.filterNotNull() })
+            .map { it.definition }.toSet()
         return DraftRecord(summary(stored, accounts(sql, stored.history.seating)),
-            stored.history.copy(definitions = StoredDefinitions.read(sql, digests)))
+            stored.history.copy(definitions = StoredDefinitions.read(sql, digests)), stored.takes)
     }
 
     private fun rows(sql: DSLContext, viewer: UUID, id: UUID?): List<DraftRecord> =

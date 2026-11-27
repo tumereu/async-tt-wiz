@@ -66,8 +66,9 @@ private fun StatsDraftRow(draft: DraftRecordSummary, open: () -> Unit) {
 }
 
 /**
- * LOB-281: kept draft [draft]'s draft history, the pod's own dialog (DRF-165, Arena's DRF-289) on what the server kept
- * ([record], read on opening): its seating and players, and its card ratings (DRF-315: the draft was kept for having them).
+ * LOB-281: kept draft [draft]'s draft history, the pod's own dialog (DRF-165, Arena's DRF-289; Winston, Winchester, Grid,
+ * Rochester and Rotisserie its Picks, DRF-160) on what the server kept ([record], read on opening): its seating and players,
+ * and its card ratings (DRF-315: the draft was kept for having them).
  */
 @Composable
 fun StatsDraftHistory(draft: DraftRecordSummary, record: HistoryList<DraftRecord>?, me: String, filters: PodCardFilters?,
@@ -83,6 +84,18 @@ fun StatsDraftHistory(draft: DraftRecordSummary, record: HistoryList<DraftRecord
             ratings == null -> "card ratings of $set not read yet"
             else -> "card ratings shown ($ratings)"
         })
+    }
+    // LOB-281 (owner, 2026-11-27): Winston, Winchester, Grid, Rochester and Rotisserie open their own Picks (DRF-160)
+    if (podHasPicksView(draft.settings.mode)) {
+        val value = record?.value
+        val picks = remember(value, me) { value?.let { podOpponentPicks(it, me) } }
+        val definitions = remember(value) { value?.history?.definitions.orEmpty().associate { it.digest to it.definition } }
+        LaunchedEffect(draft.id, value != null) {
+            if (value != null) AppLog.info("history", "Kept draft ${draft.id.take(8)} picks (${draft.settings.mode.name.lowercase()}): " +
+                "${value.takes.size} takes, ${picks.orEmpty().joinToString { "${it.account.accountId.take(8)} ${it.cards.size} (${it.cards.count { c -> c == null }} unseen)" }}")
+        }
+        PodPicksDialog(picks, definitions, ratings, failed = record?.failed == true, retry = retry, dismiss = dismiss)
+        return
     }
     val columns = rememberPodHistoryColumns(podHistoryPackSize(draft.settings, draft.source))
     PodHistoryDialog(draft.podId, record?.value?.history, record?.failed == true, emptyMap(), columns.count, draft.players, me, retry,

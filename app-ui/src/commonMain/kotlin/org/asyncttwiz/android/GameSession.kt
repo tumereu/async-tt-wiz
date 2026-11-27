@@ -772,6 +772,9 @@ class GameSession(private val connection: GameConnection, private val credential
         val current = summary(game)
         if (current.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE) || current.assumeReveals == reveals) return false
         val command = command(current, GameAction.SetAssumeReveals(reveals)) ?: return false
+        // LOB-282: a reshuffle switch's change clears both players' Ready on the server
+        AppLog.info("lobby", "Game settings of ${current.id.take(8)} asked: ${current.assumeReveals} -> $reveals" +
+            if (!reveals.sameReshuffles(current.assumeReveals)) " (a reshuffle switch: Ready clears)" else "")
         pending[command.requestId] = command
         latencySubmitted(command, false)
         error = null; flush(); statusChanged(); return true

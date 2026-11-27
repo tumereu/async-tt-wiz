@@ -1,0 +1,1 @@
+2: When you end your turn, anything the other player does other than passing now stops it, a land or an attack included, so you can answer.

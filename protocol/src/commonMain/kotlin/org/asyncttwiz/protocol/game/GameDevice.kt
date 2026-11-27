@@ -186,8 +186,8 @@ class GameDevice(
      * fault). An End turn going on isn't told: its press is logged, and passing there is what it does. The host logs it. */
     var ownMainPass: ((why: String) -> Unit)? = null
 
-    /** TRN-057, TRN-168 (problem report UJP7DE): told when an End turn begins, ends before its turn does (the other player's spell or
-     * ability, or taken back by an undo or a branch) and when a change of the line leaves it going on, so the app log says
+    /** TRN-057, TRN-168 (problem report UJP7DE): told when an End turn begins, ends before its turn does (the other player's action:
+     * a spell, an ability, a land or an attack; or taken back by an undo or a branch) and when a change of the line leaves it going on, so the app log says
      * why the device passed (or stopped passing) the player's priority. The host logs it. */
     var endTurnSaid: ((line: String) -> Unit)? = null
 
@@ -231,6 +231,9 @@ class GameDevice(
      * branch or a rewind that takes it back ends it ([endTurnTakenBack]). */
     private var endTurnAt: String? = null
     private var endTurnFirst: String? = null
+    /** TRN-168: the turn of the End turn the other player's action ended, and that action's event: at the head the End turn
+     * is over at once, but playback behind it still passes the player's priority at the points before it ([endTurnPasses]). */
+    private var endTurnShown: Pair<Int, String>? = null
     private val reveals = mutableMapOf<String, Boolean>()
     private val retry = mutableListOf<Retry>()
     /** The player's own opening declarations (Keep, Mulligan, a bottom choice) the server took the other player's
@@ -1197,7 +1200,22 @@ class GameDevice(
         if (chain && !pausing && step.input is Input.PassPriority && s.stack.isNotEmpty()) return null
         // The stop the player stood at when they changed their mode stays until they answer it ([keptAt])
         if (keeps(event.parentId)) return step.input
+        // HIS-058, TRN-057: an End turn passes the player's priority, so the other player's assumption of that pass shows (and
+        // so is confirmed) instead of stopping, in every response mode, up to the other player's action that ended it
+        // (TRN-168); a pause of the player's still stops
+        if (step.input is Input.PassPriority && !(pausing && mode == ResponseMode.FullControl) && endTurnPasses(event, s)) return null
         return step.input?.takeIf { NextStop.stopsAt(s, it, me, mode) }
+    }
+
+    /** HIS-058, TRN-168: whether the End turn of [s]'s turn passes the player's priority at [event] in playback: going on, or
+     * ended by a later event of the other player's not shown yet ([endTurnShown]). */
+    private fun endTurnPasses(event: GameEvent, s: GameState): Boolean {
+        if (endTurn == s.turn.number) return true
+        val (turn, until) = endTurnShown ?: return false
+        if (turn != s.turn.number) return false
+        val at = session.indexOf(event.id) ?: return false
+        val end = session.indexOf(until) ?: return false
+        return at < end
     }
 
     // ---- Where the view comes to rest (TRN-163 to TRN-166)
@@ -1219,7 +1237,7 @@ class GameDevice(
      */
     fun rest(): Rest? {
         if (!session.behind || needsReload || holding || session.drafting || session.pending.isNotEmpty() || opening) return null
-        val key = listOf(session.head, session.lineStart, settings, pausing, chain, endTurn, opponentMode,
+        val key = listOf(session.head, session.lineStart, settings, pausing, chain, endTurn, endTurnShown, opponentMode,
             opponentAssume, request, holdAt, remaking.size)
         val tip = session.tip
         restMemo?.takeIf { it.first == key }?.let { (_, was, from) ->
@@ -1449,13 +1467,14 @@ class GameDevice(
     }
 
     /** Ends the turn for this player (TRN-057): their device passes their priority until the turn ends, declaring no
-     * attackers, or until the other player casts a spell or activates an ability in it ([endTurnInterrupted], TRN-168); the
+     * attackers, or until the other player does anything but pass in it ([endTurnInterrupted], TRN-168); the
      * other player's points are assumed, automatic or waited for as usual. */
     fun endTurn(now: Long) {
         endChain("end turn")
         endTurn = model.engine.turn.number
         endTurnAt = session.tip
         endTurnFirst = null
+        endTurnShown = null
         endTurnMade = true
         holdAt = null
         endTurnSaid?.invoke("begins at ${session.tip.take(8)} (turn ${model.engine.turn.number} ${model.engine.turn.step}): the device passes the player's priority until the turn ends")
@@ -1483,19 +1502,34 @@ class GameDevice(
     }
 
     /**
-     * TRN-168, CR 733.2b, CR 733.2c (owner problem report UJP7DE): the other player's real [event] cast a spell or activated
-     * an ability in the turn of an End turn going on: they shortened the shortcut there, so it is over and the player answers
-     * it themselves (before, the device passed their priority over that spell, and over it again each time it was taken back
-     * and cast anew, so they could never respond). Their passes, and their answers inside what was already going on, leave it.
+     * TRN-168, CR 733.2b, CR 733.2c (owner problem report UJP7DE; owner 2026-11-27): the other player's real [event] did
+     * anything but pass at their priority in the turn of an End turn going on, whoever's turn it is: cast a spell, activated
+     * an ability (mana abilities and special actions included), played a land, or declared attackers (then the player
+     * blocks and gets their priority as usual). They shortened the shortcut there, so it is over and the player answers it
+     * themselves (before, the device passed their priority over that spell, and over it again each time it was taken back
+     * and cast anew, so they could never respond). Their passes, an attack with nothing, and their answers inside what was
+     * already going on leave it.
      */
     private fun endTurnInterrupted(event: GameEvent) {
         val turn = endTurn ?: return
         val acted = event.engine?.steps.orEmpty().mapNotNull { it.input }.firstOrNull { input ->
-            (input is Input.Cast && input.player == opponent) || (input is Input.Activate && input.player == opponent)
+            when (input) {
+                is Input.Cast -> input.player == opponent
+                is Input.Activate -> input.player == opponent
+                is Input.PlayLand -> input.player == opponent
+                is Input.DeclareAttackers -> input.player == opponent && input.attacks.isNotEmpty()
+                else -> false
+            }
         } ?: return
-        endTurn = null; endTurnAt = null; endTurnFirst = null
-        val what = if (acted is Input.Cast) "cast ${acted.card}" else "activated ${(acted as Input.Activate).source}"
-        remember("End turn of turn $turn ends: ${opponent.value.take(8)} $what in ${event.id}")
+        endTurn = null; endTurnAt = null; endTurnFirst = null; endTurnShown = turn to event.id
+        val what = when (acted) {
+            is Input.Cast -> "cast ${acted.card}"
+            is Input.Activate -> "activated ${acted.source}"
+            is Input.PlayLand -> "played the land ${acted.card}"
+            else -> "attacked with ${(acted as Input.DeclareAttackers).attacks.map { it.attacker }}"
+        }
+        remember("End turn of turn $turn ends: ${opponent.value.take(8)} $what in ${event.id}" +
+            if (session.behind) "; playback behind it still passes for the player before it" else "")
         // An End turn of an earlier turn passes nothing any more: only that one's end is news for the log
         if (turn == model.engine.turn.number)
             endTurnSaid?.invoke("ends: the other player $what in ${event.id.take(8)} (turn $turn): the player answers it themselves")

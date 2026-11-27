@@ -1253,7 +1253,7 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val before = if (previous == null) PodDraftWait.Picks else DraftEngine.waitFor(previous, player)
             val after = DraftEngine.waitFor(next, player)
             ownDraftDone(sql, row, member, before, after)
-            if (before != null && after == null) keepDraft(sql, row, next, owner)
+            if (before != null && after == null) keepDraft(sql, row, next.seating, owner, DraftEngine.history(next, player))
         }
         if (next.finished && previous?.finished != true) {
             clearDraftHints(sql, row.id, finished = true)
@@ -1277,8 +1277,12 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val hadGrids = previous?.queues?.get(player).orEmpty().any { it in queue }
             if (!hadGrids && queue.isNotEmpty())
                 ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id, checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" })
-            ownDraftDone(sql, row, member, if (previous == null) PodDraftWait.Picks else GridEngine.waitFor(previous, player),
-                GridEngine.waitFor(next, player))
+            val before = if (previous == null) PodDraftWait.Picks else GridEngine.waitFor(previous, player)
+            val after = GridEngine.waitFor(next, player)
+            ownDraftDone(sql, row, member, before, after)
+            // LOB-279, DRF-160: kept with its Picks once their own draft is done, then the others' later takes
+            if (after == null && (before != null || next.log.size != previous?.log?.size)) keepTakes(sql, row, next.seating, owner,
+                before != null) { GridEngine.publicView(next, player).log.filter { it.line != null }.map { DraftRecordTake(it.player, it.kept) } }
         }
         if (next.finished && previous?.finished != true) clearDraftHints(sql, row.id, finished = true)
         save(sql, row)
@@ -1301,8 +1305,13 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val hadTurn = !othersPicked && previous?.queues?.get(player).orEmpty().any { it in queue }
             if (!hadTurn && queue.isNotEmpty())
                 ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id, checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" })
-            ownDraftDone(sql, row, member, if (previous == null) PodDraftWait.Picks else LimitedEngine.waitFor(previous, player),
-                LimitedEngine.waitFor(next, player))
+            val before = if (previous == null) PodDraftWait.Picks else LimitedEngine.waitFor(previous, player)
+            val after = LimitedEngine.waitFor(next, player)
+            ownDraftDone(sql, row, member, before, after)
+            // LOB-279, DRF-160: kept with its Picks once their own draft is done, then the others' later takes (Sealed has no picks)
+            if (next.settings.mode != DraftMode.SEALED && after == null && (before != null || next.log.size != previous?.log?.size))
+                keepTakes(sql, row, next.seating, owner, before != null) {
+                    LimitedEngine.view(next, player).picks.map { DraftRecordTake(it.player, it.cards) } }
         }
         if (next.finished && previous?.finished != true) clearDraftHints(sql, row.id, finished = true)
         save(sql, row)
@@ -1323,7 +1332,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
      * LOB-279 (owner, 2026-11-26): [owner]'s own draft of [row] is done: a draft with card ratings (DRF-315: a pod of one set
      * its card catalog has ratings for) is kept for their Stats with what their draft history shows, beyond the pod's life.
      */
-    private fun keepDraft(sql: DSLContext, row: PodRecord, state: DraftState, owner: UUID) {
+    private fun keepDraft(sql: DSLContext, row: PodRecord, seating: List<String>, owner: UUID, picks: List<DraftHistoryPick>,
+        takes: List<DraftRecordTake> = emptyList()) {
         val source = sourceView(row)
         if (!source.botRatings) {
             log("pod ${row.id}: $owner's own draft is done; not kept for Stats: " +
@@ -1331,10 +1341,20 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             return
         }
         val attempt = checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" }
-        val people = identities(sql, state.seating.filterNot(PodBots::isBot).map(UUID::fromString))
-        val players = state.seating.map { id -> PodBots.identity(id) ?: people.getValue(UUID.fromString(id)) }
-        org.asyncttwiz.server.history.DraftRecords.write(sql, owner, row.id, attempt, row.name, source, settings(row), state.seating,
-            DraftEngine.history(state, owner.toString()), players, java.time.OffsetDateTime.now())
+        val people = identities(sql, seating.filterNot(PodBots::isBot).map(UUID::fromString))
+        val players = seating.map { id -> PodBots.identity(id) ?: people.getValue(UUID.fromString(id)) }
+        org.asyncttwiz.server.history.DraftRecords.write(sql, owner, row.id, attempt, row.name, source, settings(row), seating,
+            picks, players, java.time.OffsetDateTime.now(), takes)
+    }
+
+    /**
+     * LOB-279, DRF-160 (owner, 2026-11-27): a Winston, Winchester, Grid, Rochester or Rotisserie draft with card ratings is
+     * kept like the others, with every take as [owner]'s Picks show it ([takes]): when their own draft is done ([done]), and
+     * after it as the others take more (their kept draft's Picks show the whole draft, as the pod's do).
+     */
+    private fun keepTakes(sql: DSLContext, row: PodRecord, seating: List<String>, owner: UUID, done: Boolean, takes: () -> List<DraftRecordTake>) {
+        if (done) keepDraft(sql, row, seating, owner, emptyList(), takes())
+        else org.asyncttwiz.server.history.DraftRecords.updateTakes(sql, owner, checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" }, takes())
     }
 
     /** The pod's draft notices; at the draft's end ([finished]) only the pick and invitation ones: each member's "Draft

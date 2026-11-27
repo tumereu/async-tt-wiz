@@ -1,0 +1,1 @@
+Portrait game lobby cards for the game's creator, who turned "Reshuffle libraries on branch" off: "Allow assumes that reveal the opponent's library" shows off and greyed, its line saying it is off while the branch reshuffle is (choice: this line's words).

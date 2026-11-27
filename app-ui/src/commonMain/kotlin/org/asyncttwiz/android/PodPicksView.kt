@@ -29,11 +29,22 @@ fun podOpponentPicks(detail: PodDetail, accountId: String): List<PodOpponentPick
         ?: detail.grid?.publicView?.log?.filter { it.line != null }?.map { it.player to it.kept }
         ?: emptyList()
     val seating = detail.limited?.seating ?: detail.grid?.publicView?.seating ?: detail.members.map { it.account.accountId }
-    return seating.filter { it != accountId }.mapNotNull { id ->
-        val account = detail.members.firstOrNull { it.account.accountId == id }?.account ?: return@mapNotNull null
+    return podOpponentPicks(takes, seating, detail.members.map { it.account }, accountId)
+}
+
+/** Every other player's picks of [takes] (each take's player and cards, oldest first), in [seating] order, each newest
+ * first; [players] name them (also a draft kept in Stats, LOB-281). */
+fun podOpponentPicks(takes: List<Pair<String, List<DraftCopy?>>>, seating: List<String>, players: List<AccountIdentity>,
+    accountId: String): List<PodOpponentPicks> =
+    seating.filter { it != accountId }.mapNotNull { id ->
+        val account = players.firstOrNull { it.accountId == id } ?: return@mapNotNull null
         PodOpponentPicks(account, takes.filter { it.first == id }.asReversed().flatMap { it.second })
     }
-}
+
+/** LOB-281: a kept Winston, Winchester, Grid, Rochester or Rotisserie draft's Picks (DRF-160), its players named as the
+ * server names them now. */
+fun podOpponentPicks(record: DraftRecord, accountId: String): List<PodOpponentPicks> =
+    podOpponentPicks(record.takes.map { it.player to it.cards }, record.history.seating, record.summary.players, accountId)
 
 /** DRF-070: the Picks view's face-up cards, opponent by opponent as the chips list them; never a card back. */
 fun podPicksPrefetchCards(picks: List<PodOpponentPicks>): List<DraftCopy> = picks.flatMap { it.cards }.filterNotNull()
@@ -56,11 +67,23 @@ fun PodPicksHeaderButton(detail: PodDetail, accountId: String, definitions: Map<
 
 /** Each opponent's picks (DRF-160): a chip per opponent, then their cards newest first, unseen ones as backs. With card
  * [ratings] (DRF-315) each face-up rated card shows its rating, the citation heads the cards (DRF-317) and "By rating" in
- * the title row sorts them best first (DRF-316). */
+ * the title row sorts them best first (DRF-316). A draft kept in Stats (LOB-281) reads its picks on opening: null [picks]
+ * while they load, or with "Couldn't load the picks" and Retry ([retry]) when the read [failed]. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<String, CardDefinition>, ratings: PodHistoryRatings? = null,
-    dismiss: () -> Unit) {
+fun PodPicksDialog(picks: List<PodOpponentPicks>?, definitions: Map<String, CardDefinition>, ratings: PodHistoryRatings? = null,
+    failed: Boolean = false, retry: () -> Unit = {}, dismiss: () -> Unit) {
+    if (picks == null) {
+        ScreenDialog(dismiss, title = "Picks", close = "Close picks") {
+            Box(Modifier.fillMaxWidth().heightIn(min = 72.dp).testTag("pod-picks-loading"), contentAlignment = Alignment.Center) {
+                if (failed) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Couldn't load the picks", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(retry, Modifier.testTag("pod-picks-retry")) { ButtonLabel("refresh", "Retry") }
+                } else Text("Loading…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        return
+    }
     var chosen by remember { mutableStateOf(picks.firstOrNull()?.account?.accountId) }
     val preview = remember { PodLimitedPreview() }
     val byRatingChoice = rememberPodByRating()

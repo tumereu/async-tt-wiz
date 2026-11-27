@@ -25,6 +25,8 @@ import org.asyncttwiz.protocol.GameSummary
 object GameSettingsText {
     const val LIBRARY = "Allow assumes that reveal the opponent's library"
     const val LIBRARY_MEANING = "A card of the other player's library never makes you wait: each line of play reshuffles the libraries"
+    // LOB-152 (owner 2026-11-27): greyed off while branches keep the libraries' order
+    const val LIBRARY_NO_RESHUFFLE = "Off while \"Reshuffle libraries on branch\" is off"
     const val HANDS = "Allow assumes that reveal hands"
     const val HANDS_MEANING = "A card of the other player's hand (a reveal, a random discard) never makes you wait"
     // N15 (owner 2026-11-19)
@@ -82,10 +84,15 @@ fun AssumeRevealSwitches(game: GameSummary, accountId: String, change: (AssumeRe
     }
 }
 
-/** LOB-135's three switches for [reveals], changed with [enabled] ([change] sends the whole new value). */
+/** LOB-135's three switches for [reveals], changed with [enabled] ([change] sends the whole new value). LOB-152 (owner
+ * 2026-11-27): while "Reshuffle libraries on branch" is off, "Allow assumes that reveal the opponent's library" shows its
+ * effective value, off ([AssumeReveals.libraryAllowed]), greyed, its line saying why; its stored value comes back with the
+ * branch reshuffle. */
 @Composable
 fun GameRevealSwitches(reveals: AssumeReveals, enabled: Boolean, change: (AssumeReveals) -> Unit) {
-    RevealSwitch(GameSettingsText.LIBRARY, GameSettingsText.LIBRARY_MEANING, reveals.library, enabled, "assume-library") {
+    val reshuffles = reveals.reshuffleOnBranch
+    RevealSwitch(GameSettingsText.LIBRARY, if (reshuffles) GameSettingsText.LIBRARY_MEANING else GameSettingsText.LIBRARY_NO_RESHUFFLE,
+        reveals.libraryAllowed, enabled && reshuffles, "assume-library") {
         change(reveals.copy(library = it))
     }
     RevealSwitch(GameSettingsText.HANDS, GameSettingsText.HANDS_MEANING, reveals.hands, enabled, "assume-hands") {

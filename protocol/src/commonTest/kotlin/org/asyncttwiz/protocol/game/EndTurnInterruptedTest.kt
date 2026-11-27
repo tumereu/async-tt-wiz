@@ -16,7 +16,8 @@ import kotlin.test.assertTrue
  * only over what the turn was when they pressed it: once the other player casts a spell or activates an ability in it (CR
  * 733.2b, 733.2c: they shortened the shortcut there), the End turn is over and the player answers it themselves. Before, the
  * device passed their priority over the other player's spell at their end step, so they could never respond to it, even
- * after the other player took the spell back and cast it again for them.
+ * after the other player took the spell back and cast it again for them. Owner 2026-11-27: anything the other player does but
+ * pass at their priority ends it, whoever's turn it is: a land played and an attack too.
  */
 class EndTurnInterruptedTest {
     private val glimmer: String by lazy { arcanum.engine.cards.Cards.invent("Idle Glimmer", "{0}", "Instant", "Draw a card.") }
@@ -96,6 +97,93 @@ class EndTurnInterruptedTest {
         val after = alices.model.engine
         assertTrue(after.stack.isEmpty() && after.turn.step == TurnStep.End && after.priority.holder == bob, "${after.turn}, ${after.priority}")
         assertIs<GameDevice.Status.Waiting>(alices.status)
+    }
+
+    private val hound: String by lazy { arcanum.engine.cards.Cards.invent("Swift Hound", "{0}", "Creature — Dog", "Haste", "2/2") }
+
+    /** Alice's deck Forests and Glimmers, Bob's Forests and hasty Hounds; Bob starts, Alice on Control (she stops at every
+     * point of hers), both live at Bob's first main phase. */
+    private fun atBobsMain(): DeviceSim {
+        val sim = DeviceSim(EngineGames(3, (List(10) { "Forest" } + List(30) { glimmer }) to (List(10) { "Forest" } + List(30) { hound })))
+        sim.start(sim.bob, alwaysAssume = false)
+        sim.settle()
+        for (p in listOf(sim.bob, sim.alice)) { assertIs<GameDevice.Acted.Sent>(sim.device(p).act(sim.keep(p))); sim.settle() }
+        sim.device(sim.alice).settings(PlaySettings(mode = ResponseMode.FullControl))
+        sim.settle()
+        val s = sim.server.state().engine
+        assertTrue(s.turn.active == sim.bob && s.turn.step == TurnStep.PrecombatMain && s.priority.holder == sim.bob && s.stack.isEmpty(), "${s.turn}")
+        return sim
+    }
+
+    /** Where [p]'s device is: the turn's player, its step and who holds priority. */
+    private fun DeviceSim.at(p: PlayerId) = device(p).model.engine.let { Triple(it.turn.active, it.turn.step, it.priority.holder) }
+
+    /** Whether [d]'s player answers now: their move at the head, or their playback stopped at the other player's assumption
+     * of their answer there (HIS-095). */
+    private fun answers(d: GameDevice) = d.status == GameDevice.Status.YourMove || d.status is GameDevice.Status.Stopped
+
+    // TRN-168, TRN-057 (owner 2026-11-27): Alice ends the turn in Bob's turn; Bob plays a land, a special action that isn't a pass:
+    // her End turn is over, so when Bob then passes in his main phase her device stops for her there (Control), not passing on
+    @Test
+    fun theOtherPlayersLandEndsYourEndTurn() {
+        val sim = atBobsMain()
+        val alice = sim.alice; val bob = sim.bob
+        val alices = sim.device(alice); val bobs = sim.device(bob)
+        val said = mutableListOf<String>()
+        alices.endTurnSaid = { said += it }
+        alices.endTurn(sim.now)
+        sim.settle()
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Forest"))))
+        sim.settle()
+        assertTrue(said.any { "ends: the other player played the land" in it }, "her log says why: $said")
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PassPriority(bob)))
+        sim.settle()
+        assertEquals(Triple(bob, TurnStep.PrecombatMain, alice), sim.at(alice), "her priority in Bob's main phase, not passed for her")
+        assertTrue(answers(alices), "hers to answer: ${alices.status}")
+    }
+
+    // TRN-168, TRN-057 (owner 2026-11-27): Alice ends the turn in Bob's turn, after his hasty Hound resolved; Bob attacks her with it:
+    // her End turn is over. Her device stops for her priority after the attack (Control), she blocks with nothing, and then gets
+    // her priority in the declare blockers step as usual, nothing passed for her
+    @Test
+    fun theOtherPlayersAttackEndsYourEndTurn() {
+        val sim = atBobsMain()
+        val alice = sim.alice; val bob = sim.bob
+        val alices = sim.device(alice); val bobs = sim.device(bob)
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, hound)), follow = answering(bob)))
+        sim.settle()
+        assertEquals(1, alices.model.engine.stack.size, "the Hound on the Stack")
+        assertEquals(GameDevice.Status.YourMove, alices.status)
+        val said = mutableListOf<String>(); alices.endTurnSaid = { said += it }
+        // Her End turn passes over the Hound: it began after his cast
+        alices.endTurn(sim.now)
+        sim.settle()
+        assertTrue(bobs.model.engine.battlefield.any { bobs.model.engine.obj(it)?.definition?.faces?.first()?.name == hound }, "the Hound resolved")
+        if (sim.at(bob) == Triple(bob, TurnStep.PrecombatMain, bob)) { assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PassPriority(bob))); sim.settle() }
+        val beginning = sim.at(bob)
+        // HIS-058 (fixed along the way): before his attack her End turn passes for her, so her playback never stops at his
+        // assumptions of her passes (on Control it stopped at each)
+        assertTrue(alices.status !is GameDevice.Status.Stopped, "nothing for her to answer before his attack: ${alices.status} $said")
+        if (beginning == Triple(bob, TurnStep.BeginningOfCombat, bob)) { assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PassPriority(bob))); sim.settle() }
+        val s = bobs.model.engine
+        assertEquals(TurnStep.DeclareAttackers, s.turn.step, "${s.turn} ${s.priority}")
+        val dog = s.battlefield.first { s.obj(it)?.definition?.faces?.first()?.name == hound }
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.DeclareAttackers(bob, listOf(arcanum.engine.input.Attack(dog,
+            arcanum.engine.state.TargetRef.Player(alice))))))
+        sim.settle()
+        if (sim.at(bob) == Triple(bob, TurnStep.DeclareAttackers, bob)) { assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PassPriority(bob))); sim.settle() }
+        assertEquals(Triple(bob, TurnStep.DeclareAttackers, alice), sim.at(alice), "her priority after his attack, not passed for her: $said")
+        assertTrue(answers(alices), "hers to answer: ${alices.status}")
+        // Her answers: sent, or confirming Bob's assumption of them
+        fun answered(acted: GameDevice.Acted) = assertTrue(acted is GameDevice.Acted.Sent || acted is GameDevice.Acted.Confirmed, "$acted")
+        answered(alices.act(Input.PassPriority(alice)))
+        sim.settle()
+        // Without creatures she has no blocks to declare (the engine declares none for her)
+        val blocks = alices.model.engine.combat
+        assertTrue(blocks?.blocksDecided == true && blocks.blockers.isEmpty(), "$blocks")
+        if (sim.at(bob) == Triple(bob, TurnStep.DeclareBlockers, bob)) { assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PassPriority(bob))); sim.settle() }
+        assertEquals(Triple(bob, TurnStep.DeclareBlockers, alice), sim.at(alice), "her priority after the blocks, as usual")
+        assertTrue(answers(alices), "hers to answer: ${alices.status}")
     }
 
     // TRN-168, CR 733.2c (report UJP7DE): Bob takes his spell back (an undo request Alice accepts) to cast it again so she can

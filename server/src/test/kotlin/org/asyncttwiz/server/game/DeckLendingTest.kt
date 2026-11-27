@@ -28,7 +28,7 @@ class DeckLendingTest {
         fun execute(action: GameAction): GameResult {
             val summary = games.head(actor, gameId).summary
             val scope = if (action is GameAction.Submit) GameScope(gameId, playId = summary.playId)
-                else if (action == GameAction.AcknowledgeResult) GameScope(gameId)
+                else if (action == GameAction.AcknowledgeResult || action is GameAction.SetAssumeReveals) GameScope(gameId)
                 else GameScope(gameId, summary.preparationRound, if (action == GameAction.AcceptInvitation) summary.invitationId else null)
             val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
             assertTrue(games.admit(actor, hello, connection, command) is GameReceipt); assertTrue(games.executeOne())
@@ -104,6 +104,27 @@ class DeckLendingTest {
         // A category of someone else's can't be lent
         val foreign = GameWire.json.decodeFromString<DeckCategoryList>(f.categories.create(f.c, CreateDeckCategory(id(), "Not hers")).body).categories.single()
         assertEquals("inapplicable", a.refused(GameAction.SetDeckSettings(DeckSettings(DeckLending.Categories(listOf(foreign.id))))))
+    }
+
+    // LOB-282, LOB-247 (owner 2026-11-27): the creator changing "Reshuffle libraries on undo" or "on branch" in the lobby clears
+    // both players' Ready, as the Decks settings do; the other game settings leave Ready as it is
+    @Test fun `a reshuffle switch changed in the lobby clears both Readys`() = fixture { f ->
+        val (a, b) = f.game()
+        b.accepted(GameAction.AcceptInvitation)
+        f.select(a, f.deck(f.a, "Own")); f.select(b, f.deck(f.b, "Theirs"))
+        a.accepted(GameAction.Ready)
+        a.accepted(GameAction.SetAssumeReveals(AssumeReveals(hands = true)))
+        assertTrue(f.player(a).ready, "another game setting leaves her Ready")
+        assertEquals("notHost", b.refused(GameAction.SetAssumeReveals(AssumeReveals(hands = true, reshuffleOnBranch = false))))
+        assertTrue(f.player(a).ready)
+        a.accepted(GameAction.SetAssumeReveals(AssumeReveals(hands = true, reshuffleOnBranch = false)))
+        assertFalse(f.player(a).ready, "the creator's Ready cleared")
+        assertFalse(f.player(b, f.a).ready, "as the other player sees it")
+        assertEquals(AssumeReveals(hands = true, reshuffleOnBranch = false), f.summary(b).assumeReveals)
+        b.accepted(GameAction.Ready)
+        a.accepted(GameAction.SetAssumeReveals(AssumeReveals(hands = true, reshuffleOnUndo = false, reshuffleOnBranch = false)))
+        assertFalse(f.player(b).ready, "the other player's Ready cleared")
+        assertEquals(GameLifecycle.LOBBY, f.summary(a).lifecycle)
     }
 
     // LOB-248, LOB-259, LOB-255: the other player reads only the lent decks (what Choose deck lists first) (all of them, or the chosen categories with their subcategories,

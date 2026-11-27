@@ -55,7 +55,9 @@ class PodGameSettingsTest {
         captureShot("$SCREENSHOTS/non-gameplay/pod-game-settings.png",
             "Portrait New pod form for a Booster pod from the Runes cube, scrolled to its end: the Game settings card (choice: a card " +
                 "at the screen's end, after the members in setup, with this note) with the lobby's switches that apply to pod games, \"Allow assumes that reveal " +
-                "hands\" turned on and \"Reshuffle libraries on branch\" turned off by the creator.")
+                "hands\" turned on and \"Reshuffle libraries on branch\" turned off by the creator, so \"Allow assumes that reveal the " +
+                "opponent's library\" shows off and greyed (LOB-152).")
+        compose.onNodeWithTag("assume-library").assertIsOff().assertIsNotEnabled()
         compose.runOnIdle { settings.value = podModeSettings(DraftMode.SEALED, settings.value) }
         compose.runOnIdle { assertEquals(AssumeReveals(hands = true, reshuffleOnBranch = false), settings.value.gameSettings) }
     }

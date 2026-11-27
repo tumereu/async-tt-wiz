@@ -29,6 +29,25 @@ class StatsDraftsTest {
         assertEquals("TST", statsDraftLine(draft("1", alice).copy(finishedAt = "not a date", source = set.copy(setName = null))))
     }
 
+    // LOB-281, DRF-160 (owner, 2026-11-27): a kept Winston, Winchester, Grid, Rochester or Rotisserie draft opens in its Picks:
+    // every other player's takes in seat order, each newest first (a take's own cards in their order, unseen ones as backs),
+    // named as the server names them now; Booster, Glimpse, Custom booster and Arena keep their draft history
+    @Test fun aKeptPicksDraftShowsEachOpponentsPicks() {
+        for (mode in listOf(DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE))
+            assertEquals(true, podHasPicksView(mode), "$mode")
+        for (mode in listOf(DraftMode.BOOSTER, DraftMode.GLIMPSE, DraftMode.CUSTOM_BOOSTER, DraftMode.ARENA))
+            assertEquals(false, podHasPicksView(mode), "$mode")
+        fun copy(n: Int) = DraftCopy("c$n", "def-$n")
+        val record = DraftRecord(draft("1", bob, alice, carol, settings = DraftSettings.winston()),
+            PodDraftHistory(emptyList(), seating = listOf("bob", "alice", "carol")), listOf(
+                DraftRecordTake("bob", listOf(copy(1), null)), DraftRecordTake("alice", listOf(copy(2))),
+                DraftRecordTake("carol", listOf(copy(3))), DraftRecordTake("bob", listOf(copy(4), copy(5)))))
+        val picks = podOpponentPicks(record, "alice")
+        assertEquals(listOf("bob", "carol"), picks.map { it.account.accountId })
+        assertEquals(listOf(copy(4), copy(5), copy(1), null), picks[0].cards)
+        assertEquals(listOf(copy(3)), picks[1].cards)
+    }
+
     // LOB-281, DRF-212: a kept draft's history has its pod's cards per row range: 15 for a set with a booster recipe, else the
     // pack size (Arena: the offer's)
     @Test fun aKeptDraftsHistoryTakesItsPodsPackSize() {

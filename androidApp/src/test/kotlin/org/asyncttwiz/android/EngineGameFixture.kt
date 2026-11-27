@@ -139,6 +139,10 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val TOLLWARD = "Ember Tollward"
         /** A free 2/2 with lifelink and haste: it attacks the turn it is cast, its controller gaining the damage (CMB-050, CMB-089). */
         const val LEECH = "Ember Leech"
+        /** CMB-064: a free 1/1 with flying and deathtouch (the other player's creature whose badges show while you declare attackers). */
+        const val SKYGUARD = "Ember Skyguard"
+        /** CMB-064: a free 0/4 with reach, first strike and vigilance. */
+        const val THORNWALL = "Ember Thornwall"
         /** ZON-079, ZON-105: a free "You gain 2 life." sorcery with flashback {R}: from the graveyard it is cast from the hand row. */
         const val FLARE = "Ember Flare"
         /** ZON-079, ZON-105: a free creature with "Sacrifice this creature: You gain 1 life." and unearth {R}: sacrificed, it is unearthed
@@ -270,6 +274,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("urn", Choices.URN, "Artifact", "{T}, Exile a card from your graveyard: Add one mana of any color."),
         free("chime", Choices.CHIME, "Enchantment", "At the beginning of your upkeep, you gain 1 life."),
         free("leech", Choices.LEECH, "Creature — Elemental Leech", "Lifelink\nHaste", "2", "2"),
+        free("skyguard", Choices.SKYGUARD, "Creature — Elemental Bird", "Flying\nDeathtouch", "1", "1"),
+        free("thornwall", Choices.THORNWALL, "Creature — Plant Wall", "Reach, first strike, vigilance", "0", "4"),
         free("flare", Choices.FLARE, "Sorcery", "You gain 2 life.\nFlashback {R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)"),
         free("ghoul", Choices.GHOUL, "Creature — Zombie", "Sacrifice this creature: You gain 1 life.\nUnearth {R}", "2", "2"),
         free("reprise", Choices.REPRISE, "Sorcery", "You gain 2 life.\nFlashback {R}{R}\n{R}: Return this card from your graveyard to your hand."),

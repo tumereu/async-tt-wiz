@@ -29,7 +29,11 @@ class TableGestureCoordinator(
     private val diagnostic: (String) -> Unit = {},
     /** HIS-021, HIS-112, HIS-113: a finger is held still on the table (true), until it lifts or the hold ends (false). A pan
      * or a drag crosses the slop before the hold time and never gets here. */
-    private val onHeld: (Boolean) -> Unit = {}
+    private val onHeld: (Boolean) -> Unit = {},
+    /** HIS-126 (owner, 2026-11-26): a finger is down on the table and may still become a hold (true), until it lifts, moves on
+     * as a pan or a drag, or a second finger joins (false); a hold stays true. Not on the desktop table ([holdInspects] false:
+     * there the left button pauses only once held still, WEB-025). */
+    private val onTouched: (Boolean) -> Unit = {}
 ) {
     init { require(density.isFinite() && density > 0f) }
     fun pointFromPixels(x: Float, y: Float) = TablePoint(x / density, y / density)
@@ -84,6 +88,10 @@ class TableGestureCoordinator(
     var fingerHeld = false
         private set
     private fun held(now: Boolean) { if (now != fingerHeld) { fingerHeld = now; onHeld(now) } }
+    /** HIS-126: whether a finger is down on the table now, not (yet) a pan or a drag ([onTouched] said true last). */
+    var touching = false
+        private set
+    private fun touched(now: Boolean) { if (now != touching && (!now || holdInspects)) { touching = now; onTouched(now) } }
     /** The world this gesture navigates in: the scene's, with the open panel's room, holding a camera a closed panel
      * left beyond the usual bounds where it is until the gesture settles (D2). */
     private var gestureWorld: TableWorld? = null
@@ -137,6 +145,7 @@ class TableGestureCoordinator(
             if (c.double) diagnostic("nearMiss:targetRemoved")
             if (c.phase == Phase.HOLD && holdInspects) emit(TableIntent.Peek(null))
             held(false)
+            touched(false)
             // Invalidate the card operation, not the first-down region. A later second pointer
             // must not acquire the region underneath its new centroid after a remote removal.
             c.phase = Phase.TRANSFORM
@@ -203,6 +212,8 @@ class TableGestureCoordinator(
             } else { pending = null; if (!old.shown) single(old.capture); capture = next }
         } else capture = next
         preview = TableGesturePreview(pressedId = item?.id)
+        // HIS-126 (owner, 2026-11-26): the finger down pauses what the view waits on at once, before it is known to be a hold
+        touched(true)
     }
     fun tick(time: Long) {
         spring?.let { s ->
@@ -291,6 +302,8 @@ class TableGestureCoordinator(
                 c.scope != null && scene.canDrag(c.item) -> Phase.DRAG
                 else -> Phase.HOLD // non-draggable control consumes movement, not a release-time click
             }
+            // HIS-126: a pan or a drag isn't a hold: what the finger's touch paused goes on
+            touched(false)
         }
         when (c.phase) {
             Phase.HAND_PAN -> c.viewport?.let { port ->
@@ -322,6 +335,7 @@ class TableGestureCoordinator(
         move(point, time)
         capture = null
         held(false)
+        touched(false)
         transforming = false; transformRegion = null
         if (reviewing && c.double && c.item != null && c.phase == Phase.PRESS) {
             if (c.replacingLocal) emit(TableIntent.DismissTapUi)
@@ -390,6 +404,7 @@ class TableGestureCoordinator(
         pendingCleared = "secondPointer"; pending = null
         if (capture?.phase == Phase.HOLD && holdInspects) emit(TableIntent.Peek(null))
         held(false)
+        touched(false)
         capture?.let(::restFan)
         capture?.phase = Phase.TRANSFORM
         preview = TableGesturePreview()
@@ -511,6 +526,7 @@ class TableGestureCoordinator(
         stoppedTurn?.let { if (it.to != it.from) fanGlide = it }
         stoppedTurn = null
         held(false)
+        touched(false)
         if (capture?.double == true && capture?.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:cancelled")
         capture = null; pendingCleared = "cancelled"; pending = null; preview = TableGesturePreview()
         transforming = false; transformRegion = null

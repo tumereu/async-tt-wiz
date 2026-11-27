@@ -1,0 +1,1 @@
+3: Touching the table pauses a play being shown at once, so holding it to look at it no longer lets it fly away first.

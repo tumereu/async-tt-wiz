@@ -198,9 +198,13 @@ fun AutomatumDockBar(description: String, eye: Boolean = false, content: @Compos
             drawRect(Color.White.copy(alpha = shown))
             drawLine(AutomatumViolet.copy(alpha = shown), Offset(0f, 0f), Offset(size.width, 0f), 2.dp.toPx())
         }.padding(start = 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Surface(shape = CircleShape, color = Color.White, border = BorderStroke(2.dp, AutomatumViolet.copy(alpha = 1f - shown)),
-            shadowElevation = if (hidden) 6.dp else 0.dp) {
-            HoldTip(if (hidden) "Show the bar" else "Hide the bar") { EyeButton(hidden = hidden, { hidden = !hidden }, "bar") }
+        // STK-176 (owner-reported 2026-11-26: the eye moved): at the bar's bottom left, in a row of the panels' bottom row's height,
+        // so it sits where every panel's eye does however tall the bar's words and card make it, and stays there hidden
+        Box(Modifier.align(Alignment.Bottom).height(52.dp), contentAlignment = Alignment.Center) {
+            Surface(shape = CircleShape, color = Color.White, border = BorderStroke(2.dp, AutomatumViolet.copy(alpha = 1f - shown)),
+                shadowElevation = if (hidden) 6.dp else 0.dp) {
+                HoldTip(if (hidden) "Show the bar" else "Hide the bar") { EyeButton(hidden = hidden, { hidden = !hidden }, "bar") }
+            }
         }
         AnimatedVisibility(!hidden, Modifier.weight(1f), enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
             Row(Modifier.fillMaxWidth().padding(start = 6.dp), verticalAlignment = Alignment.CenterVertically, content = content)

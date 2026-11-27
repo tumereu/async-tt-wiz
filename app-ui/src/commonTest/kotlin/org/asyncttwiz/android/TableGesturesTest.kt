@@ -67,6 +67,48 @@ class TableGesturesTest {
         g.cancel()
     }
 
+    // HIS-126, TBL-200 (owner, 2026-11-26): a finger touching down on the table is reported at once, before the hold's time: lifted
+    // before it (a tap, which acts as before) it no longer is, held it stays until lifted, and a pan, a drag or a second finger ends it.
+    // WEB-025: not on the desktop table, where only the left button held still pauses
+    @Test fun aFingerDownIsReportedAtOnceUntilItLiftsOrMovesOn() {
+        val card = TableItem("card/a", TableBounds(0f, 0f, 100f, 100f), "Card", "",
+            kind = TableItemKind.CARD, cardId = "a", zone = PlayZone.BATTLEFIELD)
+        val touched = mutableListOf<Boolean>()
+        val held = mutableListOf<Boolean>()
+        val events = mutableListOf<TableIntent>()
+        val g = TableGestureCoordinator(events::add, onHeld = held::add, onTouched = touched::add)
+        g.update(TableScene(listOf(card), emptyList()), true)
+        val point = card.bounds.center
+        g.down(point, 0)
+        assertEquals(listOf(true), touched, "at once")
+        assertTrue(g.touching)
+        g.tick(100); g.up(point, 120)
+        assertEquals(listOf(true, false), touched, "a tap lifted before the hold's time")
+        assertEquals(emptyList(), held)
+        assertEquals("card/a", events.filterIsInstance<TableIntent.Actions>().single().itemId, "the tap acts as before")
+        touched.clear()
+        g.down(point, 5000); g.tick(5350)
+        assertEquals(listOf(true), touched, "a hold stays touched")
+        assertEquals(listOf(true), held)
+        g.up(point, 6000)
+        assertEquals(listOf(true, false), touched)
+        touched.clear()
+        g.down(point, 9000); g.move(TablePoint(80f, 50f), 9010)
+        assertEquals(listOf(true, false), touched, "a drag or a pan isn't a hold: it goes on")
+        g.up(TablePoint(80f, 50f), 9100)
+        assertEquals(listOf(true, false), touched)
+        touched.clear()
+        g.down(point, 12000); g.transform(TablePoint(0f, 0f), 1.1f, point)
+        assertEquals(listOf(true, false), touched, "a second finger ends it")
+        g.cancel()
+        touched.clear()
+        val desktop = TableGestureCoordinator({}, onTouched = touched::add)
+        desktop.holdInspects = false
+        desktop.update(TableScene(listOf(card), emptyList()), true)
+        desktop.down(point, 0); desktop.up(point, 50)
+        assertEquals(emptyList(), touched, "WEB-025: the desktop table's left button pauses only once held still")
+    }
+
     // HIS-148, HIS-139, TBL-012 (owner 2026-11-19): no tap on the table skips anything (the main button does, TRN-165): a single tap on
     // the empty table is the table's own and a double tap there zooms to fit, whatever holds the view; the hand keeps its own
     @Test fun noTapOnTheTableSkipsADoubleTapIsTheTablesOwn() {
@@ -223,6 +265,31 @@ class TableGesturesTest {
         assertEquals(card.id, events.filterIsInstance<TableIntent.Actions>().single().itemId, "a tap on it is the card's")
         areas.remove(card.id)
         assertEquals(null, areas.hit(above))
+    }
+
+    // TBL-240 (owner, 2026-11-26: every chip on a card falls through): a card's several chips (its combat badges, its damage badge, a
+    // paying source's corner chip, a picked card's role chip) each pass their touches to it, also past its edge; one taken away
+    // leaves the others
+    @Test fun eachChipOfACardIsItsCards() {
+        val scene = TableFixture.scene(TableFixture.play(board = 1))
+        val card = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }
+        val b = card.bounds
+        val role = TableBounds(b.x - 6f, b.y - 14f, 30f, 14f)
+        val pays = TableBounds(b.right - 10f, b.y - 7f, 20f, 14f)
+        val areas = CombatChipAreas()
+        areas.put(card.id, role, CombatChipAreas.ROLE)
+        areas.put(card.id, pays, CombatChipAreas.PAYS)
+        val onRole = TablePoint(b.x - 3f, b.y - 7f)
+        val onPays = TablePoint(b.right + 6f, b.y - 4f)
+        assertEquals(null, scene.hit(onRole)?.id, "past the card's edge")
+        assertEquals(card.id, areas.item(scene, onRole)?.id)
+        assertEquals(card.id, areas.item(scene, onPays)?.id)
+        areas.remove(card.id, CombatChipAreas.ROLE)
+        assertEquals(null, areas.hit(onRole))
+        assertEquals(card.id, areas.hit(onPays), "the corner chip still the card's")
+        // The chips drawn on the card itself (its changes chip, P/T, counters, tags, TBL-113, TBL-135, TBL-235) lie within its face
+        for (point in listOf(TablePoint(b.x + 2f, b.y + b.height * .35f), TablePoint(b.right - 2f, b.bottom - 2f), TablePoint(b.right - 3f, b.y + 3f)))
+            assertEquals(card.id, scene.hit(point)?.id, "$point")
     }
 
     // TBL-010

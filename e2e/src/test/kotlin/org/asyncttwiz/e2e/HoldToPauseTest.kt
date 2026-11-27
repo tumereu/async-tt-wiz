@@ -92,6 +92,34 @@ class HoldToPauseTest : E2e() {
         }
     }
 
+    // HIS-126, HIS-139, TBL-200, TBL-203 (owner, 2026-11-26: a play flew on to the Stack before Inspect opened): a finger touching down
+    // pauses a play shown at once, on the table beside it or on the play itself, well before the hold's time; lifted before it (a tap)
+    // the pause ends and the show goes on, ending by itself
+    @Test fun aFingerDownPausesAPlayShownAtOnce() {
+        start()
+        // The frames' clock in step with the real one: a show can't end between two looks (E2e.clockInStep)
+        clockInStep {
+            val life = lifeOfBob(bob)
+            bobCastsAGlint()
+            val show = assertNotNull(alice.shown.show)
+            holding(alice.table(), millis = 150, at = besideTheShow) {
+                assertTrue(alice.shows(hasTestTag(VIEW_PAUSED_TAG)), "paused at once, before the hold's time: ${alice.screen()}")
+                assertEquals(show, alice.engine { device.show }, "still shown")
+            }
+            waitUntil("the pause over once lifted") { !alice.shows(hasTestTag(VIEW_PAUSED_TAG)) }
+            assertTrue(!alice.shows(hasContentDescription("Card inspection content")), "a tap inspects nothing")
+            holding(alice.tagged(PLAY_SHOW_TAG), millis = 150) {
+                assertTrue(alice.shows(hasTestTag(VIEW_PAUSED_TAG)), "a finger down on the play shown pauses it at once: ${alice.screen()}")
+            }
+            // The tap on the table also stops her playback at the next point she could act (HIS-165): the main button goes on
+            waitUntil("the show over by itself once lifted") {
+                if (alice.status is org.asyncttwiz.protocol.game.GameDevice.Status.Stopped) alice.once { alice.stepArrow()?.let(alice::tap) }
+                alice.shown.show == null && lifeOfBob(alice) == life + 2
+            }
+            waitUntil("the pause icon gone") { !alice.shows(hasTestTag(VIEW_PAUSED_TAG)) }
+        }
+    }
+
     // HIS-021, HIS-126, TBL-011: a pan is no pause: the finger stays down moving the table and the show ends by its time meanwhile
     @Test fun aPanIsNoPause() {
         start()

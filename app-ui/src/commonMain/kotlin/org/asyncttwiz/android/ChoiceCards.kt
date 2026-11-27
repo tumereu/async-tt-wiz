@@ -212,20 +212,24 @@ fun ChoiceInspection(inspector: ChoiceInspector, play: TableBoard, viewer: Strin
 /**
  * A choice's card's gestures (I-D48): tap, hold (Inspect while held), and drag (positions in the root's coordinates).
  * Hold wins after [CardPeekHoldMillis] without moving; moving past the touch slop first drags. While held, the finger's
- * movement goes to [moved] (TBL-127's scroll, the pinned swipe: [ChoiceInspector.moved]).
+ * movement goes to [moved] (TBL-127's scroll, the pinned swipe: [ChoiceInspector.moved]). [touched]: HIS-126, a finger is down on it
+ * (true from the down, false once it lifts or the gesture ends), before it is known to be a hold.
  */
 fun Modifier.choiceCardGestures(key: Any, tap: () -> Unit, hold: (Boolean) -> Unit,
     drag: ((DragPhase, Offset) -> Unit)? = null,
-    moved: ((dx: Float, dy: Float, step: Float) -> Unit)? = null): Modifier = composed {
+    moved: ((dx: Float, dy: Float, step: Float) -> Unit)? = null, touched: ((Boolean) -> Unit)? = null): Modifier = composed {
     var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val currentTap by rememberUpdatedState(tap)
     val currentHold by rememberUpdatedState(hold)
     val currentDrag by rememberUpdatedState(drag)
     val currentMoved by rememberUpdatedState(moved)
+    val currentTouched by rememberUpdatedState(touched)
     val density = LocalDensity.current.density
     onGloballyPositioned { coordinates = it }.hoverLook(HoverLook.Outline()).pointerInput(key) {
         awaitEachGesture {
             val down = awaitFirstDown()
+            currentTouched?.invoke(true)
+            try {
             fun root(p: Offset) = coordinates?.takeIf { it.isAttached }?.localToRoot(p) ?: p
             // Hold unless released (a tap), dragged past the slop or cancelled before the hold time
             var outcome = Gesture.Hold
@@ -280,6 +284,7 @@ fun Modifier.choiceCardGestures(key: Any, tap: () -> Unit, hold: (Boolean) -> Un
                     } finally { currentHold(false) }
                 }
             }
+            } finally { currentTouched?.invoke(false) }
         }
     }.semantics { onClick { currentTap(); true } }
 }

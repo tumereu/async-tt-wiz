@@ -38,6 +38,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -883,8 +885,23 @@ private fun TapGlyph(tapped: Boolean) {
 
 /** The eye (I-D10): hides the panel to look at the board, and shows it again. */
 @Composable
-fun EyeButton(hidden: Boolean, toggle: () -> Unit, what: String = "cast panel") {
-    IconButton(toggle, Modifier.size(40.dp).semantics { contentDescription = if (hidden) "Show $what" else "Hide $what" }) {
+fun EyeButton(hidden: Boolean, toggle: () -> Unit, what: String = "cast panel", placeLogged: Boolean = true) {
+    // STK-176 (owner-reported 2026-11-26, the eye moved): where the eye is drawn reaches the log each time it moves ([placeLogged]:
+    // not for one that moves with the table, the damage preview's), and each tap
+    val placed = remember { arrayOfNulls<androidx.compose.ui.geometry.Offset>(1) }
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    IconButton({
+        AppLog.info("panels", "Eye of the $what tapped: ${if (hidden) "shown again" else "hidden"}, the eye at ${placed[0]} dp")
+        toggle()
+    }, Modifier.size(40.dp).semantics { contentDescription = if (hidden) "Show $what" else "Hide $what" }
+        .onGloballyPositioned { c ->
+            val at = c.positionInRoot().let { androidx.compose.ui.geometry.Offset(it.x / density, it.y / density) }
+            if (placeLogged && placed[0] != at) {
+                AppLog.info("panels", "Eye of the $what ${if (placed[0] == null) "at" else "moved from ${placed[0]} to"} $at dp " +
+                    "(${if (hidden) "hidden" else "shown"})")
+                placed[0] = at
+            }
+        }) {
         Canvas(Modifier.size(22.dp)) {
             val stroke = Stroke(1.8f * density)
             drawOval(AutomatumViolet, Offset(1f, size.height * .25f), Size(size.width - 2f, size.height * .5f), style = stroke)

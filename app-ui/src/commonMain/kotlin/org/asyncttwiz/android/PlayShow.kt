@@ -495,7 +495,9 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
             // HIS-139 (owner 2026-11-19): a tap does nothing (the main button skips it, TRN-165)
             val touches = if (!now) Modifier else Modifier.choiceCardGestures(entry,
                 tap = {},
-                hold = { holding -> pause.finger = holding; if (holdInspects) inspect(entry, holding) }, moved = moved)
+                hold = { holding -> pause.finger = holding; if (holdInspects) inspect(entry, holding) }, moved = moved,
+                // HIS-126 (owner, 2026-11-26): a finger down on it pauses it at once (not on the desktop table, WEB-025)
+                touched = { down -> if (holdInspects) pause.touch = down })
             // The card's centre is the board's (and its place in the pile), so its flights move and scale it about its own
             // centre. They are read while drawing only: they move the card without composing it again
             Box(Modifier
@@ -565,7 +567,9 @@ fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, shows: 
                 }
                 .widthIn(max = 300.dp)
                 .choiceCardGestures(entry, tap = {},
-                    hold = { holding -> pause.finger = holding; if (holdInspects) inspect(entry, holding) }, moved = moved),
+                    hold = { holding -> pause.finger = holding; if (holdInspects) inspect(entry, holding) }, moved = moved,
+                // HIS-126 (owner, 2026-11-26): a finger down on it pauses it at once (not on the desktop table, WEB-025)
+                touched = { down -> if (holdInspects) pause.touch = down }),
                 shape = RoundedCornerShape(10.dp), color = Color.White.copy(alpha = .94f), shadowElevation = 4.dp) {
                 CardText(look.caption.tinted(viewer), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = MenuInk,
                     style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center), maxLines = 3,

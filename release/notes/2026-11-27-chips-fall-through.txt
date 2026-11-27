@@ -1,0 +1,1 @@
+3: Small chips and tags on cards no longer catch your taps: tapping or holding one acts on the card under it.

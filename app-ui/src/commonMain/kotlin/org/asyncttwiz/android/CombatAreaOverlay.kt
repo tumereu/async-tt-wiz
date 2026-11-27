@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.LaunchedEffect
@@ -112,6 +113,8 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
     val staged = area?.pairs.orEmpty().flatMap { it.attackers }.map { it.sourceId }.toSet()
     val attackChoices = if (staging) CombatFlow.attackChoices(play.board).filterKeys { it in staged } else emptyMap()
     val choosing = staging && writable && combat != null && viewer == choices.declaring
+    // CMB-064 (owner, 2026-11-26): the viewer declares attackers: the other player's creatures show their combat keywords
+    val gauging = staging && viewer == choices.declaring
     val picking = if (choosing) combat?.picked else null
     val bands = attackChoices.values.mapNotNull { c -> c.band?.let { it to c.cardId } }.groupBy({ it.first }, { it.second })
         .filterValues { it.size >= 2 }
@@ -208,7 +211,12 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
             actions += StagingChip(cost.label, null, on = false, picking = false, cost = true,
                 hold = cost.text ?: "Paid as it is declared", description = "Pays ${cost.label}")
         }
-        if (attackerCopy) {
+        // CMB-064 (owner, 2026-11-26): while the viewer declares attackers every creature of the other player, tapped ones too, shows
+        // the same badges on its battlefield card, to gauge the blockers (a closed group's on its top card only)
+        val gauged = real && gauging && item.owner != viewer &&
+            computed.cards[card]?.cardTypes?.any { it.equals("Creature", ignoreCase = true) } == true &&
+            scene.groupOf(card)?.takeIf { it.key != scene.expandedGroup && it.members.size > 1 }?.let { it.top == card } != false
+        if (attackerCopy || gauged) {
             val keywords = computed.cards[card]?.keywords.orEmpty()
             COMBAT_KEYWORDS.filter { k -> keywords.any { it.equals(k, ignoreCase = true) } }
                 .forEach { chips += Triple(it.lowercase(), AutomatumViolet, it.lowercase()) }
@@ -258,9 +266,16 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
             }
             // CMB-029 (owner playtest 2026-11-06): one badge over the card's middle, clear of its name (combat review #12), sized
             // to the card so it fits at any zoom
-            if (dealt != null || dying) DamageBadge(dealt, dying, (b.width * .6f).coerceIn(12f, 26f),
-                Modifier.align(Alignment.Center).wrapContentSize(unbounded = true),
-                description = if (result == null) null else if (dying) "Took $dealt combat damage and dies" else "Took $dealt combat damage")
+            if (dealt != null || dying) {
+                val side = (b.width * .6f).coerceIn(12f, 26f)
+                // TBL-240: wider than a narrow card, the part of it past the card's edge is the card's too
+                if (chipAreas != null) {
+                    DisposableEffect(chipAreas, item.id) { onDispose { chipAreas.remove(item.id, CombatChipAreas.DAMAGE) } }
+                    SideEffect { chipAreas.put(item.id, TableBounds(b.center.x - side / 2, b.center.y - side / 2, side, side), CombatChipAreas.DAMAGE) }
+                }
+                DamageBadge(dealt, dying, side, Modifier.align(Alignment.Center).wrapContentSize(unbounded = true),
+                    description = if (result == null) null else if (dying) "Took $dealt combat damage and dies" else "Took $dealt combat damage")
+            }
         }
     }
     for ((player, change) in preview?.life.orEmpty()) {
@@ -317,7 +332,7 @@ fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableS
             HoldTip(if (combat.numbersHidden) "Show the damage preview" else "Hide the damage preview") {
                 Box(Modifier.size(30.dp).background(Color.White, CircleShape).border(1.dp, AutomatumViolet, CircleShape),
                     contentAlignment = Alignment.Center) {
-                    EyeButton(hidden = combat.numbersHidden, combat::toggleNumbers, "damage preview")
+                    EyeButton(hidden = combat.numbersHidden, combat::toggleNumbers, "damage preview", placeLogged = false)
                 }
             }
         }
@@ -434,6 +449,7 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
     var held by remember(key) { mutableStateOf<CombatLaneLabel?>(null) }
     // HIS-113: a finger held on a chip is a finger held on the table
     val pause = LocalEngineRoutes.current?.viewPause
+    val desktop = LocalAppLayout.current == AppLayout.Desktop
     // The target of the held chip, highlighted where it is on the table
     held?.let { lane ->
         val item = if (lane.cardId == null) scene.items.firstOrNull { it.id == "life/${lane.accountId}" }
@@ -463,7 +479,9 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
             val x = lane.chip.center.x - width / 2
             TargetChip(lane, change, width, viewer, lane.cardId == active && chooser != null, chooser?.let { choose -> { choose(lane.cardId) } },
                 held = { heldNow -> held = if (heldNow) lane else held?.takeIf { h -> h.cardId != lane.cardId }; pause?.finger = heldNow },
-                Modifier.offset { IntOffset((x - table.x).dp.roundToPx(), (lane.chip.y - table.y + chipShift()).dp.roundToPx()) }, interactive = !leaving)
+                Modifier.offset { IntOffset((x - table.x).dp.roundToPx(), (lane.chip.y - table.y + chipShift()).dp.roundToPx()) }, interactive = !leaving,
+                // HIS-126 (owner, 2026-11-26): a finger down on it pauses at once (not on the desktop table, WEB-025)
+                touched = { down -> if (!desktop) pause?.touch = down })
             // CMB-050 (owner playtest 2026-11-10, 2026-11-11): the net combat damage it took, a red splash just right of the chip
             // (owner playtest 2026-11-16: not over its end); a net gain (a defender's lifelink blocker) the life-gain heart with "+N"
             val net = dealt[lane.cardId]
@@ -509,7 +527,7 @@ const val CHIP_FADE_MILLIS = 300
  * letters, then the target's value, or what the damage preview would make of it ([change], CMB-029). */
 @Composable
 private fun TargetChip(lane: CombatLaneLabel, change: Int, width: Float, viewer: String, active: Boolean, onTap: (() -> Unit)?,
-    held: (Boolean) -> Unit, modifier: Modifier, interactive: Boolean = true) {
+    held: (Boolean) -> Unit, modifier: Modifier, interactive: Boolean = true, touched: (Boolean) -> Unit = {}) {
     val c = lane.chip
     val zoom = c.height / CombatStackPresentation.CHIP_HEIGHT
     var down by remember { mutableStateOf(false) }
@@ -522,6 +540,7 @@ private fun TargetChip(lane: CombatLaneLabel, change: Int, width: Float, viewer:
     val ink = if (active) Color.White else Color(0xff2b3437)
     val currentTap by androidx.compose.runtime.rememberUpdatedState(onTap)
     val currentHeld by androidx.compose.runtime.rememberUpdatedState(held)
+    val currentTouched by androidx.compose.runtime.rememberUpdatedState(touched)
     Row(modifier.size(width.dp, c.height.dp)
         .testTag("combat-target-chip")
         .semantics {
@@ -543,7 +562,7 @@ private fun TargetChip(lane: CombatLaneLabel, change: Int, width: Float, viewer:
         // A leaving chip (CMB-001) takes no touches: they reach the table beneath
         .then(if (!interactive) Modifier else Modifier.pointerInput(lane.cardId) {
             detectTapGestures(
-                onPress = { down = true; tryAwaitRelease(); down = false; currentHeld(false) },
+                onPress = { down = true; currentTouched(true); try { tryAwaitRelease() } finally { currentTouched(false) }; down = false; currentHeld(false) },
                 onLongPress = { currentHeld(true) },
                 onTap = { currentTap?.invoke() })
         }),

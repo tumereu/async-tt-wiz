@@ -1,0 +1,1 @@
+2: While you declare attackers, the other player's creatures show their flying, reach, first strike and other combat keywords as badges, so you can see what can block.

@@ -18,6 +18,8 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
 import org.asyncttwiz.android.EngineGameFixture.Choices
 import org.asyncttwiz.protocol.PlayZone
 import org.junit.After
@@ -291,6 +293,12 @@ class CastChipsTest {
         compose.onAllNodes(hasTestTag(PAY_CHIP_TAG)).assertCountEquals(1)
         captureShot("$SCREENSHOTS/cast-panel/payment-pile-chip.png",
             "Alice opened her Ember Broodraider's cast panel ({2}{R}) with Autotap off, panned the table up and tapped her Ember Shards twice: the two Shards paying lie in their own pile with one amber chip at its corner, \"{R}{R}\", all the mana the pile produces.")
+        // TBL-240, TBL-130 (owner, 2026-11-26): the chip takes no touch of its own: a tap on its part past the pile's corner is the
+        // pile's, taking the Shard added last out
+        compose.onNode(hasTestTag(PAY_CHIP_TAG)).performTouchInput { click(androidx.compose.ui.geometry.Offset(width * .85f, height * .2f)) }
+        compose.mainClock.advanceTimeBy(600)
+        refresh()
+        assertEquals(1, toolkit.cast.paySources().size, "the tap on the chip was the pile's: ${toolkit.cast.paySources()}")
     }
 
     // ZON-080, ZON-110 (owner 2026-11-07): the screenshots: the Kit's chips, the Broodraider's "Cast…" chip, and the Kit's panel

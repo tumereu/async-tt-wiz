@@ -116,6 +116,23 @@ class RevealPanelTest {
         return bob
     }
 
+    /** STK-176 (owner-reported 2026-11-26): the reveal panel's eye at the spot every panel's is (24 dp from its left, 26 dp above its
+     * bottom), shown, hidden (only the eye stays) and shown again. */
+    private fun theEyeStaysPut() {
+        val box = compose.onNodeWithContentDescription("Reveal").fetchSemanticsNode().boundsInRoot
+        val spot = androidx.compose.ui.geometry.Offset(box.left + 24f, box.bottom - 26f)
+        fun eye(state: String) = compose.onNode(hasContentDescription("$state reveal panel") and hasClickAction(), useUnmergedTree = true)
+        for (state in listOf("Hide", "Show")) {
+            val at = eye(state).fetchSemanticsNode().boundsInRoot.center
+            assertTrue((at - spot).getDistance() < 1f, "$state: the eye at $at, not $spot")
+            eye(state).performClick()
+            compose.mainClock.advanceTimeBy(400)
+            compose.waitForIdle()
+        }
+        val again = eye("Hide").fetchSemanticsNode().boundsInRoot.center
+        assertTrue((again - spot).getDistance() < 1f, "shown again: the eye at $again, not $spot")
+    }
+
     /** The main button shown now: the step arrow, or the wait's Assume while the other player must act. */
     private fun mainButton(): SemanticsNodeInteraction =
         compose.onNode(hasTestTag("main-button") or hasTestTag("engine-wait-action"))
@@ -153,6 +170,8 @@ class RevealPanelTest {
         compose.onNodeWithTag(CHOICE_SOURCE_TAG).assertContentDescriptionEquals(EngineGameFixture.Choices.INSIGHT)
         captureShot("$SCREENSHOTS/engine/reveal-panel.png",
             "Bob catching up on Alice's turn: her Ember Insight revealed her top card ($name), so his playback stopped right after it with the reveal panel above his hand, \"Alice revealed · Ember Insight\", the revealed card face up, the Insight at the right and the eye, with OK on his main button; the table waits there until he taps it.")
+        // STK-176: the eye stays put
+        theEyeStaysPut()
         repeat(3) { bob.step() }
         assertEquals(held, bob.device.session.localHead, "the table stays at the reveal")
         revealOk().performClick()
@@ -171,6 +190,8 @@ class RevealPanelTest {
         val box = compose.onNodeWithContentDescription("Reveal").fetchSemanticsNode().boundsInRoot
         val barTop = 412f - TableControlsHeight
         assertTrue(kotlin.math.abs(box.bottom - barTop) < 1f && box.left < 1f && box.width <= 421f, "on the bar at the left: $box")
+        // STK-176: the eye stays put in landscape too
+        theEyeStaysPut()
         captureShot("$SCREENSHOTS/landscape-panels/reveal.png",
             "In landscape Bob catching up on Alice's turn stopped at her Ember Insight's reveal: the reveal panel stands at the left on " +
                 "top of the bottom bar, his life square, piles and hand in view under it.")

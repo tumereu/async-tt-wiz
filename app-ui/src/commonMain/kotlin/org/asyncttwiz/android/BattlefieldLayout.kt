@@ -113,8 +113,14 @@ object BattlefieldLayout {
     /** How far each of a tight stack's first members shows to the right of the one before (at most [TIGHT_SHOWN]). */
     const val TIGHT = 3f
     const val TIGHT_SHOWN = 2
-    /** How far each attached card peeks out above the one in front of it. */
-    const val PEEK = 8f
+    /** TBL-003: the least room a row keeps above its cards for attached cards peeking out, with none attached (face units, × the
+     * cards' scale). */
+    const val PEEK_ROOM = 8f
+
+    /** TBL-179, SYS-155 (owner, 2026-11-26): how far each attached card (or a merged creature's other card) peeks out above the one
+     * in front of it (face units, × the cards' scale): its whole title bar, as tall as the title text's size [titleScale] makes it
+     * ([cardTitleBand]), and a little more, 16 at the default sizes. */
+    fun peek(titleScale: Float): Float = cardTitleBand(titleScale) + 5f
 
     /**
      * The groups of [cards] (every battlefield's cards, each battlefield's in arrival order): an attached card joins the

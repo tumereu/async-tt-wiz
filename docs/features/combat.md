@@ -51,7 +51,7 @@ need its damage divided. In playback, your view holds on the damage so a combat 
 - **CMB-004** Taking a copy out of combat (CMB-003) takes it out of the declaration Automatum waits for; the real card is unchanged. (r56)
 - **CMB-006** When the real card leaves the battlefield, all its combat copies disappear; surviving blockers of a removed attacker stay in place. (r60)
 - **CMB-035** A real Battlefield card in combat carries a grey "attacking" or "blocking" chip over its top edge, however small the card; a staged attacker carries none, its lane already names its target, and no chip under a combatant names whom it attacks or deals damage to (its lane shows it). (r74)
-- **CMB-064** Attackers' copies show violet badges for the combat keywords Automatum works out (flying, reach, menace, trample, first strike, double strike, deathtouch, lifelink, vigilance) on their side away from the arrows. (r74)
+- **CMB-064** Attackers' copies show violet badges for the combat keywords Automatum works out (flying, reach, menace, trample, first strike, double strike, deathtouch, lifelink, vigilance) on their side away from the arrows. While you declare attackers every creature of the other player, tapped ones too, shows the same badges on its battlefield card (above it, a closed group's on its top card), to gauge their blockers; they take no touch (TBL-240). (r74; owner, 2026-11-26)
 - **CMB-065** These chips and badges (CMB-035, CMB-064) stack one per line, never wider than the card, and stay readable at any zoom: on a card narrower than full size (44 dp) the chip, its icon and its text scale down with the card, the text shrinking further and then clipped where it still doesn't fit, never left out. (r74)
 
 ## Declaring attackers

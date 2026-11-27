@@ -24,12 +24,16 @@ private const val VIEW_PAUSE_SLICE_MILLIS = 20L
 class ViewPause {
     /** A finger held still on the table (not a pan or a drag), or on a shown play. */
     var finger by mutableStateOf(false)
+    /** HIS-126 (owner, 2026-11-26): a finger down on the table (or on a shown play, a combat's target chip) that may still become a
+     * hold: it pauses at once, not only once the hold is recognised; lifted before that (a tap), or moving on as a pan or a drag, it
+     * no longer does. */
+    var touch by mutableStateOf(false)
     /** WEB-024 (owner, decision 31): the desktop's finger key (Alt) held, anywhere: the desktop's finger down. */
     var key by mutableStateOf(false)
     /** Whether an Inspect is open, held or pinned (TBL-104, TBL-131); read as snapshot state. */
     var inspecting: () -> Boolean = { false }
 
-    val paused: Boolean get() = finger || key || inspecting()
+    val paused: Boolean get() = finger || touch || key || inspecting()
 
     /** Returns once nothing pauses the view. */
     suspend fun lifted() { if (paused) snapshotFlow { paused }.first { !it } }

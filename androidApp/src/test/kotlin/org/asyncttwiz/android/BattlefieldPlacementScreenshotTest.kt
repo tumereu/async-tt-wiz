@@ -37,6 +37,8 @@ internal object BattlefieldPlacementFixture {
     val cub = invented("cub", "Ember Cub", "Creature — Elemental Cat", "{R}", power = "2", toughness = "1")
     val blade = invented("blade", "Ember Blade", "Artifact — Equipment", "{1}", "Equipped creature gets +1/+0.\nEquip {0}")
     val ward = invented("ward", "Ember Ward", "Enchantment — Aura", "{W}", "Enchant creature\nEnchanted creature gets +0/+2.")
+    /** TBL-179: a third attachment, with [play]'s `attachments` 3. */
+    val crest = invented("crest", "Ember Crest", "Enchantment — Aura", "{R}", "Enchant creature\nEnchanted creature has haste.")
     val elemental = invented("elemental", "Elemental", "Token Creature — Elemental", power = "1", toughness = "1", token = true)
     val totem = invented("totem", "Spark Totem", "Artifact", "{2}", "{T}: This artifact deals 1 damage to any target.")
     val banner = invented("banner", "Quiet Banner", "Enchantment", "{1}")
@@ -74,8 +76,9 @@ internal object BattlefieldPlacementFixture {
     fun unparsed() { AutomatumBoards.definitionSource = null; AutomatumBoards.reset() }
 
     /** The board; with [snare] Alice holds a Frost Snare ([SNARE]). Her stack of identical Cinder Hounds holds [hounds]
-     * (`a-hound-2`, `a-hound-3`, …), the one [tappedHound] (by id) tapped. */
-    fun play(snare: Boolean = false, hounds: Int = 2, tappedHound: String? = null, bands: Boolean = false): PlayState {
+     * (`a-hound-2`, `a-hound-3`, …), the one [tappedHound] (by id) tapped. The Hound [HOST] wears [attachments] of its Ember Blade,
+     * Ember Ward and Ember Crest (TBL-179). */
+    fun play(snare: Boolean = false, hounds: Int = 2, tappedHound: String? = null, bands: Boolean = false, attachments: Int = 2): PlayState {
         val cards = mutableListOf<PlayCard>()
         val containers = mutableListOf<PlayContainer>()
         var stamp = 0L
@@ -87,7 +90,9 @@ internal object BattlefieldPlacementFixture {
         val attached: PlayCard.() -> PlayCard = { copy(attachedTo = MtgRef.Card(HOST, 0)) }
         val alice = field("a",
             Triple("a-mountain-1", mountain, tapped), Triple("a-mountain-2", mountain, plain),
-            Triple(HOST, hound, plain), Triple("a-blade", blade, attached), Triple("a-ward", ward, attached),
+            Triple(HOST, hound, plain),
+            *listOf(Triple("a-blade", blade, attached), Triple("a-ward", ward, attached), Triple("a-crest", crest, attached))
+                .take(attachments).toTypedArray(),
             Triple("a-mountain-3", mountain, plain), Triple("a-hound-2", hound, plain), Triple("a-totem", totem, plain),
             *(3..hounds + 1).map { n -> Triple("a-hound-$n", hound, if ("a-hound-$n" == tappedHound) tapped else plain) }.toTypedArray(),
             Triple("a-mountain-4", mountain, tapped), Triple("a-banner", banner, plain),
@@ -118,6 +123,7 @@ internal object BattlefieldPlacementFixture {
             BoardState(listOf(PlayPlayer("a"), PlayPlayer("b")), cards, containers,
                 TurnState("a", "4", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step)),
             listOf(mountain, hound, cub, blade, ward, elemental, totem, banner) + listOfNotNull(this.snare.takeIf { snare }) +
+                listOfNotNull(crest.takeIf { attachments >= 3 }) +
                 (if (bands) listOf(ruins, warden, drake, imp, golem, wolf, ogre, sprite, crab, beetle, rat, lantern, sigil, vess)
                     else emptyList()),
             emptyList(), InitialStarter(StarterChoice("a"), "a"))
@@ -224,6 +230,42 @@ class BattlefieldPlacementScreenshotTest {
             "The same board zoomed in on Alice's battlefield: the four Mountains fanned in one stack with the two tapped ones " +
                 "turned inside it, the Cinder Hound glowing white with its Ember Blade and Ember Ward peeking out above it, the " +
                 "two-Hound stack glowing cyan, and the ×3 Elemental tokens.")
+    }
+
+    // TBL-179, SYS-155, TBL-003, TBL-130, TBL-172 (owner, 2026-11-26): an attached card peeks out above the card in front of it by its whole
+    // title bar (16 dp at the default sizes, × zoom), several stacking upward one title bar apart; the rows make room for them, the
+    // group's tap and glow take them all in
+    @Test fun anAttachedCardPeeksOutByItsWholeTitleBar() = attachedPeek(1, "attached-one")
+
+    // TBL-179, TBL-003 (owner, 2026-11-26): three attached cards stack upward one title bar apart
+    @Test fun threeAttachedCardsStackOneTitleBarApart() = attachedPeek(3, "attached-three")
+
+    private fun attachedPeek(count: Int, file: String) {
+        run {
+            play = f.play(attachments = count)
+            val zoom = 2f
+            val toolkit = render()
+            val scene = scene(toolkit)
+            val own = scene.fields.last()
+            val center = scene.world!!.viewport.center
+            toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(own.originX + 60f - center.x,
+                own.gridBounds.center.y - center.y, zoom))
+            compose.waitForIdle()
+            val zoomed = scene(toolkit)
+            val group = zoomed.battlefieldGroups.single { it.key == "host:${f.HOST}" }
+            assertEquals(count + 1, group.members.size)
+            // Front to back: the Hound, then each attached card one title bar higher
+            val tops = group.members.map { id -> zoomed.items.single { it.cardId == id && it.battlefieldCard }.bounds.y }
+            for (i in 1..count) assertEquals(16f * zoom, tops[i - 1] - tops[i], .01f, "${group.members[i]} peeks out one title bar: $tops")
+            val rows = zoomed.fields.last()
+            assertTrue(zoomed.items.filter { it.cardId in group.members }.all { it.bounds.y >= rows.gridBounds.y - .01f },
+                "the rows hold them all: $tops, ${rows.gridBounds}")
+            compose.onRoot().captureShot("$SCREENSHOTS/battlefield/$file.png",
+                "Alice's battlefield zoomed in (2×): her Cinder Hound wears " + (if (count == 1) "an Ember Blade, which" else
+                    "an Ember Blade, an Ember Ward and an Ember Crest, each of which") + " peeks out above the card in front of it " +
+                    "so its whole title bar shows" + (if (count == 1) "" else ", the three stacking upward one title bar apart") +
+                    "; the group glows white (a tap opens it).")
+        }
     }
 
     // TBL-004, TBL-140, TBL-141, TBL-003, TBL-120, SYS-041 (owner playtest 2026-11-07): every land in the land row, the artifact land and the

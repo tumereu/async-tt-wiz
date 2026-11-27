@@ -10,6 +10,10 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
+After 0.3.5 (owner, 2026-11-27):
+
+- See a Stack entry's targets again (STK-018, STK-058, STK-126): holding an entry in the Stack list (on its text part, so holding its card still inspects it, TBL-104) fades the Stack list out while held and draws that entry's target arrows and highlights on the table, so any entry's targets can be looked up again, not only the top one's.
+
 Full-verify findings before 0.3.4 (owner, 2026-11-26: test failures go to the backlog, the release goes ahead):
 
 - E2E race in `MainPhaseUndoTest.whenTheOtherPlayerHasSeenItsPassesUndoIsStillFree` (HIS-076, HIS-168): Bob's phone shows Alice's undo (logged), but under load his table plays on to her next pass before the test reads `transition.undone`; the test should keep the undo it saw as it passed (a first try with an `everyRun` hook still failed alone: find why).
@@ -48,6 +52,7 @@ Each owner-reported bug gets an e2e test that fails before the fix.
 
 ## Needs discussion
 
+- Which entry does a Stack-targeting entry point to (owner, 2026-11-27): in a long Stack (say 20 effects) a spell or ability that targets another Stack entry only rings the Stack (STK-126), and the Stack list names its target in words (STK-018); there is no way to see at a glance which entry it is. Discuss how to show it.
 - Own-picks history for the other modes (owner, 2026-11-25): Winston, Winchester, Grid, Rochester and Rotisserie's History icon opens only the opponents' picks (DRF-160), not your own picks with what you were offered as Booster's (DRF-207) and Arena's (DRF-289) do; discuss giving them that.
 - Owner's own review of the Arcanum engine (owner, 2026-11-11): the owner reads the engine code by hand and discusses improvements with Claude, looking for things that slipped in while unreviewed, like the per-creature `Engine.combatCost`. The public API part was discussed on 2026-11-12 and settled in the engine API rework (merged 2026-11-12). Still open: reading the engine's code itself, including its ~107 `!!`. Nothing there is changed before that discussion.
 

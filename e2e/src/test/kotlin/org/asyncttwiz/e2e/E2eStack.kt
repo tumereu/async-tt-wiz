@@ -24,6 +24,7 @@ object E2eStack {
     private const val SECRET = "atw.e2e.secretFile"
     private const val CONTAINER = "atw.e2e.container"
     private const val BASE = "atw.e2e.base"
+    private const val SERVER_LOG = "atw.e2e.serverLog"
 
     /** The server's public origin, e.g. `http://127.0.0.1:41234`. */
     val origin: String get() = System.getProperty(ORIGIN) ?: start()
@@ -104,9 +105,22 @@ object E2eStack {
             Thread.sleep(100)
         }
         println("E2E stack: server log ${log.path}")
+        System.setProperty(SERVER_LOG, log.path)
         System.setProperty(SECRET, secret.path)
         System.setProperty(CONTAINER, name)
         return "http://127.0.0.1:${ports["public"]}".also { System.setProperty(ORIGIN, it) }
+    }
+
+    /** How long the server's log is now (0 before the stack runs): where a test's part of it starts, [serverLogSince]. */
+    fun serverLogLength(): Long = System.getProperty(SERVER_LOG)?.let { File(it).length() } ?: 0L
+
+    /** The server's log from [offset] on ([serverLogLength]), null before the stack runs. */
+    fun serverLogSince(offset: Long): ByteArray? {
+        val log = File(System.getProperty(SERVER_LOG) ?: return null)
+        return java.io.RandomAccessFile(log, "r").use { file ->
+            val start = offset.coerceIn(0L, file.length())
+            ByteArray((file.length() - start).toInt()).also { file.seek(start); file.readFully(it) }
+        }
     }
 
     /**

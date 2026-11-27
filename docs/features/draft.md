@@ -78,6 +78,7 @@ still draft, and the pod's members challenge each other to games with their pod 
 - **DRF-027** "Fresh boosters" toggle tile (default on) is always shown and greyed out unless the pod drafts grids from a set. (r29)
 - **DRF-091** With Fresh boosters on, every grid from a set gets its own booster and nine random cards from it. (r29)
 - **DRF-028** Grid has a "Two picks each" option, only for 2 players. (r16)
+- **DRF-319** New pod and pod setup end with a "Game settings" card: the switches of the lobby's Game settings card that apply to pod games (LOB-135, LOB-282; no Decks group), with "Every game started from this pod begins with these; its lobby can still change them." Only the creator changes them, in setup; members see them greyed; choosing a mode or a preset keeps them. Every game challenged from the pod, whoever challenges, begins with them, and its lobby changes them as usual. (owner, 2026-11-26)
 - **DRF-182** Rotisserie's settings are two tiles, "Pool each" (the cards per player laid out in the pool) and "Picks each" (the cards each player takes), set apart (owner, 2026-11-14): the pool follows the picks until it is set, and can't be set below them, nor the picks above a pool set; the server refuses settings where the pool is smaller than the picks. (r74)
 
 ## Mixed sets

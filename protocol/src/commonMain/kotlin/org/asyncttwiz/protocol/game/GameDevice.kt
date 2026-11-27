@@ -113,7 +113,8 @@ class GameDevice(
     /** The game's assume reveal settings changed (its summary, set by the host): they apply to the points not yet made. */
     fun assumeReveals(value: org.asyncttwiz.protocol.AssumeReveals) {
         if (value == assumeReveals) return
-        remember("game settings now: library ${value.library}, hands ${value.hands}, undo past passes needs a request ${value.undoPastPasses}")
+        remember("game settings now: library ${value.library}, hands ${value.hands}, undo past passes needs a request ${value.undoPastPasses}, " +
+            "reshuffle on undo ${value.reshuffleOnUndo}, on branch ${value.reshuffleOnBranch}")
         assumeReveals = value
         reveals.clear()
     }
@@ -124,6 +125,11 @@ class GameDevice(
 
     /** The play's line counter: a branch starts line [lines] + 1. */
     var lines: Int = lines
+        private set
+
+    /** HIS-042 (owner 2026-11-26): the line counter's line is a branch's (HIS-194: the server took a re-made line back), not an
+     * undo's: when it is due at the head, the game's "Reshuffle libraries on branch" decides its reshuffle, else "on undo". */
+    var lineBranch: Boolean = false
         private set
 
     /** The open undo request, if any: the game is frozen while it is (§10). */
@@ -1887,9 +1893,13 @@ class GameDevice(
      * an opening answer at the other player's assumed keep, sent behind the head on the same line (HIS-115). */
     private fun open(newLine: Int? = null, reapplies: Boolean = false): EventBuilder {
         val line = newLine ?: if (session.behind) null else Rewind.lineDue(model, lines)
-        return session.begin(ids(), line, reapplies).also { builder ->
+        // HIS-042 (owner 2026-11-26): a branch's line reshuffles with the game's "on branch" switch, the due one with its kind's
+        val branch = newLine != null || lineBranch
+        val reshuffle = assumeReveals.reshuffles(branch)
+        return session.begin(ids(), line, reapplies, reshuffle).also { builder ->
             // HIS-042: what a new line's reshuffle moved, and what it was made under (report DH3QX6)
-            if (line != null) remember("line $line starts: cards moved per library " + builder.changes
+            if (line != null) remember("line $line starts (${if (branch) "a branch's" else "an undo's"}, " +
+                "${if (reshuffle) "reshuffling" else "the libraries kept: the game's switch is off"}): cards moved per library " + builder.changes
                 .filterIsInstance<arcanum.engine.change.Change.Reorder>().map { c -> c.before.indices.count { c.before[it] != c.after[it] } } +
                 " at ${where()}, open ${openDecision()}")
         }
@@ -2149,7 +2159,7 @@ class GameDevice(
     private fun atHead(model: GameModel, changes: List<TableChange>): Acted {
         val builder = EventBuilder(model, ids(), session.head, me.value)
         builder.mode = settings.mode
-        Rewind.lineDue(model, lines)?.let(builder::startLine)
+        Rewind.lineDue(model, lines)?.let { builder.startLine(it, assumeReveals.reshuffles(lineBranch)) }
         try { changes.forEach(builder::table) } catch (e: RuntimeException) { return Acted.Refused("inapplicable") }
         val event = builder.build()
         send(GameAction.Submit(Submission.of(event)))
@@ -2360,7 +2370,7 @@ class GameDevice(
                 r.dropped.forEach { byPlayer.remove(it.id) }
                 localUndos += target
                 // The rewind starts a new line, counted as the server will count it (§9): the next event starts it
-                lines++
+                lines++; lineBranch = false
                 endTurnTakenBack(target)
                 holdAt = session.head
                 remember("undo to $target shown: ${r.discarded.size} taken back, ${r.dropped.size} pending")
@@ -2534,7 +2544,7 @@ class GameDevice(
     fun revision(events: List<GameEvent>, update: EngineUpdate?) {
         remember("in ${events.joinToString(",") { it.id }}${update?.target?.let { " rewind $it" } ?: ""}${update?.confirmed?.let { " confirmed $it" } ?: ""}")
         if (needsReload) return
-        if (update != null && update.lines > lines) lines = update.lines
+        if (update != null && update.lines > lines) { lines = update.lines; lineBranch = update.lineBranch }
         val target = update?.target
         if (target != null) {
             val by = update?.rewoundBy ?: events.firstOrNull()?.author
@@ -3575,14 +3585,16 @@ class GameDevice(
             val local = heads[me]?.takeIf { it == baseId || events.any { e -> e.id == it } } ?: snapshot.headId
             fun device(session: GameSession) =
                 GameDevice(session, snapshot.settings ?: PlaySettings(), heads, snapshot.lines, snapshot.rewindRequest, ids)
-                    .also { it.modes(snapshot.modes); it.assumes(snapshot.assumes); it.older = OlderHistory(codec); it.rootId = snapshot.rootId }
+                    .also { it.modes(snapshot.modes); it.assumes(snapshot.assumes); it.older = OlderHistory(codec); it.rootId = snapshot.rootId
+                        it.lineBranch = snapshot.lineBranch }
             val gone = if (takenBack) snapshot.takenBack.map(codec::decodeEvent) else emptyList()
             if (gone.isNotEmpty() && gone.first().parentId == local) {
                 val at = if (local == baseId) 0 else events.indexOfFirst { it.id == local } + 1
                 return device(GameSession(base, baseId, events.take(at) + gone, gone.last().id, me)).also {
                     it.branchOnLoad = events.drop(at)
                     if (snapshot.undoneBy != null) it.undoOnLoad = EngineUpdate(target = local, localHeads = snapshot.localHeads,
-                        lines = snapshot.lines, rewindRequest = snapshot.rewindRequest, rewoundBy = snapshot.undoneBy, modes = snapshot.modes)
+                        lines = snapshot.lines, rewindRequest = snapshot.rewindRequest, rewoundBy = snapshot.undoneBy, modes = snapshot.modes,
+                        lineBranch = snapshot.lineBranch)
                 } to codec
             }
             return device(GameSession(base, baseId, events, local, me)) to codec

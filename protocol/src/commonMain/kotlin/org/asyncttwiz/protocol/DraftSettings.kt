@@ -81,6 +81,12 @@ data class DraftSettings(
      * [DraftMode.maxBots]: a pod needs its creator, who may draft alone with bots (owner 2026-11-23).
      */
     val bots: Int = 0,
+    /**
+     * The pod's Game settings (owner 2026-11-26, playtest F): the lobby's Game settings card's switches (LOB-135, the reshuffle
+     * switches) that apply to pod games, set by the pod's creator in setup; every game started from the pod begins with
+     * them, and its lobby can still change them.
+     */
+    val gameSettings: AssumeReveals = AssumeReveals(),
 ) {
     /** The draft's seats with [humans] members: they and the [bots]. */
     fun seats(humans: Int): Int = humans + bots

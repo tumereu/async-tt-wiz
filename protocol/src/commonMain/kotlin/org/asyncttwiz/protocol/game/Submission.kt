@@ -76,7 +76,10 @@ object Authority {
         val reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE,
         /** The players whose response mode is Quick now: any device may answer their one-answer questions ([WhoActs.quickAnswer],
          * SYS-063, owner 2026-11-19). */
-        val quick: Set<PlayerId> = emptySet())
+        val quick: Set<PlayerId> = emptySet(),
+        /** HIS-042 (owner 2026-11-26): whether the line [nextLine] starts reshuffles the libraries' unknown parts (the
+         * game's "Reshuffle libraries on undo" or "on branch", for that kind of line). */
+        val reshuffle: Boolean = true)
 
     /**
      * Makes the event [submission] describes, by [author], on [model] (the state at its parent): on success [model] is
@@ -96,7 +99,7 @@ object Authority {
                 is Act.NewLine -> {
                     if (index != 0 || rules.nextLine == null) throw Refusal("A line starts only at a branch, as its first act")
                     if (act.number != rules.nextLine) throw Refusal("stale")
-                    builder.startLine(act.number)
+                    builder.startLine(act.number, rules.reshuffle)
                     // The checked changes are made on the reordered libraries (the reorder itself shows nobody anything)
                     if (before != null) before = InformationRule.Before.of(model)
                 }
@@ -569,13 +572,15 @@ object Acceptance {
      * line is behind the counter, after a rewind, an event at the head starts the counter's line, [Rewind.lineDue]); [rewindOpen]: an undo request is open, so
      * only a concession is taken (I-D56 §10); [aliases]: the author's earlier submissions dropped as duplicates of
      * main-line events, by id ([Confirmed.alias]): a submission made on one is taken on its event; [reveals]: the game's
-     * assume reveal settings, the cards the information rule lets through (LOB-135). Refused ([Refusal]),
+     * assume reveal settings, the cards the information rule lets through (LOB-135), and its reshuffle switches (HIS-042):
+     * a branch's new line reshuffles with "Reshuffle libraries on branch", the line due at the head with the switch of
+     * its kind ([lineBranch]: the line counter's line is a branch's, HIS-194, else an undo's). Refused ([Refusal]),
      * or accepted with a new event, [warm] is used up.
      */
     fun accept(history: GameHistory, head: String, warm: LiveState?, sent: Submission, author: PlayerId,
         heads: Map<PlayerId, String>, nextLine: Int, rewindOpen: Boolean = false, aliases: Map<String, String> = emptyMap(),
         reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE,
-        ids: () -> String = { error("No ids for re-made events") }, quick: Set<PlayerId> = emptySet()): Result {
+        ids: () -> String = { error("No ids for re-made events") }, quick: Set<PlayerId> = emptySet(), lineBranch: Boolean = false): Result {
         val submission = aliases[sent.parentId]?.let { sent.copy(parentId = it) } ?: sent
         val concession = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()?.input.let { it is Input.Concede && it.player == author }
         var used: LiveState? = null
@@ -607,7 +612,7 @@ object Acceptance {
                 val others = model.engine.players.map { it.id }.filter { it != author }.map { heads[it] ?: history.store.rootId }
                 val tentative = others.any { other -> tentativeFor(history, head, other, author) }
                 val event = Authority.make(model, submission.copy(parentId = head, acts = acts), author,
-                    Authority.Rules(nextLine = due, tentative = tentative, reveals = reveals, quick = quick))
+                    Authority.Rules(nextLine = due, tentative = tentative, reveals = reveals, quick = quick, reshuffle = reveals.reshuffles(lineBranch)))
                 return Accepted(event, LiveState(event.id, model), authorHead = event.engine?.steps.orEmpty().any { it.input != null } || parent == own)
             }
             val next = rest.first()
@@ -645,7 +650,8 @@ object Acceptance {
                 else -> throw Refusal("newLine")
             }
             val model = atParent ?: state(parent)
-            val event = Authority.make(model, submission.copy(acts = acts), author, Authority.Rules(nextLine = nextLine, reveals = reveals, quick = quick))
+            val event = Authority.make(model, submission.copy(acts = acts), author, Authority.Rules(nextLine = nextLine, reveals = reveals, quick = quick,
+                reshuffle = reveals.reshuffleOnBranch))
             return Accepted(event, LiveState(event.id, model), discarded = next.id)
         } catch (refusal: Refusal) {
             refusal.state = used ?: warm
@@ -751,7 +757,7 @@ object InformationRule {
      * library always; with [allowed]'s settings, a card of the other player's library or hand (LOB-135). */
     private fun passes(card: arcanum.engine.state.GameObject, viewer: PlayerId, allowed: org.asyncttwiz.protocol.AssumeReveals): Boolean =
         when (card.zone) {
-            Zone.Library -> card.owner == viewer || allowed.library
+            Zone.Library -> card.owner == viewer || allowed.libraryAllowed
             Zone.Hand -> card.owner != viewer && allowed.hands
             else -> false
         }

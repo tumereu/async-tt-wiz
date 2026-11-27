@@ -262,7 +262,9 @@ fun WaitingLobby(controller: LobbyController, accountId: String, hamburger: (() 
                 val settings: @Composable () -> Unit = { GameSettingsCard(game, accountId,
                     // LOB-247: the Decks group, changed by the creator in the lobby
                     DeckSettingsAccess(state.lendCategories, controller::loadLendCategories, controller::deckSettings),
-                    decksEnabled = game.lifecycle == GameLifecycle.LOBBY && state.preparation != null, change = controller::assumeReveals) }
+                    decksEnabled = game.lifecycle == GameLifecycle.LOBBY && state.preparation != null,
+                    // HIS-042: the reshuffle switches change in the lobby only
+                    lobby = game.lifecycle == GameLifecycle.LOBBY, change = controller::assumeReveals) }
                 if (landscape) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     own(Modifier.weight(1f))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { opponent(Modifier.fillMaxWidth()); starter(); settings() }

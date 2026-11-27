@@ -79,7 +79,7 @@ class EngineGameServiceTest {
 
     /** A started game; its play is engine state when [engine] (seats from the seam, or the decks with [decks]). */
     private inner class Fixture(runtime: ServiceRuntime, engine: Boolean, decks: Boolean = false, tag: String = "",
-        bobDefaults: PlaySettings? = null, deck: List<String> = names) {
+        bobDefaults: PlaySettings? = null, deck: List<String> = names, reveals: AssumeReveals? = null) {
         val a = account(runtime, "EngineA$tag${if (engine) "" else "x"}"); val b = account(runtime, "EngineB$tag${if (engine) "" else "x"}")
         val games = GameService(runtime)
         val game: GameSummary
@@ -96,6 +96,8 @@ class EngineGameServiceTest {
                 stream.execute(GameAction.SelectDeck(deck.deck.id, deck.deck.revision))
             }
             owner.execute(GameAction.SetStarter(StarterChoice(a.account.accountId)))
+            // The game settings its creator chose in the lobby
+            reveals?.let { assertEquals("accepted", owner.execute(GameAction.SetAssumeReveals(it)).outcome) }
             bobDefaults?.let { org.asyncttwiz.server.accounts.AccountSettingsService(runtime).set(b.account.accountId, AccountSettings(playDefaults = it)) }
             val seats = listOf(a, b).map { p -> PlayerId(p.account.accountId) }.map { p ->
                 Seat(p, deck.mapIndexed { i, n -> DeckCard(CardId("${p.value}.$i"), Cards.definition(n)) })
@@ -398,6 +400,37 @@ class EngineGameServiceTest {
         assertEquals("accepted", f.owner.execute(GameAction.SetAssumeReveals(AssumeReveals())).outcome)
         assertEquals("accepted", f.owner.execute(GameAction.EngineRewind(target)).outcome, "his pass doesn't count by default")
         assertEquals(target, f.snapshot().headId)
+    }
+
+    // HIS-042, LOB-135 (owner 2026-11-26, playtest F): "Reshuffle libraries on undo" and "on branch" are the game's, set by its creator
+    // in the lobby only (refused while a match is on; the other settings still change); with "on undo" off Alice's free undo of
+    // her keep keeps the libraries' order: her keep made again starts the undo's line without a reshuffle, the server making the
+    // same event as her device
+    @Test fun `the reshuffle switches are the lobby's and the server's undo line follows them`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "rs", reveals = AssumeReveals(reshuffleOnUndo = false))
+        assertEquals(AssumeReveals(reshuffleOnUndo = false), f.games.head(f.b, f.game.id).summary.assumeReveals)
+        assertEquals("lifecycleEnded", f.owner.execute(GameAction.SetAssumeReveals(AssumeReveals())).reason)
+        assertEquals("lifecycleEnded", f.owner.execute(GameAction.SetAssumeReveals(AssumeReveals(reshuffleOnUndo = false, reshuffleOnBranch = false))).reason)
+        assertEquals("accepted", f.owner.execute(GameAction.SetAssumeReveals(AssumeReveals(hands = true, reshuffleOnUndo = false))).outcome)
+        val start = f.snapshot().headId
+        val libraries = f.codec().decodeModel(f.snapshot().state).engine.let { e -> e.players.map { e.player(it.id).library.toList() } }
+        val alice = f.device(f.a)
+        val keep = Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep"))
+        assertEquals("accepted", f.owner.execute(GameAction.Submit(alice.act(id(), keep))).outcome)
+        assertEquals("accepted", f.owner.execute(GameAction.EngineRewind(start)).outcome)
+        val undone = f.snapshot()
+        assertEquals(1, undone.lines)
+        assertEquals(false, undone.lineBranch, "an undo's line")
+        val again = f.device(f.a)
+        val sent = again.act(id(), keep, newLine = undone.lines, reshuffle = false)
+        assertEquals("accepted", f.owner.execute(GameAction.Submit(sent)).outcome)
+        val made = again.pending.single()
+        assertEquals(1, made.startsLine)
+        assertTrue(made.engine!!.steps.none { it.input == null }, "no reshuffle step")
+        val head = f.codec().decodeModel(f.snapshot().state)
+        assertEquals(again.pending.single().id, f.snapshot().headId)
+        assertTrue(head.sameAs(again.model), "the server made her device's event")
+        assertEquals(libraries, head.engine.let { e -> e.players.map { e.player(it.id).library.toList() } }, "the libraries keep their order")
     }
 
     // HIS-108, HIS-205 (owner playtest 2026-11-07): Alice's free undo takes back her keep that Bob's device had shown: his local

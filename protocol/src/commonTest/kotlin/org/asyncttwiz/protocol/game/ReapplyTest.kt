@@ -147,6 +147,36 @@ class ReapplyTest {
         assertEquals(server.head, server.heads[server.alice], "her local head back at the branch point")
     }
 
+    // HIS-042, HIS-194 (owner 2026-11-26): the line due after a re-apply's take-back is a branch's: the next event there keeps
+    // the libraries' order while "Reshuffle libraries on branch" is off (whatever "on undo" says), and reshuffles them while it
+    // is on (whatever "on undo" says); the server makes the same event as the device
+    @Test
+    fun theLineDueAfterAReapplysTakeBackFollowsTheBranchSwitch() {
+        fun branchedThenPlayed(reveals: org.asyncttwiz.protocol.AssumeReveals): Pair<GameEvent, Boolean> {
+            val server = game(List(20) { "Mountain" } + List(20) { echo })
+            server.reveals = reveals
+            server.keepAndPlay()
+            server.act(server.alice, Input.PlayLand(server.alice, hand(server.state(), server.alice, "Mountain"))).getOrThrow()
+            server.casts(echo)
+            assertIs<Acceptance.Reapplied>(server.bob(::mulligan))
+            assertNotNull(assertIs<Acceptance.Reapplied>(server.bob(::mulligan)).reapply.stoppedAt)
+            assertEquals(1, server.lines)
+            assertTrue(server.lineBranch, "the due line is a branch's")
+            val before = server.state().engine.let { e -> e.players.map { e.player(it.id).library.toList() } }
+            // Alice's next event at the branch point starts it
+            val holder = server.state().engine.priority.holder!!
+            server.act(server.alice, Input.PassPriority(holder), assumed = holder != server.alice).getOrThrow()
+            val event = server.history.store.node(server.head)!!.event
+            assertEquals(1, event.startsLine)
+            val after = server.stateAt(event.parentId).also { it.apply(event) }.engine.let { e -> e.players.map { e.player(it.id).library.toList() } }
+            return event to (before != after)
+        }
+        val (kept, moved) = branchedThenPlayed(org.asyncttwiz.protocol.AssumeReveals(reshuffleOnBranch = false))
+        assertTrue(kept.engine!!.steps.none { it.input == null } && !moved, "no reshuffle step, the libraries as they were")
+        val (shuffled, reordered) = branchedThenPlayed(org.asyncttwiz.protocol.AssumeReveals(reshuffleOnUndo = false))
+        assertTrue(shuffled.engine!!.steps.first().input == null && reordered, "the line's reshuffle first")
+    }
+
     // HIS-116: a land, then Ember Augury at Bob (his top two cards revealed): the land stands, the reveal is taken back
     @Test
     fun aRevealOfTheOpponentsLibraryIsTakenBack() {

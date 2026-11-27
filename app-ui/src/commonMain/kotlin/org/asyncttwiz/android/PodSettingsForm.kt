@@ -225,9 +225,11 @@ fun podModeChoice(mode: DraftMode): DraftMode = if (mode == DraftMode.GLIMPSE) D
 /** A mode with its engine's player range (DRF-150), e.g. "Winston · 2–4 players". */
 fun podModeOption(mode: DraftMode): String = "${podModeName(mode)} · ${mode.players.first}–${mode.players.last} players"
 
-/** DRF-020: a mode's defaults, keeping the sideboard limit, Librarians and bot seats (at most the new mode's, DRF-296). */
+/** DRF-020: a mode's defaults, keeping the sideboard limit, Librarians and bot seats (at most the new mode's, DRF-296), and
+ * the pod's Game settings. */
 fun podModeSettings(mode: DraftMode, current: DraftSettings) = DraftSettings.defaults(mode)
-    .copy(sideboardLimit = current.sideboardLimit, freshBoosters = current.freshBoosters, bots = current.bots.coerceAtMost(mode.maxBots),
+    .copy(gameSettings = current.gameSettings,
+    sideboardLimit = current.sideboardLimit, freshBoosters = current.freshBoosters, bots = current.bots.coerceAtMost(mode.maxBots),
     librarians = if (mode.packPassing) current.librarians else 0,
     librarianDefinition = if (mode.packPassing) current.librarianDefinition else null)
 
@@ -255,8 +257,7 @@ fun PodSettingsForm(name: String, settings: DraftSettings, source: PodSource?, m
         if (editable) PodPackMixToggle(settings, source, setGrid)
     }
     if (setGrid != null && setGrid.mixing) PodPackGridSection(settings, setGrid)
-    PodSettingsFields(settings, members, editable, source ?: PodSource(), change)
-}
+    PodSettingsFields(settings, members, editable, source ?: PodSource(), change)}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

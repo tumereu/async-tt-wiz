@@ -51,7 +51,7 @@ also lets you look through your deck as you play it, which changes nothing in th
 ## Library order
 
 - **ZON-023** Library order is hidden: a card put on top or bottom of a library, or looked at and left in place, keeps that place until the library is shuffled, so draws and other top-end actions take it first. Nothing on the table shows which places are known (ZON-012). (r53)
-- **ZON-024** Every line of play reshuffles the unknown parts of both libraries, known places kept (HIS-042): drawing, undoing and drawing again gives a new card. (r48)
+- **ZON-024** A new line of play reshuffles the unknown parts of both libraries, known places kept (HIS-042): drawing, undoing and drawing again gives a new card, the same one while the game's "Reshuffle libraries on undo" is off (LOB-282). (r48; owner, 2026-11-26)
 
 ## Graveyard and exile
 

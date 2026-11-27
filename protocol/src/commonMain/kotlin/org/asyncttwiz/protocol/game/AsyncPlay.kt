@@ -145,19 +145,19 @@ object Rewind {
      * from the assumed keep made again on top of them ([Reapply.run]: the assumed keep for the opening as it is there, then
      * each event while it comes out the same; the first event made starts [line] when [again] added none). [model] is the
      * state at [target] (used up: it ends as the state after the last event made); [after] the main line's events after
-     * [target].
+     * [target]. [reshuffle]: the new line reshuffles the libraries (the game's "Reshuffle libraries on undo", HIS-042).
      */
     fun reapply(model: GameModel, target: String, after: List<GameEvent>, at: Int, player: PlayerId, line: Int, ids: () -> String,
-        dropped: (GameEvent, String) -> Unit = { _, _ -> }, added: (GameEvent) -> Unit = {}): Reapplied {
+        dropped: (GameEvent, String) -> Unit = { _, _ -> }, reshuffle: Boolean = true, added: (GameEvent) -> Unit = {}): Reapplied {
         val before = after.take(at)
         val old = after.drop(at)
         // The state the old line rests on (its base P)
         val oldBase = model.copy().also { m -> before.forEach(m::apply) }
-        val standing = again(model, target, before, player, line, ids, dropped, added)
+        val standing = again(model, target, before, player, line, ids, dropped, reshuffle, added)
         val base = standing.lastOrNull()?.id ?: target
         val atBase = model.copy()
         val assumer = checkNotNull(old.first().assumed?.assumedBy) { "No assumption at ${old.first().id}" }
-        val result = Reapply.run(oldBase, model, base, old, assumer, ids, line = line.takeIf { standing.isEmpty() })
+        val result = Reapply.run(oldBase, model, base, old, assumer, ids, line = line.takeIf { standing.isEmpty() }, reshuffle = reshuffle)
         return Reapplied(standing, result, base, atBase)
     }
 
@@ -278,13 +278,13 @@ object Rewind {
      * What a rewind by [player] to [target] adds (owner's rule 2026-11-04: an undo only pops events, it adds none of its
      * own): the other players' table-only events among [after] that may stand ([standing]), made again on [model] (the
      * state at [target], moved along) while they still apply, each handed to [added] as it is made. The first of them
-     * starts the new [line] (its reshuffle, §9); with none, the next event made at [target] starts it ([lineDue]). Combat
+     * starts the new [line] (its reshuffle, §9, with [reshuffle]: the game's "Reshuffle libraries on undo", HIS-042); with none, the next event made at [target] starts it ([lineDue]). Combat
      * staging (an attack or block draft, CMB-043) stands only while [model] still awaits the declaration it stages (owner notes
      * 2026-11-14 evening: a rewind back out of the declare attackers step left the attacker's staging on the table for when the
      * game came back there); what doesn't stand is handed to [dropped] with why, for the logs.
      */
     fun again(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, line: Int, ids: () -> String,
-        dropped: (GameEvent, String) -> Unit = { _, _ -> }, added: (GameEvent) -> Unit): List<GameEvent> {
+        dropped: (GameEvent, String) -> Unit = { _, _ -> }, reshuffle: Boolean = true, added: (GameEvent) -> Unit): List<GameEvent> {
         val events = mutableListOf<GameEvent>()
         for (kept in standing(after, player)) {
             val (table, out) = kept.table.partition { awaited(model, it) }
@@ -292,7 +292,7 @@ object Rewind {
                 "declaration the game no longer awaits at turn ${model.engine.turn.number} ${model.engine.turn.step}")
             if (table.isEmpty()) continue
             val builder = EventBuilder(model, ids(), events.lastOrNull()?.id ?: target, kept.author)
-            if (events.isEmpty()) builder.startLine(line)
+            if (events.isEmpty()) builder.startLine(line, reshuffle)
             try { table.forEach(builder::table) } catch (_: IllegalStateException) { builder.abandon(); dropped(kept, "it no longer applies"); continue }
             events += builder.build().also(added)
         }

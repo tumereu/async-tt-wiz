@@ -24,13 +24,14 @@ class GameSettingsUiTest {
     @get:Rule val compose = createComposeRule()
 
     /** The lobby's Starting player and Game settings cards as the lobby lays them out, for [viewer]. */
-    private fun lobbyCards(viewer: (GameSummary) -> String, sent: MutableList<AssumeReveals>): MutableState<GameSummary> {
+    private fun lobbyCards(viewer: (GameSummary) -> String, sent: MutableList<AssumeReveals>,
+        lobby: State<Boolean> = mutableStateOf(true)): MutableState<GameSummary> {
         val game = mutableStateOf(ScreenFixtures().lobby.state.games.last())
         compose.setContent {
             ScreenTheme { Surface(Modifier.fillMaxSize(), color = ScreenBackground) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     StartingPlayerControl(game.value, StarterChoice(), true) {}
-                    GameSettingsCard(game.value, viewer(game.value)) { sent += it; game.value = game.value.copy(assumeReveals = it) }
+                    GameSettingsCard(game.value, viewer(game.value), lobby = lobby.value) { sent += it; game.value = game.value.copy(assumeReveals = it) }
                 }
             } }
         }
@@ -56,7 +57,8 @@ class GameSettingsUiTest {
         file.parentFile!!.mkdirs()
         captureShot(file.path, "Portrait game lobby cards for the game's host: Starting player, then Game settings with " +
             "\"Allow assumes that reveal the opponent's library\" on, \"Allow assumes that reveal hands\" off and \"Undo past the " +
-            "other player's passes needs a request\" off, the defaults.")
+            "other player's passes needs a request\" off, then \"Reshuffle libraries on undo\" and \"Reshuffle libraries on branch\" " +
+            "on, the defaults.")
         hands.performClick().assertIsOn()
         library.performClick().assertIsOff()
         passes.performClick().assertIsOn()
@@ -75,6 +77,43 @@ class GameSettingsUiTest {
         hands.performClick()
         compose.runOnIdle { game.value = game.value.copy(assumeReveals = AssumeReveals(library = true, hands = true)) }
         hands.assertIsOn().assertIsNotEnabled()
+        assertEquals(emptyList(), sent)
+    }
+
+    // LOB-282, HIS-042 (owner 2026-11-26): "Reshuffle libraries on undo" and "on branch", both on by default, each with its line;
+    // the game's creator changes them in the lobby (each switch sends the whole value), greyed while a match is on; the other
+    // player sees them greyed
+    @Test fun theCreatorChangesTheReshuffleSwitchesInTheLobbyOnly() {
+        val sent = mutableListOf<AssumeReveals>()
+        val lobby = mutableStateOf(true)
+        lobbyCards({ it.inviter.accountId }, sent, lobby)
+        val undo = compose.onNodeWithTag("reshuffle-undo")
+        val branch = compose.onNodeWithTag("reshuffle-branch")
+        undo.assertIsOn().assertIsEnabled()
+        branch.assertIsOn().assertIsEnabled()
+        compose.onNodeWithText(GameSettingsText.RESHUFFLE_UNDO_MEANING).assertExists()
+        compose.onNodeWithText(GameSettingsText.RESHUFFLE_BRANCH_MEANING).assertExists()
+        undo.performClick().assertIsOff()
+        assertEquals(listOf(AssumeReveals(reshuffleOnUndo = false)), sent)
+        val file = File("$SCREENSHOTS/settings/game-settings-reshuffle.png")
+        file.parentFile!!.mkdirs()
+        captureShot(file.path, "Portrait game lobby cards for the game's creator, who turned \"Reshuffle libraries on undo\" off: the Game " +
+            "settings card's last two switches, each with its line (choice: these lines), \"Reshuffle libraries on undo\" off and \"Reshuffle " +
+            "libraries on branch\" on.")
+        compose.runOnIdle { lobby.value = false }
+        undo.assertIsOff().assertIsNotEnabled()
+        branch.assertIsNotEnabled().performClick()
+        compose.onNodeWithTag("assume-hands").assertIsEnabled()
+        assertEquals(1, sent.size, "nothing sent while a match is on")
+    }
+
+    // LOB-282: the other player sees the creator's reshuffle switches greyed
+    @Test fun theOtherPlayerSeesTheReshuffleSwitchesGreyed() {
+        val sent = mutableListOf<AssumeReveals>()
+        val game = lobbyCards({ it.recipient.accountId }, sent)
+        compose.runOnIdle { game.value = game.value.copy(assumeReveals = AssumeReveals(reshuffleOnBranch = false)) }
+        compose.onNodeWithTag("reshuffle-undo").assertIsOn().assertIsNotEnabled()
+        compose.onNodeWithTag("reshuffle-branch").assertIsOff().assertIsNotEnabled().performClick()
         assertEquals(emptyList(), sent)
     }
 }

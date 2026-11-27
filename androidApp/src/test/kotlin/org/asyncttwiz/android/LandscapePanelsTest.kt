@@ -23,7 +23,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertTrue
 
 /**
- * STK-044 (owner, 2026-11-26): in landscape every Automatum panel (the cast panel, a target bar, a choice, the costs panel; the reveal
+ * STK-044 (owner, 2026-11-26), STK-135 (owner, 2026-11-27): in landscape every Automatum panel (the cast panel, a target bar, a choice, the costs panel; the reveal
  * panel in [RevealPanelTest]) stands at the left, at most 420 dp wide, its bottom on the top of the bottom bar, so nothing of the bar
  * (life, piles, the hand's fan) is covered; large hand cards standing over the battlefield (TBL-238) are drawn in front of it.
  */
@@ -57,25 +57,25 @@ class LandscapePanelsTest {
         compose.waitForIdle()
     }
 
-    /** The panel described as [panel] stands on the bottom bar, at the left, at most 420 dp wide ([narrow]; the cast panel keeps the
-     * table's whole width). */
-    private fun onTheBar(panel: String, narrow: Boolean = true) {
+    /** The panel described as [panel] stands on the bottom bar, at the left, at most 420 dp wide. */
+    private fun onTheBar(panel: String) {
         val box = compose.onNodeWithContentDescription(panel).fetchSemanticsNode().boundsInRoot
         val barTop = 412f - TableControlsHeight
         assertTrue(kotlin.math.abs(box.bottom - barTop) < 1f, "$panel's bottom on the bar's top ($barTop): $box")
-        assertTrue(box.left < 1f && (!narrow || box.width <= 421f), "$panel at the left, at most 420 dp wide: $box")
+        assertTrue(box.left < 1f && box.width <= 421f, "$panel at the left, at most 420 dp wide: $box")
     }
 
-    // STK-044, STK-023: the cast panel of Cinder Charm (a mode to choose)
+    // STK-044, STK-135, STK-023 (owner, 2026-11-27): the cast panel of Cinder Charm (a mode to choose), at most 420 dp wide as every other
+    // panel
     @Test fun theCastPanelStandsOnTheBar() {
         val kit = kit(Choices.CHARM, "Mountain")
         kit.opening()
         assertTrue(kit.toolkit.cast.start(kit.atw(kit.hand(Choices.CHARM).first())), "the cast begins: ${kit.toolkit.error}")
         render(kit)
-        onTheBar("Cast panel", narrow = false)
+        onTheBar("Cast panel")
         compose.onRoot().captureShot("$SCREENSHOTS/landscape-panels/cast-panel.png",
             "In landscape Alice cast Cinder Charm, which asks for a mode: the cast panel stands at the left on top of the bottom bar, " +
-                "her life, piles and the hand's fan all in view under it.")
+                "at most 420 dp wide like every other panel, her life, piles and the hand's fan all in view under it.")
     }
 
     // STK-044, STK-047: the target bar of the Charm's damage mode

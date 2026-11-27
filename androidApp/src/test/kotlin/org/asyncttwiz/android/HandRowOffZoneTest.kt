@@ -109,6 +109,19 @@ class HandRowOffZoneTest {
         assertEquals(flare, toolkit.shaking?.id, "it shakes")
     }
 
+    // ZON-058, TBL-123, TBL-116 (owner, 2026-11-27): a tap on the flashback card in the graveyard view (a card panel's card opens its
+    // engine menu) while it can't be cast now (no mana) opens its menu, the Cast row greyed and saying why
+    @Test fun inTheGraveyardViewACardThatCantBeCastNowOpensItsMenuWithTheRowGreyed() {
+        kit.opening()
+        val flare = flareInGraveyard()
+        toolkit.openCard(TableScope(flare, listOf(flare)))
+        val bound = assertNotNull(toolkit.capture, "the menu opens")
+        val rows = automatumRows(toolkit, kit.alice.play(), bound, emptyMap(), enabled = true)
+        val cast = rows.single { it.control.name.startsWith("Cast") }
+        assertFalse(cast.control.enabled, "greyed: $rows")
+        assertEquals("Ember Flare can't be cast now.", cast.control.refused)
+    }
+
     // ZON-079, ZON-106: the other player's table shows nothing of Alice's flashback card in a hand row
     @Test fun theOtherPlayersRowHasNone() {
         kit.opening()

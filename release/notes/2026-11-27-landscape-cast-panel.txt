@@ -1,0 +1,1 @@
+3: In landscape the cast panel is now as narrow as the other panels, so the middle of the table stays in view while you cast.

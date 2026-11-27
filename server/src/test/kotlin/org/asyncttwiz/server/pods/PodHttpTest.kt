@@ -1749,11 +1749,12 @@ class PodHttpTest {
     }
 
     // DRF-170, DRF-237, LOB-277 (owner, 2026-11-26): a message notifies the other members (not its author) in the pod chat's one
-    // notice, "<pod>: <author>" over the message; the chat's unread count tells it too; reading it through, or opening the pod,
-    // clears it on every device
+    // notice, "<pod>: <author>" over the message (with Chat switched on, LOB-276: off by default); the chat's unread count tells it
+    // too; reading it through, or opening the pod, clears it on every device
     @Test fun `a pod chat message notifies the other members`() = fixture { f ->
         val pod = f.create().id
         f.join(pod); f.join(pod, f.c)
+        for (who in listOf(f.a, f.b, f.c)) f.send(who, "PUT", "/account/settings", AccountSettings(notifications = NotificationSettings(chat = true)))
         val cursors = listOf(f.a, f.b, f.c).associateWith { who -> f.activity(who).nextCursor }
         f.say(f.a, pod, "Draft tonight?")
         assertTrue(f.activity(f.a, cursors.getValue(f.a)).readyNotices!!.none { it.kind == ActivityKind.POD_CHAT }, "not its author")

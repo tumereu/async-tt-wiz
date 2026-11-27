@@ -536,10 +536,16 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         if (account != game.inviterId) return "notHost"
         val reveals = action.reveals
         val log = org.slf4j.LoggerFactory.getLogger(GameService::class.java)
-        if (game.lifecycle != "LOBBY" && !reveals.sameReshuffles(lobby.assumeReveals(game))) {
+        val reshufflesChanged = !reveals.sameReshuffles(lobby.assumeReveals(game))
+        if (game.lifecycle != "LOBBY" && reshufflesChanged) {
             log.info("Game {} settings by {} refused: the reshuffle switches change only in the lobby (now {}; asked on undo {}, on branch {})",
                 game.id, account, game.lifecycle, reveals.reshuffleOnUndo, reveals.reshuffleOnBranch)
             return "lifecycleEnded"
+        }
+        // LOB-282 (owner 2026-11-27): a reshuffle switch changed in the lobby clears both players' Ready, as the Decks settings do
+        if (reshufflesChanged) {
+            PreparationStore.settingsChanged(sql, game.id, emptyList())
+            log.info("Game {} reshuffle switches changed by {}: Ready cleared for both players", game.id, account)
         }
         sql.update(GAME).set(GAME.ASSUME_LIBRARY_REVEALS, reveals.library).set(GAME.ASSUME_HAND_REVEALS, reveals.hands)
             .set(GAME.UNDO_PAST_PASSES, reveals.undoPastPasses)

@@ -172,6 +172,62 @@ class StatsDraftsScreenshotTest {
         compose.onNodeWithTag("pod-history-retry").assertIsDisplayed()
     }
 
+    /** A Rotisserie of Test Set alex drafted with riley and Bot 1, as the server kept it: every take, oldest first. */
+    private val rotisserie = DraftRecordSummary("d5", "pod-5", "Rotisserie night", testSet, DraftSettings.rotisserie().copy(cardsPerPlayer = 4),
+        "2026-11-27T19:00:00Z", listOf(riley, alex, PodBots.identity(1)))
+    private val rotisserieRecord = DraftRecord(rotisserie, PodDraftHistory(emptyList(), definitions,
+        seating = listOf(riley.accountId, alex.accountId, PodBots.id(1))), listOf(
+            DraftRecordTake(riley.accountId, copies(0)), DraftRecordTake(alex.accountId, copies(3)), DraftRecordTake(PodBots.id(1), copies(6)),
+            DraftRecordTake(PodBots.id(1), copies(8)), DraftRecordTake(alex.accountId, copies(10)), DraftRecordTake(riley.accountId, copies(4)),
+            DraftRecordTake(riley.accountId, copies(12)), DraftRecordTake(alex.accountId, copies(9)), DraftRecordTake(PodBots.id(1), copies(1)),
+            DraftRecordTake(PodBots.id(1), copies(11)), DraftRecordTake(alex.accountId, copies(5)), DraftRecordTake(riley.accountId, copies(7))))
+
+    // LOB-281, DRF-160, DRF-315, DRF-316, DRF-317 (owner, 2026-11-27): a kept Rotisserie draft opens in its Picks: a chip per
+    // opponent and their picks newest first with each rated card's win rate, the citation, and By rating in the title row
+    @Test fun aKeptRotisserieDraftOpensItsPicks() {
+        history.stats = HistoryList(records)
+        history.drafts = HistoryList(listOf(rotisserie) + drafts)
+        history.draftRecords = mapOf("d5" to HistoryList(rotisserieRecord))
+        history.choice = StatsChoice(tab = StatsTab.Drafts)
+        show()
+        compose.onNodeWithTag("stats-draft-d5").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onNodeWithText("Picks").assertIsDisplayed()
+        compose.onNodeWithTag("pod-history-dialog").assertDoesNotExist()
+        compose.onNodeWithText("riley (4)").assertIsDisplayed()
+        compose.onNodeWithText("Bot 1 (4)").assertIsDisplayed()
+        compose.onNodeWithTag("pod-ratings-citation", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("pod-picks-c7-rating", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("pod-picks-c12-rating", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("pod-history-by-rating").assertIsDisplayed()
+        captureShot("$SCREENSHOTS/stats/draft-picks.png", "Tapping Rotisserie night in Stats' Drafts tab opens its Picks, the pod's " +
+            "own dialog: riley's chip chosen, riley's four picks newest first with each rated card's win rate chip (Brass Courier has none), " +
+            "the citation above them and By rating in the title row.")
+        compose.onNodeWithText("Bot 1 (4)").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("pod-picks-c11", useUnmergedTree = true).assertExists()
+        compose.onNode(hasContentDescription("Close picks")).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Picks").assertDoesNotExist()
+        compose.onNodeWithTag("stats-draft-d5").assertIsDisplayed()
+    }
+
+    // LOB-281: a kept Picks draft shows "Loading…" until it comes, and a failure offers Retry
+    @Test fun aKeptPicksDraftLoadsAndOffersRetryOnAFailure() {
+        history.stats = HistoryList(records)
+        history.drafts = HistoryList(listOf(rotisserie))
+        history.choice = StatsChoice(tab = StatsTab.Drafts)
+        show()
+        compose.onNodeWithTag("stats-draft-d5").performClick()
+        compose.waitForIdle()
+        kotlin.test.assertEquals(true, history.draftRecords["d5"]?.loading)
+        compose.onNodeWithText("Loading…").assertIsDisplayed()
+        compose.runOnIdle { history.draftRecords = mapOf("d5" to HistoryList(failed = true)) }
+        compose.onNodeWithText("Couldn't load the picks").assertIsDisplayed()
+        compose.onNodeWithTag("pod-picks-retry").assertIsDisplayed()
+    }
+
     private fun hasTestTagPrefix(prefix: String) = SemanticsMatcher("test tag starts with $prefix") { node ->
         node.config.getOrElseNullable(androidx.compose.ui.semantics.SemanticsProperties.TestTag) { null }?.startsWith(prefix) == true
     }

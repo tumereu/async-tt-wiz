@@ -66,4 +66,56 @@ class StatsDraftsTest : E2e() {
         alice.node(hasContentDescription("Close draft history")).performClick()
         waitUntil("back at the Drafts tab") { !alice.shows(hasTestTag("pod-history-dialog")) && alice.showsText(name) }
     }
+
+    // LOB-279, LOB-281, DRF-160, DRF-315, DRF-316 (owner, 2026-11-27): Alice drafts a Test Set Rotisserie with a bot to its end and
+    // deletes the pod; Stats' Drafts tab lists it too, and tapping it opens its Picks: the bot's chip and picks as the pod's Picks
+    // showed them, with the card ratings and By rating
+    @Test fun aDeletedRotisseriePodsPicksOpenFromStats() {
+        launchPlayers(aliceCatalog = true)
+        waitUntil("Alice's card records installed") { alice.catalog!!.state.ready }
+        val name = "E2E kept rotisserie ${UUID.randomUUID().toString().take(6)}"
+        val pod = runBlocking {
+            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+                api.create(alice.account.token, CreatePod(UUID.randomUUID().toString(), name, mode = DraftMode.ROTISSERIE, setCode = "TST",
+                    settings = DraftSettings.rotisserie().copy(cardsPerPlayer = 5, bots = 1))).id
+            }
+        }
+        ServerSetup.startPod(alice.account, pod)
+        val picks = runBlocking {
+            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+                // Alice takes the first card left at each of her turns; the bot moves on the server at once (DRF-298)
+                var detail = api.detail(alice.account.token, pod)
+                while (detail.phase == PodPhase.DRAFTING) {
+                    val limited = detail.limited!!
+                    api.turn(alice.account.token, pod, PodTurn(UUID.randomUUID().toString(), detail.draftAttemptId!!, LimitedAction.TAKE_CARD,
+                        limited.turn, card = limited.board.first { it.pickedBy == null }.copy.id))
+                    detail = api.detail(alice.account.token, pod)
+                }
+                api.detail(alice.account.token, pod).limited!!.picks
+            }
+        }
+        val bots = picks.filter { it.player == PodBots.id(1) }.asReversed().flatMap { it.cards }
+        assertEquals(5, bots.size, "the bot's five picks")
+        runBlocking {
+            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api -> api.destroy(alice.account.token, pod, PodRequest(UUID.randomUUID().toString())) }
+        }
+
+        alice.auth.navigate(ShellDestination.MENU)
+        waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-STATS")) }
+        alice.tagged("menu-STATS").performClick()
+        waitUntil("Alice's Stats") { alice.shows(hasTestTag("stats-drafts-tab")) }
+        alice.tagged("stats-drafts-tab").performClick()
+        waitUntil("the deleted Rotisserie in Drafts") { alice.showsText(name) }
+        val kept = alice.lobby.history.drafts.value!!.single { it.podName == name }
+        alice.tagged("stats-draft-${kept.id}").performClick()
+        waitUntil("its Picks with the ratings") {
+            alice.lobby.history.draftRecords[kept.id]?.value != null && alice.showsText("Picks") && alice.showsText("Bot 1 (5)") &&
+                alice.shows(hasTestTag("pod-ratings-citation")) && alice.shows(hasTestTag("pod-history-by-rating")) &&
+                alice.shows(hasTestTag("pod-picks-${bots.first()!!.id}"))
+        }
+        assertTrue(!alice.shows(hasTestTag("pod-history-dialog")), "its Picks, not a draft history")
+        waitUntil("a rated card's win rate") { alice.shows(hasContentDescription("rated ", substring = true)) }
+        alice.node(hasContentDescription("Close picks")).performClick()
+        waitUntil("back at the Drafts tab") { !alice.showsText("Bot 1 (5)") && alice.showsText(name) }
+    }
 }

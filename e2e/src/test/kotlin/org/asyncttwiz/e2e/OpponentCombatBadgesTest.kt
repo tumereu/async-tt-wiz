@@ -16,8 +16,11 @@ class OpponentCombatBadgesTest : E2e() {
         startGame(TestDeck.larks(), TestDeck.larks(), bobStarts = true,
             deal = { a, b -> "Mountain" in hand(a) && "Cinder Lark" in hand(a) && "Mountain" in hand(b) && "Cinder Lark" in hand(b) })
         bothOpen()
-        bothKeep(bobAway = false)
-        waitUntil("Bob's Main 1", along = listOf(alice)) { bob.inOwnMain() }
+        // Both keep and Bob, who starts, goes on to his first Main 1 by himself: bothKeep's wait for Alice's Main 1 would play his
+        // first turn along (a Mountain, no Lark) and Alice's then use her Mountain, which she may hold only one of (0.3.5 full run)
+        alice.tap("Keep")
+        bob.tap("Keep")
+        waitUntil("Bob's first Main 1", along = listOf(alice)) { bob.inOwnMain() && bob.state.turn.number == 1 }
         bob.playFromHand("Mountain", this)
         waitUntil("Bob's Mountain on the battlefield", along = listOf(alice)) { bob.field("Mountain").isNotEmpty() && bob.inOwnMain() }
         bob.playFromHand("Cinder Lark", this)

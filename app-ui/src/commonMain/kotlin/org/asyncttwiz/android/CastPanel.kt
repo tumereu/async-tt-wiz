@@ -66,7 +66,7 @@ import org.asyncttwiz.protocol.*
 /**
  * The cast panel (integration spec I-D6, §3 I2, I-D47): shown only while a cast has a real choice (modes, X, optional or
  * alternative costs, targets; with Autotap off also the mana). It spans the table's width docked exactly above the
- * viewer's hand, with the card small at its right as in every Automatum panel (STK-044; hold: Inspect) and its
+ * viewer's hand (in landscape at most [LANDSCAPE_WIDTH] from its left edge, as every Automatum panel, STK-135), with the card small at its right as in every Automatum panel (STK-044; hold: Inspect) and its
  * sections in the rules order (CR 601.2b–h). Targets are chosen on the table: the panel shrinks to a slim bar while legal
  * targets glow. The eye (I-D10) stays where it is: the rest of the panel fades away around it and comes back. Back and
  * Undo drop the whole cast (STK-025); there is no Cancel.
@@ -93,7 +93,8 @@ fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: Tabl
     }
     // I-D48: the choices' cards know who looks at them (outlines, Inspect)
     // WEB-019: on the desktop table paying with permanents needs the board (a strip); ways, extras, X and modes don't (an overlay)
-    DockedAboveHand(handRow, if (flow.pending is Decision.ManaPayment) PromptPlace.Board else PromptPlace.Choice) {
+    // STK-135, STK-044 (owner, 2026-11-27): placed as every other Automatum panel, in landscape at most 420 dp from the left edge
+    AboveHand(handRow, if (flow.pending is Decision.ManaPayment) PromptPlace.Board else PromptPlace.Choice) {
         CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(toolkit.viewer)) {
             CastPanel(cast, flow, play, names, source)
         }
@@ -105,27 +106,6 @@ fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: Tabl
 fun castSource(play: TableBoard, viewer: String, flow: CastShown, abilityText: String?): ChoiceCardData {
     val card = choiceCard(play, viewer, "source/${flow.cardId}", flow.cardId, shown = true, fallback = CastController.cardName(play, flow.cardId))
     return if (abilityText == null) card else card.copy(ability = StackAbilityShown(triggered = false, source = card.name, text = abilityText))
-}
-
-/** I-D47: the table's full width, its bottom exactly on the top of the viewer's hand row [hand] (the table's bottom
- * without one), at most up to the table's top. */
-@Composable
-private fun DockedAboveHand(hand: TableBounds?, place: PromptPlace, content: @Composable () -> Unit) {
-    LocalDesktopGeometry.current?.let { DesktopPrompt(it, place, content); return }
-    val docked = dockedPanelReporter()
-    // STK-044 (owner 2026-11-26): the hand's cards standing over the battlefield in front of it
-    val placed = remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(1) }
-    Layout(content = content, modifier = Modifier.fillMaxSize().handInFront(placed)) { measurables, constraints ->
-        val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
-        val placeable = measurables.firstOrNull()?.measure(Constraints(minWidth = constraints.maxWidth, maxWidth = constraints.maxWidth,
-            maxHeight = bottom))
-        // D2: the table pans past the open panel
-        docked((placeable?.height ?: 0).toDp().value)
-        placed[0] = placeable?.let { androidx.compose.ui.geometry.Rect(0f, (bottom - it.height).toFloat(), it.width.toFloat(), bottom.toFloat()) }
-        layout(constraints.maxWidth, constraints.maxHeight) {
-            placeable?.place(0, bottom - placeable.height)
-        }
-    }
 }
 
 /**

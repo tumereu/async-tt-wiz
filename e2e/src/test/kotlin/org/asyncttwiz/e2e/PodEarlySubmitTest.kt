@@ -32,7 +32,7 @@ class PodEarlySubmitTest : E2e() {
 
     /** [player]'s next pick over the API: the first cards of their head pack. */
     private fun pick(player: E2ePlayer, pod: String) = runBlocking {
-        org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+        org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
             val detail = api.detail(player.account.token, pod)
             val head = checkNotNull(detail.draft?.head) { "${player.name} has no pack: $detail" }
             api.pick(player.account.token, pod, PickPod(id(), detail.draftAttemptId!!, head.id,
@@ -42,7 +42,7 @@ class PodEarlySubmitTest : E2e() {
 
     /** [player]'s Main gets 40 Plains over the API, so their deck is valid. */
     private fun basics(player: E2ePlayer, pod: String) = runBlocking {
-        org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+        org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
             api.basics(player.account.token, pod, SetPodBasics(id(), api.detail(player.account.token, pod).draftAttemptId!!,
                 PodDeckBasics(plains = 40)))
         }
@@ -165,7 +165,7 @@ class PodEarlySubmitTest : E2e() {
             TestCards.hound, TestCards.stride, TestCards.glimmer, TestCards.glint, TestCards.drowsy),
             settings = DraftSettings.arena().copy(packsPerPlayer = 3, cardsPerPack = 2, keep = 1, ignoreRarity = true, reuseCards = true))
         ServerSetup.invitePod(alice.account, carol, pod)
-        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin).use { it.accept(carol.token, pod, PodRequest(id())) } }
+        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { it.accept(carol.token, pod, PodRequest(id())) } }
         ServerSetup.joinAndStart(alice.account, bob.account, pod)
         repeat(3) { pick(alice, pod); pick(bob, pod) }
         for (player in listOf(alice, bob)) { basics(player, pod); ServerSetup.submitPodDeck(player.account, pod) }

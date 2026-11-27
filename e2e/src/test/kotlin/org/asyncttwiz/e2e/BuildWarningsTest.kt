@@ -23,7 +23,7 @@ class BuildWarningsTest : E2e() {
         val name = "E2E warning ${UUID.randomUUID().toString().take(6)}"
         val pod = ServerSetup.draftedPod(alice.account, bob.account, name, mainPlains = 0)
         runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 val detail = api.detail(alice.account.token, pod)
                 val plains = 39 - detail.build!!.copies.size
                 api.basics(alice.account.token, pod, SetPodBasics(UUID.randomUUID().toString(), detail.draftAttemptId!!, PodDeckBasics(plains = plains)))

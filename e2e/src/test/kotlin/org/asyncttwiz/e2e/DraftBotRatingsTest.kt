@@ -44,7 +44,7 @@ class DraftBotRatingsTest : E2e() {
 
             preferences.enabled = true
             val set = runBlocking {
-                org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+                org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                     api.create(alice.account.token, CreatePod(UUID.randomUUID().toString(), "E2E rated bots", setCode = "TST",
                         settings = DraftSettings(packsPerPlayer = 1, cardsPerPack = 4, bots = 1))).id
                 }

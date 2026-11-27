@@ -53,7 +53,7 @@ class NotificationSettingsTest : E2e() {
 
         /** One poll, as the app's worker makes it (ActivityWorker): pages applied, Android's channels asked. */
         fun poll() = runBlocking {
-            ActivityApi(E2eStack.origin).use { api ->
+            ActivityApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 do {
                     val page = api.page(account.token, cursor)
                     check(delivery.apply(owner, page) { notifications.allowed(it) })
@@ -75,7 +75,7 @@ class NotificationSettingsTest : E2e() {
     }
 
     private fun notificationSettings(account: TestAccount) =
-        runBlocking { AccountApi(E2eStack.origin).use { it.accountSettings(account.token) } }.notifications
+        runBlocking { AccountApi(E2eStack.origin, E2eHttp.client()).use { it.accountSettings(account.token) } }.notifications
 
     // LOB-276, LOB-277, LOB-072, WEB-051 (owner, 2026-11-26, 2026-11-27): Chat is off until switched on: Alice's chat message notifies
     // none of Bob's devices (an invitation of hers after it still does); Bob switches Chat on in Settings on his first phone: the

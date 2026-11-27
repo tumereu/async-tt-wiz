@@ -39,7 +39,7 @@ class PrintedNameTest : E2e() {
         alice.tagged("save-deck").performClick()
         waitUntil("the saved deck") { !alice.deckImport.state.active && alice.decks.state.detail != null }
         val saved = alice.decks.state.detail!!.saved
-        val read = runBlocking { DeckApi(E2eStack.origin).use { it.read(alice.account.token, saved.deck.id) } }
+        val read = runBlocking { DeckApi(E2eStack.origin, E2eHttp.client()).use { it.read(alice.account.token, saved.deck.id) } }
         // Kept by its printing under its Oracle name: the name a saved card is found again by
         assertEquals(SavedDeckEntry(SavedDeckSection.MAINBOARD, TestCards.pyreling.printingId, "Ember Pyreling", 20),
             read.entries.single { it.printingId == TestCards.pyreling.printingId })

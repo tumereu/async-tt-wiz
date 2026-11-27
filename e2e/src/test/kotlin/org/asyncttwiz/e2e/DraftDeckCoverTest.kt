@@ -60,10 +60,10 @@ class DraftDeckCoverTest : E2e() {
     }
 
     private fun server(pod: String) = runBlocking {
-        org.asyncttwiz.android.PodApi(E2eStack.origin).use { it.detail(alice.account.token, pod) }
+        org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { it.detail(alice.account.token, pod) }
     }
 
     private fun draftDeckCover() = runBlocking {
-        org.asyncttwiz.android.DeckApi(E2eStack.origin).use { it.drafts(alice.account.token) }.decks.single().cover?.definition
+        org.asyncttwiz.android.DeckApi(E2eStack.origin, E2eHttp.client()).use { it.drafts(alice.account.token) }.decks.single().cover?.definition
     }
 }

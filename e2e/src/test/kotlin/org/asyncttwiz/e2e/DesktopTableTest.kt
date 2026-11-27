@@ -545,7 +545,7 @@ class DesktopTableTest : E2e() {
         alice.pressKey("n")
         waitUntil("N on the main button's row") { alice.shows(hasContentDescription("Main button: N")) }
         waitUntil("the server keeping Alice's key") {
-            runBlocking { org.asyncttwiz.android.AccountApi(E2eStack.origin).use { it.accountSettings(alice.account.token) } }.keyBindings ==
+            runBlocking { org.asyncttwiz.android.AccountApi(E2eStack.origin, E2eHttp.client()).use { it.accountSettings(alice.account.token) } }.keyBindings ==
                 mapOf("main" to "N")
         }
         alice.activity.onBackPressedDispatcher.onBackPressed()

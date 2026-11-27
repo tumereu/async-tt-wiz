@@ -77,10 +77,10 @@ class ArenaTest : E2e() {
         val settings = DraftSettings.arena().copy(packsPerPlayer = 3, cardsPerPack = 3, keep = 1, ignoreRarity = true)
         val pod = runBlocking {
             fun id() = UUID.randomUUID().toString()
-            val cube = DeckApi(E2eStack.origin).use { api ->
+            val cube = DeckApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 api.create(alice.account.token, CreateCube(id(), "E2E Arena cube", cards.map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 1) }))
             }
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 api.create(alice.account.token, CreatePod(id(), name, cube.cube.id, DraftMode.ARENA, settings = settings)).id.also { pod ->
                     ServerSetup.contact(alice.account, bob.account)
                     api.invite(alice.account.token, pod, InviteToPod(id(), bob.account.id))
@@ -96,7 +96,7 @@ class ArenaTest : E2e() {
         bob.node(hasClickAction() and hasAnyDescendant(hasText("Accept"))).performClick()
         waitUntil("Bob a member") { ServerSetup.pod(alice.account, pod).members.size == 2 }
         runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 api.start(alice.account.token, pod, PodRequest(UUID.randomUUID().toString()))
                     .also { check(it.phase == PodPhase.DRAFTING) { "the draft didn't start: $it" } }
             }

@@ -13,7 +13,7 @@ import org.asyncttwiz.appui.Closeable
 import org.asyncttwiz.appui.parseUri
 import org.asyncttwiz.appui.AppBuild
 
-class LobbyFailure(val code: String) : Exception("Lobby request failed")
+class LobbyFailure(val code: String, cause: Throwable? = null) : Exception("Lobby request failed", cause)
 interface Lobbies : Closeable {
     suspend fun search(token: String, query: String): UserSearch
     suspend fun contacts(token: String, after: String? = null): ContactList
@@ -103,7 +103,7 @@ class LobbyApi(private val origin: String, private val client: HttpClient = Acco
         } catch (failure: LobbyFailure) { throw failure
         } catch (failure: Exception) {
             AppLog.warn("http", "${path.substringBefore('?')} failed", failure)
-            throw LobbyFailure("network")
+            throw LobbyFailure("network", failure)
         }
     }
     override fun close() = client.close()

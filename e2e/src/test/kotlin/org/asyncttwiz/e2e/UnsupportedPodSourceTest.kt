@@ -29,7 +29,7 @@ class UnsupportedPodSourceTest : E2e() {
     @Test fun aCubeWithACardAutomatumCantPlayCantBeDrafted() {
         val (a, _) = ServerSetup.accounts()
         val cards = listOf(TestCards.mountain, TestCards.spark, TestCards.relic)
-        val cube = DeckApi(E2eStack.origin).use { api -> runBlocking {
+        val cube = DeckApi(E2eStack.origin, E2eHttp.client()).use { api -> runBlocking {
             val saved = api.create(a.token, CreateCube(UUID.randomUUID().toString(), "E2E odd cube",
                 cards.map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 4) }))
             // The server works the result out from its card catalog's marks (LOB-124)
@@ -48,7 +48,7 @@ class UnsupportedPodSourceTest : E2e() {
         assertEquals(1, create.size, alice.screen())
         assertTrue(isNotEnabled().matches(create.single()), "Create greyed: ${alice.screen()}")
         // The server refuses it too
-        PodApi(E2eStack.origin).use { api -> runBlocking {
+        PodApi(E2eStack.origin, E2eHttp.client()).use { api -> runBlocking {
             try {
                 api.create(a.token, CreatePod(UUID.randomUUID().toString(), "E2E odd pod", cube.id))
                 fail("the server made a pod from the cube")
@@ -62,7 +62,7 @@ class UnsupportedPodSourceTest : E2e() {
     // playable, its one Odd Relic in Maybe: the warning names it, New pod's Create is greyed and the server refuses the pod
     @Test fun aCubeWhoseOnlyUnplayableCardIsInItsMaybeCantBeDrafted() {
         val (a, _) = ServerSetup.accounts()
-        val cube = DeckApi(E2eStack.origin).use { api -> runBlocking {
+        val cube = DeckApi(E2eStack.origin, E2eHttp.client()).use { api -> runBlocking {
             val saved = api.create(a.token, CreateCube(UUID.randomUUID().toString(), "E2E maybe relic cube",
                 listOf(TestCards.mountain, TestCards.spark).map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 4) } +
                     CardListEntry(SavedDeckSection.MAYBEBOARD, TestCards.relic.printingId, 1)))
@@ -80,7 +80,7 @@ class UnsupportedPodSourceTest : E2e() {
         val create = alice.nodes(hasClickAction() and hasAnyDescendant(hasText("Create"))).fetchSemanticsNodes()
         assertEquals(1, create.size, alice.screen())
         assertTrue(isNotEnabled().matches(create.single()), "Create greyed: ${alice.screen()}")
-        PodApi(E2eStack.origin).use { api -> runBlocking {
+        PodApi(E2eStack.origin, E2eHttp.client()).use { api -> runBlocking {
             try {
                 api.create(a.token, CreatePod(UUID.randomUUID().toString(), "E2E maybe relic pod", cube.id))
                 fail("the server made a pod from the cube")

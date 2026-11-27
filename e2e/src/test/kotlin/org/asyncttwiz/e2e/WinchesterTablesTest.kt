@@ -61,7 +61,7 @@ class WinchesterTablesTest : E2e() {
         }
         // The rest of the draft over the server: it ends when both tables are empty
         runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 var guard = 0
                 while (api.detail(alice.account.token, pod).phase == PodPhase.DRAFTING) {
                     check(guard++ < 40) { "the draft didn't finish" }

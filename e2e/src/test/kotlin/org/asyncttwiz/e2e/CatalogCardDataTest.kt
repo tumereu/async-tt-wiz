@@ -49,7 +49,7 @@ class CatalogCardDataTest : E2e() {
         // One request: no card data goes up first, and the saved deck comes back with it (its cover too)
         assertEquals(listOf("POST /v1/decks"), changes(from), "${requests(from)}")
         val saved = alice.decks.state.detail!!.saved
-        val read = runBlocking { DeckApi(E2eStack.origin).use { it.read(alice.account.token, saved.deck.id) } }
+        val read = runBlocking { DeckApi(E2eStack.origin, E2eHttp.client()).use { it.read(alice.account.token, saved.deck.id) } }
         assertEquals(listOf(saved(SavedDeckSection.MAINBOARD, TestCards.mountain, 20), saved(SavedDeckSection.MAINBOARD, TestCards.spark, 20),
             saved(SavedDeckSection.SIDEBOARD, TestCards.pathCrag, 1)), read.entries)
         assertEquals(TestCards.mountain.printingId, read.deck.cover!!.definition)
@@ -68,7 +68,7 @@ class CatalogCardDataTest : E2e() {
         alice.deckImport.save()
         waitUntil("the edited deck saved") { !alice.deckImport.state.active }
         assertEquals(listOf("PUT /v1/decks/${saved.deck.id}"), changes(edit), "${requests(edit)}")
-        val edited = runBlocking { DeckApi(E2eStack.origin).use { it.read(alice.account.token, saved.deck.id) } }
+        val edited = runBlocking { DeckApi(E2eStack.origin, E2eHttp.client()).use { it.read(alice.account.token, saved.deck.id) } }
         assertEquals(listOf(saved(SavedDeckSection.MAINBOARD, TestCards.mountain, 18), saved(SavedDeckSection.MAINBOARD, TestCards.spark, 20),
             saved(SavedDeckSection.SIDEBOARD, TestCards.pathCrag, 1)), edited.entries)
         assertEquals("2", edited.deck.revision)
@@ -93,7 +93,7 @@ class CatalogCardDataTest : E2e() {
             cubes.save()
             waitUntil("the saved cube") { !cubes.state.editing && cubes.state.detail != null }
             assertEquals(listOf("POST /v1/cubes"), changes(from), "${requests(from)}")
-            val saved = runBlocking { DeckApi(E2eStack.origin).use { it.readCube(alice.account.token, cubes.state.detail!!.saved.cube.id) } }
+            val saved = runBlocking { DeckApi(E2eStack.origin, E2eHttp.client()).use { it.readCube(alice.account.token, cubes.state.detail!!.saved.cube.id) } }
             assertEquals(listOf(SavedCubeEntry(TestCards.cub.printingId, TestCards.cub.name, 3), SavedCubeEntry(TestCards.spark.printingId, TestCards.spark.name, 2),
                 SavedCubeEntry(TestCards.hound.printingId, TestCards.hound.name, 1, SavedDeckSection.MAYBEBOARD)), saved.entries)
 
@@ -110,7 +110,7 @@ class CatalogCardDataTest : E2e() {
             android.os.Handler(android.os.Looper.getMainLooper()).post { cubes.save() }
             waitUntil("the edited cube saved") { !cubes.state.editing && cubes.state.detail?.saved?.cube?.revision == "2" }
             assertEquals(listOf("PUT /v1/cubes/${saved.cube.id}"), changes(edit), "${requests(edit)}")
-            val edited = runBlocking { DeckApi(E2eStack.origin).use { it.readCube(alice.account.token, saved.cube.id) } }
+            val edited = runBlocking { DeckApi(E2eStack.origin, E2eHttp.client()).use { it.readCube(alice.account.token, saved.cube.id) } }
             assertEquals(5, edited.entries.first().quantity)
             assertEquals(TestCards.cub.printingId, edited.entries.first().printingId)
         } finally { cubes.close() }

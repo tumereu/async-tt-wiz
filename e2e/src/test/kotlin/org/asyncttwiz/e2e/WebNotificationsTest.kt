@@ -79,7 +79,7 @@ class WebNotificationsTest {
                 }
                 web.tap("#notification-kind-draft")
                 waitFor("Draft off on the server") {
-                    runCatching { kotlinx.coroutines.runBlocking { org.asyncttwiz.android.AccountApi(E2eStack.origin).use {
+                    runCatching { kotlinx.coroutines.runBlocking { org.asyncttwiz.android.AccountApi(E2eStack.origin, E2eHttp.client()).use {
                         it.accountSettings(alice.token) } }.notifications.draft == false }.getOrDefault(false)
                 }
                 // Off: the server forgets this browser

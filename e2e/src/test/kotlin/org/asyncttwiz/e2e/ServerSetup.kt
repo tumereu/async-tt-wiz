@@ -130,7 +130,7 @@ object ServerSetup {
         return alice to bob
     }
 
-    private fun account(username: String): TestAccount = AccountApi(origin).use { api -> runBlocking {
+    private fun account(username: String): TestAccount = AccountApi(origin, E2eHttp.client()).use { api -> runBlocking {
         val email = "$username@e2e.invalid"
         try { api.register(username, email, PASSWORD) }
         catch (failure: org.asyncttwiz.android.AccountFailure) { error("register $username: ${failure.code} ${failure.field}") }
@@ -159,54 +159,32 @@ object ServerSetup {
         E2eStack.query("SELECT activity_id, your_move FROM activity_summary WHERE account_id = '${account.id}' " +
             "AND game_id = '$gameId' AND kind = 'GAME'").singleOrNull()?.split('|')?.let { (id, move) -> id.toLong() to (move == "t") }
 
-    /** A lobby request of the setup: again after a connection failure, as [accountCall], at most three times; a refusal fails
+    /** A lobby request of the setup (a connection that closed before an answer is sent again by [E2eHttp]); a refusal fails
      * at once, naming its code. */
-    private fun <T> lobbyCall(call: suspend (LobbyApi) -> T): T {
-        repeat(3) { attempt ->
-            try { return LobbyApi(origin).use { api -> runBlocking { call(api) } } }
-            catch (failure: org.asyncttwiz.android.LobbyFailure) {
-                if (failure.code != "network" || attempt == 2) error("Lobby request of the setup: ${failure.code}")
-                Thread.sleep(200)
-            }
-        }
-        error("unreachable")
-    }
+    private fun <T> lobbyCall(call: suspend (LobbyApi) -> T): T =
+        try { LobbyApi(origin, E2eHttp.client()).use { api -> runBlocking { call(api) } } }
+        catch (failure: org.asyncttwiz.android.LobbyFailure) { throw IllegalStateException("Lobby request of the setup: ${failure.code}", failure) }
 
-    /**
-     * An account request of the setup ([what]): again after a connection failure (the app's AccountApi says only
-     * "network"; a test's setup was seen failing once with "Account request failed"), at most three times; a refusal
-     * fails at once, naming its code.
-     */
-    private fun <T> accountCall(what: String, call: suspend (AccountApi) -> T): T {
-        repeat(3) { attempt ->
-            try { return AccountApi(origin).use { api -> runBlocking { call(api) } } }
-            catch (failure: org.asyncttwiz.android.AccountFailure) {
-                if (failure.code != "network" || attempt == 2) error("$what: ${failure.code} ${failure.field.orEmpty()}")
-                Thread.sleep(200)
-            }
+    /** An account request of the setup ([what]; a connection that closed before an answer is sent again by [E2eHttp]); a
+     * refusal fails at once, naming its code. */
+    private fun <T> accountCall(what: String, call: suspend (AccountApi) -> T): T =
+        try { AccountApi(origin, E2eHttp.client()).use { api -> runBlocking { call(api) } } }
+        catch (failure: org.asyncttwiz.android.AccountFailure) {
+            throw IllegalStateException("$what: ${failure.code} ${failure.field.orEmpty()}", failure)
         }
-        error("unreachable")
-    }
 
-    /**
-     * [account]'s saved [deck]: again after a connection failure, as [accountCall] and [lobbyCall] (a full run's
-     * DeckChoiceRequestsTest was seen failing once with a bare "Deck request failed" right after the database's reset, the
-     * server's log quiet: no refusal), the same request each time; a refusal fails at once, naming its code.
-     */
+    /** [account]'s saved [deck] (a connection that closed before an answer is sent again by [E2eHttp]); a refusal fails at
+     * once, naming its code. */
     fun deck(account: TestAccount, deck: TestDeck, category: String? = null): SavedDeck {
         val sections = listOf(SavedDeckSection.MAINBOARD to deck.entries, SavedDeckSection.SIDEBOARD to deck.side,
             SavedDeckSection.MAYBEBOARD to deck.maybe)
         // As a phone saves it: the cards by printing, in one request (the server builds their card data)
         val request = CreateDeck(UUID.randomUUID().toString(), deck.name,
             sections.flatMap { (section, cards) -> cards.map { (card, n) -> CardListEntry(section, card.printingId, n) } }, category = category)
-        repeat(3) { attempt ->
-            try { return DeckApi(origin).use { api -> runBlocking { api.create(account.token, request) } } }
-            catch (failure: org.asyncttwiz.android.DeckFailure) {
-                if (failure.code != "network" || attempt == 2) error("Deck request of the setup (${deck.name}): ${failure.code}")
-                Thread.sleep(200)
-            }
+        return try { DeckApi(origin, E2eHttp.client()).use { api -> runBlocking { api.create(account.token, request) } } }
+        catch (failure: org.asyncttwiz.android.DeckFailure) {
+            throw IllegalStateException("Deck request of the setup (${deck.name}): ${failure.code}", failure)
         }
-        error("unreachable")
     }
 
     /**
@@ -219,12 +197,12 @@ object ServerSetup {
         settings: DraftSettings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 2)): String = runBlocking {
         fun id() = UUID.randomUUID().toString()
         lobbyCall { it.add(a.token, AddContact(id(), b.id)) }
-        val cube = DeckApi(origin).use { api ->
+        val cube = DeckApi(origin, E2eHttp.client()).use { api ->
             api.create(a.token, CreateCube(id(), "E2E cube", cards.map {
                 CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 2 * settings.packsPerPlayer * settings.cardsPerPack / cards.size)
             }))
         }
-        org.asyncttwiz.android.PodApi(origin).use { api ->
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { api ->
             val pod = api.create(a.token, CreatePod(id(), name, cube.cube.id)).id
             api.invite(a.token, pod, InviteToPod(id(), b.id))
             api.accept(b.token, pod, PodRequest(id()))
@@ -240,7 +218,7 @@ object ServerSetup {
     fun joinAndStart(a: TestAccount, b: TestAccount, pod: String) = runBlocking {
         fun id() = UUID.randomUUID().toString()
         lobbyCall { it.add(a.token, AddContact(id(), b.id)) }
-        org.asyncttwiz.android.PodApi(origin).use { api ->
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { api ->
             api.invite(a.token, pod, InviteToPod(id(), b.id))
             api.accept(b.token, pod, PodRequest(id()))
             api.start(a.token, pod, PodRequest(id())).also { check(it.phase == PodPhase.DRAFTING) { "the draft didn't start: $it" } }
@@ -250,7 +228,7 @@ object ServerSetup {
     /** [b] accepts [a]'s invitation to pod [pod] and [a] starts its draft. */
     fun acceptAndStart(a: TestAccount, b: TestAccount, pod: String) = runBlocking {
         fun id() = UUID.randomUUID().toString()
-        org.asyncttwiz.android.PodApi(origin).use { api ->
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { api ->
             api.accept(b.token, pod, PodRequest(id()))
             api.start(a.token, pod, PodRequest(id())).also { check(it.phase == PodPhase.DRAFTING) { "the draft didn't start: $it" } }
         }
@@ -261,10 +239,10 @@ object ServerSetup {
     fun setupPod(a: TestAccount, name: String, cards: List<TestCard> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark),
         settings: DraftSettings? = null): String = runBlocking {
         fun id() = UUID.randomUUID().toString()
-        val cube = DeckApi(origin).use { api ->
+        val cube = DeckApi(origin, E2eHttp.client()).use { api ->
             api.create(a.token, CreateCube(id(), "E2E cube", cards.map { CardListEntry(SavedDeckSection.MAINBOARD, it.printingId, 12 / cards.size) }))
         }
-        org.asyncttwiz.android.PodApi(origin).use {
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use {
             it.create(a.token, CreatePod(id(), name, cube.cube.id, settings?.mode ?: DraftMode.BOOSTER, settings = settings)).id
         }
     }
@@ -272,24 +250,24 @@ object ServerSetup {
     /** [a] invites [b] (made a contact) to pod [pod]; the invitation is left unanswered. */
     fun invitePod(a: TestAccount, b: TestAccount, pod: String) = runBlocking {
         lobbyCall { it.add(a.token, AddContact(UUID.randomUUID().toString(), b.id)) }
-        org.asyncttwiz.android.PodApi(origin).use { it.invite(a.token, pod, InviteToPod(UUID.randomUUID().toString(), b.id)) }
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { it.invite(a.token, pod, InviteToPod(UUID.randomUUID().toString(), b.id)) }
     }
 
     /** [a] starts pod [pod]'s draft. */
     fun startPod(a: TestAccount, pod: String) = runBlocking {
-        org.asyncttwiz.android.PodApi(origin).use { it.start(a.token, pod, PodRequest(UUID.randomUUID().toString())) }
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { it.start(a.token, pod, PodRequest(UUID.randomUUID().toString())) }
             .also { check(it.phase == PodPhase.DRAFTING) { "the draft didn't start: $it" } }
     }
 
     /** Pod [id] as [a] sees it on the server. */
-    fun pod(a: TestAccount, id: String): PodDetail = runBlocking { org.asyncttwiz.android.PodApi(origin).use { it.detail(a.token, id) } }
+    fun pod(a: TestAccount, id: String): PodDetail = runBlocking { org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { it.detail(a.token, id) } }
 
     /** [a]'s pod presets on the server. */
-    fun presets(a: TestAccount): List<PodPreset> = runBlocking { org.asyncttwiz.android.PodApi(origin).use { it.presets(a.token).presets } }
+    fun presets(a: TestAccount): List<PodPreset> = runBlocking { org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { it.presets(a.token).presets } }
 
     /** Booster picks made for [players] over the API: in turn each takes the first cards of their head pack, until [done]. */
     fun pickUntil(players: List<TestAccount>, pod: String, done: () -> Boolean) = runBlocking {
-        org.asyncttwiz.android.PodApi(origin).use { api ->
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { api ->
             while (!done()) {
                 var picked = false
                 for (player in players) {
@@ -310,7 +288,7 @@ object ServerSetup {
 
     /** A Grid pick for [player] over the API: the first row with a card in their head grid. */
     fun gridPick(player: TestAccount, pod: String) = runBlocking {
-        org.asyncttwiz.android.PodApi(origin).use { api ->
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { api ->
             val detail = api.detail(player.token, pod)
             val grid = detail.grid!!
             val board = grid.publicView.grids.single { it.id == grid.mine.headGridId }
@@ -321,15 +299,15 @@ object ServerSetup {
     }
 
     /** The name the server holds for pod [id]. */
-    fun podName(a: TestAccount, id: String): String = runBlocking { org.asyncttwiz.android.PodApi(origin).use { it.detail(a.token, id).name } }
+    fun podName(a: TestAccount, id: String): String = runBlocking { org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { it.detail(a.token, id).name } }
 
     /** LOB-244: a new top-level deck category [name] of [account]'s. */
-    fun category(account: TestAccount, name: String): DeckCategory = DeckApi(origin).use { api -> runBlocking {
+    fun category(account: TestAccount, name: String): DeckCategory = DeckApi(origin, E2eHttp.client()).use { api -> runBlocking {
         api.createCategory(account.token, CreateDeckCategory(UUID.randomUUID().toString(), name)).categories.single { it.name == name }
     } }
 
     /** [account]'s ordinary saved decks, as the server lists them. */
-    fun decks(account: TestAccount): List<DeckSummary> = DeckApi(origin).use { api -> runBlocking { api.list(account.token).decks } }
+    fun decks(account: TestAccount): List<DeckSummary> = DeckApi(origin, E2eHttp.client()).use { api -> runBlocking { api.list(account.token).decks } }
 
     /** A game [name] of [a] (the inviter) and [b], invited, the invitation not answered yet. */
     fun invite(a: TestAccount, b: TestAccount, name: String): GameSummary = lobbyCall { api ->
@@ -429,7 +407,7 @@ object ServerSetup {
     fun podGameOfOneCard(a: TestAccount, b: TestAccount, name: String, card: TestCard): GameSummary = runBlocking {
         fun id() = UUID.randomUUID().toString()
         val pod = draftedPod(a, b, "$name pod", mainPlains = 0, cards = listOf(card), settings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 15))
-        org.asyncttwiz.android.PodApi(origin).use { api ->
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { api ->
             val detail = api.detail(a.token, pod)
             val copies = detail.build!!.copies
             api.move(a.token, pod, MovePodCopy(id(), detail.draftAttemptId!!, copies[0].copyId, PodDeckCategory.SIDE))
@@ -455,7 +433,7 @@ object ServerSetup {
      * [mainPlains] Plains in Main; neither deck submitted yet ([submitPodDeck]). */
     fun finishDraft(a: TestAccount, b: TestAccount, pod: String, settings: DraftSettings, mainPlains: Int = 40) = runBlocking {
         fun id() = UUID.randomUUID().toString()
-        org.asyncttwiz.android.PodApi(origin).use { api ->
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { api ->
             var picks = 0
             while (api.detail(a.token, pod).phase != PodPhase.DRAFTED) {
                 check(picks++ < 2 * settings.packsPerPlayer * settings.cardsPerPack + 50) { "the draft didn't finish" }
@@ -475,14 +453,14 @@ object ServerSetup {
 
     /** [account] submits their deck of [pod] ([draftedPod]). */
     fun submitPodDeck(account: TestAccount, pod: String) = runBlocking {
-        org.asyncttwiz.android.PodApi(origin).use { api ->
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { api ->
             api.submit(account.token, pod, SubmitPodDeck(UUID.randomUUID().toString(), api.detail(account.token, pod).draftAttemptId!!))
         }
     }
 
     /** [account] writes [text] in [pod]'s chat (DRF-170), as their phone would. */
     fun podChat(account: TestAccount, pod: String, text: String): PodChatMessage = runBlocking {
-        org.asyncttwiz.android.PodApi(origin).use { it.sendChat(account.token, pod, SendPodChat(UUID.randomUUID().toString(), text)) }
+        org.asyncttwiz.android.PodApi(origin, E2eHttp.client()).use { it.sendChat(account.token, pod, SendPodChat(UUID.randomUUID().toString(), text)) }
     }
 
     /** [account] writes [text] in [game]'s own chat (LOB-136), from a socket of their own. */
@@ -513,7 +491,7 @@ object ServerSetup {
 
     /** [account]'s current invitation notice of game [gameId] as their phone's notification gets it (the activity feed). */
     fun invitationNotice(account: TestAccount, gameId: String): ActivityHint? = runBlocking {
-        org.asyncttwiz.android.ActivityApi(origin).use { api -> api.page(account.token, "0").entries }
+        org.asyncttwiz.android.ActivityApi(origin, E2eHttp.client()).use { api -> api.page(account.token, "0").entries }
             .lastOrNull { it.kind == ActivityKind.INVITATION && it.gameId == gameId }
     }
 

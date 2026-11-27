@@ -11,6 +11,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
@@ -231,6 +232,9 @@ internal fun E2ePlayer.showsOnBattlefield(name: String, owner: E2ePlayer = this)
  * "Pass", "End step"), whatever destination it names (TRN-063, TRN-112). */
 internal fun E2ePlayer.control(label: String): SemanticsNodeInteraction = node(saying(label) and hasClickAction())
 internal fun E2ePlayer.showsControl(label: String): Boolean = shows(saying(label) and hasClickAction())
+/** Whether the control [label] shows and takes a tap now: a greyed one (as the opening's Mulligan and Keep while the other
+ * player's events play back on this table) shows, yet a tap on it does nothing. */
+internal fun E2ePlayer.showsEnabledControl(label: String): Boolean = shows(saying(label) and hasClickAction() and isEnabled())
 private fun saying(label: String) =
     hasContentDescription(label) or androidx.compose.ui.test.SemanticsMatcher.expectValue(org.asyncttwiz.android.MainButtonStep, label)
 

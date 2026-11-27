@@ -4,6 +4,7 @@ import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -65,7 +66,8 @@ class MultisetPodTest : E2e() {
         // Saved as a preset, with its grid
         val presetName = "Two sets ${UUID.randomUUID().toString().take(8)}"
         alice.tagged("pod-presets").performClick()
-        waitUntil("the presets") { alice.shows(hasTestTag("pod-preset-save")) }
+        // Save (and every row) is disabled while the list is read from the server
+        waitUntil("the presets read") { alice.shows(hasTestTag("pod-preset-save") and isEnabled()) }
         alice.tagged("pod-preset-save").performClick()
         waitUntil("the preset name field") { alice.shows(hasTestTag("pod-preset-name")) }
         alice.tagged("pod-preset-name").performTextInput(presetName)
@@ -107,7 +109,8 @@ class MultisetPodTest : E2e() {
         alice.pods.newPod()
         waitUntil("a new pod form") { alice.pods.state.creating != null }
         alice.tagged("pod-presets").performClick()
-        waitUntil("the saved preset listed") { alice.showsText(presetName) }
+        // The rows read before show at once, disabled until the list is read again
+        waitUntil("the saved preset listed") { alice.showsText(presetName) && alice.pods.presets.state.busy == null }
         alice.text(presetName).performClick()
         waitUntil("the preset's grid") { alice.pods.state.creating?.packs == listOf("TST", "TWL") }
         waitUntil("the grid shown") { alice.shows(hasTestTag("pack-grid")) }

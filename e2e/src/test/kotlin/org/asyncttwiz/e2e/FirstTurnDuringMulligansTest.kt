@@ -60,7 +60,8 @@ class FirstTurnDuringMulligansTest : E2e() {
     /** Bob opens the game: his opening, with his Keep and Mulligan; nothing of Alice's turn. */
     private fun bobOpens() {
         bob.openGame(game, this)
-        waitUntil("Bob's opening quick actions") { bob.showsControl("Mulligan") && bob.showsControl("Keep") }
+        // Taking taps: greyed while Alice's events play back on his table
+        waitUntil("Bob's opening quick actions") { bob.showsEnabledControl("Mulligan") && bob.showsEnabledControl("Keep") }
         assertEquals(0, bob.state.turn.number)
         assertTrue(bob.state.player(alice.me).hand.size == 7 && bob.state.battlefield.isEmpty(), "Bob sees nothing of her turn")
     }
@@ -185,7 +186,7 @@ class FirstTurnDuringMulligansTest : E2e() {
         bob.tap("Mulligan")
         waitUntil("Alice told her turn stands") { alice.told("${bob.name} took a mulligan · your turn stands") }
         assertEquals(13, alice.state.player(bob.me).life, "seven cards either way")
-        waitUntil("Bob in his opening with his second hand") { mulligans(bob).size == 1 && bob.engine { device.session.pending.isEmpty() } && bob.showsControl("Mulligan") }
+        waitUntil("Bob in his opening with his second hand") { mulligans(bob).size == 1 && bob.engine { device.session.pending.isEmpty() } && bob.showsEnabledControl("Mulligan") }
         bob.tap("Mulligan")
         waitUntil("her Echo taken back on Alice's device") { alice.branchLogged() }
         waitUntil("Alice back before the Echo") {
@@ -240,7 +241,8 @@ class FirstTurnDuringMulligansTest : E2e() {
         val bottomScreen = hasContentDescription("Keep or bottom")
         val panels = bottomScreen or hasContentDescription("Automatum choice")
         for (n in 1..2) {
-            waitUntil("Bob's Mulligan $n") { bob.showsControl("Mulligan") && bob.engine { device.session.pending.isEmpty() } && mulligans(bob).size == n - 1 }
+            // Taking taps: greyed while Alice's Keep plays back on his table
+            waitUntil("Bob's Mulligan $n") { bob.showsEnabledControl("Mulligan") && bob.engine { device.session.pending.isEmpty() } && mulligans(bob).size == n - 1 }
             bob.tap("Mulligan")
         }
         waitUntil("the bottom of Bob's second mulligan asked") { mulligans(bob).size == 2 && bob.shows(panels) }

@@ -26,12 +26,16 @@ class GlimpsePresetTest : E2e() {
         alice.tagged("new-pod").performClick()
         waitUntil("the New pod form") { alice.pods.state.creating != null }
         alice.tagged("pod-presets").performClick()
-        waitUntil("Glimpse in Alice's presets") { alice.showsText("Glimpse") && alice.showsText("Booster · No source · 9×15") }
+        // The list's rows and buttons are disabled while it is read from the server (also on every opening, over the rows it read
+        // before), so each click waits for the read to end
+        waitUntil("Glimpse in Alice's presets") {
+            alice.showsText("Glimpse") && alice.showsText("Booster · No source · 9×15") && alice.pods.presets.state.busy == null
+        }
         alice.text("Glimpse").performClick()
         waitUntil("the form filled from Glimpse") { alice.pods.state.creating?.settings == DraftSettings.glimpse() }
 
         alice.tagged("pod-presets").performClick()
-        waitUntil("the presets again") { alice.shows(hasContentDescription("Delete Glimpse")) }
+        waitUntil("the presets read again") { alice.shows(hasContentDescription("Delete Glimpse")) && alice.pods.presets.state.busy == null }
         alice.described("Delete Glimpse").performClick()
         waitUntil("the delete question") { alice.showsText("Delete “Glimpse”?") }
         alice.node(hasClickAction() and hasAnyDescendant(hasText("Delete"))).performClick()

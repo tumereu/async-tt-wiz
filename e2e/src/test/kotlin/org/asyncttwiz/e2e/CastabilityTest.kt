@@ -597,7 +597,8 @@ class CastabilityTest : E2e() {
     }
 
     // TBL-122, TBL-153, TBL-124, TBL-160 (owner, 2026-11-09): a card with two or more activated abilities (a mana ability counts) opens its chips
-    // even with only one usable now, the other greyed with why, activating nothing; a source with one ability stays one tap
+    // even with only one usable now, the other greyed with why (TBL-123: with two lands, not enough mana for {5}), activating nothing; a
+    // source with one ability stays one tap
     @Test fun aCardWithTwoAbilitiesOpensItsChipsEvenWithOneUsableAndOneAbilityStaysOneTap() {
         start(deck(TestCards.cairn to 20, TestCards.shard to 20), mapOf("Ember Cairn" to 1, "Ember Shard" to 1))
         plays(alice, "Ember Cairn", "Ember Shard")
@@ -605,7 +606,7 @@ class CastabilityTest : E2e() {
         waitUntil("the Shard's one ability at one tap, no chips") { alice.state.player(alice.me).manaPool.size == 1 && alice.tappedCount("Ember Shard") == 1 }
         alice.battlefieldCard("Ember Cairn").performClick()
         val add = hasContentDescription("{T}: Add {R}.")
-        val greyed = hasContentDescription("{5}: You gain 1 life. (Not now: a cost it can't pay, or nothing to target.)")
+        val greyed = hasContentDescription("{5}: You gain 1 life. (Not enough mana.)")
         waitUntil("both chips: ${alice.screen()}") { alice.shows(add) && alice.shows(greyed and isNotEnabled()) }
         assertEquals(0, alice.tappedCount("Ember Cairn"), "the tap only opened them")
         val life = alice.state.player(alice.me).life

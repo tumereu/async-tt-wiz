@@ -172,11 +172,15 @@ private class DrawnArrows(val entry: String, val color: Color) {
  * Stack animation (owner spec 2026-11-14): on the live table [animation] grows them (step 4: each from the entry to its
  * target, several [StackSchedule.ARROW_STAGGER_MILLIS] apart, each target's highlight fading in as its arrow arrives; none
  * before the step starts), and when the entry leaves the Stack they fade out as its effect plays (step 5); in timeline mode
- * (no [animation]) they are simply drawn.
+ * (no [animation]) they are simply drawn. STK-126 (owner playtest 2026-11-27): while the viewer casts or picks (no [animation]
+ * then either: drawn whole, never growing again) a target that is also one of their own legal or picked targets ([picking], ids
+ * as the table's violet glow takes them) has its violet frame drawn again over the highlight, the violet on top; [pressed] the
+ * item a finger is down on and how far its glow has grown (TBL-117).
  */
 @Composable
 fun StackTargetArrows(play: TableBoard, scene: TableScene, viewer: String, names: Map<String, String>,
-    animation: StackAnimation? = null, multiplier: Float = 1f, bounds: (TableItem) -> TableBounds) {
+    animation: StackAnimation? = null, multiplier: Float = 1f, picking: Set<String> = emptySet(), picked: Set<String> = emptySet(),
+    pressed: () -> Pair<String, Float>? = { null }, bounds: (TableItem) -> TableBounds) {
     val marks = StackTargets.of(play, scene, viewer, names)
     val stack = scene.stackRegion ?: scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds
     // Step 5: the arrows of an entry that left the Stack fade where they were drawn last
@@ -216,13 +220,27 @@ fun StackTargetArrows(play: TableBoard, scene: TableScene, viewer: String, names
         // Where each target is drawn now (read while drawing, so a moving card redraws only the canvas); step 4's growth too
         val now = targets.map(bounds)
         val arrows = ArrayList<Pair<TablePoint, TablePoint>>(now.size)
+        // STK-126 (owner playtest 2026-11-27): a target the viewer may pick too (while they cast or pick) keeps its violet frame on
+        // top, the highlight ringing it just outside, so both show
+        fun violet(item: TableItem, ids: Set<String>) = item.cardId in ids || item.sourceId in ids || item.id in ids
+        val press = pressed()
+        val grownBy = FloatArray(now.size) { i -> animation?.arrowProgress(marks.entry, i) ?: 1f }
         for ((i, b) in now.withIndex()) {
-            val grown = animation?.arrowProgress(marks.entry, i) ?: 1f
             val from = stack.edgeToward(b.center)
-            val to = b.edgeToward(stack.center, 3f)
-            arrows += from to to
+            arrows += from to b.edgeToward(stack.center, 3f)
+            if (grownBy[i] <= 0f) continue
+            val item = targets[i]
+            val chosen = violet(item, picked)
+            if (!chosen && !violet(item, picking)) { highlight(b, color, d, grownBy[i]); continue }
+            val scale = scene.glowScale(item)
+            highlight(b, color, d, grownBy[i], spread = VIOLET_CLEARANCE * scale)
+            targetGlowFrame(b, if (item.kind == TableItemKind.CARD) 2f else 0f,
+                if (chosen) 1f else press?.takeIf { it.first == item.id }?.second ?: 0f, scale)
+        }
+        for ((i, arrow) in arrows.withIndex()) {
+            val grown = grownBy[i]
             if (grown <= 0f) continue
-            highlight(b, color, d, grown)
+            val (from, to) = arrow
             val tip = TablePoint(from.x + (to.x - from.x) * grown, from.y + (to.y - from.y) * grown)
             targetArrow(Offset(from.x * d, from.y * d), Offset(tip.x * d, tip.y * d), color, d)
         }
@@ -234,12 +252,17 @@ fun StackTargetArrows(play: TableBoard, scene: TableScene, viewer: String, names
     }
 }
 
-/** A soft highlight round [b] (dp) in [color]: a wide faint halo and a thin line; [alpha] fades it in or out. */
-private fun DrawScope.highlight(b: TableBounds, color: Color, d: Float, alpha: Float = 1f) {
-    drawRoundRect(color.copy(alpha = .22f * alpha), Offset((b.x - 4f) * d, (b.y - 4f) * d), Size((b.width + 8f) * d, (b.height + 8f) * d),
-        CornerRadius(6f * d), style = Stroke(5f * d))
-    drawRoundRect(color.copy(alpha = .85f * alpha), Offset((b.x - 2f) * d, (b.y - 2f) * d), Size((b.width + 4f) * d, (b.height + 4f) * d),
-        CornerRadius(4f * d), style = Stroke(1.5f * d))
+/** STK-126: how far (dp, × the glow's scale) a target's highlight moves out to ring a violet frame drawn over it. */
+private const val VIOLET_CLEARANCE = 7f
+
+/** A soft highlight round [b] (dp) in [color]: a wide faint halo and a thin line, [spread] dp further out; [alpha] fades it in or out. */
+private fun DrawScope.highlight(b: TableBounds, color: Color, d: Float, alpha: Float = 1f, spread: Float = 0f) {
+    val halo = 4f + spread
+    val line = 2f + spread
+    drawRoundRect(color.copy(alpha = .22f * alpha), Offset((b.x - halo) * d, (b.y - halo) * d),
+        Size((b.width + 2 * halo) * d, (b.height + 2 * halo) * d), CornerRadius((6f + spread) * d), style = Stroke(5f * d))
+    drawRoundRect(color.copy(alpha = .85f * alpha), Offset((b.x - line) * d, (b.y - line) * d),
+        Size((b.width + 2 * line) * d, (b.height + 2 * line) * d), CornerRadius((4f + spread) * d), style = Stroke(1.5f * d))
 }
 
 /** An arrow from [start] to [end] (px), its head at [end]: as a block's arrow (CMB-031), a little wider, with a white
@@ -265,3 +288,49 @@ private fun DrawScope.targetArrow(start: Offset, end: Offset, color: Color, d: F
 /** [standIn] for a Stack entry without a name: a hidden one by design, a visible one a fault (reported). */
 private fun unnamed(visible: Boolean, standIn: String, entry: String): String =
     if (!visible) standIn else Faults.placeholder("StackLine", "visible entry without a name", standIn, mapOf("entry" to entry))
+
+/**
+ * STK-126 (owner playtest 2026-11-27, problem-report logging): logs when the viewer's cast or pick ([casting]) starts or ends
+ * over a top Stack entry with targets, whose arrows are drawn whole while they cast and grow or fade as usual again after.
+ */
+@Composable
+fun StackArrowsWhileCastingLog(play: TableBoard, viewer: String, casting: Boolean) {
+    val top = CombatStackRules.stack(play.board).cards.firstOrNull()
+    val item = top?.let { id -> play.board.stackEffects.singleOrNull { it.id == id }?.item }
+    val targets = item?.targets?.values?.flatten().orEmpty()
+    val entry = top?.takeIf { targets.isNotEmpty() }
+    val last = remember { booleanArrayOf(false) }
+    LaunchedEffect(casting, entry) {
+        val was = last[0]
+        last[0] = casting
+        if (entry == null || !casting && !was) return@LaunchedEffect
+        val whose = if (item?.controller == viewer) "their own" else "the other player's"
+        AppLog.info("stack", if (casting) "Target arrows of the top entry $entry ($whose; targets ${targets.joinToString()}) kept " +
+            "drawn whole while ${viewer.take(8)} casts or picks, their own violet glow on top"
+            else "${viewer.take(8)}'s cast or pick ended: the top entry $entry's arrows are drawn as usual again")
+    }
+}
+
+/**
+ * TBL-053 (owner playtest 2026-11-27, problem-report logging): logs each battlefield card that leaves its identical stack because
+ * an entry on the Stack targets it (naming the entries), and each that rejoins it once none does.
+ */
+@Composable
+fun TargetsApartLog(play: TableBoard, viewer: String) {
+    val targeted = BattlefieldLayout.targeted(play.board)
+    val shown = remember { arrayOf<Set<String>>(emptySet()) }
+    LaunchedEffect(targeted) {
+        val cards = if (targeted.isEmpty()) emptyList() else BattlefieldLayout.cards(play.board,
+            play.definitions.associate { it.digest to it.definition }, AutomatumBoards.compute(play, viewer))
+        val apart = BattlefieldLayout.apart(cards)
+        val before = shown[0]
+        shown[0] = apart
+        for (card in apart - before) {
+            val by = play.board.stackEffects.filter { e -> e.item?.targets?.values?.flatten().orEmpty()
+                .any { (it as? MtgRef.Card)?.cardId == card } }.joinToString { it.id }
+            AppLog.info("table", "Card $card lies apart from its identical stack on ${viewer.take(8)}'s table: targeted by $by")
+        }
+        for (card in before - apart) AppLog.info("table", "Card $card rejoins its identical stack on ${viewer.take(8)}'s table: " +
+            if (card in targeted) "still targeted, but nothing identical lies beside it now" else "no entry on the Stack targets it now")
+    }
+}

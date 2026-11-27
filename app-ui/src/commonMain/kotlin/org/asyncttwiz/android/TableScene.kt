@@ -675,14 +675,22 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             }
             // CMB-001 (owner playtest 2026-11-11): when the band closes, what sat on it or by it fades out where it was
             CurrentScene(sceneNow) { now -> ClosingCombatBand(play, now, accountId) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds } }
-            // STK-058 (owner playtest 2026-11-07): the top Stack entry's target arrows, for both players; not while the viewer
-            // picks targets themselves (their violet glow, STK-047)
+            // STK-058 (owner playtest 2026-11-07): the top Stack entry's target arrows, for both players. STK-126 (owner playtest
+            // 2026-11-27): also while the viewer casts, activates or picks targets themselves, drawn whole (no growing again) in
+            // the entry's controller's colour, the viewer's own violet glow on top (STK-047)
             val stackNames = remember(game) { gameNames(game) }
+            val castingOver = !runtime.reviewing && toolkit?.let { it.cast.open || it.flows.targeting } == true
+            StackArrowsWhileCastingLog(play, accountId, castingOver)
+            // TBL-053 (owner playtest 2026-11-27): why a card left or rejoined its identical stack
+            if (!runtime.reviewing) TargetsApartLog(play, accountId)
+            // The viewer's own targets' violet frames as the table draws them (a closed group's as a whole, TBL-172)
+            val violet = if (!castingOver) null else TableGlows.of(scene.battlefieldGroups, groupTaps, emptyMap(), castGlow, picked = pickedGlow)
             // Stack animation (owner spec 2026-11-14): on the live table they grow in step 4 and fade in step 5
-            if (toolkit?.let { it.cast.targeting || it.flows.targeting } != true)
-                StackTargetArrows(play, scene, accountId, stackNames,
-                    LocalEngineRoutes.current?.stackAnimation?.takeIf { !runtime.reviewing }, moveMultiplier) { item ->
-                    rendered.value.items[item.id]?.bounds ?: item.bounds }
+            StackTargetArrows(play, scene, accountId, stackNames,
+                LocalEngineRoutes.current?.stackAnimation?.takeIf { !runtime.reviewing && !castingOver }, moveMultiplier,
+                picking = violet?.targets.orEmpty(), picked = violet?.picked.orEmpty(),
+                pressed = { pressGlow.value }) { item ->
+                rendered.value.items[item.id]?.bounds ?: item.bounds }
             // STK-058 (owner gallery review 2026-11-07): the piles' count bubbles over every arrow and overlay above the table
             Canvas(Modifier.fillMaxSize()) { drawPileBadges(rendered.value.scene, drawCache) }
             // TRN-053 (owner gallery review 2026-11-06): the emblems' round chips; holding one inspects the player's emblems and

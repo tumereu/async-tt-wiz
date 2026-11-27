@@ -52,10 +52,12 @@ sealed interface BattlefieldRow {
  * same state that matters for play: counters, damage, face up, in combat or not ([combat]: attacking or blocking, null
  * when not in combat), a creature's entered-this-turn mark (summoning sickness shown; [entered] is false for any other
  * permanent, which joins its identical stack at once), the P/T and marks as worked out. Tapped or not never splits a stack.
+ * TBL-053 (owner playtest 2026-11-27): [targeted] is the card's own id while an entry on the Stack targets it, so it lies on
+ * its own, beside what is left of its stack; null otherwise.
  */
 data class StackIdentity(val definition: String, val faceId: String, val token: Boolean, val owner: String,
     val counters: List<TypedCounter>, val damage: String, val corner: String, val marks: List<String>,
-    val untilEndOfTurn: Boolean, val entered: Boolean, val combat: CombatRole? = null)
+    val untilEndOfTurn: Boolean, val entered: Boolean, val combat: CombatRole? = null, val targeted: String? = null)
 
 /** One battlefield card as the layout reads it: [identity] null when it never stacks (face down, attached to
  * another card); [attachedTo] the card it lies behind (an Aura, Equipment or a merged mutate creature's other card);
@@ -134,7 +136,8 @@ object BattlefieldLayout {
      * members on top (TBL-053: whichever way it came together, stacks merging at a turn's end included). Groups are in
      * arrival order (a group arrives with its first card). STK-024: [paying], the sources paying the open payment, lie out of
      * their stack in a pile of their own, right after it ([BattlefieldGroup.besideOf]); TBL-230 (owner playtest 2026-11-20):
-     * so do a stack's cards in combat (the declared attackers, the declared blockers), together in one pile.
+     * so do a stack's cards in combat (the declared attackers, the declared blockers), together in one pile. TBL-053 (owner
+     * playtest 2026-11-27): a card an entry on the Stack targets ([StackIdentity.targeted]) lies on its own right after it too.
      */
     fun groups(cards: List<BattlefieldCard>, paying: Set<String> = emptySet()): List<BattlefieldGroup> {
         val byId = cards.associateBy { it.id }
@@ -174,9 +177,10 @@ object BattlefieldLayout {
         // A stack is known by its first arrival, whichever joins or leaves later
         val keyed = groups.map { group -> if (group.kind != BattlefieldGroup.Kind.Stack) group else group.copy(key = "stack:${group.members.first()}",
             members = group.members.sortedBy { byId[it]?.tapped == true }, tapped = group.members.filter { byId[it]?.tapped == true }.toSet()) }
-        // STK-024: each pile of paying sources right after what is left of its stack; TBL-230: each pile of cards in combat too
-        fun aside(card: BattlefieldCard) = card.id in paying || card.identity?.combat != null
-        fun base(card: BattlefieldCard?) = card?.identity?.copy(combat = null)
+        // STK-024: each pile of paying sources right after what is left of its stack; TBL-230: each pile of cards in combat too;
+        // TBL-053 (owner playtest 2026-11-27): each card a Stack entry targets, on its own
+        fun aside(card: BattlefieldCard) = card.id in paying || card.identity?.combat != null || card.identity?.targeted != null
+        fun base(card: BattlefieldCard?) = card?.identity?.copy(combat = null, targeted = null)
         if (cards.none(::aside)) return keyed
         val ordered = keyed.toMutableList()
         for (pile in keyed) {
@@ -192,6 +196,24 @@ object BattlefieldLayout {
         }
         return ordered
     }
+
+    /**
+     * TBL-053 (owner playtest 2026-11-27): the cards of [cards] that lie apart from their identical cards because an entry on
+     * the Stack targets them: those with an identical card (the same battlefield, row and [StackIdentity] but for being
+     * targeted and in combat) beside them. A targeted card with none lies as it would anyway.
+     */
+    fun apart(cards: List<BattlefieldCard>): Set<String> {
+        val targeted = cards.filter { it.identity?.targeted != null }
+        if (targeted.isEmpty()) return emptySet()
+        fun base(card: BattlefieldCard) = Triple(card.field, card.row, card.identity?.copy(combat = null, targeted = null))
+        val counts = cards.filter { it.identity != null }.groupingBy(::base).eachCount()
+        return targeted.filter { (counts[base(it)] ?: 0) > 1 }.mapTo(LinkedHashSet()) { it.id }
+    }
+
+    /** TBL-053 (owner playtest 2026-11-27): the battlefield cards [board]'s Stack entries target (spells and abilities, the top one
+     * and lower ones, whoever controls them), by card id. */
+    fun targeted(board: org.asyncttwiz.protocol.BoardState): Set<String> = board.stackEffects.flatMapTo(LinkedHashSet()) { effect ->
+        effect.item?.targets?.values?.flatten().orEmpty().mapNotNull { (it as? org.asyncttwiz.protocol.MtgRef.Card)?.cardId } }
 
     /** The width [group] takes in its row, [expanded] or not: a stack with staged members more for their pile (CMB-070). */
     fun width(group: BattlefieldGroup, expanded: Boolean): Float {
@@ -304,7 +326,7 @@ object BattlefieldLayout {
      * timestamp order): its row by the type line it has now ([computed]'s when an effect changed it, else its face's),
      * what it is attached to (a card on a battlefield) and its [StackIdentity]. A face-down card never stacks (two backs
      * lying together would tell the other player they are the same card), nor one attached to another; one in combat only
-     * with identical cards in the same role (TBL-230); but while attackers or blockers are declared (nobody holds priority) a
+     * with identical cards in the same role (TBL-230), and one a Stack entry targets with none (TBL-053); but while attackers or blockers are declared (nobody holds priority) a
      * staged attacker or placed blocker stays in its stack, marked [BattlefieldCard.staged] (CMB-047, owner playtest 2026-11-07).
      */
     fun cards(board: org.asyncttwiz.protocol.BoardState, definitions: Map<String, org.asyncttwiz.protocol.CardDefinition>,
@@ -315,6 +337,7 @@ object BattlefieldLayout {
         val inCombat = board.combat?.pairs.orEmpty().flatMap { pair ->
             pair.attackers.map { it.sourceId to CombatRole.ATTACKER } + pair.blockers.map { it.sourceId to CombatRole.BLOCKER } }.toMap()
         val staged = staged(board)
+        val targeted = targeted(board)
         return fields.flatMap { field -> field.cards.mapNotNull { id -> byId[id]?.let { card ->
             val face = definitions[card.definition]?.faces?.firstOrNull { it.faceId == card.faceId }
             val auto = computed.cards[card.id]
@@ -325,7 +348,9 @@ object BattlefieldLayout {
             val identity = if (hidden || host != null) null else StackIdentity(card.definition, card.faceId,
                 card.token, card.owner, card.typedCounters, card.damage, auto?.corner ?: card.corner, auto?.marks.orEmpty(),
                 auto?.untilEndOfTurn == true, org.asyncttwiz.protocol.EnteredTurn.marked(board, card) && BattlefieldRow.creature(typeLine),
-                combat = inCombat[card.id]?.takeIf { card.id !in staged })
+                combat = inCombat[card.id]?.takeIf { card.id !in staged },
+                // TBL-053 (owner playtest 2026-11-27): while an entry on the Stack targets it, it lies on its own
+                targeted = card.id.takeIf { it in targeted })
             BattlefieldCard(card.id, field.id, BattlefieldRow.of(typeLine, hidden), identity, host, card.tapped,
                 staged[card.id])
         } } }

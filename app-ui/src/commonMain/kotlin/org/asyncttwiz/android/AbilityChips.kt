@@ -49,7 +49,8 @@ fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableBoard, sce
     if (offered == null || item == null || toolkit.cast.open) return
     // TBL-124 (owner 2026-11-12: chips said only "Mana ability"): what each chip reads, for a problem report
     LaunchedEffect(cardId, offered.map { it.text }) {
-        AppLog.info("table", "Ability chips of $cardId: ${offered.joinToString(" | ") { "${it.text}${if (it.legal) "" else " (greyed)"}" }}")
+        // TBL-160 (prod faults 2VLVQG, T3CN7C): each greyed chip with the engine's reason, so a report of a wrong one says it
+        AppLog.info("table", "Ability chips of $cardId: ${offered.joinToString(" | ") { "${it.text}${if (it.legal) "" else " (greyed: ${it.refusal})"}" }}")
     }
     val held = toolkit.heldAbility
     val name = CastController.cardName(play, cardId)

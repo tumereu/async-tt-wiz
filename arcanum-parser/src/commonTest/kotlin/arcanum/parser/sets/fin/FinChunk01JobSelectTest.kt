@@ -118,6 +118,23 @@ class FinChunk01JobSelectTest {
         Keyword.Equip(manaCost("{2}")),
     )
 
+    // CR 113.1a (prod faults LJ3XC5, L8PZRH: the granted triggers were shown as "Triggered ability"): each of the two granted
+    // abilities has the quoted words as its text
+    @Test
+    fun stargazersOrreryGrantsItsWords() {
+        val face = arcanum.parser.OracleParser.parse(equipmentCard(
+            name = "Stargazer's Orrery",
+            cost = "{1}{U}",
+            text = """
+                Equipped creature is a Wizard in addition to its other types and has "Whenever you cast a noncreature spell and whenever you draw your third card each turn, put a +1/+1 counter on this creature."
+            """,
+        ))
+        val granted = face.abilities.filterIsInstance<arcanum.api.Ability.Static>().flatMap { it.mechanics }
+            .filterIsInstance<Mechanic.GainAbilities>().flatMap { it.abilities }.filterIsInstance<arcanum.api.Ability.Triggered>()
+        kotlin.test.assertEquals(List(2) { "Whenever you cast a noncreature spell and whenever you draw your third card each turn, put a +1/+1 counter on this creature." },
+            granted.map { it.text })
+    }
+
     @Test
     fun mystikPetalblades() = equipmentCard(
         name = "Mystik Petalblades",

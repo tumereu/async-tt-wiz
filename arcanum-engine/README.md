@@ -25,6 +25,7 @@ CastScreen.selection(state, picked): Selection // the candidates that may be pic
 CastScreen.castCosts(state): CastCosts // the smallest cost among the ways through the open choices, whether there can be others, Autotap's sources for it, the way to it
 CastScreen.fillPayment(state, pinned, removed, exact): List<ManaUse> // the open payment around a player's picks: pinned sources stay (their colour free), exact uses stay as given, removed aren't used, Autotap's order fills in the rest
 CastScreen.refusal(state, input[, view]): String?    // why perform refuses a land play, cast or activation at once, without performing it
+CastScreen.leftOut(state, input[, view, prefs]): String? // why options leaves out a cast or activation: its refusal, what refuses it as it is begun (targets, cost objects), "Not enough mana" (MANA_UNPAYABLE), or no choices lead to its end (NO_WAY)
 
 // combat declarations
 CombatDeclarations.attackCosts(state, attacks[, view]): List<CombatCost> // the costs a declaration of attackers asks, each attacker's, X worked out (CR 508.1h)

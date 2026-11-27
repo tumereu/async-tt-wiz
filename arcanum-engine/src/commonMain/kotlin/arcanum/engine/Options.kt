@@ -689,6 +689,35 @@ internal object Options {
         return goesOn(recorder.state, pending, prefs = snap.prefs)
     }
 
+    /**
+     * Why [of] leaves out [input], a cast or an activation (special actions included): its refusal at once ([Perform.refusal]),
+     * else what refused it as it was begun (a target or an object for a cost it can't have, an unpayable cost, CR 601.2c, 601.2h,
+     * 118.6: [Casting.advance]'s words), else [MANA_UNPAYABLE] when no payment may exist for its mana cost as it stands, else
+     * [NO_WAY] when none of its choices leads to its end. Null when [of] lists it ([startable]), and for any other input.
+     */
+    fun leftOut(state: GameState, input: Input, view: arcanum.engine.view.View?, prefs: Preferences): String? {
+        if (input !is Input.Cast && input !is Input.Activate) return null
+        Perform.refusal(state, input, view)?.let { return it }
+        val snap = snapshot(state, view, prefs)
+        val recorder = Recorder(snap.state.deepCopy(), snap.view, snap.prefs)
+        val progress = try {
+            if (input is Input.Cast) Casting.cast(recorder, input) else Casting.activate(recorder, input as Input.Activate)
+        } catch (e: IllegalArgumentException) {
+            return e.message ?: NO_WAY
+        }
+        val pending = (progress as? Progress.Waiting)?.pending ?: return null
+        recorder.record(arcanum.engine.change.Changes.pending(recorder.state, pending))
+        val c = pending.continuation as? Continuation.Announcing ?: return null
+        if (c.choices.paying == null && !payableYet(Plan(recorder.state, c))) return MANA_UNPAYABLE
+        return if (goesOn(recorder.state, pending, prefs = snap.prefs)) null else NO_WAY
+    }
+
+    /** [leftOut]'s words when no payment may exist for the mana cost as it stands (CR 601.2g–h, 602.2b). */
+    const val MANA_UNPAYABLE = "Not enough mana: no payment may exist for its mana cost (CR 601.2g, 601.2h)"
+
+    /** [leftOut]'s words when none of the choices of a cast or activation begun leads to its end (CR 601.2c, 601.2h). */
+    const val NO_WAY = "None of its choices leads to a cast or activation that can be finished (CR 601.2c, 601.2h)"
+
     private fun abilities(snap: Snapshot, player: PlayerId): List<Input> = abilityWays(snap, player).filter { startable(snap, it) }.toList()
 
     /** The activations [abilities] tries (each legal to begin), lazily, before their trial activations. */

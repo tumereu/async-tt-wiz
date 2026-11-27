@@ -282,7 +282,21 @@ object EngineEventText {
      * no resolution, step or turn (passes are implied). */
     fun hidden(event: GameEvent): Boolean = (event.engine?.steps.orEmpty().none { it.input != null } &&
         event.table.isNotEmpty() && event.table.all { it is GameTableChange.LineMoved }) ||
-        (pass(event) && passOutcome(event, null, "", emptyMap()) == null)
+        (pass(event) && !passLeads(event))
+
+    /**
+     * Whether a pass led to something [passOutcome] names (a resolution, a new turn or step), without naming it: LOB-090
+     * (prod faults DBNFDN, GBWJEV): asking for the words with no viewer and no names reported every turn passed to as "a
+     * player without a name".
+     */
+    private fun passLeads(event: GameEvent): Boolean {
+        val changes = event.engine?.changes.orEmpty()
+        if (changes.any { it is Change.StackItemRemoved }) return true
+        val steps = changes.filterIsInstance<Change.Step>()
+        val last = steps.lastOrNull()?.after ?: return false
+        val first = steps.first().before
+        return last.number != first.number || last.step != first.step
+    }
 
     /** Whether [event]'s acting input is a priority pass (§29.2: passes are implied). */
     fun pass(event: GameEvent): Boolean = event.engine?.steps?.firstOrNull { it.input != null }?.input is Input.PassPriority

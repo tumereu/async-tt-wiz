@@ -1,0 +1,1 @@
+3: Abilities that Equipment gives with two triggers, like Astrologian's Planisphere's, now show their words.

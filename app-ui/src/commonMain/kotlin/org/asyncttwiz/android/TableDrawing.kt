@@ -6,6 +6,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
@@ -199,11 +201,7 @@ fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, p
             // TBL-117, STK-047 (owner playtest 2026-11-06): under a finger the target's glow grows a little and brightens;
             // a picked target's is always at full strength
             val press = if (chosen) 1f else if (pressed != null && pressed.first == i.id) pressed.second else 0f
-            // WEB-015: on the desktop table as much wider as its cards are larger (TableScene.glowScale)
-            val halo = (2f + 1.5f * press) * glowScale
-            drawRect(AutomatumViolet.copy(alpha = .35f + .25f * press), xy(b.x - outset - halo, b.y - outset - halo),
-                size(b.width + 2 * outset + 2 * halo, b.height + 2 * outset + 2 * halo), style = Stroke((6 + 3 * press) * glowScale * density))
-            drawRect(AutomatumViolet, xy(b.x - outset, b.y - outset), size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2.5f * density))
+            targetGlowFrame(b, outset, press, glowScale)
         }
         if (chosen) {
             // STK-047 (owner 2026-11-07): picked: a violet wash over it and a white check in a violet dot at its top right
@@ -492,4 +490,16 @@ fun SampleTableCard(appearance: CardAppearance, scale: Float, modifier: Modifier
     Canvas(modifier.size(bounds.width.dp, bounds.height.dp).semantics { contentDescription = sample.label }) {
         drawTable(scene, "sample", "sample", TableGesturePreview(), cache = cache)
     }
+}
+
+/** STK-047: a legal target's violet frame round [b] (dp), [outset] beyond it: a halo growing with [press] (0–1, a finger down on it,
+ * TBL-117; 1 for a picked target) and a solid line; [glowScale] widens the halo on the desktop table (WEB-015). STK-125 (owner
+ * playtest 2026-11-27): the Stack target arrows draw it again over the top entry's highlight, so the violet stays on top. */
+internal fun DrawScope.targetGlowFrame(b: TableBounds, outset: Float, press: Float, glowScale: Float) {
+    val d = density
+    val halo = (2f + 1.5f * press) * glowScale
+    drawRect(AutomatumViolet.copy(alpha = .35f + .25f * press), Offset((b.x - outset - halo) * d, (b.y - outset - halo) * d),
+        Size((b.width + 2 * outset + 2 * halo) * d, (b.height + 2 * outset + 2 * halo) * d), style = Stroke((6 + 3 * press) * glowScale * d))
+    drawRect(AutomatumViolet, Offset((b.x - outset) * d, (b.y - outset) * d), Size((b.width + 2 * outset) * d, (b.height + 2 * outset) * d),
+        style = Stroke(2.5f * d))
 }

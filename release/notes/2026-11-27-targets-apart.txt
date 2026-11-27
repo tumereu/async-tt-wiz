@@ -1,0 +1,1 @@
+2: When a spell or ability targets one of several identical permanents, that permanent lies apart from the others, and its arrow stays visible while you cast a response.

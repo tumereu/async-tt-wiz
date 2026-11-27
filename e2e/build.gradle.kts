@@ -41,6 +41,13 @@ tasks.register<Test>("test") {
     environment("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", "1")
     systemProperty("atw.e2e.postgresImage", postgresImage)
     systemProperty("atw.e2e.output", layout.buildDirectory.dir("e2e").get().asFile.absolutePath)
+    // The apps' HTTP calls (Ktor's Android engine) run on the JVM's own HttpURLConnection here, not Android's. It keeps an
+    // idle connection exactly as long as the server's "Keep-Alive: timeout=5" (no property shortens a time the server
+    // gives), so it can reuse one the server is closing that moment; it sends the request again only for a GET, never for
+    // a POST with a body (the suspected cause of a pick's "Pod request failed: network", Connection reset, with nothing in
+    // the server's log, in the full run of 0.3.5). So no connection is kept between requests (loopback: a new one costs
+    // nothing), and a reset can only be a fresh connection's; the game sockets are OkHttp's and unaffected.
+    systemProperty("http.keepAlive", "false")
     reports.html.outputLocation.set(layout.buildDirectory.dir("reports/tests/test"))
     reports.junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/test"))
     binaryResultsDirectory.set(layout.buildDirectory.dir("test-results/test/binary"))

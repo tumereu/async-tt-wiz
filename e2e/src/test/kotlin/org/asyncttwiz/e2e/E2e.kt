@@ -55,8 +55,8 @@ internal fun lobbyRequest(request: String): Boolean {
  * controllers, nothing in memory).
  *
  * When a test fails, each phone's screen (picture, semantics tree, visible texts), its device's record of what it sent
- * and received with the end of its line, every short-lived text it showed, and the app log are written to
- * `e2e/build/e2e/failures/<Test>.<method>/`.
+ * and received with the end of its line, every short-lived text it showed, the app log and the server's log while the test
+ * ran are written to `e2e/build/e2e/failures/<Test>.<method>/`.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -67,8 +67,10 @@ abstract class E2e {
     private val evidence = object : TestWatcher() {
         private var startedAt = 0L
         private var phoneStartedAt = 0L
+        private var serverLogAt = 0L
         override fun starting(description: Description) {
             startedAt = System.nanoTime(); phoneStartedAt = android.os.SystemClock.uptimeMillis()
+            serverLogAt = E2eStack.serverLogLength()
             requestsLog("START ${description.testClass.simpleName}.${description.methodName}")
         }
         override fun succeeded(description: Description) = ended(description, "END")
@@ -78,6 +80,8 @@ abstract class E2e {
             dir.deleteRecursively()
             players.forEach { it.evidence(dir) }
             runCatching { File(dir, "app.log").writeText(AppLog.text()) }
+            // The server's log while the test ran (the run's whole log is in the stack's temporary folder)
+            runCatching { E2eStack.serverLogSince(serverLogAt)?.let { File(dir, "server.log").apply { parentFile.mkdirs() }.writeBytes(it) } }
             System.err.println("E2E failure evidence: ${dir.path}")
         }
 

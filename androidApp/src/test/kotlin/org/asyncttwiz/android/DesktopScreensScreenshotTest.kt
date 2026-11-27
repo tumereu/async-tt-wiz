@@ -265,7 +265,7 @@ class DesktopScreensScreenshotTest {
     // playtest 2026-11-16)
     @Test fun statsGraphs() {
         fixtures.lobby.history.stats = HistoryList(records)
-        fixtures.lobby.history.choice = StatsChoice(graphs = true)
+        fixtures.lobby.history.choice = StatsChoice(tab = StatsTab.Graphs)
         signedIn(ShellDestination.STATS)
         compose.setContent { Desktop { AuthenticatedShell(fixtures.auth, true, lobby = fixtures.lobby) } }
         compose.waitForIdle()

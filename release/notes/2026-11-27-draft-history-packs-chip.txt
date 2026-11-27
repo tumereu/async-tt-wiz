@@ -1,0 +1,1 @@
+3: The draft history's packs chip now switches between all packs, only the packs that came back to you, and each pack only the first time you saw it.

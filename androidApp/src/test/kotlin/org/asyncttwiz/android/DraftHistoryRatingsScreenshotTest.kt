@@ -121,7 +121,7 @@ class DraftHistoryRatingsScreenshotTest {
         DraftHistoryPick(1, 4, copies(0, 5, 12, 26, 30), kept = listOf("c26-0"), takenSince = copies(3, 9, 15, 22), returning = true))
 
     // DRF-315, DRF-317, DRF-316 (owner, 2026-11-25): Booster's draft history after Alice's own draft in a pod of a set with
-    // ratings: each rated card's chip, the citation heading the list and "By rating" beside "Returning packs only"
+    // ratings: each rated card's chip, the citation heading the list and "By rating" beside the packs chip
     @Test fun boosterHistoryWithRatings() {
         history(boosterPicks, columns = 8)
         compose.onNodeWithTag("pod-ratings-citation").assertTextEquals("Ratings: 17Lands")
@@ -130,7 +130,7 @@ class DraftHistoryRatingsScreenshotTest {
         compose.onNodeWithTag("pod-history-by-rating").assertIsNotSelected()
         shot("history-ratings-booster", "Booster draft history of Alice's Test Set pod after her own draft, eight cards a row (the default): each rated card has " +
             "its win rate on a chip at its bottom edge, gold for the set's best down to grey, the land none; \"Ratings: 17Lands\" " +
-            "heads the list and By rating sits beside Returning packs only on a row under the title.")
+            "heads the list and By rating sits beside the All packs chip on a row under the title.")
     }
 
     // DRF-316 (owner, 2026-11-25): By rating sorts each pick's pack best first, the keep marked wherever it lands, and is
@@ -183,7 +183,7 @@ class DraftHistoryRatingsScreenshotTest {
             "her draft, with the citation at the top and a win rate chip on every rated card.")
     }
 
-    // DRF-315, DRF-289: Arena's draft history: no seat ring and no Returning packs only, so By rating sits in the title row
+    // DRF-315, DRF-289: Arena's draft history: no seat ring and no packs chip, so By rating sits in the title row
     @Test fun arenaHistoryWithRatings() {
         history(listOf(
             DraftHistoryPick(1, 1, copies(4, 9, 14, 19, 24), kept = listOf("c19-0"), round = 1),
@@ -282,14 +282,14 @@ class DraftHistoryRatingsScreenshotTest {
             "next 15%, bottom 10%): the chips gold, violet, bronze, grey and dark grey.")
     }
 
-    // DRF-316: on a wider screen the title, By rating and Returning packs only share one row (choice)
+    // DRF-316: on a wider screen the title, By rating and the packs chip share one row (choice)
     @Test @Config(qualifiers = "w892dp-h412dp-land-xhdpi") fun landscapeHistoryHeaderInOneRow() {
         history(boosterPicks, columns = 10)
         val title = compose.onNodeWithText("Draft history").fetchSemanticsNode().boundsInRoot
         val chip = compose.onNodeWithTag("pod-history-by-rating").fetchSemanticsNode().boundsInRoot
         kotlin.test.assertTrue(chip.top < title.bottom && chip.bottom > title.top, "By rating in the title's row: $chip, $title")
         shot("history-ratings-landscape", "Booster draft history in landscape after Alice's draft: the title, By rating and " +
-            "Returning packs only share one row (choice), the citation heads the list and every rated card has its chip.")
+            "the All packs chip share one row (choice), the citation heads the list and every rated card has its chip.")
     }
 
     private fun winchester(phase: PodPhase): PodDetail {

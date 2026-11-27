@@ -19,6 +19,9 @@ expect fun gameDate(game: GameSummary): String
 /** A record's date, "7 Nov 2026" (the device's zone). */
 expect fun matchDate(record: MatchRecord): String
 
+/** A kept draft's date (LOB-280), "7 Nov 2026" as a record's; "" when unreadable. */
+expect fun draftDate(draft: org.asyncttwiz.protocol.DraftRecordSummary): String
+
 /** How long a match took, "2 d 3 h", "3 h 5 min" or "12 min". */
 expect fun matchDuration(record: MatchRecord): String
 

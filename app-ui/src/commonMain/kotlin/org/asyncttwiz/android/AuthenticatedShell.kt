@@ -376,7 +376,7 @@ fun ShellContent(destination: ShellDestination, hamburger: Boolean, open: () -> 
             else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, accountId, logout, auth,
                 // The account's server: the lobby's (the same as the build's in the app)
                 accountSettings = rememberAccountSettingsSource(accountId, auth, lobby?.accountOrigin ?: org.asyncttwiz.appui.AppBuild.ACCOUNT_ORIGIN))
-            else if (destination == ShellDestination.STATS && lobby != null) StatsContent(lobby.history, accountId,
+            else if (destination == ShellDestination.STATS && lobby != null) StatsContent(lobby.history, accountId, pods?.filters,
                 decks?.let { library -> { id: String -> navigate(ShellDestination.DECKS); library.open(id) } })
             else InitialLoadArea(destination != ShellDestination.MENU || lobby == null || lobby.state.loaded,
                 failed = lobby?.state?.error != null, retry = { lobby?.refresh() }, loading = lobby?.state?.busy == true) {

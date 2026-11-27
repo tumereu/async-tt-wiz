@@ -1,1 +1,1 @@
-The same draft history after tapping Returning packs only: only the pack that came back to Alice in round 1 is left, with the cards taken since it was passed.
+The same draft history after one tap on its All packs chip, which now reads Returning: only the pack that came back to Alice in round 1 is left, with the cards taken since it was passed.

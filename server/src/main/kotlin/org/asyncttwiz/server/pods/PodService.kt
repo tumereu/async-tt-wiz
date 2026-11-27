@@ -1245,8 +1245,10 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
             val hadPacks = previous?.queues?.get(player).orEmpty().any { it in queue } || previous != null && next.arena != null
             if (!hadPacks && queue.isNotEmpty())
                 ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id, checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" })
-            ownDraftDone(sql, row, member, if (previous == null) PodDraftWait.Picks else DraftEngine.waitFor(previous, player),
-                DraftEngine.waitFor(next, player))
+            val before = if (previous == null) PodDraftWait.Picks else DraftEngine.waitFor(previous, player)
+            val after = DraftEngine.waitFor(next, player)
+            ownDraftDone(sql, row, member, before, after)
+            if (before != null && after == null) keepDraft(sql, row, next, owner)
         }
         if (next.finished && previous?.finished != true) {
             clearDraftHints(sql, row.id, finished = true)
@@ -1310,6 +1312,24 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
         if (before == null || after != null || member.submittedDeck != null) return
         log("pod ${row.id}: ${member.accountId}'s own draft is done; Submit opens for them")
         ActivityService.record(sql, member.accountId, ActivityKind.POD_DRAFT_COMPLETE, row.id, checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" })
+    }
+
+    /**
+     * LOB-279 (owner, 2026-11-26): [owner]'s own draft of [row] is done: a draft with card ratings (DRF-315: a pod of one set
+     * its card catalog has ratings for) is kept for their Stats with what their draft history shows, beyond the pod's life.
+     */
+    private fun keepDraft(sql: DSLContext, row: PodRecord, state: DraftState, owner: UUID) {
+        val source = sourceView(row)
+        if (!source.botRatings) {
+            log("pod ${row.id}: $owner's own draft is done; not kept for Stats: " +
+                if (source.kind != PodSourceKind.SET) "a cube has no card ratings" else "no card ratings for ${source.packSets.ifEmpty { listOfNotNull(source.setCode) }.distinct()}")
+            return
+        }
+        val attempt = checkNotNull(row.draftAttemptId) { "pod ${row.id} has no draft attempt" }
+        val people = identities(sql, state.seating.filterNot(PodBots::isBot).map(UUID::fromString))
+        val players = state.seating.map { id -> PodBots.identity(id) ?: people.getValue(UUID.fromString(id)) }
+        org.asyncttwiz.server.history.DraftRecords.write(sql, owner, row.id, attempt, row.name, source, settings(row), state.seating,
+            DraftEngine.history(state, owner.toString()), players, java.time.OffsetDateTime.now())
     }
 
     /** The pod's draft notices; at the draft's end ([finished]) only the pick and invitation ones: each member's "Draft
@@ -1490,6 +1510,16 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
 
     /** Booster cards are private; grid boards/log are public, but pools/builds remain caller-only.
      * Each stored part is decoded once, and every named account is looked up in one query. */
+    /** The pod's source as its detail tells it: a cube's name and size, or its set(s) and boosters (DRF-312: with card ratings). */
+    private fun sourceView(row: PodRecord, cube: List<DraftCubeEntry> = source(row)): PodSource {
+        val set = setSource(row)
+        return if (set == null) PodSource(row.sourceName, cube.sumOf { it.quantity.toLong() },
+            maybeCopies = maybe(row).sumOf { it.quantity.toLong() }) else
+            PodSource(kind = PodSourceKind.SET, setCode = set.first.setCode, setName = set.first.setName,
+                boosterKind = if (set.sets.any { it.recipe == null }) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
+                boosterName = set.first.recipe?.name, packSets = set.packs, botRatings = botRatings(set) != null)
+    }
+
     private fun detail(sql: DSLContext, row: PodRecord, owner: UUID, status: Int = 200,
         members: List<org.asyncttwiz.server.generated.tables.records.PodMemberRecord> = members(sql, row.id)): Result {
         val settings = settings(row)
@@ -1510,13 +1540,8 @@ class PodService @JvmOverloads constructor(private val runtime: ServiceRuntime, 
                 .flatMap { it.positions.filterNotNull() + it.slots.mapNotNull { slot -> slot.copy } } +
             gridView?.publicView?.log.orEmpty().flatMap { it.kept + it.discarded } + limitedView.cards()
         val cards = StoredDefinitions.read(sql, visible.map { it.definition }.toSet())
-        val set = setSource(row)
         val cube = source(row)
-        val sourceView = if (set == null) PodSource(row.sourceName, cube.sumOf { it.quantity.toLong() },
-            maybeCopies = maybe(row).sumOf { it.quantity.toLong() }) else
-            PodSource(kind = PodSourceKind.SET, setCode = set.first.setCode, setName = set.first.setName,
-                boosterKind = if (set.sets.any { it.recipe == null }) SetBoosterKind.APPROXIMATE else SetBoosterKind.RECIPE_BASED,
-                boosterName = set.first.recipe?.name, packSets = set.packs, botRatings = botRatings(set) != null)
+        val sourceView = sourceView(row, cube)
         // DRF-285, DRF-287: an Arena pod's setup summary tells its source's rarities
         val rarities = if (settings.mode == DraftMode.ARENA && row.phase == "SETUP") arenaCounts(sql, row) else null
         val finite = settings.supply(settings.seats(members.size), cube)

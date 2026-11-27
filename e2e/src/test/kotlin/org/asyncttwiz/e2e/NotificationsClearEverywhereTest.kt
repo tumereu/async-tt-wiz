@@ -50,7 +50,7 @@ class NotificationsClearEverywhereTest : E2e() {
 
         /** One poll, as the app's worker makes it (ActivityWorker): pages applied, then what no longer waits cleared. */
         fun poll() = runBlocking {
-            ActivityApi(E2eStack.origin).use { api ->
+            ActivityApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 do {
                     val page = api.page(account.token, cursor)
                     check(delivery.apply(owner, page) { true })
@@ -72,7 +72,7 @@ class NotificationsClearEverywhereTest : E2e() {
 
         /** Registers an installation with a push token for [account], which the server sends clear hints; its generation. */
         fun registerPush(): String = runBlocking {
-            ActivityApi(E2eStack.origin).use { api ->
+            ActivityApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 api.register(account.token, RegisterInstallation(UUID.randomUUID().toString(), UUID.randomUUID().toString(),
                     "e2e-push-token-${UUID.randomUUID()}")).generation
             }
@@ -173,7 +173,7 @@ class NotificationsClearEverywhereTest : E2e() {
         launchPlayers()
         val phone = SecondPhone(bob.account)
         val generation = runBlocking {
-            ActivityApi(E2eStack.origin).use { api ->
+            ActivityApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 api.register(bob.account.token, RegisterInstallation(UUID.randomUUID().toString(), UUID.randomUUID().toString(),
                     "e2e-push-token-${UUID.randomUUID()}")).generation
             }
@@ -181,7 +181,7 @@ class NotificationsClearEverywhereTest : E2e() {
         phone.poll() // the feed's first page: nothing shown from it
         val name = "E2E notified ${UUID.randomUUID().toString().take(6)}"
         val game = runBlocking {
-            org.asyncttwiz.android.LobbyApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.LobbyApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 api.add(alice.account.token, AddContact(UUID.randomUUID().toString(), bob.account.id))
                 api.create(alice.account.token, CreateInvitation(UUID.randomUUID().toString(), bob.account.id, name))
             }

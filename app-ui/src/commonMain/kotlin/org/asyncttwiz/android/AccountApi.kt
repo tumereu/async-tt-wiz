@@ -28,7 +28,7 @@ import org.asyncttwiz.appui.AppBuild
 import org.asyncttwiz.appui.platformHttpClient
 
 /** Fixed, local error vocabulary. Never display a response body/exception or log credentials. */
-class AccountFailure(val code: String, val field: String? = null) : Exception("Account request failed")
+class AccountFailure(val code: String, val field: String? = null, cause: Throwable? = null) : Exception("Account request failed", cause)
 
 interface Accounts : Closeable {
     suspend fun register(username: String, email: String, password: String): AccountIdentity
@@ -139,7 +139,7 @@ class AccountApi(private val origin: String, private val client: HttpClient = cl
         } catch (failure: AccountFailure) { throw failure
         } catch (failure: Exception) {
             AppLog.warn("http", "${method.value} $path failed", failure)
-            throw AccountFailure("network")
+            throw AccountFailure("network", cause = failure)
         }
     }
 

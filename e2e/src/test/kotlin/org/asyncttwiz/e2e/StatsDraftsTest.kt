@@ -23,7 +23,7 @@ class StatsDraftsTest : E2e() {
         waitUntil("Alice's card records installed") { alice.catalog!!.state.ready }
         val name = "E2E kept draft ${UUID.randomUUID().toString().take(6)}"
         val pod = runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 api.create(alice.account.token, CreatePod(UUID.randomUUID().toString(), name, setCode = "TST",
                     settings = DraftSettings(packsPerPlayer = 2, cardsPerPack = 4, bots = 1))).id
             }
@@ -31,10 +31,10 @@ class StatsDraftsTest : E2e() {
         ServerSetup.startPod(alice.account, pod)
         ServerSetup.pickUntil(listOf(alice.account), pod) { ServerSetup.pod(alice.account, pod).phase != PodPhase.DRAFTING }
         val picks = runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api -> api.history(alice.account.token, pod).picks }
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api -> api.history(alice.account.token, pod).picks }
         }
         runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api -> api.destroy(alice.account.token, pod, PodRequest(UUID.randomUUID().toString())) }
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api -> api.destroy(alice.account.token, pod, PodRequest(UUID.randomUUID().toString())) }
         }
         assertEquals(0, E2eStack.query("select count(*) from pod where id = '$pod'").single().toInt(), "the pod is gone")
 
@@ -75,14 +75,14 @@ class StatsDraftsTest : E2e() {
         waitUntil("Alice's card records installed") { alice.catalog!!.state.ready }
         val name = "E2E kept rotisserie ${UUID.randomUUID().toString().take(6)}"
         val pod = runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 api.create(alice.account.token, CreatePod(UUID.randomUUID().toString(), name, mode = DraftMode.ROTISSERIE, setCode = "TST",
                     settings = DraftSettings.rotisserie().copy(cardsPerPlayer = 5, bots = 1))).id
             }
         }
         ServerSetup.startPod(alice.account, pod)
         val picks = runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 // Alice takes the first card left at each of her turns; the bot moves on the server at once (DRF-298)
                 var detail = api.detail(alice.account.token, pod)
                 while (detail.phase == PodPhase.DRAFTING) {
@@ -97,7 +97,7 @@ class StatsDraftsTest : E2e() {
         val bots = picks.filter { it.player == PodBots.id(1) }.asReversed().flatMap { it.cards }
         assertEquals(5, bots.size, "the bot's five picks")
         runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api -> api.destroy(alice.account.token, pod, PodRequest(UUID.randomUUID().toString())) }
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api -> api.destroy(alice.account.token, pod, PodRequest(UUID.randomUUID().toString())) }
         }
 
         alice.auth.navigate(ShellDestination.MENU)

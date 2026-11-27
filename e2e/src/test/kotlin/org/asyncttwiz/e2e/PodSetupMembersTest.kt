@@ -50,7 +50,7 @@ class PodSetupMembersTest : E2e() {
             if (System.nanoTime() - polled < 1_000_000_000L) return
             polled = System.nanoTime()
             runBlocking {
-                ActivityApi(E2eStack.origin).use { api ->
+                ActivityApi(E2eStack.origin, E2eHttp.client()).use { api ->
                     do {
                         val page = api.page(token, cursor)
                         check(delivery.apply(owner, page) { true })
@@ -83,7 +83,7 @@ class PodSetupMembersTest : E2e() {
             return last!!
         }
         ServerSetup.invitePod(alice.account, bob.account, pod)
-        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin).use { it.accept(bob.account.token, pod, PodRequest(id())) } }
+        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { it.accept(bob.account.token, pod, PodRequest(id())) } }
         ServerSetup.invitePod(alice.account, carol, pod)
         val phone = Notifications(bob.account)
         phone.poll() // the feed's first page: nothing shown from it
@@ -115,7 +115,7 @@ class PodSetupMembersTest : E2e() {
         waitUntil("Carol's invitation cancelled") {
             server().pendingInvitations.isEmpty() && !alice.showsText(carol.identity.username)
         }
-        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
             assertTrue(api.list(carol.token).invitations.none { it.podId == pod }, "the invitation left Carol's Pods list")
         } }
 
@@ -143,7 +143,7 @@ class PodSetupMembersTest : E2e() {
                 alice.shows(hasTestTag("pod-invite-status-${bob.id}") and hasText("invited"))
         }
         alice.activity.onBackPressedDispatcher.onBackPressed()
-        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin).use { it.accept(bob.account.token, pod, PodRequest(id())) } }
+        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { it.accept(bob.account.token, pod, PodRequest(id())) } }
         bob.pods.refresh()
         waitUntil("the pod back in Bob's list") { bob.pods.state.pods.any { it.id == pod } }
         assertEquals(setOf(alice.id, bob.id), ServerSetup.pod(alice.account, pod).members.map { it.account.accountId }.toSet())

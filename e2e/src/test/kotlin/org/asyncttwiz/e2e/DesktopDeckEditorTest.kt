@@ -65,7 +65,7 @@ class DesktopDeckEditorTest : E2e() {
         assertTrue(alice.key("s", true, ctrl = true), "Ctrl+S taken")
         alice.key("s", false, ctrl = true)
         waitUntil("the saved deck") { !alice.deckImport.state.active && alice.showsText("Edit") }
-        val entries = runBlocking { DeckApi(E2eStack.origin).use { it.read(alice.account.token, saved.deck.id) } }.entries
+        val entries = runBlocking { DeckApi(E2eStack.origin, E2eHttp.client()).use { it.read(alice.account.token, saved.deck.id) } }.entries
         fun copies(card: TestCard, section: SavedDeckSection) =
             entries.filter { it.printingId == card.printingId && it.section == section }.sumOf { it.quantity }
         assertEquals(20, copies(TestCards.mountain, SavedDeckSection.MAINBOARD))

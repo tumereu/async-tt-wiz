@@ -141,7 +141,7 @@ class DraftBotSeatsTest : E2e() {
         assertEquals(PodPhase.DRAFTED, done.phase)
         assertEquals(listOf(alice.id, "bot:1"), done.members.map { it.account.accountId })
         runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 api.basics(alice.account.token, pod, SetPodBasics(UUID.randomUUID().toString(), done.draftAttemptId!!, PodDeckBasics(plains = 40)))
             }
         }

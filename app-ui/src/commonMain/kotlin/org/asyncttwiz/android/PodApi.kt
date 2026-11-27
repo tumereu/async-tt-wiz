@@ -12,7 +12,7 @@ import org.asyncttwiz.appui.Closeable
 import org.asyncttwiz.appui.parseUri
 import org.asyncttwiz.appui.AppBuild
 
-class PodFailure(val code: String) : Exception("Pod request failed: $code")
+class PodFailure(val code: String, cause: Throwable? = null) : Exception("Pod request failed: $code", cause)
 
 interface Pods : Closeable {
     suspend fun list(token: String): PodList
@@ -149,7 +149,7 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
         } catch (failure: Exception) {
             AppLog.warn("http", "${path.substringBefore('?')} failed", failure)
-            throw PodFailure("network")
+            throw PodFailure("network", failure)
         }
     }
     override fun close() = client.close()

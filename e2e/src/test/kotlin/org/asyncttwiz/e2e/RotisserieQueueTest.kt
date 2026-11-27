@@ -33,7 +33,7 @@ class RotisserieQueueTest : E2e() {
         val board = x.pods.state.detail!!.limited!!.board.map { it.copy.id }
         val attempt = x.pods.state.detail!!.draftAttemptId!!
         fun take(player: E2ePlayer, card: String) = runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 val turn = api.detail(player.account.token, pod).limited!!.turn
                 api.turn(player.account.token, pod, PodTurn(UUID.randomUUID().toString(), attempt, LimitedAction.TAKE_CARD, turn, card))
             }

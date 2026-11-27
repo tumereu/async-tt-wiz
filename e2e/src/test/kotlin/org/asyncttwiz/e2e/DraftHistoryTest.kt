@@ -25,7 +25,7 @@ class DraftHistoryTest : E2e() {
         // Two picks each over the server: their own pack, then the other's; the last card of each pack comes back automatically
         val kept = mutableMapOf<String, MutableList<String>>()
         runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 repeat(2) {
                     for (player in listOf(alice, bob)) {
                         val detail = api.detail(player.account.token, pod)
@@ -104,7 +104,7 @@ class DraftHistoryTest : E2e() {
 
     /** [player] takes the first card of the pack in front of them, over the server. */
     private fun pickOver(pod: String, player: E2ePlayer): String = runBlocking {
-        org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+        org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
             val detail = api.detail(player.account.token, pod)
             val head = detail.draft!!.head!!
             val card = head.cards.first().id
@@ -148,7 +148,7 @@ class DraftHistoryTest : E2e() {
         repeat(8) {
             for (player in listOf(alice, bob)) runCatching { pickOver(pod, player) }
         }
-        val drafted = runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin).use { it.detail(alice.account.token, pod) } }
+        val drafted = runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { it.detail(alice.account.token, pod) } }
         kotlin.test.assertEquals(PodPhase.DRAFTED, drafted.phase, "the draft is over")
         waitUntil("Alice's menu") { alice.shows(hasTestTag("menu-PODS")) }
         alice.tagged("menu-PODS").performClick()

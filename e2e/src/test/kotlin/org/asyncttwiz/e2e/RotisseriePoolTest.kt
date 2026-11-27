@@ -59,7 +59,7 @@ class RotisseriePoolTest : E2e() {
         }
         val attempt = alice.pods.state.detail!!.draftAttemptId!!
         runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 // Each turn's answer is the pod as it stands after it: no other reads (the server limits how often it is asked)
                 var view = api.detail(alice.account.token, pod).limited!!
                 repeat(10) {

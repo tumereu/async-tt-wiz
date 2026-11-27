@@ -16,7 +16,7 @@ import java.util.UUID
  */
 class PreparePodDeckNameTest : E2e() {
     private fun pod(id: String): PodDetail = runBlocking {
-        org.asyncttwiz.android.PodApi(E2eStack.origin).use { it.detail(alice.account.token, id) }
+        org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { it.detail(alice.account.token, id) }
     }
 
     /** Alice's own prepared deck as the server accepted it. */
@@ -68,10 +68,10 @@ class PreparePodDeckNameTest : E2e() {
             TestCards.hound, TestCards.stride, TestCards.glimmer, TestCards.glint, TestCards.drowsy),
             settings = DraftSettings.arena().copy(packsPerPlayer = 3, cardsPerPack = 2, keep = 1, ignoreRarity = true, reuseCards = true))
         ServerSetup.invitePod(alice.account, carol, podId)
-        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin).use { it.accept(carol.token, podId, PodRequest(UUID.randomUUID().toString())) } }
+        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { it.accept(carol.token, podId, PodRequest(UUID.randomUUID().toString())) } }
         ServerSetup.joinAndStart(alice.account, bob.account, podId)
         runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 for (player in listOf(alice.account, bob.account)) {
                     repeat(3) {
                         val detail = api.detail(player.token, podId); val head = checkNotNull(detail.draft?.head)
@@ -86,7 +86,7 @@ class PreparePodDeckNameTest : E2e() {
         for (player in listOf(alice.account, bob.account)) ServerSetup.submitPodDeck(player, podId)
         val game = ServerSetup.challenge(alice.account, bob.account, podId, "$name game")
         ServerSetup.attempt(bob.account, game, GameAction.AcceptInvitation)
-        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+        runBlocking { org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
             api.cancel(alice.account.token, podId, PodDraftRequest(UUID.randomUUID().toString(), api.detail(alice.account.token, podId).draftAttemptId!!))
         } }
         val podDeckName = pod(podId).deckName

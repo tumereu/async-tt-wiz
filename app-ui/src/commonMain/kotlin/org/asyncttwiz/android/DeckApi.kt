@@ -15,7 +15,7 @@ import org.asyncttwiz.appui.Closeable
 import org.asyncttwiz.appui.parseUri
 import org.asyncttwiz.appui.AppBuild
 
-class DeckFailure(val code: String) : Exception("Deck request failed")
+class DeckFailure(val code: String, cause: Throwable? = null) : Exception("Deck request failed", cause)
 
 /** A deck's card as the phone makes it from its card records, the card the server builds for the same printing. */
 fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefinition = catalogDefinition(catalog)
@@ -152,7 +152,7 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
         } catch (failure: DeckFailure) { throw failure
         } catch (failure: Exception) {
             AppLog.warn("http", "${path.substringBefore('?')} failed", failure)
-            throw DeckFailure("network")
+            throw DeckFailure("network", failure)
         }
     }
     override fun close() = client.close()

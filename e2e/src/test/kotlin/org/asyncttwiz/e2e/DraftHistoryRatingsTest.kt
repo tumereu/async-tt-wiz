@@ -24,7 +24,7 @@ class DraftHistoryRatingsTest : E2e() {
         launchPlayers(aliceCatalog = true)
         waitUntil("Alice's card records installed") { alice.catalog!!.state.ready }
         val pod = runBlocking {
-            org.asyncttwiz.android.PodApi(E2eStack.origin).use { api ->
+            org.asyncttwiz.android.PodApi(E2eStack.origin, E2eHttp.client()).use { api ->
                 api.create(alice.account.token, CreatePod(UUID.randomUUID().toString(), "E2E history ratings", setCode = "TST",
                     settings = DraftSettings(packsPerPlayer = 2, cardsPerPack = 4, bots = 1))).id
             }

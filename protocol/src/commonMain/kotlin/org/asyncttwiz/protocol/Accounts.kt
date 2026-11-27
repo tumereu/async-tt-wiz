@@ -63,7 +63,7 @@ data class AccountSettings(val deckVisibility: DeckVisibility = DeckVisibility.A
     val playDefaults: org.asyncttwiz.protocol.game.PlaySettings = org.asyncttwiz.protocol.game.PlaySettings.NEW_GAMES,
     val moveSound: MoveSound = MoveSound.DEFAULT,
     val keyBindings: Map<String, String> = emptyMap(),
-    val notifications: NotificationSettings = NotificationSettings.ALL_ON) {
+    val notifications: NotificationSettings = NotificationSettings.DEFAULT) {
     /** Whether [keyBindings] is within the bounds the server keeps. */
     val keyBindingsValid: Boolean get() = keyBindings.size <= MAX_KEY_BINDINGS &&
         keyBindings.all { (id, key) -> id.isNotEmpty() && id.length <= MAX_KEY_TEXT && key.length <= MAX_KEY_TEXT }

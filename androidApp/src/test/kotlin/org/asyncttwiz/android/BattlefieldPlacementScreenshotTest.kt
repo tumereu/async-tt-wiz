@@ -40,6 +40,8 @@ internal object BattlefieldPlacementFixture {
     /** TBL-179: a third attachment, with [play]'s `attachments` 3. */
     val crest = invented("crest", "Ember Crest", "Enchantment — Aura", "{R}", "Enchant creature\nEnchanted creature has haste.")
     val elemental = invented("elemental", "Elemental", "Token Creature — Elemental", power = "1", toughness = "1", token = true)
+    /** TBL-054: a second kind of token, with [play]'s `spirits` above 0. */
+    val spirit = invented("spirit", "Spirit", "Token Creature — Spirit", power = "1", toughness = "1", token = true)
     val totem = invented("totem", "Spark Totem", "Artifact", "{2}", "{T}: This artifact deals 1 damage to any target.")
     val banner = invented("banner", "Quiet Banner", "Enchantment", "{1}")
     /** A free two-target spell, in Alice's hand only with [play]'s `snare` (TBL-130, TBL-165: targets in a group). */
@@ -77,8 +79,10 @@ internal object BattlefieldPlacementFixture {
 
     /** The board; with [snare] Alice holds a Frost Snare ([SNARE]). Her stack of identical Cinder Hounds holds [hounds]
      * (`a-hound-2`, `a-hound-3`, …), the one [tappedHound] (by id) tapped. The Hound [HOST] wears [attachments] of its Ember Blade,
-     * Ember Ward and Ember Crest (TBL-179). */
-    fun play(snare: Boolean = false, hounds: Int = 2, tappedHound: String? = null, bands: Boolean = false, attachments: Int = 2): PlayState {
+     * Ember Ward and Ember Crest (TBL-179). She has [elementals] Elemental tokens (`a-elemental-1`, …) and after them [spirits]
+     * Spirit tokens (TBL-054). */
+    fun play(snare: Boolean = false, hounds: Int = 2, tappedHound: String? = null, bands: Boolean = false, attachments: Int = 2,
+        elementals: Int = 3, spirits: Int = 0): PlayState {
         val cards = mutableListOf<PlayCard>()
         val containers = mutableListOf<PlayContainer>()
         var stamp = 0L
@@ -96,7 +100,8 @@ internal object BattlefieldPlacementFixture {
             Triple("a-mountain-3", mountain, plain), Triple("a-hound-2", hound, plain), Triple("a-totem", totem, plain),
             *(3..hounds + 1).map { n -> Triple("a-hound-$n", hound, if ("a-hound-$n" == tappedHound) tapped else plain) }.toTypedArray(),
             Triple("a-mountain-4", mountain, tapped), Triple("a-banner", banner, plain),
-            Triple("a-elemental-1", elemental, plain), Triple("a-elemental-2", elemental, plain), Triple("a-elemental-3", elemental, plain),
+            *(1..elementals).map { n -> Triple("a-elemental-$n", elemental, plain) }.toTypedArray(),
+            *(1..spirits).map { n -> Triple("a-spirit-$n", spirit, plain) }.toTypedArray(),
             *(if (!bands) emptyArray() else arrayOf(Triple("a-ruins", ruins, plain), Triple("a-drake", drake, plain),
                 Triple("a-lantern", lantern, plain), Triple("a-warden", warden, plain), Triple("a-imp", imp, plain),
                 Triple("a-golem", golem, plain), Triple("a-sigil", sigil, plain), Triple("a-wolf", wolf, plain),
@@ -123,6 +128,7 @@ internal object BattlefieldPlacementFixture {
             BoardState(listOf(PlayPlayer("a"), PlayPlayer("b")), cards, containers,
                 TurnState("a", "4", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step)),
             listOf(mountain, hound, cub, blade, ward, elemental, totem, banner) + listOfNotNull(this.snare.takeIf { snare }) +
+                listOfNotNull(spirit.takeIf { spirits > 0 }) +
                 listOfNotNull(crest.takeIf { attachments >= 3 }) +
                 (if (bands) listOf(ruins, warden, drake, imp, golem, wolf, ogre, sprite, crab, beetle, rat, lantern, sigil, vess)
                     else emptyList()),
@@ -197,7 +203,7 @@ class BattlefieldPlacementScreenshotTest {
 
     // TBL-004, TBL-140, TBL-142, TBL-053, TBL-177, TBL-179, TBL-117, TBL-172, TBL-122: lands from the left in the land row by each player's edge; in the upper band
     // creatures from the left and the other permanents from the right, two-slot columns filled nearest the middle first;
-    // identical permanents in one stack (lands fanned with their tapped members turned, tokens tight with ×3); the Blade
+    // identical permanents in one stack, fanned (the lands with their tapped members turned, the tokens with ×3, TBL-054); the Blade
     // and the Ward peek out above the Hound they're on; the Hounds' stack glows cyan (a tap acts at once), the equipped
     // Hound white (a tap opens it)
     @Test fun bothBattlefieldsLayThemselvesOut() {
@@ -217,7 +223,7 @@ class BattlefieldPlacementScreenshotTest {
                 "fanned as one stack from the left (tapped ones turned inside it); above it the two-row upper band with the " +
                 "creatures from the left in columns of two, nearest the middle first (Alice's Cinder Hound with an Ember Blade " +
                 "and an Ember Ward peeking out above it, behind it two Cinder Hounds in one stack, then three Elemental tokens " +
-                "in a tight stack marked ×3; Bob's two Ember Cubs and two Elementals, ×2 each) and the Spark Totem and Quiet " +
+                "fanned in one stack marked ×3; Bob's two Ember Cubs and two Elementals, ×2 each) and the Spark Totem and Quiet " +
                 "Banner from the right. The Hounds' stack and the Totem glow cyan (a tap acts at once), the equipped Hound white " +
                 "(a tap opens it: the Hound and its Blade can both be used).")
         // Zoomed in on the left half of Alice's battlefield
@@ -232,12 +238,12 @@ class BattlefieldPlacementScreenshotTest {
                 "two-Hound stack glowing cyan, and the ×3 Elemental tokens.")
     }
 
-    // TBL-179, SYS-155, TBL-003, TBL-130, TBL-172 (owner, 2026-11-26): an attached card peeks out above the card in front of it by its whole
-    // title bar (16 dp at the default sizes, × zoom), several stacking upward one title bar apart; the rows make room for them, the
-    // group's tap and glow take them all in
+    // TBL-179, SYS-155, TBL-003, TBL-130, TBL-172 (owner, 2026-11-27): an attached card peeks out above the card in front of it by exactly
+    // its title bar (as tall as drawn, × zoom), so no art shows, several stacking upward one title bar apart; the rows make room for
+    // them, the group's tap and glow take them all in
     @Test fun anAttachedCardPeeksOutByItsWholeTitleBar() = attachedPeek(1, "attached-one")
 
-    // TBL-179, TBL-003 (owner, 2026-11-26): three attached cards stack upward one title bar apart
+    // TBL-179, TBL-003 (owner, 2026-11-27): three attached cards stack upward one title bar apart
     @Test fun threeAttachedCardsStackOneTitleBarApart() = attachedPeek(3, "attached-three")
 
     private fun attachedPeek(count: Int, file: String) {
@@ -256,16 +262,47 @@ class BattlefieldPlacementScreenshotTest {
             assertEquals(count + 1, group.members.size)
             // Front to back: the Hound, then each attached card one title bar higher
             val tops = group.members.map { id -> zoomed.items.single { it.cardId == id && it.battlefieldCard }.bounds.y }
-            for (i in 1..count) assertEquals(16f * zoom, tops[i - 1] - tops[i], .01f, "${group.members[i]} peeks out one title bar: $tops")
+            for (i in 1..count) assertEquals(cardTitleBand(1f) * zoom, tops[i - 1] - tops[i], .01f, "${group.members[i]} peeks out one title bar: $tops")
             val rows = zoomed.fields.last()
             assertTrue(zoomed.items.filter { it.cardId in group.members }.all { it.bounds.y >= rows.gridBounds.y - .01f },
                 "the rows hold them all: $tops, ${rows.gridBounds}")
             compose.onRoot().captureShot("$SCREENSHOTS/battlefield/$file.png",
                 "Alice's battlefield zoomed in (2×): her Cinder Hound wears " + (if (count == 1) "an Ember Blade, which" else
                     "an Ember Blade, an Ember Ward and an Ember Crest, each of which") + " peeks out above the card in front of it " +
-                    "so its whole title bar shows" + (if (count == 1) "" else ", the three stacking upward one title bar apart") +
+                    "by exactly its title bar, its name showing and none of its art" +
+                    (if (count == 1) "" else ", the three stacking upward one title bar apart") +
                     "; the group glows white (a tap opens it).")
         }
+    }
+
+    // TBL-054, TBL-002, TBL-053 (owner, 2026-11-27): every stack of identical permanents fans out like the lands, each card 8 dp right of
+    // the one before: three Spirit tokens all show, twelve Elemental tokens fan out their first five, the rest lying wholly behind the
+    // fifth (choice), each with its ×N; the four Mountains' fan below; each stack's column as wide as its fan
+    @Test fun everyStackFansOutLikeTheLands() {
+        play = f.play(elementals = 12, spirits = 3)
+        val zoom = 2f
+        val toolkit = render()
+        val own = scene(toolkit).fields.last()
+        val center = scene(toolkit).world!!.viewport.center
+        toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(own.originX + 90f - center.x,
+            own.gridBounds.center.y - center.y, zoom))
+        compose.waitForIdle()
+        val scene = scene(toolkit)
+        fun x(id: String) = scene.items.single { it.cardId == id && it.battlefieldCard }.bounds.x
+        val elementals = (1..12).map { "a-elemental-$it" }
+        assertEquals(listOf(0f, 8f, 16f, 24f) + List(8) { 32f }, elementals.map { (x(it) - x(elementals[0])) / zoom })
+        assertEquals(listOf(0f, 8f, 16f), (1..3).map { (x("a-spirit-$it") - x("a-spirit-1")) / zoom })
+        assertEquals(12, scene.items.single { it.cardId == "a-elemental-12" }.copies)
+        assertEquals(3, scene.items.single { it.cardId == "a-spirit-3" }.copies)
+        // The four Mountains (two tapped) fan out in the land row as before
+        val mountains = scene.battlefieldGroups.single { it.key == "stack:a-mountain-1" }.members
+        assertEquals(listOf(0f, 8f, 16f, 24f), mountains.map { scene.items.single { i -> i.cardId == it && i.battlefieldCard }.footprint.x }
+            .map { (it - scene.items.single { i -> i.cardId == mountains[0] && i.battlefieldCard }.footprint.x) / zoom })
+        compose.onRoot().captureShot("$SCREENSHOTS/battlefield/stack-fan.png",
+            "Alice's battlefield zoomed in (2×): in the upper band her stack of three Spirit tokens and her stack of twelve Elemental " +
+                "tokens fan out like her Mountains in the land row below, each card 8 dp right of the one before; the Elementals " +
+                "fan out their first five, the other seven lying wholly behind the fifth (choice: wholly behind, not 3 dp " +
+                "apart), and each stack carries its ×N (×3, ×12; the Mountains 2/4).")
     }
 
     // TBL-004, TBL-140, TBL-141, TBL-003, TBL-120, SYS-041 (owner playtest 2026-11-07): every land in the land row, the artifact land and the

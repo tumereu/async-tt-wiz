@@ -120,8 +120,8 @@ class SettingsScreenTest {
         compose.runOnIdle { assertTrue(MoveVibrationPreferences(AppPlatform.current).enabled) }
     }
 
-    // LOB-276, LOB-278, LOB-079 (owner, 2026-11-26): Settings → Notifications, after Games: a switch per kind with what it covers,
-    // each on by default and saved to the account at once; on Android "Sound and vibration" under them opens Android's
+    // LOB-276, LOB-278, LOB-079 (owner, 2026-11-26, 2026-11-27): Settings → Notifications, after Games: a switch per kind with what it
+    // covers, each on by default but Chat (off until switched on) and saved to the account at once; on Android "Sound and vibration" under them opens Android's
     // notification settings for the app
     @Test fun notificationsHaveASwitchPerKindKeptOnTheAccountAndOpenAndroidsSettings() {
         val source = FakeSettings(server = AccountSettings(notifications = NotificationSettings(draft = false)))
@@ -132,7 +132,7 @@ class SettingsScreenTest {
             compose.onNodeWithText("Games").getUnclippedBoundsInRoot().top, "after Games")
         for (kind in NotificationKind.all) {
             compose.onNodeWithTag("notification-kind-${kind.id}").performScrollTo()
-            if (kind == NotificationKind.Draft) compose.onNodeWithTag("notification-kind-${kind.id}").assertIsOff()
+            if (kind == NotificationKind.Draft || kind == NotificationKind.Chat) compose.onNodeWithTag("notification-kind-${kind.id}").assertIsOff()
             else compose.onNodeWithTag("notification-kind-${kind.id}").assertIsOn()
             compose.onNodeWithText(kind.label).assertIsDisplayed(); compose.onNodeWithText(kind.explanation).assertIsDisplayed()
         }
@@ -141,11 +141,12 @@ class SettingsScreenTest {
         compose.onNodeWithTag("notification-sound").performScrollTo()
         val directory = File("$SCREENSHOTS/settings").also { it.mkdirs() }
         captureShot(File(directory, "notifications.png").path,
-            "Settings → Notifications on Android, the account's Draft switched off on another device: a switch per kind with " +
+            "Settings → Notifications on Android, the account's Draft switched off on another device and Chat off as it is until " +
+                "switched on: a switch per kind with " +
                 "what it covers (choice: these lines), then Sound and vibration.")
-        compose.onNodeWithTag("notification-kind-chat").performClick().assertIsOff()
-        compose.runOnIdle { assertEquals(NotificationSettings(chat = false, draft = false), source.writes.last().notifications) }
         compose.onNodeWithTag("notification-kind-chat").performClick().assertIsOn()
+        compose.runOnIdle { assertEquals(NotificationSettings(chat = true, draft = false), source.writes.last().notifications) }
+        compose.onNodeWithTag("notification-kind-chat").performClick().assertIsOff()
         compose.runOnIdle { assertEquals(NotificationSettings(draft = false), source.writes.last().notifications) }
         // LOB-278: Android's notification settings for the app
         compose.onNodeWithTag("notification-sound").performScrollTo().assertHasClickAction()

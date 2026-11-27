@@ -1,0 +1,1 @@
+2: Chat notifications are now off unless you turn them on in Settings, Notifications.

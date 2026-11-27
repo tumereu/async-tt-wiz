@@ -1,0 +1,1 @@
+2: Stacks of identical tokens and other permanents now fan out like lands, showing up to five cards, so their size shows at a glance.

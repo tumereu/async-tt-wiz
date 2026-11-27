@@ -4,10 +4,12 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.performClick
 import arcanum.engine.input.Input
 import arcanum.engine.state.ObjectId
+import org.asyncttwiz.android.cardTitleBand
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.math.abs
 
 /**
  * Owner, 2026-11-05 (battlefield placement, Arena style): the battlefield lays itself out, identical permanents lie in one
@@ -30,7 +32,8 @@ class BattlefieldGroupsTest : E2e() {
     }
 
     // TBL-053, TBL-177, TBL-054, TBL-130, TBL-163, TBL-122: two identical Ember Shards lie in one stack (×2); a tap on the stack taps one of
-    // them for its mana at once (no menu, no opening); the next tap taps the other, the untapped one; the two stay one stack
+    // them for its mana at once (no menu, no opening); the next tap taps the other, the untapped one; the two stay one stack.
+    // TBL-054, TBL-002 (owner, 2026-11-27): the stack fans out like lands, the top Shard 8 dp right of the one under it
     @Test fun aTapOnAStackOfIdenticalCardsTapsOneOfThem() {
         startGame(TestDeck("Shards", listOf(TestCards.mountain to 20, TestCards.shard to 20)),
             aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
@@ -44,6 +47,11 @@ class BattlefieldGroupsTest : E2e() {
         val stacked = hasContentDescription("Ember Shard, owner ${alice.name},", substring = true) and
             hasContentDescription("stack of 2", substring = true)
         waitUntil("the Shards in one stack on Alice's screen") { alice.shows(stacked) }
+        fun shard(index: Int) = alice.battlefieldCard("Ember Shard", index = index).fetchSemanticsNode().boundsInRoot
+        waitUntil("the Shards fanned 8 dp apart") {
+            val step = shard(1).left - shard(0).left
+            abs(step - 8f * shard(1).width / 28f) < 1.5f
+        }
         val pool = alice.pool()
         alice.battlefieldCard("Ember Shard").performClick()
         waitUntil("one Shard tapped for its mana") { alice.tapped(shards) == 1 && alice.pool() == pool + 1 }
@@ -55,7 +63,8 @@ class BattlefieldGroupsTest : E2e() {
 
     // TBL-130, TBL-164, TBL-117, TBL-053, TBL-179: Alice's Ash Hound wears an Ember Blade; both have an ability she can use now (the pump,
     // the Equip), so the first tap on the Hound only opens the group (the Blade beside it, nothing used); the second tap on
-    // the Hound pumps it, which closes the group again (the Blade back behind the Hound)
+    // the Hound pumps it, which closes the group again (the Blade back behind the Hound). TBL-179 (owner, 2026-11-27): the Blade peeks
+    // out above the Hound by exactly its title bar (its art, which begins under the title bar, wholly behind the Hound)
     @Test fun anEquippedCreatureOpensOnTheFirstTapAndActsOnTheSecond() {
         startGame(TestDeck("Blades", listOf(TestCards.mountain to 10, TestCards.ashHound to 10, TestCards.pup to 10, TestCards.blade to 10)),
             aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
@@ -80,6 +89,10 @@ class BattlefieldGroupsTest : E2e() {
         val activations = activated().size
         fun bounds(name: String) = alice.battlefieldCard(name).fetchSemanticsNode().boundsInRoot
         waitUntil("the Blade peeking out above the Hound") { bounds("Ember Blade").top < bounds("Ash Hound").top }
+        waitUntil("the Blade peeking out by exactly its title bar") {
+            val hound = bounds("Ash Hound")
+            abs(hound.top - bounds("Ember Blade").top - cardTitleBand(1f) * hound.height / 40f) < 1.5f
+        }
 
         alice.battlefieldCard("Ash Hound").performClick()
         waitUntil("the group open: the Blade beside the Hound") { bounds("Ember Blade").left >= bounds("Ash Hound").right - 1f }

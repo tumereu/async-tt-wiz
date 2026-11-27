@@ -77,44 +77,46 @@ class NotificationSettingsTest : E2e() {
     private fun notificationSettings(account: TestAccount) =
         runBlocking { AccountApi(E2eStack.origin).use { it.accountSettings(account.token) } }.notifications
 
-    // LOB-276, LOB-277, LOB-072, WEB-051 (owner, 2026-11-26): Alice's chat message shows on Bob's second phone as the chat's
-    // notification, in the Chat channel; Bob switches Chat off in Settings on his first phone: the server keeps it for the
-    // account, and Alice's next message notifies none of his devices (an invitation still does; the server's browser pushes
-    // follow the same switch, ChatNoticeTest); Bob switches it on again in Settings in his browser, and her next message
-    // notifies his phone again
-    @Test fun aKindSwitchedOffInSettingsNotifiesNoDeviceOfTheAccount() {
+    // LOB-276, LOB-277, LOB-072, WEB-051 (owner, 2026-11-26, 2026-11-27): Chat is off until switched on: Alice's chat message notifies
+    // none of Bob's devices (an invitation of hers after it still does); Bob switches Chat on in Settings on his first phone: the
+    // server keeps it for the account, and her next message shows on his second phone as the chat's notification, in the Chat
+    // channel; Bob switches it off again in Settings in his browser, and her next message notifies none of his devices again
+    // (the server's browser pushes follow the same switch, ChatNoticeTest)
+    @Test fun aKindSwitchedInSettingsDecidesForEveryDeviceOfTheAccount() {
         launchPlayers()
         val phone = SecondPhone(bob.account)
         phone.poll() // the feed's first page: nothing shown from it
         val game = ServerSetup.invitation(alice.account, bob.account, "E2E chat ${UUID.randomUUID().toString().take(6)}")
         val key = "chat:${game.id}"
-        ServerSetup.gameChat(alice.account, game, "Hello Bob")
-        waitUntil("the chat's notification on Bob's second phone") { phone.pollNowAndThen(); phone.text(key) == "Hello Bob" }
-        assertEquals("notice_chat", phone.channel(key))
+        assertTrue(!notificationSettings(bob.account).chat, "Chat off by default")
+        /** Alice's message [text], then an invitation of hers: the invitation notifies Bob's second phone, the message doesn't. */
+        fun quiet(text: String, invitationName: String) {
+            ServerSetup.gameChat(alice.account, game, text)
+            val invitation = ServerSetup.invite(alice.account, bob.account, invitationName)
+            waitUntil("the invitation's notification on Bob's second phone") {
+                phone.pollNowAndThen(); phone.text("invite:${invitation.invitationId}") != null ||
+                    phone.channel("invite:${invitation.invitationId}") != null
+            }
+            assertNull(phone.text(key), "Chat is off: no notification of Alice's message")
+        }
+        quiet("Hello Bob", "E2E before Chat on")
 
-        // Bob's first phone: Settings → Notifications → Chat off
+        // Bob's first phone: Settings → Notifications → Chat on
         bob.auth.navigate(ShellDestination.SETTINGS)
-        waitUntil("Bob's Chat switch") { bob.shows(hasTestTag("notification-kind-chat") and isOn()) }
+        waitUntil("Bob's Chat switch, off") { bob.shows(hasTestTag("notification-kind-chat") and isOff()) }
         bob.tagged("notification-kind-chat").performScrollTo().performClick()
-        waitUntil("Chat off on the server") { !notificationSettings(bob.account).chat }
-        assertTrue(bob.shows(hasTestTag("notification-kind-chat") and isOff()))
+        waitUntil("Chat on on the server") { notificationSettings(bob.account).chat }
+        assertTrue(bob.shows(hasTestTag("notification-kind-chat") and isOn()))
+        ServerSetup.gameChat(alice.account, game, "Now you hear me")
+        waitUntil("the chat's notification on Bob's second phone") { phone.pollNowAndThen(); phone.text(key)?.endsWith("Now you hear me") == true }
+        assertEquals("notice_chat", phone.channel(key))
         phone.clearAll()
 
         E2eBrowser().use { web ->
             try {
                 web.signIn(bob.account, "/settings")
                 web.waitFor("#notification-kind-chat", 120_000.0)
-
-                // Alice's next message: no device is told of it; an invitation of hers after it still notifies
-                ServerSetup.gameChat(alice.account, game, "Still there?")
-                val invitation = ServerSetup.invite(alice.account, bob.account, "E2E after the chat")
-                waitUntil("the invitation's notification on Bob's second phone") {
-                    phone.pollNowAndThen(); phone.text("invite:${invitation.invitationId}") != null ||
-                        phone.channel("invite:${invitation.invitationId}") != null
-                }
-                assertNull(phone.text(key), "Chat is off: no notification of Alice's message")
-
-                // Bob's browser: Settings → Notifications → Chat on again; the server keeps it for all his devices
+                // Bob's browser: Settings → Notifications → Chat off again; the server keeps it for all his devices
                 web.page.mouse().move(200.0, 400.0)
                 // Scrolled with the mouse wheel (the page is the app's canvas) until the row stays in view, then tapped
                 fun chatRow() = web.page.locator("#notification-kind-chat").first().boundingBox()
@@ -131,9 +133,8 @@ class NotificationSettingsTest : E2e() {
                     before != null && after != null && after.y == before.y
                 }
                 web.tap("#notification-kind-chat")
-                waitUntil("Chat on again on the server") { notificationSettings(bob.account).chat }
-                ServerSetup.gameChat(alice.account, game, "Back on?")
-                waitUntil("the chat's notification again") { phone.pollNowAndThen(); phone.text(key)?.endsWith("Back on?") == true }
+                waitUntil("Chat off again on the server") { !notificationSettings(bob.account).chat }
+                quiet("Still there?", "E2E after Chat off")
                 val faults = web.faults()
                 assertTrue(faults.isEmpty(), "The page reported faults:\n${faults.joinToString("\n")}")
             } catch (failure: Throwable) {

@@ -69,9 +69,10 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
     // HIS-021, HIS-112, HIS-113: a finger held on the table, or an Inspect open, pauses what the view is waiting on
     val viewPause = LocalEngineRoutes.current?.viewPause
     val currentViewPause by rememberUpdatedState(viewPause)
+    val currentRoutes by rememberUpdatedState(LocalEngineRoutes.current)
     DisposableEffect(viewPause, toolkit) {
         viewPause?.inspecting = { toolkit?.peek != null }
-        onDispose { viewPause?.finger = false; viewPause?.inspecting = { false } }
+        onDispose { viewPause?.finger = false; viewPause?.touch = false; viewPause?.inspecting = { false } }
     }
     val density = LocalDensity.current.density
     val coordinator = remember(play.playId, accountId, density) {
@@ -140,6 +141,17 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
                 // HIS-021, HIS-113: what a held finger pauses (a play shown, a combat's hold) reaches the app log with it
                 AppLog.info("table", if (held) "Finger held on the table (pauses what the view waits on)" else "Finger on the table lifted")
                 currentViewPause?.finger = held
+            },
+            onTouched = { down ->
+                // HIS-126 (owner, 2026-11-26): a finger down pauses at once; logged only where it pauses something the view waits on
+                val pause = currentViewPause
+                if (pause != null) {
+                    val routes = currentRoutes
+                    if (!down && routes?.viewPaused() == true && !pause.finger)
+                        AppLog.info("table", "Finger on the table lifted or moved on before a hold: what the view waits on goes on")
+                    pause.touch = down
+                    if (down && routes?.viewPaused() == true) AppLog.info("table", "Finger down on the table: what the view waits on pauses at once")
+                }
             })
         owner.combatDrag = { item -> toolkit?.combatDraggable(item) ?: true }
         owner
@@ -685,9 +697,9 @@ fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landsca
             StateChipsOverlay(scene, play, accountId, holdChips)
             heldChips?.let { PlayerChipsInspect(scene, it, accountId) }
             // STK-024 (owner playtest 2026-11-09): each source paying the open payment carries the mana it pays at its corner
-            if (toolkit != null && !runtime.reviewing) PaymentCornerChips(toolkit, scene) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
+            if (toolkit != null && !runtime.reviewing) PaymentCornerChips(toolkit, scene, chipAreas) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
             // STK-047 (owner 2026-11-11, which pick is which): what each picked card is for, at its other corner
-            if (toolkit != null && !runtime.reviewing) PickRoleChips(toolkit, play, scene) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
+            if (toolkit != null && !runtime.reviewing) PickRoleChips(toolkit, play, scene, chipAreas) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
             // LOB-136, LOB-137 (owner, 2026-11-08): chat messages as speech bubbles at the life squares, over what lies there;
             // last here, so a tap on the other player's takes that tap from the table and its chips
             runtime.chatBubbles?.let { ChatBubblesOverlay(scene, accountId, it, tableWidth, tableHeight) }

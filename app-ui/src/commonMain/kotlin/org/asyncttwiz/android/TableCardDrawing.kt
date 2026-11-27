@@ -41,6 +41,9 @@ class TableDrawCache(density: Float) {
     }
 }
 
+/** How tall a table card's title bar is (face units: a card is 28 × 40), with its title text [titleScale] times its size. */
+fun cardTitleBand(titleScale: Float): Float = maxOf(11f, 7f * titleScale + 3f)
+
 /** One drawTable pass: its paint, scaled text helpers and the card-face drawing every layer shares. */
 class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDrawCache,
     val artwork: Map<String, ImageBitmap>) {
@@ -52,7 +55,7 @@ class TableCardPainter(val density: Float, scene: TableScene, val cache: TableDr
     val titleScale = scene.appearance.text(CardTextScalePart.TITLE)
     val noteScale = scene.appearance.text(CardTextScalePart.VALUES)
     val valueScale = scene.appearance.text(CardTextScalePart.VALUES)
-    val titleBand = maxOf(11f, 7f * titleScale + 3f)
+    val titleBand = cardTitleBand(titleScale)
     val artBottom = 40f - maxOf(10f, 7f * valueScale + 3f)
     fun DrawScope.text(value: String, x: Float, y: Float, max: Int = 16) {
         drawNativeText(value.take(max), x * density, y * density, paint)

@@ -20,6 +20,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.hasStateDescription
+import androidx.compose.ui.test.click
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import arcanum.engine.input.Block
@@ -913,6 +914,60 @@ class CombatBandTest {
         compose.onNodeWithContentDescription("${bobName()} would go from $life to ${life - 2}").assertExists()
         captureShot("$SCREENSHOTS/combat-band/chip-preview.png",
             "Bob declares blockers with none placed yet: his target chip at the bottom of the band, mirrored for him, reads his name and $life → ${life - 2} in red, what Alice's unblocked Ember Cub would do to his life.")
+    }
+
+    // CMB-064, TBL-240 (owner, 2026-11-26): while Alice declares attackers Bob's Ember Skyguard (flying, deathtouch) and Ember Thornwall
+    // (reach, first strike, vigilance) show their combat keyword badges on his battlefield, so she can gauge his blockers; none in her
+    // main phase before, none on her own creature not staged; holding a badge inspects his creature (the badge takes no touch)
+    @Test fun theOtherPlayersCreaturesShowTheirCombatKeywordsWhileYouDeclareAttackers() {
+        val (skyguard, thornwall) = EngineGameFixture.Choices.SKYGUARD to EngineGameFixture.Choices.THORNWALL
+        val kit = EngineTableKit(EngineCombatScenario(EngineGameFixture(creatures = true, bobCards = listOf(skyguard, thornwall))))
+        kit.bobMain = { s ->
+            val held = listOf(skyguard, thornwall).filter { kit.scenario.cards(s, kit.other, s.battlefield, it).isEmpty() }
+                .firstNotNullOfOrNull { kit.scenario.cards(s, kit.other, s.player(kit.other).hand, it).firstOrNull() }
+            if (held == null) false else { kit.bob.send(kit.scenario.cast(s, kit.other, Input.Cast(kit.other, held))); true }
+        }
+        kit.toReadyCub()
+        kit.bobMain = null
+        assertEquals(listOf(1, 1), listOf(skyguard, thornwall).map { kit.field(it, kit.other).size }, "Bob's Skyguard and Thornwall")
+        val keywords = listOf("flying", "deathtouch", "reach", "first strike", "vigilance")
+        val frame = androidx.compose.runtime.mutableIntStateOf(0)
+        compose.setContent {
+            MaterialTheme {
+                NoRipples {
+                    CompositionLocalProvider(LocalEngineRoutes provides kit.routes) {
+                        androidx.compose.runtime.key(frame.intValue) {
+                            Box(Modifier.fillMaxSize()) {
+                                TableSurface(kit.f.game, kit.alice.play(), kit.f.a, false, Modifier.fillMaxSize(), connected = true,
+                                    onIntent = kit.toolkit::handle, toolkit = kit.toolkit,
+                                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { kit.routes.undo() }, controlsConnected = true))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        for (k in keywords) compose.onAllNodesWithContentDescription(k).assertCountEquals(0)
+        kit.toAttacks()
+        kit.toolkit.combat.show(kit.alice.play(), AutomatumBoards.combat(kit.alice.play()))
+        compose.runOnIdle { frame.intValue++ }
+        compose.waitForIdle()
+        for (k in keywords) compose.onAllNodesWithContentDescription(k).assertCountEquals(1)
+        val field = compose.onNodeWithContentDescription("${bobName()} Battlefield,", substring = true).fetchSemanticsNode().boundsInRoot
+        val flying = compose.onNodeWithContentDescription("flying", useUnmergedTree = true)
+        assertTrue(field.contains(flying.fetchSemanticsNode().boundsInRoot.center), "on Bob's battlefield")
+        captureShot("$SCREENSHOTS/combat-band/opponent-badges.png",
+            "Alice declares attackers with her Ember Cub, nothing staged yet: Bob's Ember Skyguard shows violet \"flying\" and \"deathtouch\" badges and his Ember Thornwall \"reach\", \"first strike\" and \"vigilance\", above each card on his battlefield (choice: above the card, away from the combat band), so she can gauge his blockers.")
+        compose.mainClock.autoAdvance = false
+        flying.performTouchInput { down(center) }
+        compose.waitForIdle(); compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle(); compose.mainClock.advanceTimeBy(100)
+        compose.onNodeWithContentDescription("Card inspection content", useUnmergedTree = true).assertExists()
+        compose.onNodeWithContentDescription("Card image: $skyguard", useUnmergedTree = true).assertExists()
+        flying.performTouchInput { cancel() }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
     }
 
     // CMB-035, CMB-065 (owner notes 2026-11-14): zoomed all the way out, Alice's attacking Cub on the battlefield still carries its

@@ -147,9 +147,9 @@ fun battlefieldCardBounds(footprint: TableBounds, width: Float, height: Float, d
     TableBounds(footprint.center.x - width / 2, footprint.center.y - height / 2 + dy, width, height)
 
 /** TBL-003: ten percent above/below every face, plus room for the attached cards peeking out above their hosts ([lifts]
- * peek steps, at least one). */
-fun battlefieldRowHeight(cardHeight: Float, scale: Float, lifts: Int = 1) =
-    cardHeight * 1.2f + maxOf(1, lifts) * BattlefieldLayout.PEEK * scale
+ * steps of [peek], TBL-179; at least [BattlefieldLayout.PEEK_ROOM]). */
+fun battlefieldRowHeight(cardHeight: Float, scale: Float, lifts: Int = 1, peek: Float = BattlefieldLayout.peek(1f)) =
+    cardHeight * 1.2f + maxOf(BattlefieldLayout.PEEK_ROOM, lifts * peek) * scale
 /** [localPileTargets]: the local pile is open to pick targets from (Automatum, I-D6): its cards one by one, not grouped. */
 data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll: Map<String, Float> = emptyMap(),
     val scrollY: Map<String, Float> = emptyMap(), val localPileId: String? = null, val localPileTargets: Boolean = false,
@@ -701,7 +701,9 @@ object TablePresentation {
         val logicalRight = spots.values.flatMap { it.values }.maxOfOrNull { it.x + BattlefieldLayout.SLOT } ?: (4 * BattlefieldLayout.SLOT)
         // Rows are world content, not fractions of the remaining screen. Small viewports pan. TBL-003: three rows each, the land
         // row by the player's own edge, the upper band's two by the middle (the combat band pushes the battlefields apart, CMB-007)
-        val rowHeight = battlefieldRowHeight(hudHeight * battlefieldScale, battlefieldScale, BattlefieldLayout.lifts(groups))
+        // TBL-179 (owner, 2026-11-26): each attached card's whole title bar shows
+        val peek = BattlefieldLayout.peek(appearance.text(CardTextScalePart.TITLE))
+        val rowHeight = battlefieldRowHeight(hudHeight * battlefieldScale, battlefieldScale, BattlefieldLayout.lifts(groups), peek)
         val fieldHeights = players.map { BattlefieldRow.COUNT * rowHeight }
         // CMB-042 (owner playtest 2026-11-06): the band is world content, zooming with the battlefields: its cards are
         // exactly the battlefield's
@@ -960,7 +962,7 @@ object TablePresentation {
                 val rowY = if (ownSide) field.gridBounds.bottom - rowHeight - dy else field.gridBounds.y + dy
                 val y = rowY + (rowHeight - envelope) / 2
                 val footprint = TableBounds(x, y, columnPitch * zoom, envelope)
-                val lift = (spot.lifts / 2f - spot.lift) * BattlefieldLayout.PEEK * fieldScale
+                val lift = (spot.lifts / 2f - spot.lift) * peek * fieldScale
                 val centred = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, if (c.tapped) cw else ch, lift)
                 // TBL-143 (owner, 2026-11-22): every card lies on its row's bottom line, tapped or not, so all tapped cards share
                 // one line: its bottom at the bottom of the square both a tapped and an untapped card fit in. TBL-177 (owner,

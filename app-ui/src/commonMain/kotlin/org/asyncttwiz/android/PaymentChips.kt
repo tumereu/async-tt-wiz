@@ -36,11 +36,12 @@ val PayAmber = Color(0xffd08a1e)
  * STK-024 (owner playtest 2026-11-09): each source paying the open payment on the table (a cast's, or one made while something
  * resolves, STK-049) carries a small amber chip at its top right corner with the mana it pays ("{U}", "Convoke"); when the source
  * can pay in more than one way (two colours, several mana abilities, a mana ability and convoke) a tap on the chip opens its ways
- * beside it, and a tap on one pays that way from then on. A source with one way has a chip that takes no taps.
- * [bounds]: where each item is drawn now (moving cards included).
+ * beside it, and a tap on one pays that way from then on. A source with one way has a chip that takes no touch of its own: a tap or a
+ * hold on it is the card's (TBL-240, [chipAreas]). [bounds]: where each item is drawn now (moving cards included).
  */
 @Composable
-fun PaymentCornerChips(toolkit: TableToolkitController, scene: TableScene, bounds: (TableItem) -> TableBounds) {
+fun PaymentCornerChips(toolkit: TableToolkitController, scene: TableScene, chipAreas: CombatChipAreas? = null,
+    bounds: (TableItem) -> TableBounds) {
     if (!toolkit.paying) return
     var open by remember { mutableStateOf<String?>(null) }
     val paying = toolkit.paySources()
@@ -49,14 +50,14 @@ fun PaymentCornerChips(toolkit: TableToolkitController, scene: TableScene, bound
     val piles = scene.battlefieldGroups.filter { group -> group.kind == BattlefieldGroup.Kind.Stack && group.members.size > 1 &&
         group.key != scene.expandedGroup && group.members.all { it in paying } }
     val piled = piles.flatMapTo(HashSet()) { it.members }
-    PileChips(toolkit, scene, piles, bounds)
+    PileChips(toolkit, scene, piles, chipAreas, bounds)
     val chips = paying.filterNot { it in piled }.mapNotNull { card ->
         val item = scene.items.firstOrNull { it.cardId == card && it.battlefieldCard } ?: return@mapNotNull null
         val shown = bounds(item)
         val field = scene.viewports.firstOrNull { it.id == item.viewport }?.bounds
         if (field != null && !field.contains(shown.center)) return@mapNotNull null
         val use = toolkit.paidWith(card) ?: return@mapNotNull null
-        PayChip(card, item.label, shown, use, toolkit.waysOf(card))
+        PayChip(card, item.id, item.label, shown, use, toolkit.waysOf(card))
     }
     for (chip in chips) key(chip.card) {
         val card = chip.card
@@ -64,7 +65,10 @@ fun PaymentCornerChips(toolkit: TableToolkitController, scene: TableScene, bound
         val ways = chip.ways
         val label = ManaWays.label(use)
         val several = ways.size > 1
-        CornerPlaced(chip.bounds) {
+        // TBL-240 (owner, 2026-11-26): a chip with one way is drawn only; where it sticks out past the card a touch is the card's
+        val passive = chipAreas.takeIf { !several }
+        if (passive != null) DisposableEffect(passive, chip.item) { onDispose { passive.remove(chip.item, CombatChipAreas.PAYS) } }
+        CornerPlaced(chip.bounds, passive?.let { areas -> { at: TableBounds -> areas.put(chip.item, at, CombatChipAreas.PAYS) } }) {
             Surface(shape = RoundedCornerShape(8.dp), color = Color.White, border = BorderStroke(1.5.dp, PayAmber), shadowElevation = 2.dp,
                 modifier = Modifier.testTag(PAY_CHIP_TAG).semantics {
                     contentDescription = "Pays $label: ${chip.name}${if (several) ", tap for its ways" else ""}"
@@ -86,10 +90,11 @@ fun PaymentCornerChips(toolkit: TableToolkitController, scene: TableScene, bound
 /**
  * STK-024 (owner notes 2026-11-14): a closed pile of several sources paying the open payment carries one amber chip at its top right
  * corner with all the mana the pile produces ("{R}{R}{R}"; ways that spend no mana by name and count, "Convoke ×2"), in place of a
- * chip per card. Drawn only: a tap on the pile takes its last added source out, as before (TBL-130).
+ * chip per card. Drawn only: a tap on it (or a hold) is the pile's, which takes its last added source out, as before (TBL-130, TBL-240).
  */
 @Composable
-private fun PileChips(toolkit: TableToolkitController, scene: TableScene, piles: List<BattlefieldGroup>, bounds: (TableItem) -> TableBounds) {
+private fun PileChips(toolkit: TableToolkitController, scene: TableScene, piles: List<BattlefieldGroup>, chipAreas: CombatChipAreas?,
+    bounds: (TableItem) -> TableBounds) {
     val chips = piles.mapNotNull { pile ->
         val items = pile.members.mapNotNull { card -> scene.items.firstOrNull { it.cardId == card && it.battlefieldCard } }
         if (items.isEmpty()) return@mapNotNull null
@@ -99,11 +104,13 @@ private fun PileChips(toolkit: TableToolkitController, scene: TableScene, piles:
         val top = shown.minOf { it.y }
         val whole = TableBounds(left, top, shown.maxOf { it.right } - left, shown.maxOf { it.bottom } - top)
         if (field != null && !field.contains(whole.center)) return@mapNotNull null
-        Triple(pile, whole, pileLabel(pile.members.mapNotNull(toolkit::paidWith)) to items.first().label.substringBefore(", owner"))
+        Triple(pile, whole, Triple(pileLabel(pile.members.mapNotNull(toolkit::paidWith)), items.first().label.substringBefore(", owner"),
+            items.first().id))
     }
     for ((pile, whole, words) in chips) key(pile.key) {
-        val (label, name) = words
-        CornerPlaced(whole) {
+        val (label, name, item) = words
+        if (chipAreas != null) DisposableEffect(chipAreas, item) { onDispose { chipAreas.remove(item, CombatChipAreas.PAYS) } }
+        CornerPlaced(whole, chipAreas?.let { areas -> { at: TableBounds -> areas.put(item, at, CombatChipAreas.PAYS) } }) {
             Surface(shape = RoundedCornerShape(8.dp), color = Color.White, border = BorderStroke(1.5.dp, PayAmber), shadowElevation = 2.dp,
                 modifier = Modifier.testTag(PAY_CHIP_TAG).semantics { contentDescription = "Pays $label: $name ×${pile.members.size}" }) {
                 CardText(label, Modifier.padding(horizontal = 4.dp), style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Medium))
@@ -130,21 +137,24 @@ const val ROLE_CHIP_TAG = "role-chip"
 /**
  * STK-047 (owner 2026-11-11, which pick is which): each card on the table picked so far in the open cast or trigger (the one
  * picked now included) carries a small violet chip just above its top left corner saying what it is for: "Target", "Sacrificed",
- * "Tapped", or a keyword's target by its keyword ("Equip"). Drawn only: taps reach the card. [bounds]: where each item is
- * drawn now.
+ * "Tapped", or a keyword's target by its keyword ("Equip"). Drawn only: a tap or a hold on it is the card's (TBL-240, [chipAreas]).
+ * [bounds]: where each item is drawn now.
  */
 @Composable
-fun PickRoleChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene, bounds: (TableItem) -> TableBounds) {
+fun PickRoleChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene, chipAreas: CombatChipAreas? = null,
+    bounds: (TableItem) -> TableBounds) {
     val roles = toolkit.cast.pickRoles(play) + toolkit.flows.pickRoles(play)
     if (roles.isEmpty()) return
     val chips = roles.mapNotNull { (card, role) ->
         val item = scene.items.firstOrNull { it.cardId == card && it.battlefieldCard } ?: return@mapNotNull null
         val shown = bounds(item)
         val field = scene.viewports.firstOrNull { it.id == item.viewport }?.bounds
-        if (field != null && !field.contains(shown.center)) null else RoleChip(card, role, item.label.substringBefore(", owner"), shown)
+        if (field != null && !field.contains(shown.center)) null else RoleChip(card, item.id, role, item.label.substringBefore(", owner"), shown)
     }
     for (chip in chips) key(chip.card) {
-        LeftCornerPlaced(chip.bounds) {
+        // TBL-240 (owner, 2026-11-26): above the card's corner, a touch on it is the card's
+        if (chipAreas != null) DisposableEffect(chipAreas, chip.item) { onDispose { chipAreas.remove(chip.item, CombatChipAreas.ROLE) } }
+        LeftCornerPlaced(chip.bounds, chipAreas?.let { areas -> { at: TableBounds -> areas.put(chip.item, at, CombatChipAreas.ROLE) } }) {
             Surface(shape = RoundedCornerShape(8.dp), color = AutomatumViolet, shadowElevation = 2.dp,
                 modifier = Modifier.testTag(ROLE_CHIP_TAG).semantics { contentDescription = "${chip.role}: ${chip.name}" }) {
                 Text(chip.role, Modifier.padding(horizontal = 5.dp), fontSize = 10.sp, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1)
@@ -154,39 +164,46 @@ fun PickRoleChips(toolkit: TableToolkitController, play: TableBoard, scene: Tabl
 }
 
 /** A picked card's role chip: its table card, what it is for, its name, where it is drawn. */
-private class RoleChip(val card: String, val role: String, val name: String, val bounds: TableBounds)
+private class RoleChip(val card: String, val item: String, val role: String, val name: String, val bounds: TableBounds)
 
-/** [content] near [card]'s top left corner, kept on the table. */
+/** [content] near [card]'s top left corner, kept on the table; [placed]: where it lies (table dp). */
 @Composable
-private fun LeftCornerPlaced(card: TableBounds, content: @Composable () -> Unit) {
+private fun LeftCornerPlaced(card: TableBounds, placed: ((TableBounds) -> Unit)? = null, content: @Composable () -> Unit) {
     Layout(content = { Box { content() } }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val placeable = measurables.first().measure(Constraints())
         layout(constraints.maxWidth, constraints.maxHeight) {
             // Just above the top edge from the left corner, leaving the card's name in view
             val x = card.x.dp.roundToPx() - placeable.width / 4
             val y = card.y.dp.roundToPx() - placeable.height + 2.dp.roundToPx()
-            placeable.place(x.coerceIn(0, (constraints.maxWidth - placeable.width).coerceAtLeast(0)),
-                y.coerceIn(0, (constraints.maxHeight - placeable.height).coerceAtLeast(0)))
+            place(placeable, x, y, constraints, density, placed)
         }
     }
 }
 
 /** One paying source's corner chip: its table card, name, where it is drawn, the way it pays and all its ways. */
-private class PayChip(val card: String, val name: String, val bounds: TableBounds, val use: ManaUse, val ways: List<ManaUse>)
+private class PayChip(val card: String, val item: String, val name: String, val bounds: TableBounds, val use: ManaUse, val ways: List<ManaUse>)
 
-/** [content] centred on [card]'s top right corner. */
+/** [content] centred on [card]'s top right corner; [placed]: where it lies (table dp). */
 @Composable
-private fun CornerPlaced(card: TableBounds, content: @Composable () -> Unit) {
+private fun CornerPlaced(card: TableBounds, placed: ((TableBounds) -> Unit)? = null, content: @Composable () -> Unit) {
     Layout(content = { Box { content() } }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val placeable = measurables.first().measure(Constraints())
         layout(constraints.maxWidth, constraints.maxHeight) {
             // Straddling the corner, so most of the card stays in view
             val x = card.right.dp.roundToPx() - placeable.width / 2
             val y = card.y.dp.roundToPx() - placeable.height / 2
-            placeable.place(x.coerceIn(0, (constraints.maxWidth - placeable.width).coerceAtLeast(0)),
-                y.coerceIn(0, (constraints.maxHeight - placeable.height).coerceAtLeast(0)))
+            place(placeable, x, y, constraints, density, placed)
         }
     }
+}
+
+/** Places [placeable] at [x], [y] (px) kept inside [constraints], telling [placed] where it lies (table dp). */
+private fun androidx.compose.ui.layout.Placeable.PlacementScope.place(placeable: androidx.compose.ui.layout.Placeable, x: Int, y: Int,
+    constraints: Constraints, density: Float, placed: ((TableBounds) -> Unit)?) {
+    val left = x.coerceIn(0, (constraints.maxWidth - placeable.width).coerceAtLeast(0))
+    val top = y.coerceIn(0, (constraints.maxHeight - placeable.height).coerceAtLeast(0))
+    placeable.place(left, top)
+    placed?.invoke(TableBounds(left / density, top / density, placeable.width / density, placeable.height / density))
 }
 
 /** A source's ways as chips under its card, the way it pays now marked; a tap on one chooses it, a tap elsewhere closes. */

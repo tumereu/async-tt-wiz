@@ -1,0 +1,1 @@
+3: The eye that hides a panel stays in one place again, whatever the panel shows and while it is hidden.

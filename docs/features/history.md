@@ -52,7 +52,7 @@ in undo.md.
 
 ## Pausing with a held finger
 
-- **HIS-126** A finger held still on the table for the hold's time pauses whatever your view is waiting on: a play shown, a Stack entry's arrows growing (STK-058), a combat's hold, playback between events, live and in catch-up alike, however long it stays. It goes on when lifted, with the time left. A pan or a drag isn't a hold. (r74)
+- **HIS-126** A finger touching down on the table (a play shown and a combat's target chip included) pauses whatever your view is waiting on at once, not only once it is known to be a hold: a play shown, a Stack entry's arrows growing (STK-058), a combat's hold, playback between events, live and in catch-up alike. Lifted before the hold's time (a tap, which acts as before) or moving on as a pan or a drag (which isn't a hold), it goes on; held, it stays paused however long it stays (and inspects, HIS-127). It goes on when lifted, with the time left. (r74; owner, 2026-11-26)
 - **HIS-127** A finger held on a card also inspects it, and a pinned Inspect (TBL-131) keeps the pause until it is closed. While paused, a pause icon shows in the board's top-right corner, fading in and out quickly. (r74)
 - **HIS-128** Only your view waits, never the game: while your view waits (a held finger, a play shown, a combat's hold) your phone makes none of its own steps, and the other player's phone goes on. (r74)
 - **HIS-129** The held-finger pause doesn't touch what isn't timed for your view: a card already moving, the turn banner (TRN-074), a branch's take-back, the catch-up's centre text or a stop. Timeline mode's Auto keeps its own pause (HIS-017). (r74)

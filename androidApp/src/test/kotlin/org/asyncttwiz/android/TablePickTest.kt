@@ -135,6 +135,24 @@ class TablePickTest {
         compose.onRoot().captureShot("$SCREENSHOTS/table-pick/equip-sacrifice-bar.png",
             "Alice tapped her Ember Hauberk and picked her Ash Pup as its equip target: the bar shows \"Equip (Ash Pup)—Sacrifice a " +
                 "creature.\" with \"a creature\" lit in violet as the pick now, and the Pup carries a violet \"Equip\" chip on the table.")
+        // TBL-240 (owner, 2026-11-26): the chip, above the Pup's top left corner, takes no touch of its own: holding it inspects the Pup
+        val chip = compose.onNode(hasTestTag(ROLE_CHIP_TAG), useUnmergedTree = true)
+        val area = chip.fetchSemanticsNode().boundsInRoot
+        val card = kit.scene().items.first { it.cardId == pup && it.battlefieldCard }.bounds
+        assertTrue(area.center.y < card.y * compose.density.density, "the chip's middle lies above the card: $area, $card")
+        // The frames' clock stopped while the finger is down: a held finger keeps asking for frames, so the screen is never idle
+        compose.mainClock.autoAdvance = false
+        try {
+            chip.performTouchInput { down(center) }
+            compose.waitForIdle(); compose.mainClock.advanceTimeBy(1_000)
+            compose.waitForIdle(); compose.mainClock.advanceTimeBy(100)
+            compose.onNodeWithContentDescription("Card inspection content", useUnmergedTree = true).assertExists()
+            compose.onNodeWithContentDescription("Card image: ${Choices.PUP}", useUnmergedTree = true).assertExists()
+        } finally {
+            chip.performTouchInput { up() }
+            compose.mainClock.autoAdvance = true
+        }
+        compose.waitForIdle()
     }
 
     // STK-047, STK-147 (owner, 2026-11-12: "tap me, your choices are inside"): Alice casts a Hedge Study, then a Hedge Recall ("Return

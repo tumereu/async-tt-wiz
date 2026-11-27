@@ -145,10 +145,14 @@ class UndoPastPassesTest : E2e() {
         alice.playFromHand("Mountain", this)
         waitUntil("Alice's Mountain", along = listOf(bob)) { alice.field("Mountain").size == 1 && alice.inOwnMain() }
         alice.hold("To combat")
-        // Alice's phone stops at Bob's passes assumed for her in his turn: she answers as assumed
-        waitUntil("Bob's Mountain on Alice's table, all on the server", along = listOf(alice, bob)) {
-            alice.field("Mountain", owner = bob.me).size == 1 && quiet() && alice.game?.shown?.behind == false
+        // Alice's phone stops at Bob's passes assumed for her in his turn: she answers as assumed. She plays along only until her
+        // next turn (turn 3) begins: there she would play her own Mountain, and her Undo would take back only that, freely
+        waitUntil("Bob's Mountain on Alice's table, all on the server", along = listOf(bob)) {
+            val there = alice.field("Mountain", owner = bob.me).size == 1 && quiet() && alice.game?.shown?.behind == false
+            if (!there && alice.state.turn.number < 3) alice.playAlong()
+            there
         }
+        assertEquals(1, alice.field("Mountain", owner = alice.me).size, "Alice's own Mountain is still her turn 1's alone")
         val head = serverGame()?.headId
         alice.tap("Undo")
         waitUntil("Alice's Undo dialog asking Bob") { alice.shows(hasTestTag("undo-scroller")) && alice.showsText("Ask ${bob.name}") }
